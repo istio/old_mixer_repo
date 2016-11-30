@@ -14,15 +14,17 @@
 
 syntax = "proto3";
 
-package api.v1;
+package config.v1;
 
-import "check.proto";
-import "report.proto";
-import "quota.proto";
+import "label_descriptor.proto";
 
-// The Istio Mixer API
-service Mixer {
-  rpc Check(stream CheckRequest) returns (stream CheckResponse) {}
-  rpc Report(stream ReportRequest) returns (stream ReportResponse) {}
-  rpc Quota(stream QuotaRequest) returns (stream QuotaResponse) {}
+// Defines a a security principal.
+//
+// A principal is described by a set of labels.
+message PrincipalDescriptor {
+  // The name of this descriptor.
+  string name = 1;
+
+  // The set of labels that are necessary to describe an specific security principal.
+  repeated LabelDescriptor labels = 2;
 }
