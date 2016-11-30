@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.mixer.v1;
+package api.v1;
 
 import "google/rpc/status.proto";
 
