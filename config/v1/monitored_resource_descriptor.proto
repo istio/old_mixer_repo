@@ -14,15 +14,21 @@
 
 syntax = "proto3";
 
-package api.v1;
+package config.v1;
 
-import "check.proto";
-import "report.proto";
-import "quota.proto";
+import "label_descriptor.proto";
 
-// The Istio Mixer API
-service Mixer {
-  rpc Check(stream CheckRequest) returns (stream CheckResponse) {}
-  rpc Report(stream ReportRequest) returns (stream ReportResponse) {}
-  rpc Quota(stream QuotaRequest) returns (stream QuotaResponse) {}
+// An object that describes the schema of a 'MonitoredResource'
+// using a type name and a set of labels.
+message MonitoredResourceDescriptor {
+  // The name of this descriptor
+  string name = 1;
+
+  // Optional. A detailed description of the monitored resource type that might
+  // be used in documentation.
+  string description = 2;
+
+  // Required. A set of labels used to describe instances of this monitored
+  // resource type.
+  repeated LabelDescriptor labels = 3;
 }
