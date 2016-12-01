@@ -147,7 +147,4 @@ message ReportResponse {
 
   // Indicates whether the report was processed or not
   google.rpc.Status result = 2;
-
-  // the known facts that were used to evaluate the request
-  repeated string useful_facts = 3;
 }
