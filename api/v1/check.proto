@@ -18,6 +18,7 @@ package istio.mixer.v1;
 
 option go_package="istio.io/mixer/api/v1;mixerpb";
 
+import "attributes.proto";
 import "google/rpc/status.proto";
 
 // Used to verify preconditions before performing an action.
@@ -25,10 +26,10 @@ message CheckRequest {
   // Uniquely identifies this request, used to match to responses
   int64 request_id = 1;
 
-  // The set of discovered facts associated with this request. This value
-  // represents a delta relative to the facts currently known to the mixer
+  // The set of discovered attributes associated with this request. This value
+  // represents a delta relative to the attributes currently known to the mixer
   // within the current stream.
-  map<string, string> facts = 2;
+  Attributes attributes = 2;
 }
 
 message CheckResponse {
