@@ -22,8 +22,9 @@ import "google/rpc/status.proto";
 
 // Used to verify preconditions before performing an action.
 message CheckRequest {
-  // Uniquely identifies this request, used to match to responses
-  int64 request_id = 1;
+  // The index of the request within the stream. This is not a GUID,
+  // and is only used to correlate CheckRequest with CheckResponse.
+  int64 index = 1;
 
   // The set of discovered facts associated with this request. This value
   // represents a delta relative to the facts currently known to the mixer
@@ -32,8 +33,8 @@ message CheckRequest {
 }
 
 message CheckResponse {
-  // Identifies the request this response is associated with
-  int64 request_id = 1;
+  // The index of the request this response is to.
+  int64 index = 1;
 
   // Indicates whether or not the preconditions succeeded
   google.rpc.Status result = 2;
