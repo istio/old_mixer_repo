@@ -36,15 +36,13 @@ func TestAll(t *testing.T) {
 	}
 	listChecker := a.(adapters.ListChecker)
 
-	var ok bool
-	ok, err = listChecker.CheckList("")
-	if ok || err != nil {
-		t.Error("Expecting to always get false")
-	}
-
-	ok, err = listChecker.CheckList("ABC")
-	if ok || err != nil {
-		t.Error("Expecting to always get false")
+	cases := []string{"", "ABC", "ABC/DEF", "AAA", "123"}
+	for _, c := range cases {
+		var ok bool
+		ok, err = listChecker.CheckList(c)
+		if ok || err != nil {
+			t.Error("Expecting to always get false, got success with " + c)
+		}
 	}
 
 	listChecker.Close()

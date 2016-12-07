@@ -26,119 +26,56 @@ func TestBuilderInvariants(t *testing.T) {
 	testutil.TestBuilderInvariants(b, t)
 }
 
-func TestWhitelistWithOverrides(t *testing.T) {
+func runTests(t *testing.T, bc BuilderConfig, ac AdapterConfig, goodValues []string, badValues []string) {
 	b := NewBuilder()
-	builderEntries := []string{"Four", "Five"}
-	b.Configure(&BuilderConfig{ListEntries: builderEntries, WhitelistMode: true})
+	b.Configure(&bc)
 
-	entries := []string{"One", "Two", "Three"}
-	config := AdapterConfig{ListEntries: entries}
-
-	aa, err := b.NewAdapter(&config)
+	aa, err := b.NewAdapter(&ac)
 	if err != nil {
 		t.Error("unable to create adapter " + err.Error())
 	}
 	a := aa.(adapters.ListChecker)
 
-	goodValues := []string{"One", "Two", "Three"}
 	for _, value := range goodValues {
-		var ok bool
-		ok, err = a.CheckList(value)
-		if !ok {
-			t.Error("Expecting check to pass")
+		ok, err := a.CheckList(value)
+		if !ok || err != nil {
+			t.Error("Expecting check to pass for value " + value)
 		}
 	}
 
-	badValues := []string{"O", "OneOne", "ne", "ree"}
 	for _, value := range badValues {
-		var ok bool
-		ok, err = a.CheckList(value)
-		if ok {
-			t.Error("Expecting check to fail")
+		ok, err := a.CheckList(value)
+		if ok || err != nil {
+			t.Error("Expecting check to fail for value " + value)
 		}
 	}
+}
+
+func TestWhitelistWithOverrides(t *testing.T) {
+	builderEntries := []string{"Four", "Five"}
+	adapterEntries := []string{"One", "Two", "Three"}
+	goodValues := []string{"One", "Two", "Three"}
+	badValues := []string{"O", "OneOne", "ne", "ree"}
+	runTests(t, BuilderConfig{ListEntries: builderEntries, WhitelistMode: true}, AdapterConfig{ListEntries: adapterEntries}, goodValues, badValues)
 }
 
 func TestBlacklistWithOverrides(t *testing.T) {
-	b := NewBuilder()
 	builderEntries := []string{"Four", "Five"}
-	b.Configure(&BuilderConfig{ListEntries: builderEntries, WhitelistMode: false})
-
-	entries := []string{"One", "Two", "Three"}
-	config := AdapterConfig{ListEntries: entries}
-
-	aa, err := b.NewAdapter(&config)
-	if err != nil {
-		t.Error("unable to create adapter " + err.Error())
-	}
-	a := aa.(adapters.ListChecker)
-
-	badValues := []string{"One", "Two", "Three"}
-	for _, value := range badValues {
-		var ok bool
-		ok, err = a.CheckList(value)
-		if ok {
-			t.Error("Expecting check to fail")
-		}
-	}
-
+	adapterEntries := []string{"One", "Two", "Three"}
 	goodValues := []string{"O", "OneOne", "ne", "ree"}
-	for _, value := range goodValues {
-		var ok bool
-		ok, err = a.CheckList(value)
-		if !ok {
-			t.Error("Expecting check to pass")
-		}
-	}
+	badValues := []string{"One", "Two", "Three"}
+	runTests(t, BuilderConfig{ListEntries: builderEntries, WhitelistMode: false}, AdapterConfig{ListEntries: adapterEntries}, goodValues, badValues)
 }
 
 func TestWhitelistNoOverride(t *testing.T) {
-	b := NewBuilder()
 	builderEntries := []string{"One", "Two", "Three"}
-	b.Configure(&BuilderConfig{ListEntries: builderEntries, WhitelistMode: true})
-
-	config := AdapterConfig{}
-
-	aa, err := b.NewAdapter(&config)
-	if err != nil {
-		t.Error("unable to create adapter " + err.Error())
-	}
-	a := aa.(adapters.ListChecker)
-
 	goodValues := []string{"One", "Two", "Three"}
-	for _, value := range goodValues {
-		var ok bool
-		ok, err = a.CheckList(value)
-		if !ok {
-			t.Error("Expecting check to pass")
-		}
-	}
-
 	badValues := []string{"O", "OneOne", "ne", "ree"}
-	for _, value := range badValues {
-		var ok bool
-		ok, err = a.CheckList(value)
-		if ok {
-			t.Error("Expecting check to fail")
-		}
-	}
+	runTests(t, BuilderConfig{ListEntries: builderEntries, WhitelistMode: true}, AdapterConfig{}, goodValues, badValues)
 }
 
 func TestEmptyList(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(&BuilderConfig{WhitelistMode: true})
-
-	config := AdapterConfig{}
-
-	aa, err := b.NewAdapter(&config)
-	if err != nil {
-		t.Error("unable to create adapter " + err.Error())
-	}
-	a := aa.(adapters.ListChecker)
-
-	var ok bool
-	ok, err = a.CheckList("Lasagna")
-	if ok {
-		t.Error("Expecting check to fail")
-	}
+	goodValues := []string{}
+	badValues := []string{"Lasagna"}
+	runTests(t, BuilderConfig{WhitelistMode: true}, AdapterConfig{}, goodValues, badValues)
 }

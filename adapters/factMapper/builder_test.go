@@ -26,17 +26,20 @@ func TestBuilderInvariants(t *testing.T) {
 	testutil.TestBuilderInvariants(b, t)
 }
 
-func TestNoRules(t *testing.T) {
+func setup(t *testing.T, bc BuilderConfig, ac AdapterConfig) adapters.FactConverter {
 	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
+	b.Configure(&bc)
 
-	rules := make(map[string]string)
-	var aa adapters.Adapter
-	var err error
-	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
+	a, err := b.NewAdapter(&ac)
+	if err != nil {
 		t.Error("Expected to successfully create a mapper")
 	}
-	a := aa.(adapters.FactConverter)
+	return a.(adapters.FactConverter)
+}
+
+func TestNoRules(t *testing.T) {
+	rules := make(map[string]string)
+	a := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	tracker := a.NewTracker()
 
@@ -99,18 +102,10 @@ func TestOddballRules(t *testing.T) {
 }
 
 func TestNoFacts(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
-
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var aa adapters.Adapter
-	var err error
-	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
-		t.Error("Expected to be able to create a mapper")
-	}
-	a := aa.(adapters.FactConverter)
+	a := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	tracker := a.NewTracker()
 
@@ -145,18 +140,10 @@ func TestNoFacts(t *testing.T) {
 }
 
 func TestAddRemoveFacts(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
-
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var aa adapters.Adapter
-	var err error
-	if aa, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
-		t.Error("Expected to be able to create a mapper")
-	}
-	a := aa.(adapters.FactConverter)
+	a := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	tracker := a.NewTracker()
 
@@ -199,18 +186,10 @@ func TestAddRemoveFacts(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
-
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var aa adapters.Adapter
-	var err error
-	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
-		t.Error("Expected to be able to create a mapper")
-	}
-	a := aa.(adapters.FactConverter)
+	a := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	tracker := a.NewTracker()
 

@@ -64,19 +64,19 @@ func TestBasic(t *testing.T) {
 	}
 	a := aa.(adapters.ListChecker)
 
-	var ok bool
-	ok, err = a.CheckList("10.10.11.2")
-	if !ok {
-		t.Error("Expecting check to pass")
+	cases := []string{"10.10.11.2", "9.9.9.1"}
+	for _, c := range cases {
+		ok, err := a.CheckList(c)
+		if !ok || err != nil {
+			t.Error("Expecting check to pass for case " + c)
+		}
 	}
 
-	ok, err = a.CheckList("9.9.9.1")
-	if !ok {
-		t.Error("Expecting check to pass")
-	}
-
-	ok, err = a.CheckList("120.10.11.2")
-	if ok {
-		t.Error("Expecting check to fail")
+	negCases := []string{"120.10.11.2"}
+	for _, c := range negCases {
+		ok, err := a.CheckList(c)
+		if ok || err != nil {
+			t.Error("Expecting check to fail for case " + c)
+		}
 	}
 }
