@@ -26,10 +26,9 @@ message ReportRequest {
   // Uniquely identifies this request, used to match to responses
   int64 request_id = 1;
 
-  // The set of attributes associated with this request. This value represents
-  // a delta relative to the attributes currently known to the mixer within
-  // the current stream.
-  Attributes attributes = 2;
+  // Spans of attributes being reported to the mixer. Only attributes that
+  // have changed in value will be reported within a span.
+  repeated AttributeSpan spans = 2;
 }
 
 message ReportResponse {

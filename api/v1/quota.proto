@@ -28,7 +28,7 @@ message QuotaRequest {
   // The set of discovered attributes associated with this request. This value
   // represents a delta relative to the attributes currently known to the mixer
   // within the current stream.
-  Attributes attributes = 2;
+  AttributeSpan attributes = 2;
 
   // Name of the QuotaDescriptor providing the schema for this quota
   string descriptor_name = 3;

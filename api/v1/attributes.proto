@@ -18,45 +18,24 @@ package istio.mixer.v1;
 
 option go_package="istio.io/mixer/api/v1;mixerpb";
 
-// Contains a set of attributes related to an event.
-message Attributes {
-  // Attributes related to the source of an event.
+// A set of attributes reported over a period of time.
+// An instant can be represented by only reporting an end
+// time and no start time.
+message AttributeSpan {
+  // The start of the span being reported.
+  google.protobuf.Timestamp start_time = 1;
 
-  uint32 source_ip = 1;
-  uint32 source_port = 2;
-  string source_name = 3;
-  string source_instance = 4;
-  string source_namespace = 5;
-  string source_user = 6;
-  // ...
+  // The end of the span being reported.
+  google.protobuf.Timestamp end_time = 2;
 
-  // Attributes related to the target of an event.
-  uint32 target_ip = 101;
-  uint32 target_port = 102;
-  string target_service = 103;
-  string target_name = 104;
-  string target_instance = 105;
-  string target_namespace = 106;
-  string target_user = 107;
-  // ...
-
-  // Attributes related to the origin of an event,
-  // if the source of the event is proxying it.
-  uint32 origin_ip = 201;
-  uint32 origin_port = 202;
-  string origin_name = 203;
-  string origin_instance = 204;
-  string origin_namespace = 205;
-  string origin_user = 206;
-  // ...
-
-  // Non predefined attributes go here.
-  repeated Attribute attributes = 1000;
+  // The named values being reported in the span.
+  repeated Attribute attributes = 3;
 }
 
 // An individual attribute, which has a name and a value.
 message Attribute {
-  // The name of the attribute.
+  // The name of the attribute, which is dot-delimited
+  // ascii string, for example "source.device_id"
   string name = 1;
 
   // The value of the attribute.
