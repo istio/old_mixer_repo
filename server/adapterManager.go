@@ -52,8 +52,14 @@ type AdapterManager struct {
 	ListCheckers map[string]adapters.Builder
 }
 
-// TODO: this implementation needs to be driven from external config instead of being
-// hardcoded
+// GetListCheckerAdapter returns a matching adapter for the serviceName and peerID. If there is no existing adapter,
+// it instantiates one, based on the provided adapter config.
+func (mgr *AdapterManager) GetListCheckerAdapter(serviceName string, peerID string, config *adapters.AdapterConfig) (adapters.ListChecker, error) {
+	// TODO: instantiation & caching of the adapters.
+	return nil, errors.New("NYI")
+}
+
+// TODO: this implementation needs to be driven from external config instead of being hardcoded
 func prepBuilders(l []adapters.Builder) (map[string]adapters.Builder, error) {
 	m := make(map[string]adapters.Builder, len(l))
 
