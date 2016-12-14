@@ -1,2 +1,4 @@
 test --test_output=errors
 test --test_size_filters=-large,-enormous
+build --genrule_strategy=standalone
+build --spawn_strategy=standalone
