@@ -1,2 +1,5 @@
 test --test_output=errors
 test --test_size_filters=-large,-enormous
+# Disable the sandbox so that protos can build; see https://github.com/istio/mixer/issues/69
+build --genrule_strategy=standalone
+build --spawn_strategy=standalone
