@@ -8,17 +8,18 @@ go_proto_library(
     },
     imports = [
         "external/com_github_google_protobuf/src",
-        "external/com_github_googleapis_googleapis"
+        "external/com_github_googleapis_googleapis",
     ],
-    protos = [ 
+    protos = [
         "check.proto",
-        "report.proto",
         "quota.proto",
+        "report.proto",
         "service.proto",
     ],
+    verbose = 0,
+    visibility = ["//visibility:public"],
+    with_grpc = True,
     deps = [
-        "@com_github_googleapis_googleapis//:go_status_proto",
-        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
         "@com_github_golang_protobuf//ptypes/any:go_default_library",
@@ -27,8 +28,26 @@ go_proto_library(
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
+        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
+        "@com_github_googleapis_googleapis//:go_status_proto",
     ],
-    with_grpc = True,       
-    verbose = 0,
+)
+
+load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "cc_proto",
+    srcs = [
+        "check.proto",
+        "quota.proto",
+        "report.proto",
+        "service.proto",
+    ],
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
     visibility = ["//visibility:public"],
+    deps = [
+        "//external:cc_wkt_protos",
+        "//external:googleapis_cc_status_proto",
+    ],
 )

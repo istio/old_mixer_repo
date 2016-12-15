@@ -63,6 +63,20 @@ go_proto_library(
     ],
     verbose = 0,
 )
+
+load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "cc_status_proto",
+    srcs = [
+        "google/rpc/status.proto",
+    ],
+    deps = [
+        "//external:cc_wkt_protos",
+    ],
+    protoc = "//external:protoc",
+    default_runtime = "//external:protobuf",
+)
 """
 
 new_git_repository(
@@ -70,6 +84,16 @@ new_git_repository(
     build_file_content = GOOGLEAPIS_BUILD_FILE,
     commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15",
     remote = "https://github.com/googleapis/googleapis.git",
+)
+
+bind(
+    name = "googleapis_cc_status_proto",
+    actual = "@com_github_googleapis_googleapis//:cc_status_proto",
+)
+
+bind(
+    name = "googleapis_cc_status_proto_genproto",
+    actual = "@com_github_googleapis_googleapis//:cc_status_proto_genproto",
 )
 
 new_go_repository(
@@ -95,3 +119,41 @@ new_go_repository(
     commit = "5ccb023bc27df288a957c5e994cd44fd19619465",
     importpath = "github.com/spf13/pflag",
 )
+
+new_git_repository(
+    name = "protobuf_git",
+    commit = "e8ae137c96444ea313485ed1118c5e43b2099cf1",  # v3.0.0
+    remote = "https://github.com/google/protobuf.git",
+    build_file = "BUILD.protobuf",
+)
+
+bind(
+    name = "protoc",
+    actual = "@protobuf_git//:protoc",
+)
+
+bind(
+    name = "protobuf",
+    actual = "@protobuf_git//:protobuf",
+)
+
+bind(
+    name = "cc_wkt_protos",
+    actual = "@protobuf_git//:cc_wkt_protos",
+)
+
+bind(
+    name = "cc_wkt_protos_genproto",
+    actual = "@protobuf_git//:cc_wkt_protos_genproto",
+)
+
+bind(
+    name = "protobuf_compiler",
+    actual = "@protobuf_git//:protoc_lib",
+)
+
+bind(
+    name = "protobuf_clib",
+    actual = "@protobuf_git//:protobuf_lite",
+)
+
