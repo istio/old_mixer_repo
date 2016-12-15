@@ -1,0 +1,48 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.v1;
+
+option go_package="istio.io/mixer/api/v1;mixerpb";
+
+// A set of attributes reported over a period of time.
+// An instant can be represented by only reporting an end
+// time and no start time.
+message AttributeSpan {
+  // The start of the span being reported.
+  google.protobuf.Timestamp start_time = 1;
+
+  // The end of the span being reported.
+  google.protobuf.Timestamp end_time = 2;
+
+  // The named values being reported in the span.
+  repeated Attribute attributes = 3;
+}
+
+// An individual attribute, which has a name and a value.
+message Attribute {
+  // The name of the attribute, which is dot-delimited
+  // ascii string, for example "source.device_id"
+  string name = 1;
+
+  // The value of the attribute.
+  oneof value {
+    string string_value = 2;
+    bool bool_value = 3;
+    double double_value = 4;
+    int64 int64_value = 5;
+  }
+}
