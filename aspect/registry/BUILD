@@ -2,9 +2,9 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library")
 
-go_prefix("istio.io/mixer")
+go_prefix("istio.io/mixer/aspect")
 
 config_setting(
     name = "local",
@@ -16,7 +16,8 @@ ISTIO_DEPS = [
     "//:istio/config/v1/aspect/listChecker"
 ]
 
-DEPS = select ({
+DEPS = ["//:go_default_library",
+    "//aspect/listChecker:go_default_library"] +select ({
     ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
     "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
 	})
@@ -24,8 +25,7 @@ DEPS = select ({
 go_library(
     name = "go_default_library",
     srcs = glob(
-        include=[
-            "dispatchKey.go"],
+        include=["*.go"],
         exclude=["test_*.go"],
     ),
     deps = DEPS

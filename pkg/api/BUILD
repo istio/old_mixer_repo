@@ -6,6 +6,11 @@ config_setting(
     name = "local",
     values = { "define": "istio=local" }
 )
+ISTIO_DEPS = [
+    "//:mixer/api/v1",
+    "//:istio/config/v1",
+    "//:istio/config/v1/aspect/listChecker"
+]
 
 DEPS = [
     "//pkg/adapter:go_default_library",
@@ -20,9 +25,9 @@ DEPS = [
     "@org_golang_google_grpc//:go_default_library",
     "@org_golang_google_grpc//credentials:go_default_library",
 ] + select ({
-    ":local": ["@local_istio_api//:go_default_library"],
-    "//conditions:default": ["@com_github_istio_api//:go_default_library"]
-    })
+    ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
+    "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
+	})
 
 go_library(
     name = "go_default_library",

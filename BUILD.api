@@ -2,13 +2,13 @@ package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 
-go_prefix("istio.io/mixer/api/v1")
+go_prefix("istio.io/api")
 
 load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
 go_proto_library(
     # use go_default_library here to prevent need to append lib name on imports
-    name = "go_default_library",
+    name = "mixer/api/v1",
     importmap = {
         "google/rpc/status.proto": "google.golang.org/genproto/googleapis/rpc/status",
     },
@@ -38,6 +38,46 @@ go_proto_library(
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
+    ],
+    with_grpc = True,
+    verbose = 0,
+    visibility = ["//visibility:public"],
+)
+
+go_proto_library(
+    # use go_default_library here to prevent need to append lib name on imports
+    name = "istio/config/v1",
+    imports = [
+        "../../external/com_github_google_protobuf/src"
+    ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos"
+    ],
+    protos = [
+        "istio/config/v1/cfg.proto",
+    ],
+    deps = [
+        "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
+        "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
+        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+    ],
+    with_grpc = True,
+    verbose = 0,
+    visibility = ["//visibility:public"],
+)
+
+go_proto_library(
+    # use go_default_library here to prevent need to append lib name on imports
+    name = "istio/config/v1/aspect/listChecker",
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos"
+    ],
+    protos = [
+        "istio/config/v1/aspect/listChecker/cfg.proto",
+    ],
+    deps = [
+        "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
+        "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
     ],
     with_grpc = True,
     verbose = 0,

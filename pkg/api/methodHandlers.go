@@ -26,7 +26,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/server"
 
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 // MethodHandlers holds pointers to the functions that implement
