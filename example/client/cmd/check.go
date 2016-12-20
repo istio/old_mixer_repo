@@ -23,55 +23,55 @@ import (
 	mixerpb "istio.io/mixer/api/v1"
 )
 
-// checkCmd represents the check command
-var checkCmd = &cobra.Command{
-	Use:   "check",
-	Short: "Invokes the mixer's Check API.",
-	Run: func(cmd *cobra.Command, args []string) {
-		cs, err := createAPIClient(MixerAddress)
-		if err != nil {
-			errorf("Unable to establish connection to %s", MixerAddress)
-			return
-		}
-		defer deleteAPIClient(cs)
-
-		stream, err := cs.client.Check(context.Background())
-		if err != nil {
-			errorf("Check RPC failed: %v", err)
-			return
-		}
-
-		var attrs map[string]string
-		if attrs, err = parseAttributes(Attributes); err != nil {
-			errorf(err.Error())
-			return
-		}
-
-		// send the request
-		request := mixerpb.CheckRequest{RequestIndex: 0}
-
-		// TODO: fix
-		_ = attrs
-
-		if err := stream.Send(&request); err != nil {
-			errorf("Failed to send Check RPC: %v", err)
-			return
-		}
-
-		response, err := stream.Recv()
-		if err == io.EOF {
-			errorf("Got no response from Check RPC")
-			return
-		} else if err != nil {
-			errorf("Failed to receive a response from Check RPC: %v", err)
-			return
-		}
-		stream.CloseSend()
-
-		fmt.Printf("Check RPC returned %v\n", response.Result)
-	},
+func checkCmd(rootArgs *rootArgs) *cobra.Command {
+	return &cobra.Command{
+		Use:   "check",
+		Short: "Invokes the mixer's Check API.",
+		Run: func(cmd *cobra.Command, args []string) {
+			check(rootArgs, args)
+		}}
 }
 
-func init() {
-	RootCmd.AddCommand(checkCmd)
+func check(rootArgs *rootArgs, args []string) {
+	var attrs *mixerpb.Attributes
+	var err error
+
+	if attrs, err = parseAttributes(rootArgs); err != nil {
+		errorf(err.Error())
+		return
+	}
+
+	var cs *clientState
+	if cs, err = createAPIClient(rootArgs.mixerAddress); err != nil {
+		errorf("Unable to establish connection to %s", rootArgs.mixerAddress)
+		return
+	}
+	defer deleteAPIClient(cs)
+
+	var stream mixerpb.Mixer_CheckClient
+	if stream, err = cs.client.Check(context.Background()); err != nil {
+		errorf("Check RPC failed: %v", err)
+		return
+	}
+
+	// send the request
+	request := mixerpb.CheckRequest{RequestIndex: 0, AttributeUpdate: attrs}
+
+	if err = stream.Send(&request); err != nil {
+		errorf("Failed to send Check RPC: %v", err)
+		return
+	}
+
+	var response *mixerpb.CheckResponse
+	response, err = stream.Recv()
+	if err == io.EOF {
+		errorf("Got no response from Check RPC")
+		return
+	} else if err != nil {
+		errorf("Failed to receive a response from Check RPC: %v", err)
+		return
+	}
+	stream.CloseSend()
+
+	fmt.Printf("Check RPC returned %v\n", response.Result)
 }
