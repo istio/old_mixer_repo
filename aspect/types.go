@@ -18,7 +18,10 @@ import (
 	"io"
 
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/genproto/googleapis/rpc/code"
 	istiopb "istio.io/api/istio/config/v1"
+
+	"istio.io/mixer/server/attribute"
 )
 
 type (
@@ -78,9 +81,18 @@ type (
 		ByImpl(impl string) *AdapterCfg
 	}
 
-	// Manager manages a specific type of aspect and presets a uniform interface
+	// Output from the Aspect Manager
+	Output struct {
+		// status code
+		Code code.Code
+		//TODO attribute mutator
+		//If any attributes should change in the context for the next call
+		//context remains immutable during the call
+	}
+	// Manager manages a specific aspect and presets a uniform interface
 	// to the rest of system
 	Manager interface {
-		Execute(aspectCfg *Cfg, adapterCfg *AdapterCfg)
+		// Execute dispatch to the given aspect using aspect and adapter configs
+		Execute(aspectCfg *Cfg, adapterCfg *AdapterCfg, ctx attribute.Context) *Output
 	}
 )

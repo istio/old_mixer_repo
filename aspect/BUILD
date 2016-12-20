@@ -17,7 +17,9 @@ ISTIO_DEPS = [
 ]
 
 DEPS = ["//:go_default_library",
-    "@com_github_golang_protobuf//proto:go_default_library"] +select ({
+    "@com_github_golang_protobuf//proto:go_default_library",
+    "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
+    "//server/attribute:go_default_library"] +select ({
     ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
     "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
 	})
