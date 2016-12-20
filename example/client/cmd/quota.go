@@ -20,15 +20,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// quotaCmd represents the quota command
-var quotaCmd = &cobra.Command{
-	Use:   "quota",
-	Short: "Invokes the mixer's Quota API.",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Not implemented yet")
-	},
-}
-
-func init() {
-	RootCmd.AddCommand(quotaCmd)
+func quotaCmd(rootArgs *rootArgs) *cobra.Command {
+	return &cobra.Command{
+		Use:   "quota",
+		Short: "Invokes the mixer's Quota API.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Not implemented yet")
+		},
+	}
 }

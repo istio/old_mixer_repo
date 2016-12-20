@@ -20,28 +20,54 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Attributes is the list of name/value pairs of attributes that will be sent with requests.
-var Attributes string
+type rootArgs struct {
+	// stringAttributes is the list of name/value pairs of string attributes that will be sent with requests.
+	stringAttributes string
 
-// MixerAddress is the full address (including port) of a mixer instance to call.
-var MixerAddress string
+	// int64Attributes is the list of name/value pairs of int64 attributes that will be sent with requests.
+	int64Attributes string
 
-// RootCmd represents the base command when called without any subcommands
-var RootCmd = &cobra.Command{
-	Use:   "client",
-	Short: "Invoke the API of a running instance of the Istio mixer",
+	// float64Attributes is the list of name/value pairs of float64 attributes that will be sent with requests.
+	doubleAttributes string
+
+	// boolAttributes is the list of name/value pairs of bool attributes that will be sent with requests.
+	boolAttributes string
+
+	// timestampAttributes is the list of name/value pairs of timestamp attributes that will be sent with requests.
+	timestampAttributes string
+
+	// bytesAttributes is the list of name/value pairs of bytes attributes that will be sent with requests.
+	bytesAttributes string
+
+	// mixerAddress is the full address (including port) of a mixer instance to call.
+	mixerAddress string
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := RootCmd.Execute(); err != nil {
+	// RootCmd represents the base command when called without any subcommands
+	rootCmd := &cobra.Command{
+		Use:   "client",
+		Short: "Invoke the API of a running instance of the Istio mixer",
+	}
+
+	rootArgs := &rootArgs{}
+
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091", "Address and port of running instance of the mixer")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "", "List of name/value string attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.int64Attributes, "int64_attributes", "i", "", "List of name/value int64 attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.doubleAttributes, "double_attributes", "d", "", "List of name/value float64 attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.boolAttributes, "bool_attributes", "b", "", "List of name/value bool attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.timestampAttributes, "timestamp_attributes", "t", "", "List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "", "List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
+
+	rootCmd.AddCommand(checkCmd(rootArgs))
+	rootCmd.AddCommand(reportCmd(rootArgs))
+	rootCmd.AddCommand(quotaCmd(rootArgs))
+
+	if err := rootCmd.Execute(); err != nil {
 		errorf(err.Error())
 		os.Exit(-1)
 	}
-}
-
-func init() {
-	RootCmd.PersistentFlags().StringVarP(&MixerAddress, "mixer", "m", "localhost:9091", "Address and port of running instance of the mixer")
-	RootCmd.PersistentFlags().StringVarP(&Attributes, "attributes", "a", "", "List of name/value attributes specified as name1=value1,name2=value2,...")
 }

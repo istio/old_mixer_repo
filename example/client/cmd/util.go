@@ -16,9 +16,13 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/mixer/api/v1"
@@ -50,25 +54,124 @@ func deleteAPIClient(cs *clientState) {
 	cs.connection = nil
 }
 
-func parseAttributes(attributes string) (map[string]string, error) {
-	attrs := make(map[string]string)
-	if len(attributes) > 0 {
-		for _, a := range strings.Split(attributes, ",") {
-			i := strings.Index(a, "=")
-			if i < 0 {
-				return nil, fmt.Errorf("Attribute value %v does not include an = sign", a)
-			} else if i == 0 {
-				return nil, fmt.Errorf("Attribute value %v does not contain a valid name", a)
+func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
+	attrs := mixerpb.Attributes{}
+	attrs.Dictionary = make(map[int32]string)
+
+	// once again, the following boilerplate would be more succinct with generics...
+
+	type AttrType int
+	const (
+		STRING AttrType = iota
+		INT64
+		DOUBLE
+		BOOL
+		TIMESTAMP
+		BYTES
+	)
+
+	for i := STRING; i <= BYTES; i++ {
+		var a string
+		switch i {
+		case STRING:
+			a = rootArgs.stringAttributes
+		case INT64:
+			a = rootArgs.int64Attributes
+		case DOUBLE:
+			a = rootArgs.doubleAttributes
+		case BOOL:
+			a = rootArgs.boolAttributes
+		case TIMESTAMP:
+			a = rootArgs.timestampAttributes
+		case BYTES:
+			a = rootArgs.boolAttributes
+		}
+
+		if len(a) > 0 {
+			for _, a := range strings.Split(a, ",") {
+				eq := strings.Index(a, "=")
+				if eq < 0 {
+					return nil, fmt.Errorf("Attribute value %v does not include an = sign", a)
+				}
+				if eq == 0 {
+					return nil, fmt.Errorf("Attribute value %v does not contain a valid name", a)
+				}
+				name := a[0:eq]
+				value := a[eq+1:]
+
+				index := int32(len(attrs.Dictionary))
+				attrs.Dictionary[index] = name
+
+				switch i {
+				case STRING:
+					if attrs.StringAttributes == nil {
+						attrs.StringAttributes = make(map[int32]string)
+					}
+					attrs.StringAttributes[index] = value
+
+				case INT64:
+					if attrs.Int64Attributes == nil {
+						attrs.Int64Attributes = make(map[int32]int64)
+					}
+					var err error
+					if attrs.Int64Attributes[index], err = strconv.ParseInt(value, 10, 64); err != nil {
+						return nil, err
+					}
+
+				case DOUBLE:
+					if attrs.DoubleAttributes == nil {
+						attrs.DoubleAttributes = make(map[int32]float64)
+					}
+					var err error
+					if attrs.DoubleAttributes[index], err = strconv.ParseFloat(value, 64); err != nil {
+						return nil, err
+					}
+
+				case BOOL:
+					if attrs.BoolAttributes == nil {
+						attrs.BoolAttributes = make(map[int32]bool)
+					}
+					var err error
+					if attrs.BoolAttributes[index], err = strconv.ParseBool(value); err != nil {
+						return nil, err
+					}
+
+				case TIMESTAMP:
+					if attrs.TimestampAttributes == nil {
+						attrs.TimestampAttributes = make(map[int32]*timestamp.Timestamp)
+					}
+					time, err := time.Parse(time.RFC3339, value)
+					if err != nil {
+						return nil, err
+					}
+
+					var ts *timestamp.Timestamp
+					if ts, err = ptypes.TimestampProto(time); err != nil {
+						return nil, err
+					}
+					attrs.TimestampAttributes[index] = ts
+
+				case BYTES:
+					if attrs.BytesAttributes == nil {
+						attrs.BytesAttributes = make(map[int32][]uint8)
+					}
+					var bytes []uint8
+					for _, s := range strings.Split(value, ":") {
+						b, err := strconv.ParseInt(s, 16, 8)
+						if err != nil {
+							return nil, err
+						}
+						bytes = append(bytes, uint8(b))
+					}
+					attrs.BytesAttributes[index] = bytes
+				}
 			}
-			name := a[0:i]
-			value := a[i+1:]
-			attrs[name] = value
 		}
 	}
 
-	return attrs, nil
+	return &attrs, nil
 }
 
 func errorf(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, format+"\n", a...)
+	glog.Errorf(format+"\n", a...)
 }

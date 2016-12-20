@@ -24,72 +24,74 @@ import (
 	mixerpb "istio.io/mixer/api/v1"
 )
 
-// reportCmd represents the report command
-var reportCmd = &cobra.Command{
-	Use:   "report <message>...",
-	Short: "Invokes the mixer's Report API.",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			errorf("Message is missing.")
-			return
+func reportCmd(rootArgs *rootArgs) *cobra.Command {
+	return &cobra.Command{
+		Use:   "report <message>...",
+		Short: "Invokes the mixer's Report API.",
+		Run: func(cmd *cobra.Command, args []string) {
+			report(rootArgs, args)
+		}}
+}
+
+func report(rootArgs *rootArgs, args []string) {
+	var attrs *mixerpb.Attributes
+	var err error
+
+	if attrs, err = parseAttributes(rootArgs); err != nil {
+		errorf(err.Error())
+		return
+	}
+
+	if len(args) == 0 {
+		errorf("Message is missing.")
+		return
+	}
+
+	var cs *clientState
+	if cs, err = createAPIClient(rootArgs.mixerAddress); err != nil {
+		errorf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
+		return
+	}
+	defer deleteAPIClient(cs)
+
+	var stream mixerpb.Mixer_ReportClient
+	if stream, err = cs.client.Report(context.Background()); err != nil {
+		errorf("Report RPC failed: %v", err)
+		return
+	}
+
+	// send the request
+	request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: attrs}
+
+	/* reinstate this code ASAP
+
+	request.LogEntries = make([]*mixerpb.LogEntry, len(args))
+	for i, arg := range args {
+		now, _ := ptypes.TimestampProto(time.Now())
+		request.LogEntries[i] = &mixerpb.LogEntry{
+			Severity:  mixerpb.LogEntry_DEFAULT,
+			Timestamp: now,
+			Payload: &mixerpb.LogEntry_TextPayload{
+				TextPayload: arg,
+			},
 		}
+	}
+	*/
+	if err = stream.Send(&request); err != nil {
+		errorf("Failed to send Report RPC: %v", err)
+		return
+	}
 
-		cs, err := createAPIClient(MixerAddress)
-		if err != nil {
-			errorf("Unable to establish connection to %s: %v", MixerAddress, err)
-			return
-		}
-		defer deleteAPIClient(cs)
+	var response *mixerpb.ReportResponse
+	response, err = stream.Recv()
+	if err == io.EOF {
+		errorf("Got no response from Report RPC")
+		return
+	} else if err != nil {
+		errorf("Failed to receive a response from Report RPC: %v", err)
+		return
+	}
+	stream.CloseSend()
 
-		var attrs map[string]string
-		if attrs, err = parseAttributes(Attributes); err != nil {
-			errorf(err.Error())
-			return
-		}
-
-		// TODO: fix
-		_ = attrs
-
-		stream, err := cs.client.Report(context.Background())
-		if err != nil {
-			errorf("Report RPC failed: %v", err)
-			return
-		}
-
-		// send the request
-		request := mixerpb.ReportRequest{RequestIndex: 0}
-		/*
-			request.Facts = attrs
-			request.LogEntries = make([]*mixerpb.LogEntry, len(args))
-			for i, arg := range args {
-				now, _ := ptypes.TimestampProto(time.Now())
-				request.LogEntries[i] = &mixerpb.LogEntry{
-					Severity:  mixerpb.LogEntry_DEFAULT,
-					Timestamp: now,
-					Payload: &mixerpb.LogEntry_TextPayload{
-						TextPayload: arg,
-					},
-				}
-			}
-		*/
-		if err := stream.Send(&request); err != nil {
-			errorf("Failed to send Report RPC: %v", err)
-			return
-		}
-
-		response, err := stream.Recv()
-		if err == io.EOF {
-			errorf("Got no response from Report RPC")
-			return
-		} else if err != nil {
-			errorf("Failed to receive a response from Report RPC: %v", err)
-			return
-		}
-		stream.CloseSend()
-
-		fmt.Printf("Report RPC returned %v\n", response.Result)
-	}}
-
-func init() {
-	RootCmd.AddCommand(reportCmd)
+	fmt.Printf("Report RPC returned %v\n", response.Result)
 }
