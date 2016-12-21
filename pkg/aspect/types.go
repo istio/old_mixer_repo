@@ -30,6 +30,8 @@ type (
 	// Impl config protobufs are requested to support these
 	AdapterConfig struct {
 		Debug bool
+		// All adapters will be given their impl specific proto
+		Impl proto.Message
 	}
 	// Adapter represents a factory to create an adapterImpl that provides a specific aspect
 	// This interface is extended by specific aspects

@@ -52,8 +52,9 @@ func (m *manager) NewAspect(cfg *aspect.Config, _aa aspect.Adapter) (aspect.Aspe
 		return nil, err
 	}
 	return aa.NewAspect(&AdapterConfig{
-		Aspect: acfg,
-		Impl:   implcfg})
+		Aspect:        acfg,
+		AdapterConfig: aspect.AdapterConfig{Impl: implcfg},
+	})
 }
 
 // Execute performs the aspect function based on given Cfg and AdapterCfg and attributes

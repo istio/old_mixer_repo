@@ -58,15 +58,15 @@ type Manager struct {
 type CacheKey struct {
 	Kind   string
 	Impl   string
-	Params interface{}
-	Args   interface{}
+	Params string
+	Args   string
 }
 
 func cacheKey(cfg *aspect.Config) CacheKey {
 	return CacheKey{
 		Kind:   cfg.Aspect.GetKind(),
 		Impl:   cfg.Adapter.GetImpl(),
-		Params: cfg.Aspect.GetParams(),
-		Args:   cfg.Adapter.GetArgs(),
+		Params: cfg.Aspect.GetParams().String(),
+		Args:   cfg.Adapter.GetArgs().String(),
 	}
 }

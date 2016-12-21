@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 
 go_prefix("istio.io/mixer/pkg/aspect/listChecker")
 
@@ -25,11 +25,20 @@ DEPS = [
     "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
 	})
 
+SRCS = glob(
+    include=["*.go"],
+    exclude=["*_test.go"],
+)
+
 go_library(
     name = "go_default_library",
-    srcs = glob(
-        include=["*.go"],
-        exclude=["test_*.go"],
-    ),
+    srcs = SRCS,
     deps = DEPS
+)
+
+go_test(
+    name = "manager_test",
+    srcs = SRCS + ["manager_test.go"],
+    deps = DEPS,
+    size = "small",
 )

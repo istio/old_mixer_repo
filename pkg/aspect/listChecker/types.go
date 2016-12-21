@@ -15,7 +15,6 @@
 package listChecker
 
 import (
-	"github.com/golang/protobuf/proto"
 	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
 	"istio.io/mixer/pkg/aspect"
 )
@@ -25,8 +24,8 @@ type (
 	// creating new listChecker aspect
 	AdapterConfig struct {
 		Aspect *listcheckerpb.Config
-		// Impl config is defined by the adapterImpl
-		Impl proto.Message
+
+		aspect.AdapterConfig
 	}
 
 	// Arg -- Developer visible input passed into the perform fn
