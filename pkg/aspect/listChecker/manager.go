@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
-	"istio.io/mixer/aspect"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 )
 

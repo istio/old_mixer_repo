@@ -17,7 +17,7 @@ package listChecker
 import (
 	"github.com/golang/protobuf/proto"
 	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
-	"istio.io/mixer/aspect"
+	"istio.io/mixer/pkg/aspect"
 )
 
 type (

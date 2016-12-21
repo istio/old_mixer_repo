@@ -34,7 +34,6 @@ type (
 	// Adapter represents a factory to create an adapterImpl that provides a specific aspect
 	// This interface is extended by specific aspects
 	Adapter interface {
-		io.Closer
 		// Name returns the official name of this adapter. ex. "istio.io/statsd".
 		Name() string
 		// Description returns a user-friendly description of this adapter.
@@ -45,6 +44,8 @@ type (
 		DefaultConfig() proto.Message
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
 		ValidateConfig(config proto.Message) error
+
+		io.Closer
 	}
 
 	// Aspect -- User visible cross cutting concern

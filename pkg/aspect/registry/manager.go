@@ -16,67 +16,25 @@ package registry
 
 import (
 	"errors"
-	"sync"
 
-	"istio.io/mixer/aspect"
-	"istio.io/mixer/aspect/listChecker"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 )
-
-// Registry -- Interface used by adapters to register themselves
-type Registry interface {
-	// RegisterCheckList
-	RegisterCheckList(b listChecker.Adapter) error
-
-	// ByImpl gets an adapter by impl name
-	ByImpl(impl string) (adapter aspect.Adapter, found bool)
-}
-
-// Manager manages all aspects - provides uniform interface to
-// all aspect managers
-type Manager struct {
-	mreg map[string]aspect.Manager
-	areg Registry
-
-	// protects cache
-	lock    sync.RWMutex
-	aspects map[CacheKey]aspect.Aspect
-}
-
-// CacheKey is used to cache fully constructed aspects
-// These parameters are used in constructing an aspect
-type CacheKey struct {
-	Kind   string
-	Impl   string
-	Params interface{}
-	Args   interface{}
-}
-
-func cacheKey(cfg *aspect.Config) CacheKey {
-	return CacheKey{
-		Kind:   cfg.Aspect.GetKind(),
-		Impl:   cfg.Adapter.GetImpl(),
-		Params: cfg.Aspect.GetParams(),
-		Args:   cfg.Adapter.GetArgs(),
-	}
-}
 
 // NewManager Creates a new Uber Aspect manager
 // provides an Execute function to act on a aspect/adapter
 // in a given context
 func NewManager(areg Registry) *Manager {
 	// Add all manager here as new aspects are added
-	mgrs := []aspect.Manager{
-		listChecker.Manager(),
-	}
+	mgrs := aspectManagers()
 	mreg := make(map[string]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
 	}
 	return &Manager{
-		mreg:    mreg,
-		aspects: make(map[CacheKey]aspect.Aspect),
-		areg:    areg,
+		mreg:        mreg,
+		aspectCache: make(map[CacheKey]aspect.Aspect),
+		areg:        areg,
 	}
 }
 
@@ -106,7 +64,7 @@ func (m *Manager) CacheGet(cfg *aspect.Config, mgr aspect.Manager, adapter aspec
 	key := cacheKey(cfg)
 	// try fast path with read lock
 	m.lock.RLock()
-	asp, found := m.aspects[key]
+	asp, found := m.aspectCache[key]
 	m.lock.RUnlock()
 	if found {
 		return asp, nil
@@ -114,13 +72,13 @@ func (m *Manager) CacheGet(cfg *aspect.Config, mgr aspect.Manager, adapter aspec
 	// obtain write lock
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	asp, found = m.aspects[key]
+	asp, found = m.aspectCache[key]
 	if !found {
 		asp, err = mgr.NewAspect(cfg, adapter)
 		if err != nil {
 			return nil, err
 		}
-		m.aspects[key] = asp
+		m.aspectCache[key] = asp
 	}
 	return asp, nil
 }
