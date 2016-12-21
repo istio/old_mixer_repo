@@ -9,7 +9,7 @@ go_library(
         "builder.go",
         "listChecker.go",
         "logger.go",
-        "metricsReporter.go",
+        "metricsReporter.go"
     ],
     deps = [
         "@com_github_golang_glog//:go_default_library",

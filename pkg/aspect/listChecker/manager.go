@@ -57,7 +57,7 @@ func (m *manager) NewAspect(cfg *aspect.Config, _aa aspect.Adapter) (aspect.Aspe
 }
 
 // Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
-func (m *manager) Execute(cfg *aspect.Config, ctx attribute.Context, _asp aspect.Aspect) (*aspect.Output, error) {
+func (m *manager) Execute(cfg *aspect.Config, _asp aspect.Aspect, ctx attribute.Context, mapper attribute.ExprEvaluator) (*aspect.Output, error) {
 	var ok bool
 	var err error
 
@@ -67,10 +67,23 @@ func (m *manager) Execute(cfg *aspect.Config, ctx attribute.Context, _asp aspect
 	}
 
 	var symbol string
+	var symbolExpr string
 
-	if symbol, ok = ctx.String(cfg.Aspect.Inputs["Symbol"]); !ok {
-		return nil, errors.New("Mapping Error")
+	// check if mapping is available
+
+	if symbolExpr, ok = cfg.Aspect.Inputs["Symbol"]; !ok {
+		return nil, errors.New("Mapping for Symbol not found")
 	}
+
+	var iSymbol interface{}
+	if iSymbol, err = mapper.Eval(symbolExpr, ctx); err != nil {
+		return nil, err
+	}
+
+	if symbol, ok = iSymbol.(string); !ok {
+		return nil, errors.New("Mapping for Symbol not a string " + reflect.TypeOf(iSymbol).String())
+	}
+
 	ok, err = asp.CheckList(&Arg{
 		CfgInput: &listcheckerpb.Input{
 			Symbol: symbol,

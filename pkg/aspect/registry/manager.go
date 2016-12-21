@@ -40,7 +40,7 @@ func NewManager(areg Registry) *Manager {
 
 // Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
 // returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspect.Config, ctx attribute.Context) (*aspect.Output, error) {
+func (m *Manager) Execute(cfg *aspect.Config, ctx attribute.Context, mapper attribute.ExprEvaluator) (*aspect.Output, error) {
 	mgr, found := m.mreg[cfg.Aspect.Kind]
 	if !found {
 		return nil, errors.New("Could not find Mgr " + cfg.Aspect.Kind)
@@ -56,7 +56,7 @@ func (m *Manager) Execute(cfg *aspect.Config, ctx attribute.Context) (*aspect.Ou
 		return nil, err
 	}
 	// TODO act on aspect.Output and mutate attribute.Context
-	return mgr.Execute(cfg, ctx, asp)
+	return mgr.Execute(cfg, asp, ctx, mapper)
 }
 
 // CacheGet -- get from the cache, use BuilderClosure to construct an object in case of a cache miss

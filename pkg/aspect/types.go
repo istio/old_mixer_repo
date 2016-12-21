@@ -100,7 +100,7 @@ type (
 		// Execute dispatch to the given aspect using aspect and adapter configs
 		// A cached instance of Aspect is provided that was previsouly obtained by
 		// calling NewAspect
-		Execute(cfg *Config, ctx attribute.Context, asp Aspect) (*Output, error)
+		Execute(cfg *Config, asp Aspect, ctx attribute.Context, mapper attribute.ExprEvaluator) (*Output, error)
 		// NewAspect creates a new aspect instance given configuration
 		NewAspect(cfg *Config, adapter Adapter) (Aspect, error)
 		// Kind return the kind of aspect
