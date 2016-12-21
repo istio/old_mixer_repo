@@ -16,8 +16,9 @@ ISTIO_DEPS = [
     "//:istio/config/v1/aspect/listChecker"
 ]
 
-DEPS = ["//:go_default_library",
-    "//aspect/listChecker:go_default_library"] +select ({
+DEPS = ["//aspect:go_default_library",
+    "//aspect/listChecker:go_default_library",
+    "//pkg/attribute:go_default_library"] +select ({
     ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
     "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
 	})

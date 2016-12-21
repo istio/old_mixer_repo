@@ -13,10 +13,12 @@
 ## limitations under the License.
 
 build:
-	@bazel build ...:all
+	@bazel build //$(T):go_default_library --define istio=local  --verbose_failures
 
 clean:
 	@bazel clean
 
 test:
 	@bazel test ...
+
+.PHONY: build

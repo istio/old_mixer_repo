@@ -21,7 +21,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	istiopb "istio.io/api/istio/config/v1"
 
-	"istio.io/mixer/server/attribute"
+	"istio.io/mixer/pkg/attribute"
 )
 
 type (
@@ -72,7 +72,11 @@ type (
 		// TypedParams points to the proto after google_protobuf.Struct is converted
 		TypedArgs proto.Message
 	}
-
+	// Config combines all configuration related to an aspect
+	Config struct {
+		Aspect  *Cfg
+		Adapter *AdapterCfg
+	}
 	// AdapterCfgReg registry maps from adapter "kind" -->
 	AdapterCfgReg interface {
 		// ByKind given a kind string returns list of configured adapterCfgs
@@ -93,6 +97,12 @@ type (
 	// to the rest of system
 	Manager interface {
 		// Execute dispatch to the given aspect using aspect and adapter configs
-		Execute(aspectCfg *Cfg, adapterCfg *AdapterCfg, ctx attribute.Context) *Output
+		// A cached instance of Aspect is provided that was previsouly obtained by
+		// calling NewAspect
+		Execute(cfg *Config, ctx attribute.Context, asp Aspect) (*Output, error)
+		// NewAspect creates a new aspect instance given configuration
+		NewAspect(cfg *Config, adapter Adapter) (Aspect, error)
+		// Kind return the kind of aspect
+		Kind() string
 	}
 )

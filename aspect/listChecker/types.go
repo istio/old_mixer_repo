@@ -21,8 +21,8 @@ import (
 )
 
 type (
-	// AdapterConfig -- Developer visible config for
-	// creating new aspect
+	// AdapterConfig -- Developer visible typed config for
+	// creating new listChecker aspect
 	AdapterConfig struct {
 		Aspect *listcheckerpb.Config
 		// Impl config is defined by the adapterImpl

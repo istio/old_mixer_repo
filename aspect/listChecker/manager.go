@@ -14,16 +14,80 @@
 
 package listChecker
 
-import "istio.io/mixer/aspect"
+import (
+	"errors"
+	"reflect"
+
+	"google.golang.org/genproto/googleapis/rpc/code"
+	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
+	"istio.io/mixer/aspect"
+	"istio.io/mixer/pkg/attribute"
+)
+
+const (
+	kind = "istio/listChecker"
+)
 
 type (
 	manager struct{}
 )
 
+// Manager returns "this" aspect Manager
 func Manager() aspect.Manager {
 	return &manager{}
 }
 
-func (*manager) Execute(aspectCfg *aspect.Cfg, adapterCfg aspect.AdapterCfgReg) {
+// NewAspect creates a listChecker aspect
+func (m *manager) NewAspect(cfg *aspect.Config, _aa aspect.Adapter) (aspect.Aspect, error) {
+	aa, ok := _aa.(Adapter)
+	if !ok {
+		return nil, errors.New("Adapter of incorrect type Expected listChecker.Adapter got " + reflect.TypeOf(_aa).String())
+	}
+	acfg, ok := cfg.Aspect.TypedParams.(*listcheckerpb.Config)
+	if !ok {
+		return nil, errors.New("Params of Incorrect type Expected listcheckerpb.Config got " + reflect.TypeOf(cfg.Aspect.TypedParams).String())
+	}
+	implcfg := cfg.Adapter.TypedArgs
+	if err := aa.ValidateConfig(implcfg); err != nil {
+		return nil, err
+	}
+	return aa.NewAspect(&AdapterConfig{
+		Aspect: acfg,
+		Impl:   implcfg})
+}
 
+// Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
+func (m *manager) Execute(cfg *aspect.Config, ctx attribute.Context, _asp aspect.Aspect) (*aspect.Output, error) {
+	var ok bool
+	var err error
+
+	asp, ok := _asp.(Aspect)
+	if !ok {
+		return nil, errors.New("Invalid type assertion")
+	}
+
+	var symbol string
+
+	if symbol, ok = ctx.String(cfg.Aspect.Inputs["Symbol"]); !ok {
+		return nil, errors.New("Mapping Error")
+	}
+	ok, err = asp.CheckList(&Arg{
+		CfgInput: &listcheckerpb.Input{
+			Symbol: symbol,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	rCode := code.Code_PERMISSION_DENIED
+	if ok {
+		rCode = code.Code_OK
+	}
+	return &aspect.Output{
+		Code: rCode,
+	}, nil
+}
+
+func (*manager) Kind() string {
+	return kind
 }

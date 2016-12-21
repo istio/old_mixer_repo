@@ -20,13 +20,3 @@ DEPS = select ({
     ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
     "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
 	})
-
-go_library(
-    name = "go_default_library",
-    srcs = glob(
-        include=[
-            "dispatchKey.go"],
-        exclude=["test_*.go"],
-    ),
-    deps = DEPS
-)
