@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func quotaCmd(rootArgs *rootArgs) *cobra.Command {
+func quotaCmd(rootArgs *rootArgs, errorf func(format string, a ...interface{})) *cobra.Command {
 	return &cobra.Command{
 		Use:   "quota",
 		Short: "Invokes the mixer's Quota API.",
