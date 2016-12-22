@@ -23,6 +23,7 @@ go_library(
         "context.go",
         "dictionaries.go",
         "manager.go",
+        "overrider.go",
         "tracker.go",
     ],
     deps = [
@@ -42,6 +43,14 @@ go_test(
     name = "manager_test",
     size = "small",
     srcs = ["manager_test.go"],
+    library = ":go_default_library",
+    deps = DEPS,
+)
+
+go_test(
+    name = "overrider_test",
+    size = "small",
+    srcs = ["overrider_test.go"],
     library = ":go_default_library",
     deps = DEPS,
 )

@@ -44,6 +44,9 @@ type Context interface {
 
 	// Bytes returns the named attribute if it exists.
 	Bytes(name string) ([]uint8, bool)
+
+	// NewOverrider creates an overrider associated with the current context.
+	NewOverrider() Overrider
 }
 
 type context struct {
@@ -248,4 +251,8 @@ func (ac *context) Time(name string) (time.Time, bool) {
 func (ac *context) Bytes(name string) ([]uint8, bool) {
 	r, b := ac.bytes[name]
 	return r, b
+}
+
+func (ac *context) NewOverrider() Overrider {
+	return newOverrider(ac)
 }
