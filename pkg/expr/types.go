@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package attribute
+package expr
+
+import "istio.io/mixer/pkg/attribute"
 
 type (
-	// ExprEvaluator maps Given an expression Language
-	ExprEvaluator interface {
+	// Evaluator maps Given an expression Language
+	Evaluator interface {
 		// Eval evaluates given expression using the attribute context
-		Eval(mapExpression string, ctx Context) (interface{}, error)
+		Eval(mapExpression string, ctx attribute.Context) (interface{}, error)
 
 		// EvalPredicate Evaluates given predicate using the attribute context
-		EvalPredicate(mapExpression string, ctx Context) (bool, error)
+		EvalPredicate(mapExpression string, ctx attribute.Context) (bool, error)
 	}
 )

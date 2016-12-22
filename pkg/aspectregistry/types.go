@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry
+package aspectregistry
 
 import (
 	"sync"
@@ -62,7 +62,7 @@ type CacheKey struct {
 	Args   string
 }
 
-func cacheKey(cfg *aspect.Config) CacheKey {
+func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
 	return CacheKey{
 		Kind:   cfg.Aspect.GetKind(),
 		Impl:   cfg.Adapter.GetImpl(),

@@ -127,7 +127,7 @@ new_git_repository(
     remote = "https://github.com/istio/api.git"
 )
 
-# use with --define istio=local invocation 
+# use with --define istio=local invocation
 new_local_repository(
     name = "local_istio_api",
     build_file = "BUILD.api",

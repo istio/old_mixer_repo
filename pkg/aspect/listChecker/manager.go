@@ -18,10 +18,12 @@ import (
 	"errors"
 	"reflect"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
 	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
+
+	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
 )
 
 const (
@@ -38,10 +40,10 @@ func Manager() aspect.Manager {
 }
 
 // NewAspect creates a listChecker aspect
-func (m *manager) NewAspect(cfg *aspect.Config, _aa aspect.Adapter) (aspect.Aspect, error) {
-	aa, ok := _aa.(Adapter)
+func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.Aspect, error) {
+	aa, ok := ga.(Adapter)
 	if !ok {
-		return nil, errors.New("Adapter of incorrect type Expected listChecker.Adapter got " + reflect.TypeOf(_aa).String())
+		return nil, errors.New("Adapter of incorrect type Expected listChecker.Adapter got " + reflect.TypeOf(ga).String())
 	}
 	acfg, ok := cfg.Aspect.TypedParams.(*listcheckerpb.Config)
 	if !ok {
@@ -52,19 +54,19 @@ func (m *manager) NewAspect(cfg *aspect.Config, _aa aspect.Adapter) (aspect.Aspe
 		return nil, err
 	}
 	return aa.NewAspect(&AdapterConfig{
-		Aspect:        acfg,
-		AdapterConfig: aspect.AdapterConfig{Impl: implcfg},
+		Aspect:     acfg,
+		ImplConfig: aspect.ImplConfig{Impl: implcfg},
 	})
 }
 
 // Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
-func (m *manager) Execute(cfg *aspect.Config, _asp aspect.Aspect, ctx attribute.Context, mapper attribute.ExprEvaluator) (*aspect.Output, error) {
+func (m *manager) Execute(cfg *aspect.CombinedConfig, ga aspect.Aspect, ctx attribute.Context, mapper expr.Evaluator) (*aspect.Output, error) {
 	var ok bool
 	var err error
 
-	asp, ok := _asp.(Aspect)
+	asp, ok := ga.(Aspect)
 	if !ok {
-		return nil, errors.New("Invalid type assertion")
+		return nil, errors.New("Invalid type assertion " + reflect.TypeOf(ga).String())
 	}
 
 	var symbol string
@@ -85,18 +87,20 @@ func (m *manager) Execute(cfg *aspect.Config, _asp aspect.Aspect, ctx attribute.
 		return nil, errors.New("Mapping for Symbol not a string " + reflect.TypeOf(iSymbol).String())
 	}
 
-	ok, err = asp.CheckList(&Arg{
+	input := &Arg{
 		CfgInput: &listcheckerpb.Input{
 			Symbol: symbol,
 		},
-	})
-	if err != nil {
+	}
+
+	if ok, err = asp.CheckList(input); err != nil {
 		return nil, err
 	}
 	rCode := code.Code_PERMISSION_DENIED
 	if ok {
 		rCode = code.Code_OK
 	}
+
 	return &aspect.Output{
 		Code: rCode,
 	}, nil

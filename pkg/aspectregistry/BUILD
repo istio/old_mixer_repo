@@ -4,7 +4,7 @@ licenses(["notice"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library")
 
-go_prefix("istio.io/mixer/pkg/aspect")
+go_prefix("istio.io/mixer/pkg/aspectregistry")
 
 config_setting(
     name="local",
@@ -16,13 +16,12 @@ ISTIO_DEPS = [
     "//:istio/config/v1/aspect/listChecker"
 ]
 
-DEPS = [
-    "@com_github_golang_protobuf//proto:go_default_library",
-    "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
-    "//pkg/attribute:go_default_library"] + select({
-        ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
-        "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
-    })
+DEPS = ["//pkg/aspect:go_default_library",
+        "//pkg/aspect/listChecker:go_default_library",
+        "//pkg/attribute:go_default_library"] + select({
+            ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
+            "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
+        })
 
 go_library(
     name="go_default_library",

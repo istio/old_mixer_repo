@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry
+package aspectregistry
 
 import (
 	"errors"
@@ -40,27 +40,30 @@ func NewManager(areg Registry) *Manager {
 
 // Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
 // returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspect.Config, ctx attribute.Context, mapper attribute.ExprEvaluator) (*aspect.Output, error) {
-	mgr, found := m.mreg[cfg.Aspect.Kind]
-	if !found {
+func (m *Manager) Execute(cfg *aspect.CombinedConfig, ctx attribute.Context, mapper attribute.ExprEvaluator) (*aspect.Output, error) {
+	var mgr aspect.Manager
+	var found bool
+
+	if mgr, found = m.mreg[cfg.Aspect.Kind]; !found {
 		return nil, errors.New("Could not find Mgr " + cfg.Aspect.Kind)
 	}
 
-	adapter, found := m.areg.ByImpl(cfg.Adapter.Impl)
-	if !found {
+	var adapter aspect.Adapter
+	if adapter, found = m.areg.ByImpl(cfg.Adapter.Impl); !found {
 		return nil, errors.New("Could not find registered adapter " + cfg.Adapter.Impl)
 	}
 
-	asp, err := m.CacheGet(cfg, mgr, adapter)
-	if err != nil {
+	var asp aspect.Aspect
+	var err error
+	if asp, err = m.CacheGet(cfg, mgr, adapter); err != nil {
 		return nil, err
 	}
-	// TODO act on aspect.Output and mutate attribute.Context
+	// TODO act on aspect.Output
 	return mgr.Execute(cfg, asp, ctx, mapper)
 }
 
-// CacheGet -- get from the cache, use BuilderClosure to construct an object in case of a cache miss
-func (m *Manager) CacheGet(cfg *aspect.Config, mgr aspect.Manager, adapter aspect.Adapter) (asp aspect.Aspect, err error) {
+// CacheGet -- get from the cache, use aspect.Manager to construct an object in case of a cache miss
+func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter aspect.Adapter) (asp aspect.Aspect, err error) {
 	key := cacheKey(cfg)
 	// try fast path with read lock
 	m.lock.RLock()

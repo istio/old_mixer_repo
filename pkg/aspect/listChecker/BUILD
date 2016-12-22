@@ -1,4 +1,4 @@
-package(default_visibility = ["//visibility:public"])
+package(default_visibility=["//visibility:public"])
 
 licenses(["notice"])
 
@@ -7,8 +7,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 go_prefix("istio.io/mixer/pkg/aspect/listChecker")
 
 config_setting(
-    name = "local",
-    values = { "define": "istio=local" }
+    name="local",
+    values={"define": "istio=local"}
 )
 ISTIO_DEPS = [
     "//:mixer/api/v1",
@@ -20,10 +20,10 @@ DEPS = [
     "//pkg/aspect:go_default_library",
     "@com_github_golang_protobuf//proto:go_default_library",
     "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
-    "//pkg/attribute:go_default_library"] +select ({
-    ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
-    "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
-	})
+    "//pkg/attribute:go_default_library"] + select({
+        ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
+        "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
+    })
 
 SRCS = glob(
     include=["*.go"],
@@ -31,14 +31,14 @@ SRCS = glob(
 )
 
 go_library(
-    name = "go_default_library",
-    srcs = SRCS,
-    deps = DEPS
+    name="go_default_library",
+    srcs=SRCS,
+    deps=DEPS
 )
 
 go_test(
-    name = "manager_test",
-    srcs = SRCS + ["manager_test.go"],
-    deps = DEPS,
-    size = "small",
+    name="manager_test",
+    srcs=SRCS + ["manager_test.go"],
+    deps=DEPS,
+    size="small",
 )

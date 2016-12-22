@@ -1,4 +1,4 @@
-package(default_visibility = ["//visibility:public"])
+package(default_visibility=["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
@@ -20,11 +20,11 @@ DEPS = [
 ]
 
 go_library(
-    name = "go_default_library",
-    srcs = [
+    name="go_default_library",
+    srcs=[
         "adapterManager.go",
         "configManager.go",
         "dispatchKey.go",
     ],
-    deps = DEPS
+    deps=DEPS
 )

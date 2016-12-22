@@ -22,20 +22,15 @@ import (
 	istiopb "istio.io/api/istio/config/v1"
 
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
 )
 
 type (
-
-	// AdapterConfig provides common configuration params
-	// Impl config protobufs are requested to support these
-	AdapterConfig struct {
-		Debug bool
-		// All adapters will be given their impl specific proto
-		Impl proto.Message
-	}
 	// Adapter represents a factory to create an adapterImpl that provides a specific aspect
 	// This interface is extended by specific aspects
 	Adapter interface {
+		// Close - ability to close Adapter
+		io.Closer
 		// Name returns the official name of this adapter. ex. "istio.io/statsd".
 		Name() string
 		// Description returns a user-friendly description of this adapter.
@@ -46,16 +41,14 @@ type (
 		DefaultConfig() proto.Message
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
 		ValidateConfig(config proto.Message) error
-
-		io.Closer
 	}
 
 	// Aspect -- User visible cross cutting concern
 	Aspect interface {
-		// Name returns the official name of the aspect
-		Name() string
 		// Close - ability to close aspect
 		io.Closer
+		// Name returns the official name of the aspect
+		Name() string
 	}
 
 	// Cfg is the internal struct used for the Aspect proto
@@ -75,12 +68,20 @@ type (
 		// TypedParams points to the proto after google_protobuf.Struct is converted
 		TypedArgs proto.Message
 	}
-	// Config combines all configuration related to an aspect
-	Config struct {
+	// CombinedConfig combines all configuration related to an aspect
+	CombinedConfig struct {
 		Aspect  *Cfg
 		Adapter *AdapterCfg
 	}
-	// AdapterCfgReg registry maps from adapter "kind" -->
+
+	// ImplConfig provides common configuration params
+	// Impl config protobufs are required to support these
+	ImplConfig struct {
+		Debug bool
+		// All adapters will be given their impl specific proto
+		Impl proto.Message
+	}
+	// AdapterCfgReg registry maps from adapter "kind" / impl --> adapterCfg
 	AdapterCfgReg interface {
 		// ByKind given a kind string returns list of configured adapterCfgs
 		ByKind(kind string) []*AdapterCfg
@@ -102,9 +103,9 @@ type (
 		// Execute dispatch to the given aspect using aspect and adapter configs
 		// A cached instance of Aspect is provided that was previsouly obtained by
 		// calling NewAspect
-		Execute(cfg *Config, asp Aspect, ctx attribute.Context, mapper attribute.ExprEvaluator) (*Output, error)
+		Execute(cfg *CombinedConfig, asp Aspect, ctx attribute.Context, mapper expr.Evaluator) (*Output, error)
 		// NewAspect creates a new aspect instance given configuration
-		NewAspect(cfg *Config, adapter Adapter) (Aspect, error)
+		NewAspect(cfg *CombinedConfig, adapter Adapter) (Aspect, error)
 		// Kind return the kind of aspect
 		Kind() string
 	}

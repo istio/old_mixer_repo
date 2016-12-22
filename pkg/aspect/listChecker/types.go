@@ -15,17 +15,18 @@
 package listChecker
 
 import (
-	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
 	"istio.io/mixer/pkg/aspect"
+
+	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
 )
 
 type (
-	// AdapterConfig -- Developer visible typed config for
+	// AdapterConfig -- Adapter Author visible typed config for
 	// creating new listChecker aspect
 	AdapterConfig struct {
 		Aspect *listcheckerpb.Config
 
-		aspect.AdapterConfig
+		aspect.ImplConfig
 	}
 
 	// Arg -- Developer visible input passed into the perform fn

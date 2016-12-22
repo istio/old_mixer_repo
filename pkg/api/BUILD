@@ -1,10 +1,10 @@
-package(default_visibility = ["//visibility:public"])
+package(default_visibility=["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 config_setting(
-    name = "local",
-    values = { "define": "istio=local" }
+    name="local",
+    values={"define": "istio=local"}
 )
 ISTIO_DEPS = [
     "//:mixer/api/v1",
@@ -24,23 +24,23 @@ DEPS = [
     "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     "@org_golang_google_grpc//:go_default_library",
     "@org_golang_google_grpc//credentials:go_default_library",
-] + select ({
+] + select({
     ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
     "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
-	})
+})
 
 go_library(
-    name = "go_default_library",
-    srcs = [
+    name="go_default_library",
+    srcs=[
         "grpcServer.go",
         "methodHandlers.go",
     ],
-    deps = DEPS
+    deps=DEPS
 )
 
 go_test(
-    name = "grpc_server_test",
-    srcs = [ "grpcServer_test.go" ],
-    size = "small",
-    library = ":go_default_library",
+    name="grpc_server_test",
+    srcs=["grpcServer_test.go"],
+    size="small",
+    library=":go_default_library",
 )

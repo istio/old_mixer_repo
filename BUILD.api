@@ -7,7 +7,6 @@ go_prefix("istio.io/api")
 load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
 go_proto_library(
-    # use go_default_library here to prevent need to append lib name on imports
     name = "mixer/api/v1",
     importmap = {
         "google/rpc/status.proto": "google.golang.org/genproto/googleapis/rpc/status",
@@ -45,7 +44,6 @@ go_proto_library(
 )
 
 go_proto_library(
-    # use go_default_library here to prevent need to append lib name on imports
     name = "istio/config/v1",
     imports = [
         "../../external/com_github_google_protobuf/src"
@@ -61,13 +59,12 @@ go_proto_library(
         "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
     ],
-    with_grpc = True,
+    with_grpc = False,
     verbose = 0,
     visibility = ["//visibility:public"],
 )
 
 go_proto_library(
-    # use go_default_library here to prevent need to append lib name on imports
     name = "istio/config/v1/aspect/listChecker",
     inputs = [
         "@com_github_google_protobuf//:well_known_protos"
@@ -79,7 +76,7 @@ go_proto_library(
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
     ],
-    with_grpc = True,
+    with_grpc = False,
     verbose = 0,
     visibility = ["//visibility:public"],
 )
