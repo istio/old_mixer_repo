@@ -18,7 +18,8 @@ ISTIO_DEPS = [
 
 DEPS = ["//pkg/aspect:go_default_library",
         "//pkg/aspect/listChecker:go_default_library",
-        "//pkg/attribute:go_default_library"] + select({
+        "//pkg/attribute:go_default_library",
+        "//pkg/expr:go_default_library"] + select({
             ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
             "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]
         })

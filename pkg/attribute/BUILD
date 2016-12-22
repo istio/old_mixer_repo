@@ -26,8 +26,7 @@ go_library(
         "manager.go",
         "context.go",
         "tracker.go",
-        "dictionaries.go",
-        "expressionEvaluator.go"
+        "dictionaries.go"
     ],
     deps=DEPS
 )

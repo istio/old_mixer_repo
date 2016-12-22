@@ -19,6 +19,7 @@ import (
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
 )
 
 // NewManager Creates a new Uber Aspect manager
@@ -40,7 +41,7 @@ func NewManager(areg Registry) *Manager {
 
 // Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
 // returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspect.CombinedConfig, ctx attribute.Context, mapper attribute.ExprEvaluator) (*aspect.Output, error) {
+func (m *Manager) Execute(cfg *aspect.CombinedConfig, ctx attribute.Context, mapper expr.Evaluator) (*aspect.Output, error) {
 	var mgr aspect.Manager
 	var found bool
 
