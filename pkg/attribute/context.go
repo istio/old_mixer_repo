@@ -23,29 +23,6 @@ import (
 	mixerpb "istio.io/mixer/api/v1"
 )
 
-// This code would be quite a bit nicer with generics... Oh well.
-
-// Context maintains an independent set of attributes.
-type Context interface {
-	// String returns the named attribute if it exists.
-	String(name string) (string, bool)
-
-	// Int64 returns the named attribute if it exists.
-	Int64(name string) (int64, bool)
-
-	// Float64 returns the named attribute if it exists.
-	Float64(name string) (float64, bool)
-
-	// Bool returns the named attribute if it exists.
-	Bool(name string) (bool, bool)
-
-	// Time returns the named attribute if it exists.
-	Time(name string) (time.Time, bool)
-
-	// Bytes returns the named attribute if it exists.
-	Bytes(name string) ([]uint8, bool)
-}
-
 type context struct {
 	strings  map[string]string
 	int64s   map[string]int64
@@ -115,6 +92,10 @@ func (ac *context) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 	// errors without mutating the context.
 	if err := checkPreconditions(dictionary, attrs); err != nil {
 		return err
+	}
+
+	if attrs.ResetContext {
+		ac.reset()
 	}
 
 	// apply all attributes

@@ -32,7 +32,7 @@ type Tracker interface {
 	// If this returns a non-nil error, it indicates there was a problem in the
 	// supplied Attributes struct. When this happens, the state of the
 	// Context is left unchanged.
-	Update(attrs *mixerpb.Attributes) (Context, error)
+	Update(attrs *mixerpb.Attributes) (Bag, error)
 }
 
 type tracker struct {
@@ -49,21 +49,22 @@ func newTracker(dictionaries *dictionaries) Tracker {
 	return &tracker{dictionaries, make(map[int32]*context), nil}
 }
 
-func (at *tracker) Update(attrs *mixerpb.Attributes) (Context, error) {
+func (at *tracker) Update(attrs *mixerpb.Attributes) (Bag, error) {
 	// replace the dictionary if requested
 	if len(attrs.Dictionary) > 0 {
 		at.currentDictionary = at.dictionaries.Intern(attrs.Dictionary)
 	}
 
-	// find the context and reset it if needed
+	// find the context or create it if needed
 	ac := at.contexts[attrs.AttributeContext]
 	if ac == nil {
 		ac = newContext()
 		at.contexts[attrs.AttributeContext] = ac
-	} else if attrs.ResetContext {
-		ac.reset()
 	}
 
-	err := ac.update(at.currentDictionary, attrs)
-	return ac, err
+	if err := ac.update(at.currentDictionary, attrs); err != nil {
+		return nil, err
+	}
+
+	return newBag(ac), nil
 }
