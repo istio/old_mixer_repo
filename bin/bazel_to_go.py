@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+
+#
+# Makes a bazel workspace play nicely with standard go tools
+# go build
+# go test
+# should work after this
+#
+# It does so by making symlinks from WORKSPACE/vendor to the bazel
+# sandbox dirs
+#
+import glob
+import os
+
+import ast
+from urlparse import urlparse
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
+KEYS = set(["importpath", "remote", "name"])
+
+
+def keywords(stmt):
+    kw = {k.arg: k.value.s for k in stmt.keywords if k.arg in KEYS}
+    path = kw.get("importpath", kw.get("remote"))
+
+    u = urlparse(path)
+    return u.netloc + u.path, kw["name"]
+
+GO_REPO = "new_go_repository"
+GIT_REPO = "new_git_repository"
+FNS = set([GO_REPO, GIT_REPO])
+pathmap = {
+    "github.com/istio/api": "istio.io/api"
+}
+
+
+def process(fl, external, genfiles, vendor):
+    src = open(fl).read()
+    tree = ast.parse(src, fl)
+    lst = []
+    for stmt in ast.walk(tree):
+        stmttype = type(stmt)
+        if stmttype == ast.Call:
+            if stmt.func.id not in FNS:
+                continue
+
+            path, name = keywords(stmt)
+            if path.endswith(".git"):
+                path = path[:-4]
+            path = pathmap.get(path, path)
+            if stmt.func.id == "new_go_repository":
+                lst.append((external + "/" + name, vendor + "/" + path))
+            elif stmt.func.id == "new_git_repository":
+                lst.append((genfiles + "/" + name, vendor + "/" + path))
+    return lst
+
+
+def makelink(linksrc, target):
+    # make a symlink from vendor/path --> target
+    try:
+        os.makedirs(os.path.dirname(linksrc))
+    except Exception as e1:
+        if 'File exists:' not in str(e1):
+            print type(e1), e1
+    try:
+        os.remove(linksrc)
+    except Exception as e1:
+        if 'No such file or directory' not in str(e1):
+            print type(e1), e1
+
+    os.symlink(target, linksrc)
+    print "Vendored", linksrc
+
+
+def bazel_to_vendor(WKSPC):
+    WKSPC = os.path.abspath(WKSPC)
+    workspace = WKSPC + "/WORKSPACE"
+    if not os.path.isfile(workspace):
+        print "WORKSPACE file not found"
+        return -1
+    lf = os.readlink(WKSPC + "/bazel-mixer")
+    external = lf.replace("/execroot/mixer", "/external")
+    vendor = WKSPC + "/vendor"
+    genfiles = WKSPC + "/bazel-genfiles/external/"
+
+    for (target, linksrc) in process(workspace, external, genfiles, vendor):
+        makelink(linksrc, target)
+
+
+def main(args):
+    WKSPC = os.path.dirname(THIS_DIR)
+    if len(args) > 0:
+        WKSPC = args[0]
+
+    bazel_to_vendor(WKSPC)
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main(sys.argv[1:]))

@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 // This code would be quite a bit nicer with generics... Oh well.
