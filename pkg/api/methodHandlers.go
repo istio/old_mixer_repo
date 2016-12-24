@@ -74,12 +74,13 @@ func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, r
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	ab, err := tracker.Update(request.AttributeUpdate)
+	ab, err := tracker.StartRequest(request.AttributeUpdate)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
 		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
 		return
 	}
+	defer tracker.EndRequest()
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
@@ -147,12 +148,13 @@ func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, 
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	ab, err := tracker.Update(request.AttributeUpdate)
+	ab, err := tracker.StartRequest(request.AttributeUpdate)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
 		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
 		return
 	}
+	defer tracker.EndRequest()
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
@@ -231,12 +233,13 @@ func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
 */
 
 func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	ab, err := tracker.Update(request.AttributeUpdate)
+	ab, err := tracker.StartRequest(request.AttributeUpdate)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
 		response.Result = newQuotaError(code.Code_INVALID_ARGUMENT)
 		return
 	}
+	defer tracker.EndRequest()
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)

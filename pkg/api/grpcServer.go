@@ -143,7 +143,9 @@ func (s *GRPCServer) Stop() {
 type handlerFunc func(tracker attribute.Tracker, request proto.Message, response proto.Message)
 
 func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc) error {
-	tracker := s.attrMgr.NewTracker()
+	tracker := s.attrMgr.GetTracker()
+	defer tracker.Close()
+
 	for {
 		// get a single message
 		if err := stream.RecvMsg(request); err == io.EOF {

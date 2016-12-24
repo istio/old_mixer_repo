@@ -20,12 +20,12 @@ package attribute
 //
 // * One Manager per mixer instance
 // * One Tracker per incoming gRPC streams to the mixer
-// * One Context per attribute context created on individual gRPC streams
+// * One Bag per attribute context created on individual gRPC streams
 type Manager interface {
-	// NewTracker returns an Tracker.
+	// NewTracker returns a Tracker.
 	//
 	// This method is thread-safe
-	NewTracker() Tracker
+	GetTracker() Tracker
 }
 
 type manager struct {
@@ -39,6 +39,6 @@ func NewManager() Manager {
 	return &manager{}
 }
 
-func (am *manager) NewTracker() Tracker {
-	return newTracker(&am.dictionaries)
+func (am *manager) GetTracker() Tracker {
+	return getTracker(&am.dictionaries)
 }
