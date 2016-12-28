@@ -27,26 +27,7 @@ import (
 
 	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
-	"istio.io/mixer/pkg/adapter"
 )
-
-// AspectConfig is used to configure an adapter.
-type AspectConfig struct {
-	adapter.AspectConfig
-
-	// ProviderURL is the URL where to find the list to check against
-	ProviderURL string
-
-	// RefreshInterval determines how often the provider is polled for
-	// an updated list.
-	RefreshInterval time.Duration
-
-	// TimeToLive indicates how long to keep a list before discarding it.
-	// Typically, the TTL value should be set to noticeably longer (> 2x) than the
-	// refresh interval to ensure continued operation in the face of transient
-	// server outages.
-	TimeToLive time.Duration
-}
 
 type aspectState struct {
 	backend         *url.URL
@@ -55,34 +36,12 @@ type aspectState struct {
 	refreshInterval time.Duration
 	ttl             time.Duration
 	closing         chan bool
+	fetchError      error
+	client          http.Client
 }
 
-// newAspect returns a new aspect.
-func newAspect(config *AspectConfig) (adapter.ListChecker, error) {
-	var u *url.URL
-	var err error
-	if u, err = url.Parse(config.ProviderURL); err != nil {
-		// bogus URL format
-		return nil, err
-	}
-
-	a := aspectState{
-		backend:         u,
-		closing:         make(chan bool),
-		refreshInterval: config.RefreshInterval,
-		ttl:             config.TimeToLive,
-	}
-
-	// install an empty list
-	a.setList([]*net.IPNet{})
-
-	// load up the list synchronously so we're ready to accept traffic immediately
-	a.refreshList()
-
-	// crank up the async list refresher
-	go a.listRefresher()
-
-	return &a, nil
+func (a *aspectState) Name() string {
+	return ImplName
 }
 
 func (a *aspectState) Close() error {
@@ -99,9 +58,9 @@ func (a *aspectState) CheckList(symbol string) (bool, error) {
 
 	// get an atomic snapshot of the current list
 	l := a.getList()
-	if l == nil {
+	if l == nil || len(l) == 0 {
 		// TODO: would be nice to return the last I/O error received from the provider...
-		return false, errors.New("list provider is unreachable")
+		return false, a.fetchError
 	}
 
 	for _, ipnet := range l {
@@ -157,9 +116,9 @@ type listPayload struct {
 func (a *aspectState) refreshList() {
 	glog.Infoln("Fetching list from ", a.backend.String())
 
-	client := http.Client{Timeout: a.refreshInterval}
-	resp, err := client.Get(a.backend.String())
+	resp, err := a.client.Get(a.backend.String())
 	if err != nil {
+		a.fetchError = err
 		glog.Warning("Could not connect to ", a.backend.String(), " ", err)
 		return
 	}
@@ -168,6 +127,7 @@ func (a *aspectState) refreshList() {
 	var buf []byte
 	buf, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
+		a.fetchError = err
 		glog.Warning("Could not read from ", a.backend.String(), " ", err)
 		return
 	}
@@ -186,6 +146,7 @@ func (a *aspectState) refreshList() {
 	lp := listPayload{}
 	err = yaml.Unmarshal(buf, &lp)
 	if err != nil {
+		a.fetchError = err
 		glog.Warning("Could not unmarshal ", a.backend.String(), " ", err)
 		return
 	}
@@ -209,4 +170,5 @@ func (a *aspectState) refreshList() {
 	glog.Infoln("Installing updated list")
 	a.setList(l)
 	a.fetchedSha = newsha
+	a.fetchError = nil
 }
