@@ -16,62 +16,54 @@ package ipListChecker
 
 import (
 	"errors"
+	"fmt"
+	"net"
+	"net/http"
 	"net/url"
 	"time"
 
-	"istio.io/mixer/pkg/adapter"
+	"github.com/golang/protobuf/proto"
+
+	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspectsupport"
 )
 
-// AdapterConfig is used to configure a adapter.
-type AdapterConfig struct {
+const (
+	// ImplName is the canonical name of this implementation
+	ImplName = "istio/IPListChecker"
+)
+
+// Register registration entry point
+func Register(r aspectsupport.Registry) {
+	r.RegisterCheckList(&adapterState{})
 }
 
 type adapterState struct{}
 
-// NewAdapter returns a Adapter
-func NewAdapter() adapter.Adapter {
-	return &adapterState{}
-}
-
 func (a *adapterState) Name() string {
-	return "IPListChecker"
+	return ImplName
 }
 
 func (a *adapterState) Description() string {
 	return "Checks whether an IP address is present in an IP address list."
 }
 
-func (a *adapterState) DefaultAdapterConfig() adapter.AdapterConfig {
-	return &AdapterConfig{}
-}
-
-func (a *adapterState) ValidateAdapterConfig(config adapter.AdapterConfig) error {
-	_ = config.(*AdapterConfig)
-	return nil
-}
-
-func (a *adapterState) Configure(config adapter.AdapterConfig) error {
-	return a.ValidateAdapterConfig(config)
-}
-
-func (a *adapterState) Close() error {
-	return nil
-}
-
-func (a *adapterState) DefaultAspectConfig() adapter.AspectConfig {
-	return &AspectConfig{
-		ProviderURL:     "http://localhost",
-		RefreshInterval: time.Minute,
-		TimeToLive:      time.Minute * 10,
+func (a *adapterState) DefaultConfig() proto.Message {
+	return &Config{
+		ProviderUrl:     "http://localhost",
+		RefreshInterval: 60,
+		Ttl:             120,
 	}
 }
 
-func (a *adapterState) ValidateAspectConfig(config adapter.AspectConfig) error {
-	c := config.(*AspectConfig)
-	var err error
+func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
+	c, ok := cfg.(*Config)
+	if !ok {
+		return fmt.Errorf("Invalid message type %#v", cfg)
+	}
 	var u *url.URL
 
-	if u, err = url.Parse(c.ProviderURL); err == nil {
+	if u, err = url.Parse(c.ProviderUrl); err == nil {
 		if u.Scheme == "" || u.Host == "" {
 			err = errors.New("Scheme and Host cannot be nil")
 		}
@@ -79,10 +71,41 @@ func (a *adapterState) ValidateAspectConfig(config adapter.AspectConfig) error {
 	return err
 }
 
-func (a *adapterState) NewAspect(config adapter.AspectConfig) (adapter.Aspect, error) {
-	if err := a.ValidateAspectConfig(config); err != nil {
+func (a *adapterState) Close() error {
+	return nil
+}
+
+func (a *adapterState) NewAspect(c *listChecker.AdapterConfig) (listChecker.Aspect, error) {
+	if err := a.ValidateConfig(c.Message); err != nil {
 		return nil, err
 	}
-	c := config.(*AspectConfig)
-	return newAspect(c)
+	config, found := c.Message.(*Config)
+	if !found {
+		return nil, fmt.Errorf("Config not found %#v", c.Message)
+	}
+	var u *url.URL
+	var err error
+	if u, err = url.Parse(config.ProviderUrl); err != nil {
+		// bogus URL format
+		return nil, err
+	}
+
+	aa := aspectState{
+		backend:         u,
+		closing:         make(chan bool),
+		refreshInterval: time.Second * time.Duration(config.RefreshInterval),
+		ttl:             time.Second * time.Duration(config.Ttl),
+	}
+	aa.client = http.Client{Timeout: aa.ttl}
+
+	// install an empty list
+	aa.setList([]*net.IPNet{})
+
+	// load up the list synchronously so we're ready to accept traffic immediately
+	aa.refreshList()
+
+	// crank up the async list refresher
+	go aa.listRefresher()
+
+	return &aa, nil
 }
