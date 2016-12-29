@@ -16,7 +16,6 @@ package aspectsupport
 
 import (
 	"testing"
-
 	"strings"
 
 	"istio.io/mixer/pkg/aspect"

@@ -17,14 +17,15 @@ syntax = "proto3";
 package ipListChecker;
 
 message Config {
-    // provider_url is the URL where to find the list to check against
+    // Where to find the list to check against
     string provider_url = 1;
 
-    // refresh_interval determines how often the provider is polled for
-    // an updated list unit: seconds
+    // Determines how often the provider is polled for
+    // an updated list
+    // unit: seconds
     int64 refresh_interval = 2;
 
-    // TimeToLive indicates how long to keep a list before discarding it.
+    // Indicates how long to keep a list before discarding it.
     // Typically, the TTL value should be set to noticeably longer (> 2x) than the
     // refresh interval to ensure continued operation in the face of transient
     // server outages.

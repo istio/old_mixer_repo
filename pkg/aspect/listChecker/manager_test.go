@@ -17,7 +17,7 @@ package listChecker
 import "testing"
 
 func TestManager(t *testing.T) {
-	m := Manager()
+	m := NewManager()
 	if m.Kind() != kind {
 		t.Error("Wrong kind of adapter")
 	}

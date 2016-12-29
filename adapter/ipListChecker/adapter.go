@@ -73,7 +73,7 @@ func (a *adapterState) Close() error {
 	return nil
 }
 
-func (a *adapterState) NewAspect(c *listChecker.AdapterConfig) (listChecker.Aspect, error) {
+func (a *adapterState) NewAspect(c *listChecker.Config) (listChecker.Aspect, error) {
 	if err := a.ValidateConfig(c.ImplConfig); err != nil {
 		return nil, err
 	}

@@ -33,17 +33,18 @@ type (
 	manager struct{}
 )
 
-// Manager returns "this" aspect Manager
-func Manager() aspect.Manager {
+// NewManager returns "this" aspect Manager
+func NewManager() aspect.Manager {
 	return &manager{}
 }
 
-// NewAspect implements aspect.Manager#NewAspect() Creates a listChecker aspect
+// NewAspect creates a listChecker aspect. Implements aspect.Manager#NewAspect()
 func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.Aspect, error) {
 	aa, ok := ga.(Adapter)
 	if !ok {
 		return nil, fmt.Errorf("Adapter of incorrect type. Expected listChecker.Adapter got %#v %T", ga, ga)
 	}
+
 	_, ok = cfg.Aspect.TypedParams.(*listcheckerpb.Config)
 	if !ok {
 		return nil, fmt.Errorf("Params of Incorrect type. Expected listcheckerpb.Config got %#v %T", cfg.Aspect.TypedParams, cfg.Aspect.TypedParams)
@@ -53,7 +54,7 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 		return nil, err
 	}
 	return aa.NewAspect(
-		&AdapterConfig{
+		&Config{
 			ImplConfig: cfg.Adapter.TypedArgs,
 		})
 }

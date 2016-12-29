@@ -40,7 +40,7 @@ type aspectState struct {
 	client          http.Client
 }
 
-func (a *aspectState) Name() string {
+func (a *aspectState) ImplName() string {
 	return ImplName
 }
 

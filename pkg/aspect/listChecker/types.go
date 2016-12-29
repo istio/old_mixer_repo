@@ -20,14 +20,17 @@ import (
 )
 
 type (
-	// AdapterConfig -- Adapter Author visible typed config for
+	// Config -- Adapter Author visible typed config for
 	// creating new listChecker aspect
-	// This may or may not have listcheckerpb.Config
-	// Aspect manager handles as much of this config
-	// as it makes sense. Rest of the struct is packaged
-	// and sent down to NewAspect()
-	// It will always have ImplConfig if one is present
-	AdapterConfig struct {
+	// Every aspect defines it's own  aspect/XXXX.Config struct.
+	// It may or may not contain the underlying
+	// protobuf config specified by the user (for listChecker: listcheckerpb.Config)
+	// Aspect manager handles as much of listcheckerpb.Config
+	// as possible. Rest of the struct is packaged and sent down to NewAspect()
+	// In case of listChecker; the listChecker.Manager fully handles
+	// listcheckerpb.Config.
+	// So we only pass along ImplConfig
+	Config struct {
 		ImplConfig proto.Message
 	}
 
@@ -42,6 +45,6 @@ type (
 	Adapter interface {
 		aspect.Adapter
 		// NewAspect returns a new ListChecker
-		NewAspect(cfg *AdapterConfig) (Aspect, error)
+		NewAspect(cfg *Config) (Aspect, error)
 	}
 )

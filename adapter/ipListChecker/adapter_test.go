@@ -54,7 +54,7 @@ func TestBasic(t *testing.T) {
 		Ttl:             10,
 	}
 
-	a, err := b.NewAspect(&listChecker.AdapterConfig{
+	a, err := b.NewAspect(&listChecker.Config{
 		ImplConfig: &config})
 	if err != nil {
 		t.Errorf("Unable to create adapter: %v", err)

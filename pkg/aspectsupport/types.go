@@ -38,7 +38,7 @@ type Registry interface {
 // return list of aspect managers
 func aspectManagers() []aspect.Manager {
 	return []aspect.Manager{
-		listChecker.Manager(),
+		listChecker.NewManager(),
 	}
 }
 

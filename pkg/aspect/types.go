@@ -27,27 +27,17 @@ import (
 )
 
 type (
-	// Adapter represents a factory to create an adapterImpl that provides a specific aspect
-	// This interface is extended by adapter implementations
-	Adapter interface {
-		io.Closer
-		// Name returns the official name of this adapter. ex. "istio.io/statsd".
-		Name() string
-		// Description returns a user-friendly description of this adapter.
-		Description() string
-		// DefaultConfig returns a default configuration struct for this
-		// adapter Implmentation. This will be used by the configuration system to establish
-		// the shape of the block of configuration state passed to the NewAspect method.
-		DefaultConfig() (implConfig proto.Message)
-		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(implConfig proto.Message) error
-	}
 
 	// Aspect -- User visible cross cutting concern
+	// istio/metrics, istio/accessControl, istio/accessLog are all aspects of a deployment
+	// This interface is extended by aspects;
+	// ex: listChecker.Aspect adds --> CheckList(Symbol string) (bool, error)
+	// The extended interface is implemented by adapter impls.
+	// ex: //adapter/ipListChecker aspectState implements the listChecker.Aspect.
 	Aspect interface {
 		io.Closer
-		// Name returns the official name of the aspect
-		Name() string
+		// ImplName returns the official name of adapter implementation ex. "istio/statsd"
+		ImplName() string
 	}
 
 	// Config (aspect.Config) is the internal struct used for the Aspect proto
@@ -59,14 +49,33 @@ type (
 		TypedParams proto.Message
 	}
 
+
+	// Adapter represents an Aspect Builder that constructs instances a specific aspect.
+	// This interface is extended by  aspects; (metrics, listChecker, ...)
+	// The extended interface is implemented by adapter implementations
+	Adapter interface {
+		io.Closer
+		// Name returns the official name of this adapter. ex. "istio/statsd".
+		Name() string
+		// Description returns a user-friendly description of this adapter.
+		Description() string
+		// DefaultConfig returns a default configuration struct for this
+		// adapter Implmentation. This will be used by the configuration system to establish
+		// the shape of the block of configuration state passed to the NewAspect method.
+		DefaultConfig() (implConfig proto.Message)
+		// ValidateConfig determines whether the given configuration meets all correctness requirements.
+		ValidateConfig(implConfig proto.Message) error
+	}
+
 	// AdapterConfig (aspect.AdapterConfig) is the internal struct used for the Adapter proto
 	// at present it only has an additional field that stores the converted
 	// and typed Args
 	AdapterConfig struct {
 		istioconfig.Adapter
-		// TypedParams points to the proto after google_protobuf.Struct is converted
+		// TypedArgs points to the proto after google_protobuf.Struct is converted
 		TypedArgs proto.Message
 	}
+
 	// CombinedConfig combines all configuration related to an aspect
 	CombinedConfig struct {
 		Aspect  *Config
