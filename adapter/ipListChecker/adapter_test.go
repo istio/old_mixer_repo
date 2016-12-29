@@ -38,13 +38,16 @@ func TestBasic(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.Write(out)
+		if _, err := w.Write(out); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 	}))
 	defer ts.Close()
 
 	b := &adapterState{}
 	if err := b.ValidateConfig(b.DefaultConfig()); err != nil {
 		t.Errorf("Failed validation %#v", err)
+
 	}
 
 	config := Config{

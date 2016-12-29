@@ -22,7 +22,9 @@ import (
 
 func TestAll(t *testing.T) {
 	b := NewAdapter()
-	b.Configure(b.DefaultAdapterConfig())
+	if err := b.Configure(b.DefaultAdapterConfig()); err != nil {
+		t.Errorf("Unable to configure adapter: %v", err)
+	}
 
 	a, err := b.NewAspect(b.DefaultAspectConfig())
 	if err != nil {
@@ -42,5 +44,7 @@ func TestAll(t *testing.T) {
 		}
 	}
 
-	listChecker.Close()
+	if err := listChecker.Close(); err != nil {
+		t.Errorf("listChecker.Close failed: %v", err)
+	}
 }

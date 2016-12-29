@@ -46,15 +46,15 @@ import (
 
 // GRPCServerOptions controls the behavior of a gRPC server.
 type GRPCServerOptions struct {
-	// Port specifies the IP port the server should listen on.
-	Port uint16
-
 	// MaximumMessageSize constrains the size of incoming requests.
 	MaxMessageSize uint
 
 	// MaxConcurrentStreams limits the amount of concurrency allowed,
 	// in order to put a cap on server-side resource usage.
 	MaxConcurrentStreams uint
+
+	// Port specifies the IP port the server should listen on.
+	Port uint16
 
 	// CompressedPayload determines whether compression should be
 	// used on individual messages.
@@ -144,6 +144,8 @@ type handlerFunc func(tracker attribute.Tracker, request proto.Message, response
 
 func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc) error {
 	tracker := s.attrMgr.NewTracker()
+	defer tracker.Done()
+
 	for {
 		// get a single message
 		if err := stream.RecvMsg(request); err == io.EOF {
