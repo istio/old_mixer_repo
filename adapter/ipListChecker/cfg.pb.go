@@ -29,15 +29,16 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Config struct {
-	// ProviderURL is the URL where to find the list to check against
+	// provider_url is the URL where to find the list to check against
 	ProviderUrl string `protobuf:"bytes,1,opt,name=provider_url,json=providerUrl" json:"provider_url,omitempty"`
-	// RefreshInterval determines how often the provider is polled for
-	// an updated list in seconds
+	// refresh_interval determines how often the provider is polled for
+	// an updated list unit: seconds
 	RefreshInterval int64 `protobuf:"varint,2,opt,name=refresh_interval,json=refreshInterval" json:"refresh_interval,omitempty"`
 	// TimeToLive indicates how long to keep a list before discarding it.
 	// Typically, the TTL value should be set to noticeably longer (> 2x) than the
 	// refresh interval to ensure continued operation in the face of transient
 	// server outages.
+	// unit: seconds
 	Ttl int64 `protobuf:"varint,3,opt,name=ttl" json:"ttl,omitempty"`
 }
 

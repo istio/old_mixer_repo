@@ -15,9 +15,7 @@
 package ipListChecker
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -65,7 +63,7 @@ func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
 
 	if u, err = url.Parse(c.ProviderUrl); err == nil {
 		if u.Scheme == "" || u.Host == "" {
-			err = errors.New("Scheme and Host cannot be nil")
+			err = fmt.Errorf("Scheme (%s) and Host (%s) cannot be empty", u.Scheme, u.Host)
 		}
 	}
 	return err
@@ -76,12 +74,13 @@ func (a *adapterState) Close() error {
 }
 
 func (a *adapterState) NewAspect(c *listChecker.AdapterConfig) (listChecker.Aspect, error) {
-	if err := a.ValidateConfig(c.Message); err != nil {
+	if err := a.ValidateConfig(c.ImplConfig); err != nil {
 		return nil, err
 	}
-	config, found := c.Message.(*Config)
+
+	config, found := c.ImplConfig.(*Config)
 	if !found {
-		return nil, fmt.Errorf("Config not found %#v", c.Message)
+		return nil, fmt.Errorf("Config not found %#v", c.ImplConfig)
 	}
 	var u *url.URL
 	var err error
@@ -97,9 +96,6 @@ func (a *adapterState) NewAspect(c *listChecker.AdapterConfig) (listChecker.Aspe
 		ttl:             time.Second * time.Duration(config.Ttl),
 	}
 	aa.client = http.Client{Timeout: aa.ttl}
-
-	// install an empty list
-	aa.setList([]*net.IPNet{})
 
 	// load up the list synchronously so we're ready to accept traffic immediately
 	aa.refreshList()

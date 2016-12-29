@@ -20,12 +20,12 @@ type (
 	// Evaluator maps Given an expression Language
 	Evaluator interface {
 		// Eval evaluates given expression using the attribute bag
-		Eval(mapExpression string, ctx attribute.Bag) (interface{}, error)
+		Eval(mapExpression string, attrs attribute.Bag) (interface{}, error)
 
 		// Eval evaluates given expression using the attribute bag to a string
-		EvalString(mapExpression string, ctx attribute.Bag) (string, error)
+		EvalString(mapExpression string, attrs attribute.Bag) (string, error)
 
 		// EvalPredicate evaluates given predicate using the attribute bag
-		EvalPredicate(mapExpression string, ctx attribute.Bag) (bool, error)
+		EvalPredicate(mapExpression string, attrs attribute.Bag) (bool, error)
 	}
 )
