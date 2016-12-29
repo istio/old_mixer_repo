@@ -38,7 +38,7 @@ func Manager() aspect.Manager {
 	return &manager{}
 }
 
-// NewAspect creates a listChecker aspect
+// NewAspect implements aspect.Manager#NewAspect() Creates a listChecker aspect
 func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.Aspect, error) {
 	aa, ok := ga.(Adapter)
 	if !ok {
@@ -48,18 +48,18 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 	if !ok {
 		return nil, fmt.Errorf("Params of Incorrect type. Expected listcheckerpb.Config got %#v %T", cfg.Aspect.TypedParams, cfg.Aspect.TypedParams)
 	}
-	implcfg := cfg.Adapter.TypedArgs
-	if err := aa.ValidateConfig(implcfg); err != nil {
+
+	if err := aa.ValidateConfig(cfg.Adapter.TypedArgs); err != nil {
 		return nil, err
 	}
 	return aa.NewAspect(
 		&AdapterConfig{
-			aspect.ImplConfig{Message: implcfg},
+			ImplConfig: cfg.Adapter.TypedArgs,
 		})
 }
 
-// Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
-func (m *manager) Execute(cfg *aspect.CombinedConfig, ga aspect.Aspect, attrib attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+// Execute implements aspect.Manager#Execute()
+func (m *manager) Execute(cfg *aspect.CombinedConfig, ga aspect.Aspect, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	var found bool
 	var err error
 	var asp Aspect
@@ -80,10 +80,10 @@ func (m *manager) Execute(cfg *aspect.CombinedConfig, ga aspect.Aspect, attrib a
 
 	// CheckAttribute should be processed and sent to input
 	if symbolExpr, found = cfg.Aspect.Inputs[acfg.CheckAttribute]; !found {
-		return nil, fmt.Errorf("Mapping for %s not found", symbolExpr)
+		return nil, fmt.Errorf("Mapping for %s not found", acfg.CheckAttribute)
 	}
 
-	if symbol, err = mapper.EvalString(symbolExpr, attrib); err != nil {
+	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {
 		return nil, err
 	}
 

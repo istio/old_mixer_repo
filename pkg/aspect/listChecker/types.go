@@ -14,7 +14,10 @@
 
 package listChecker
 
-import "istio.io/mixer/pkg/aspect"
+import (
+	"istio.io/mixer/pkg/aspect"
+	"github.com/golang/protobuf/proto"
+)
 
 type (
 	// AdapterConfig -- Adapter Author visible typed config for
@@ -25,7 +28,7 @@ type (
 	// and sent down to NewAspect()
 	// It will always have ImplConfig if one is present
 	AdapterConfig struct {
-		aspect.ImplConfig
+		ImplConfig proto.Message
 	}
 
 	// Aspect listChecker checks given symbol against a list

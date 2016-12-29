@@ -59,7 +59,6 @@ func (a *aspectState) CheckList(symbol string) (bool, error) {
 	// get an atomic snapshot of the current list
 	l := a.getList()
 	if l == nil || len(l) == 0 {
-		// TODO: would be nice to return the last I/O error received from the provider...
 		return false, a.fetchError
 	}
 

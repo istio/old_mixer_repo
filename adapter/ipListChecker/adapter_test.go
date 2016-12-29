@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v2"
-	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
 )
 
@@ -56,8 +55,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	a, err := b.NewAspect(&listChecker.AdapterConfig{
-		ImplConfig: aspect.ImplConfig{Message: &config},
-	})
+		ImplConfig: &config})
 	if err != nil {
 		t.Errorf("Unable to create adapter: %v", err)
 	}

@@ -23,11 +23,11 @@ import (
 )
 
 // NewManager Creates a new Uber Aspect manager
-// provides an Execute function to act on a aspect/adapter
-// in a given context
-func NewManager(areg Registry) *Manager {
-	// Add all manager here as new aspects are added
-	mgrs := aspectManagers()
+func NewManager(areg Registry, mgrs []aspect.Manager) *Manager {
+	// Add all managers here as new aspects are added
+	if mgrs == nil {
+		mgrs = aspectManagers()
+	}
 	mreg := make(map[string]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
@@ -39,19 +39,19 @@ func NewManager(areg Registry) *Manager {
 	}
 }
 
-// Execute performs the aspect function based on given Cfg and AdapterCfg and attributes
+// Execute performs the aspect function based on CombinedConfig and attributes and an expression evaluator
 // returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspect.CombinedConfig, ctx attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	var mgr aspect.Manager
 	var found bool
 
 	if mgr, found = m.mreg[cfg.Aspect.Kind]; !found {
-		return nil, fmt.Errorf("Could not find Mgr %s", cfg.Aspect.Kind)
+		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
 	}
 
 	var adapter aspect.Adapter
 	if adapter, found = m.areg.ByImpl(cfg.Adapter.Impl); !found {
-		return nil, fmt.Errorf("Could not find registered adapter %s", cfg.Adapter.Impl)
+		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Adapter.Impl)
 	}
 
 	var asp aspect.Aspect
@@ -60,7 +60,7 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, ctx attribute.Bag, mapper 
 		return nil, err
 	}
 	// TODO act on aspect.Output
-	return mgr.Execute(cfg, asp, ctx, mapper)
+	return mgr.Execute(cfg, asp, attrs, mapper)
 }
 
 // CacheGet -- get from the cache, use aspect.Manager to construct an object in case of a cache miss

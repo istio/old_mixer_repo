@@ -23,12 +23,12 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
-	istiopb "istio.io/api/istio/config/v1"
+	istioconfig "istio.io/api/istio/config/v1"
 )
 
 type (
 	// Adapter represents a factory to create an adapterImpl that provides a specific aspect
-	// This interface is extended by specific aspects
+	// This interface is extended by adapter implementations
 	Adapter interface {
 		io.Closer
 		// Name returns the official name of this adapter. ex. "istio.io/statsd".
@@ -50,20 +50,20 @@ type (
 		Name() string
 	}
 
-	// Config is the internal struct used for the Aspect proto
+	// Config (aspect.Config) is the internal struct used for the Aspect proto
 	// at present it only has an additional field that stores the converted
 	// and typed proto
 	Config struct {
-		istiopb.Aspect
+		istioconfig.Aspect
 		// TypedParams points to the proto after google_protobuf.Struct is converted
 		TypedParams proto.Message
 	}
 
-	// AdapterConfig is the internal struct used for the Adapter proto
+	// AdapterConfig (aspect.AdapterConfig) is the internal struct used for the Adapter proto
 	// at present it only has an additional field that stores the converted
 	// and typed Args
 	AdapterConfig struct {
-		istiopb.Adapter
+		istioconfig.Adapter
 		// TypedParams points to the proto after google_protobuf.Struct is converted
 		TypedArgs proto.Message
 	}
@@ -71,14 +71,6 @@ type (
 	CombinedConfig struct {
 		Aspect  *Config
 		Adapter *AdapterConfig
-	}
-
-	// ImplConfig provides common configuration params
-	// Impl config protobufs are required to support these
-	ImplConfig struct {
-		Debug bool
-		// All adapters will be given their impl specific proto
-		proto.Message
 	}
 
 	// Output from the Aspect Manager
@@ -95,7 +87,9 @@ type (
 		// Execute dispatches to the given aspect using  config
 		// A cached instance of Aspect is provided that was previously obtained by
 		// calling NewAspect
-		Execute(cfg *CombinedConfig, asp Aspect, ctx attribute.Bag, mapper expr.Evaluator) (*Output, error)
+		// The evaluation is done under the context of an attribute bag and using
+		// an expression evaluator
+		Execute(cfg *CombinedConfig, asp Aspect, attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
 		// NewAspect creates a new aspect instance given configuration
 		NewAspect(cfg *CombinedConfig, adapter Adapter) (Aspect, error)
 		// Kind return the kind of aspect
