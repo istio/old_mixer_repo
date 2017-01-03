@@ -34,7 +34,7 @@ func NewManager(areg Registry, mgrs []aspect.Manager) *Manager {
 	}
 	return &Manager{
 		mreg:        mreg,
-		aspectCache: make(map[CacheKey]aspect.Aspect),
+		aspectCache: make(map[CacheKey]aspect.AspectWrapper),
 		areg:        areg,
 	}
 }
@@ -54,17 +54,17 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Adapter.Impl)
 	}
 
-	var asp aspect.Aspect
+	var asp aspect.AspectWrapper
 	var err error
 	if asp, err = m.CacheGet(cfg, mgr, adapter); err != nil {
 		return nil, err
 	}
 	// TODO act on aspect.Output
-	return mgr.Execute(cfg, asp, attrs, mapper)
+	return asp.Execute(attrs, mapper)
 }
 
 // CacheGet -- get from the cache, use aspect.Manager to construct an object in case of a cache miss
-func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter aspect.Adapter) (asp aspect.Aspect, err error) {
+func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter aspect.Adapter) (asp aspect.AspectWrapper, err error) {
 	key := cacheKey(cfg)
 	// try fast path with read lock
 	m.lock.RLock()

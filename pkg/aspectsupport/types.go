@@ -50,7 +50,7 @@ type Manager struct {
 
 	// protects cache
 	lock        sync.RWMutex
-	aspectCache map[CacheKey]aspect.Aspect
+	aspectCache map[CacheKey]aspect.AspectWrapper
 }
 
 // CacheKey is used to cache fully constructed aspects
@@ -67,6 +67,6 @@ func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
 		Kind:   cfg.Aspect.GetKind(),
 		Impl:   cfg.Adapter.GetImpl(),
 		Params: cfg.Aspect.GetParams().String(),
-		Args:   cfg.Adapter.GetArgs().String(),
+		Args:   cfg.Adapter.GetParams().String(),
 	}
 }

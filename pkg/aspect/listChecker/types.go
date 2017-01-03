@@ -15,25 +15,11 @@
 package listChecker
 
 import (
-	"istio.io/mixer/pkg/aspect"
 	"github.com/golang/protobuf/proto"
+	"istio.io/mixer/pkg/aspect"
 )
 
 type (
-	// Config -- Adapter Author visible typed config for
-	// creating new listChecker aspect
-	// Every aspect defines it's own  aspect/XXXX.Config struct.
-	// It may or may not contain the underlying
-	// protobuf config specified by the user (for listChecker: listcheckerpb.Config)
-	// Aspect manager handles as much of listcheckerpb.Config
-	// as possible. Rest of the struct is packaged and sent down to NewAspect()
-	// In case of listChecker; the listChecker.Manager fully handles
-	// listcheckerpb.Config.
-	// So we only pass along ImplConfig
-	Config struct {
-		ImplConfig proto.Message
-	}
-
 	// Aspect listChecker checks given symbol against a list
 	Aspect interface {
 		aspect.Aspect
@@ -45,6 +31,6 @@ type (
 	Adapter interface {
 		aspect.Adapter
 		// NewAspect returns a new ListChecker
-		NewAspect(cfg *Config) (Aspect, error)
+		NewAspect(cfg proto.Message) (Aspect, error)
 	}
 )

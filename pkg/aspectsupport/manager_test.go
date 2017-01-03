@@ -15,8 +15,10 @@
 package aspectsupport
 
 import (
-	"testing"
 	"strings"
+	"testing"
+
+	istioconfig "istio.io/api/istio/config/v1"
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -51,8 +53,8 @@ func TestManager(t *testing.T) {
 	mgrs := []aspect.Manager{&fakemgr{kind: "k1"}, &fakemgr{kind: "k2"}}
 	m := NewManager(r, mgrs)
 	cfg := &aspect.CombinedConfig{
-		Aspect:  &aspect.Config{},
-		Adapter: &aspect.AdapterConfig{},
+		Aspect:  &istioconfig.Aspect{},
+		Adapter: &istioconfig.Adapter{},
 	}
 	attrs := &fakebag{}
 	mapper := &fakeevaluator{}

@@ -40,6 +40,31 @@ type aspectState struct {
 	client          http.Client
 }
 
+func newAspect(c *Config) (*aspectState, error) {
+	var u *url.URL
+	var err error
+	if u, err = url.Parse(c.ProviderUrl); err != nil {
+		// bogus URL format
+		return nil, err
+	}
+
+	aa := aspectState{
+		backend:         u,
+		closing:         make(chan bool),
+		refreshInterval: time.Second * time.Duration(c.RefreshInterval),
+		ttl:             time.Second * time.Duration(c.Ttl),
+	}
+	aa.client = http.Client{Timeout: aa.ttl}
+
+	// load up the list synchronously so we're ready to accept traffic immediately
+	aa.refreshList()
+
+	// crank up the async list refresher
+	go aa.listRefresher()
+
+	return &aa, nil
+}
+
 func (a *aspectState) ImplName() string {
 	return ImplName
 }

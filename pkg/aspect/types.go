@@ -40,16 +40,6 @@ type (
 		ImplName() string
 	}
 
-	// Config (aspect.Config) is the internal struct used for the Aspect proto
-	// at present it only has an additional field that stores the converted
-	// and typed proto
-	Config struct {
-		istioconfig.Aspect
-		// TypedParams points to the proto after google_protobuf.Struct is converted
-		TypedParams proto.Message
-	}
-
-
 	// Adapter represents an Aspect Builder that constructs instances a specific aspect.
 	// This interface is extended by  aspects; (metrics, listChecker, ...)
 	// The extended interface is implemented by adapter implementations
@@ -60,26 +50,17 @@ type (
 		// Description returns a user-friendly description of this adapter.
 		Description() string
 		// DefaultConfig returns a default configuration struct for this
-		// adapter Implmentation. This will be used by the configuration system to establish
+		// adapter. This will be used by the configuration system to establish
 		// the shape of the block of configuration state passed to the NewAspect method.
 		DefaultConfig() (implConfig proto.Message)
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
 		ValidateConfig(implConfig proto.Message) error
 	}
 
-	// AdapterConfig (aspect.AdapterConfig) is the internal struct used for the Adapter proto
-	// at present it only has an additional field that stores the converted
-	// and typed Args
-	AdapterConfig struct {
-		istioconfig.Adapter
-		// TypedArgs points to the proto after google_protobuf.Struct is converted
-		TypedArgs proto.Message
-	}
-
 	// CombinedConfig combines all configuration related to an aspect
 	CombinedConfig struct {
-		Aspect  *Config
-		Adapter *AdapterConfig
+		Aspect  *istioconfig.Aspect
+		Adapter *istioconfig.Adapter
 	}
 
 	// Output from the Aspect Manager
@@ -93,15 +74,16 @@ type (
 	// Manager manages a specific aspect and presets a uniform interface
 	// to the rest of system
 	Manager interface {
-		// Execute dispatches to the given aspect using  config
-		// A cached instance of Aspect is provided that was previously obtained by
-		// calling NewAspect
-		// The evaluation is done under the context of an attribute bag and using
-		// an expression evaluator
-		Execute(cfg *CombinedConfig, asp Aspect, attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
-		// NewAspect creates a new aspect instance given configuration
-		NewAspect(cfg *CombinedConfig, adapter Adapter) (Aspect, error)
+		// NewAspect creates a new aspect instance given configuration.
+		NewAspect(cfg *CombinedConfig, adapter Adapter) (AspectWrapper, error)
 		// Kind return the kind of aspect
 		Kind() string
+	}
+
+	AspectWrapper interface {
+		// Execute dispatches to the given aspect.
+		// The evaluation is done under the context of an attribute bag and using
+		// an expression evaluator.
+		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
 	}
 )

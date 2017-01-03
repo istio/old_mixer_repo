@@ -16,9 +16,7 @@ package ipListChecker
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -73,35 +71,10 @@ func (a *adapterState) Close() error {
 	return nil
 }
 
-func (a *adapterState) NewAspect(c *listChecker.Config) (listChecker.Aspect, error) {
-	if err := a.ValidateConfig(c.ImplConfig); err != nil {
+func (a *adapterState) NewAspect(cfg proto.Message) (listChecker.Aspect, error) {
+	if err := a.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
 
-	config, found := c.ImplConfig.(*Config)
-	if !found {
-		return nil, fmt.Errorf("Config not found %#v", c.ImplConfig)
-	}
-	var u *url.URL
-	var err error
-	if u, err = url.Parse(config.ProviderUrl); err != nil {
-		// bogus URL format
-		return nil, err
-	}
-
-	aa := aspectState{
-		backend:         u,
-		closing:         make(chan bool),
-		refreshInterval: time.Second * time.Duration(config.RefreshInterval),
-		ttl:             time.Second * time.Duration(config.Ttl),
-	}
-	aa.client = http.Client{Timeout: aa.ttl}
-
-	// load up the list synchronously so we're ready to accept traffic immediately
-	aa.refreshList()
-
-	// crank up the async list refresher
-	go aa.listRefresher()
-
-	return &aa, nil
+	return newAspect(cfg.(*Config))
 }

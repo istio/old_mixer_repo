@@ -17,9 +17,8 @@ package listChecker
 import (
 	"fmt"
 
-	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
-
 	"google.golang.org/genproto/googleapis/rpc/code"
+	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
@@ -31,6 +30,12 @@ const (
 
 type (
 	manager struct{}
+
+	aspectWrapper struct {
+		cfg          *aspect.CombinedConfig
+		aspect       aspect.Aspect
+		aspectConfig *listcheckerpb.Config
+	}
 )
 
 // NewManager returns "this" aspect Manager
@@ -39,48 +44,42 @@ func NewManager() aspect.Manager {
 }
 
 // NewAspect creates a listChecker aspect. Implements aspect.Manager#NewAspect()
-func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.Aspect, error) {
+func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.AspectWrapper, error) {
 	aa, ok := ga.(Adapter)
 	if !ok {
 		return nil, fmt.Errorf("Adapter of incorrect type. Expected listChecker.Adapter got %#v %T", ga, ga)
 	}
 
-	_, ok = cfg.Aspect.TypedParams.(*listcheckerpb.Config)
-	if !ok {
-		return nil, fmt.Errorf("Params of Incorrect type. Expected listcheckerpb.Config got %#v %T", cfg.Aspect.TypedParams, cfg.Aspect.TypedParams)
-	}
+	// TODO: convert from proto Struct to Go struct here!
+	var aspectConfig *listcheckerpb.Config
+	adapterCfg := aa.DefaultConfig()
+	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
+	var asp aspect.Aspect
+	var err error
 
-	if err := aa.ValidateConfig(cfg.Adapter.TypedArgs); err != nil {
+
+	if asp, err = aa.NewAspect(adapterCfg); err != nil {
 		return nil, err
 	}
-	return aa.NewAspect(
-		&Config{
-			ImplConfig: cfg.Adapter.TypedArgs,
-		})
+
+	return &aspectWrapper{
+		cfg:          cfg,
+		aspect:       asp,
+		aspectConfig: aspectConfig,
+	}, nil
 }
 
-// Execute implements aspect.Manager#Execute()
-func (m *manager) Execute(cfg *aspect.CombinedConfig, ga aspect.Aspect, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	var found bool
 	var err error
 	var asp Aspect
 
-	asp, found = ga.(Aspect)
-	if !found {
-		return nil, fmt.Errorf("Unexpected aspect type %#v", ga)
-	}
-
 	var symbol string
 	var symbolExpr string
-	var acfg *listcheckerpb.Config
-
-	// check if mapping is available
-	if acfg, found = cfg.Aspect.TypedParams.(*listcheckerpb.Config); !found {
-		return nil, fmt.Errorf("Unexpected type %#v", cfg.Aspect.TypedParams)
-	}
+	acfg := a.aspectConfig
 
 	// CheckAttribute should be processed and sent to input
-	if symbolExpr, found = cfg.Aspect.Inputs[acfg.CheckAttribute]; !found {
+	if symbolExpr, found = a.cfg.Aspect.Inputs[acfg.CheckAttribute]; !found {
 		return nil, fmt.Errorf("Mapping for %s not found", acfg.CheckAttribute)
 	}
 
