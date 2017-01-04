@@ -19,7 +19,9 @@ import (
 	"net/url"
 
 	"github.com/golang/protobuf/proto"
+	me "github.com/hashicorp/go-multierror"
 
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/listChecker"
 	"istio.io/mixer/pkg/aspectsupport"
 )
@@ -39,16 +41,19 @@ func (a *adapterState) Description() string {
 
 func (a *adapterState) Close() error { return nil }
 
-func (a *adapterState) ValidateConfig(cfg proto.Message) error {
-	c := cfg.(*Config)
-
-	if u, err := url.Parse(c.ProviderUrl); err == nil {
+func (a *adapterState) ValidateConfig(cfg proto.Message) me.Errors {
+	var e *me.Error
+	u, err := url.Parse(c.ProviderUrl)
+	if err != nil {
+		e = adapter.AppendErr(e, "ProviderUrl", err)
+	} else {
 		if u.Scheme == "" || u.Host == "" {
-			err = fmt.Errorf("Scheme (%s) and Host (%s) cannot be empty", u.Scheme, u.Host)
+			e = adapter.Append(e, "ProviderUrl", "URL scheme and host cannot be empty")
 		}
 		return err
 	}
-	return nil
+
+	return e.ErrorOrNil()
 }
 
 func (a *adapterState) DefaultConfig() proto.Message {
