@@ -22,6 +22,10 @@ import (
 
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspectsupport"
+
+	"google.golang.org/genproto/googleapis/rpc/status"
+
+	pb "istio.io/mixer/adapter/denyChecker/config_proto"
 )
 
 const (
@@ -49,11 +53,11 @@ func (a *adapterState) Description() string {
 }
 
 func (a *adapterState) DefaultConfig() proto.Message {
-	return &Config{ErrorCode: int32(code.Code_FAILED_PRECONDITION)}
+	return &pb.Config{&status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 }
 
 func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
-	_, ok := cfg.(*Config)
+	_, ok := cfg.(*pb.Config)
 	if !ok {
 		return fmt.Errorf("Invalid message type %#v", cfg)
 	}
@@ -69,5 +73,5 @@ func (a *adapterState) NewAspect(cfg proto.Message) (denyChecker.Aspect, error) 
 		return nil, err
 	}
 
-	return newAspect(cfg.(*Config))
+	return newAspect(cfg.(*pb.Config))
 }
