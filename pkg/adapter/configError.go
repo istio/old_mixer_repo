@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package adapter
 
 import (
 	"fmt"
-	me "github.com/hashicorp/go-multierror"
 )
 
 // ConfigError represents an error encountered while validating a block of configuration state.
@@ -29,16 +28,8 @@ type ConfigError struct {
 // to be used by adapter's ValidateConfig method to report errors
 // in configuration. The field parameter indicates the name of the
 // specific configuration field name that is problematic.
-func Append(base *me.Error, field string, format string, args... interface{}) *me.Error {
-	return me.Append(base, ConfigError{field, fmt.Errorf(format, args...)})
-}
-
-// AppendErr adds a ConfigError to a multierror. This function is intended
-// to be used by adapter's ValidateConfig method to report errors
-// in configuration. The field parameter indicates the name of the
-// specific configuration field name that is problematic.
-func AppendErr(base *me.Error, field string, err error) *me.Error {
-	return me.Append(base, ConfigError{field, err})
+func ConfigErrorf(field, format string, args ...interface{}) ConfigError {
+	return ConfigError{field, fmt.Errorf(format, args...)}
 }
 
 // Error returns a string representation of the configuration error.

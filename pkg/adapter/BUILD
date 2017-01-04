@@ -12,7 +12,4 @@ go_library(
         "logger.go",
         "metricsReporter.go",
     ],
-    deps = [
-        "@com_github_hashicorp_go_multierror//:go_default_library",
-    ],
 )
