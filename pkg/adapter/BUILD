@@ -7,8 +7,12 @@ go_library(
     srcs = [
         "aspect.go",
         "adapter.go",
+        "configError.go",
         "listChecker.go",
         "logger.go",
         "metricsReporter.go",
+    ],
+    deps = [
+        "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
 )

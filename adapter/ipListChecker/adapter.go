@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"net/url"
 
+	me "github.com/hashicorp/go-multierror"
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/pkg/aspect/listChecker"
 	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/adapter"
 )
 
 const (
@@ -61,14 +63,18 @@ func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
 	if !ok {
 		return fmt.Errorf("Invalid message type %#v", cfg)
 	}
-	var u *url.URL
 
-	if u, err = url.Parse(c.ProviderUrl); err == nil {
+	var e *me.Error
+	u, err := url.Parse(c.ProviderUrl)
+	if err != nil {
+		e = adapter.AppendErr(e, "ProviderUrl", err)
+	} else {
 		if u.Scheme == "" || u.Host == "" {
-			err = fmt.Errorf("Scheme (%s) and Host (%s) cannot be empty", u.Scheme, u.Host)
+			e = adapter.Append(e, "ProviderUrl", "URL scheme and host cannot be empty")
 		}
 	}
-	return err
+
+	return e.ErrorOrNil()
 }
 
 func (a *adapterState) Close() error {
