@@ -43,5 +43,5 @@ func (a *adapterState) DefaultConfig() proto.Message {
 }
 
 func (a *adapterState) NewAspect(cfg proto.Message) (denyChecker.Aspect, error) {
-	return newAspect(cfg.(*Config))
+	return newAspect(cfg.(*pb.Config))
 }
