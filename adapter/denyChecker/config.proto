@@ -19,6 +19,6 @@ package denyChecker;
 import "google/rpc/status.proto";
 
 message Config {
-	// The error code to return when denying a request.
+	// The error to return when denying a request.
 	google.rpc.Status error = 1;
 }
