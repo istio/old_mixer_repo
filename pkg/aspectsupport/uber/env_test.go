@@ -24,5 +24,5 @@ func TestEnv(t *testing.T) {
 	log := env.Logger()
 	log.Infof("Test%s", "ing")
 	log.Warningf("Test%s", "ing")
-	log.Errorf("Test%s", "ing")
+	_ = log.Errorf("Test%s", "ing")
 }

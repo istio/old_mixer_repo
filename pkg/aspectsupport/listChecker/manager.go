@@ -86,7 +86,7 @@ func (*manager) DefaultConfig() proto.Message {
 func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) {
 	lc := implConfig.(*listcheckerpb.Config)
 	if lc.CheckAttribute == "" {
-		ce.Appendf("check_attribute", "Missing")
+		ce = ce.Appendf("check_attribute", "Missing")
 	}
 	return
 }
