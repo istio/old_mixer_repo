@@ -33,8 +33,12 @@ before_install:
 
 script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
+  - bin/codecov.sh
   - bin/preplinters.sh
   - bin/runlinters.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
 
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
