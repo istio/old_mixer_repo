@@ -47,14 +47,14 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 	// cast to logger.Adapter from aspect.Adapter
 	logAdapter, ok := a.(logger.Adapter)
 	if !ok {
-		return nil, fmt.Errorf("Adapter of incorrect type. Expected logger.Adapter got %#v %T", a, a)
+		return nil, fmt.Errorf("adapter of incorrect type. Expected logger.Adapter got %#v %T", a, a)
 	}
 
 	// TODO: replace when c.Adapter.TypedParams is ready
 	cpb := logAdapter.DefaultConfig()
 	if c.Adapter.Params != nil {
 		if err := structToProto(c.Adapter.Params, cpb); err != nil {
-			return nil, fmt.Errorf("Could not parse adapter config: %v", err)
+			return nil, fmt.Errorf("could not parse adapter config: %v", err)
 		}
 	}
 
