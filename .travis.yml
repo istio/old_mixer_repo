@@ -1,7 +1,7 @@
 dist: xenial
 
 language: go
-go_import_path: istio.io
+go_import_path: istio.io/mixer
 
 go:
   - 1.7.x
