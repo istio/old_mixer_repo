@@ -1,7 +1,7 @@
 dist: xenial
 
 lang: go
-
+import_path: istio.io
 go:
   - 1.7.x
 
