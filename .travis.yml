@@ -1,5 +1,3 @@
-dist: xenial
-
 lang: go
 
 go_import_path: istio.io
@@ -38,5 +36,5 @@ script:
   - bin/preplinters.sh
   - bin/runlinters.sh
 
-notifications:
-  slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
+#notifications:
+#  slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
