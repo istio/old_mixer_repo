@@ -36,6 +36,8 @@ before_install:
 script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
   - bin/bazel_to_go.py
+  - mkdir ../../../istio.io/
+  - ln -s ../mixer ../../../istio.io/
   - ln -s bazel-genfiles/adapter/denyChecker adapter/denyChecker/config_proto
   - go test -v ./pkg/... ./adapter/... ./cmd/...
   - bin/preplinters.sh
