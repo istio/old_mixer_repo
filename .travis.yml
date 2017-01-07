@@ -3,38 +3,4 @@ lang: go
 go_import_path: istio.io
 
 go:
-  - 1.7.x
-
-jdk:
-  - oraclejdk8
-
-env:
-  - BAZEL_VERSION=0.4.2
-
-addons:
-  apt:
-    packages:
-      - wget
-
-cache:
-  directories:
-    - $HOME/bazel/install
-    - $HOME/bazel/outbase
-
-before_install:
-  - mkdir -p ${HOME}/bazel/install
-  - cd ${HOME}/bazel/install
-  - wget --no-clobber "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel_${BAZEL_VERSION}-linux-x86_64.deb"
-  - chmod +x bazel_${BAZEL_VERSION}-linux-x86_64.deb
-  - sudo dpkg -i bazel_${BAZEL_VERSION}-linux-x86_64.deb
-  - cd ${TRAVIS_BUILD_DIR}
-  - mv .bazelrc .bazelrc.orig
-  - cat .bazelrc.travis .bazelrc.orig > .bazelrc
-
-script:
-  - bazel --output_base=${HOME}/bazel/outbase test //...
-  - bin/preplinters.sh
-  - bin/runlinters.sh
-
-#notifications:
-#  slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
+  - 1.7.3
