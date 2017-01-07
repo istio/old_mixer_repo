@@ -1,6 +1,8 @@
-dist: xenial
+dist: trusty
 
 lang: go
+
+go_import_path: istio.io
 
 go:
   - 1.7.x
@@ -33,8 +35,7 @@ before_install:
 
 script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
-  - bin/preplinters.sh
-  - bin/runlinters.sh
+  - bin/bazel_to_go.py
 
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
