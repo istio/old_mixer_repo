@@ -33,6 +33,9 @@ before_install:
 
 script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
+  - bin/bazel_to_go.py
+  - ln -s bazel-genfiles/adapter/denyChecker adapter/denyChecker/config_proto
+  - go test -v ./pkg/... ./adapter/... ./cmd/...
   - bin/preplinters.sh
   - bin/runlinters.sh
 
