@@ -22,7 +22,7 @@ go_library(
 )
 
 go_test(
-    name = "logger_manager_test",
+    name = "manager_test",
     size = "small",
     srcs = ["manager_test.go"],
     library = ":go_default_library",

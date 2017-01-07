@@ -75,9 +75,9 @@ func (*manager) Kind() string                                                   
 func (*manager) DefaultConfig() proto.Message                                      { return &empty.Empty{} }
 func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) { return }
 
-func (a *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
+func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
 	entry := make(logger.Entry)
-	for attr, expr := range a.inputs {
+	for attr, expr := range e.inputs {
 		if val, err := mapper.Eval(expr, attrs); err == nil {
 			entry[attr] = val
 		}
@@ -86,7 +86,7 @@ func (a *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 		//       and let adapter impls decide if that is an error
 		//       condition?)
 	}
-	if err := a.aspect.Log([]logger.Entry{entry}); err != nil {
+	if err := e.aspect.Log([]logger.Entry{entry}); err != nil {
 		return nil, err
 	}
 	return &aspectsupport.Output{code.Code(code.Code_OK)}, nil

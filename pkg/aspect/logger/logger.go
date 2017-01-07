@@ -31,18 +31,17 @@ type (
 	}
 
 	// Entry is a set of key-value pairs of attributes that together
-	// constitute the data for log entry. The key
-	// is the attribute name, and the value is a typed value for the
-	// named attribute.
+	// constitute the data for log entry. The key is the attribute name,
+	// and the value is a typed value for the named attribute.
 	Entry map[string]interface{}
 
-	// Adapter is the interface for building Aspect instances for
-	// mixer logging backends.
+	// Adapter is the interface for building Aspect instances for mixer
+	// logging backends.
 	Adapter interface {
 		aspect.Adapter
 
-		// NewAspect returns a new Logger implementation, based
-		// on the supplied Aspect configuration for the backend.
+		// NewAspect returns a new Logger implementation, based on the
+		// supplied Aspect configuration for the backend.
 		NewAspect(env aspect.Env, config proto.Message) (Aspect, error)
 	}
 )
