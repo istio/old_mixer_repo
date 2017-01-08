@@ -114,6 +114,7 @@ def makelink(target, linksrc):
             print type(e1), e1
     if not os.path.exists(target):
         print target, "Does not exist"
+        return
     os.symlink(target, linksrc)
     print "Linked ", linksrc, '-->', target
 
