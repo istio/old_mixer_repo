@@ -108,7 +108,7 @@ def bazel_to_vendor(WKSPC):
     vlen = len(vendor)
     for (target, linksrc) in process(workspace, external, genfiles, vendor):
         makelink(target, linksrc)
-        print "Vendored", linksrc[vlen + 1:]
+        print "Vendored", linksrc, '-->', target
 
 
 def main(args):
