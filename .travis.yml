@@ -40,6 +40,7 @@ script:
   - bin/bazel_to_go.py
   - ls -l .
   - ls -l ${TRAVIS_BUILD_DIR}
+  - go test -v ./pkg/... ./adapter/... ./cmd/...
 
 abc:
   - bin/preplinters.sh
