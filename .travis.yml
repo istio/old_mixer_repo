@@ -38,6 +38,8 @@ script:
   #- bazel --output_base=${HOME}/bazel/outbase test //...
   - bazel build //...
   - bin/bazel_to_go.py
+  - ls -l .
+  - ls -l ${TRAVIS_BUILD_DIR}
 
 abc:
   - bin/preplinters.sh
