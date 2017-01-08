@@ -104,7 +104,9 @@ def bazel_to_vendor(WKSPC):
         print "prog BAZEL_WORKSPACE_DIR"
         return -1
     lf = os.readlink(WKSPC + "/bazel-mixer")
-    external = lf.replace("/execroot/mixer", "/external")
+    EXEC_ROOT = os.path.dirname(lf)
+    BLD_DIR = os.path.dirname(EXEC_ROOT)
+    external =  BLD_DIR + "/external"
     vendor = WKSPC + "/vendor"
     genfiles = WKSPC + "/bazel-genfiles/external/"
     vlen = len(vendor)
