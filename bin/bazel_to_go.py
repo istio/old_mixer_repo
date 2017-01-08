@@ -115,6 +115,7 @@ def makelink(target, linksrc):
     if not os.path.exists(target):
         print target, "Does not exist"
     os.symlink(target, linksrc)
+    print "Linked ", linksrc, '-->', target
 
 
 def bazel_to_vendor(WKSPC):
@@ -138,7 +139,7 @@ def bazel_to_vendor(WKSPC):
 
     for (target, linksrc) in links.items():
         makelink(target, linksrc)
-        print "Vendored", linksrc, '-->', target
+        #print "Vendored", linksrc, '-->', target
         bysrc[linksrc] = target
 
     # check other directories in external
@@ -160,7 +161,9 @@ def bazel_to_vendor(WKSPC):
             continue
 
         makelink(target, linksrc)
-        print "Vendored", linksrc, '-->', target
+        # print "Vendored", linksrc, '-->', target
+
+    adapter_protos (WKSPC)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(external+"/"+file)]
@@ -171,6 +174,13 @@ def main(args):
         WKSPC = args[0]
 
     bazel_to_vendor(WKSPC)
+
+def adapter_protos(WKSPC):
+    print "WKSPC"
+    for adapter in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
+        makelink(WKSPC + "/bazel-genfiles/adapter/"+adapter, WKSPC + "/adapter/" +adapter + "/config_proto")
+
+
 
 if __name__ == "__main__":
     import sys
