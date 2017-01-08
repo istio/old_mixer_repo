@@ -91,6 +91,8 @@ def makelink(target, linksrc):
     except Exception as e1:
         if 'No such file or directory' not in str(e1):
             print type(e1), e1
+    if not os.path.exists(target):
+        print target, "Does not exist"
     os.symlink(target, linksrc)
 
 
