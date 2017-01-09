@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package stdLogger.config;
+package adapter.stdioLogger.config;
 
 option go_package = "config";
 
@@ -47,7 +47,7 @@ message Params {
         TEXT = 0;
 
         // Indicates a structured payload (JSON object).
-        STRUCT = 1;
+        STRUCTURED = 1;
     }
 
     // The name of the attribute to treat as the payload of the logs message.

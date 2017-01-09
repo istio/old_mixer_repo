@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"istio.io/mixer/adapter/stdLogger/config"
+	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/logger"
 	"istio.io/mixer/pkg/registry"
@@ -68,7 +68,7 @@ func Register(r registry.Registrar) error { return r.RegisterLogger(&adapter{}) 
 
 func (a *adapter) Name() string { return "istio/stdLogger" }
 func (a *adapter) Description() string {
-	return "Writes logStream entries to a standard expectedStream with JSON encoding"
+	return "Writes log entries to a standard I/O stream with JSON encoding"
 }
 func (a *adapter) DefaultConfig() proto.Message { return &config.Params{} }
 func (a *adapter) Close() error                 { return nil }
@@ -93,7 +93,7 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 	}
 
 	pFmt := textFmt
-	if c.GetPayloadFormat() == config.Params_STRUCT {
+	if c.GetPayloadFormat() == config.Params_STRUCTURED {
 		pFmt = structFmt
 	}
 

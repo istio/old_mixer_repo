@@ -6,5 +6,5 @@ go_proto_library(
         "config.proto",
     ],
     verbose = 0,
-    visibility = ["//visibility:public"],
+    visibility = ["//adapter/stdioLogger:__pkg__"],
 )

@@ -5,10 +5,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "stdLogger.go",
+        "stdioLogger.go",
     ],
     deps = [
-        "//adapter/stdLogger/config:go_default_library",
+        "//adapter/stdioLogger/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/logger:go_default_library",
@@ -21,7 +21,7 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = ["stdLogger_test.go"],
+    srcs = ["stdioLogger_test.go"],
     library = ":go_default_library",
     deps = [
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
