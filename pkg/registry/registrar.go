@@ -17,6 +17,7 @@ package registry
 import (
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspect/quota"
 )
 
 // Registrar -- Interface used by adapters to register themselves
@@ -26,4 +27,7 @@ type Registrar interface {
 
 	// RegisterDeny
 	RegisterDeny(denyChecker.Adapter) error
+
+	// RequestQuota
+	RegisterQuota(quota.Adapter) error
 }
