@@ -25,7 +25,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/status"
-	"istio.io/mixer/adapter/stdLogger/config"
+	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/logger"
 	"istio.io/mixer/pkg/registry"
@@ -226,7 +226,7 @@ var (
 		LogStream:         config.Params_STDOUT,
 		LogName:           "service_log",
 		PayloadAttribute:  "struct_payload",
-		PayloadFormat:     config.Params_STRUCT,
+		PayloadFormat:     config.Params_STRUCTURED,
 		SeverityAttribute: "severity",
 	}
 	overridesAspectImpl = &aspectImpl{os.Stdout, "service_log", "struct_payload", structFmt, "severity", "", "", nil}
