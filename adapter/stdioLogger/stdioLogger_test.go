@@ -26,57 +26,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"istio.io/mixer/adapter/stdioLogger/config"
+	"istio.io/mixer/pkg/adaptertesting"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/logger"
-	"istio.io/mixer/pkg/registry"
 )
 
-func TestRegister(t *testing.T) {
-	tr := &testRegistry{}
-	if err := Register(tr); err != nil {
-		t.Errorf("Register() => unexpected error: %v", err)
-	}
-	if _, ok := tr.l.(logger.Adapter); !ok {
-		t.Error("Register() => logger.Adapter not registered")
-	}
-}
-
-func TestAdapter_Name(t *testing.T) {
-	a := &adapter{}
-	if a.Name() != "istio/stdLogger" {
-		t.Errorf("Name() => %s, expected \"istio/stdLogger\"", a.Name())
-	}
-}
-
-func TestAdapter_Description(t *testing.T) {
-	a := &adapter{}
-	if len(a.Description()) == 0 {
-		t.Errorf("Description() => empty string (len=%d), expected description", len(a.Description()))
-	}
-}
-
-func TestAdapter_Close(t *testing.T) {
-	a := &adapter{}
-	if err := a.Close(); err != nil {
-		t.Errorf("Close() => unexpected error: %v", err)
-	}
-}
-
-func TestAdapter_DefaultConfig(t *testing.T) {
-	a := &adapter{}
-	cfg := a.DefaultConfig()
-	if _, ok := cfg.(*config.Params); !ok {
-		t.Errorf("DefaultConfig() => %T, wanted %T", cfg, &config.Params{})
-	}
-}
-
-func TestAdapter_ValidateConfig(t *testing.T) {
-	a := &adapter{}
-	cfg := &config.Params{}
-
-	if ce := a.ValidateConfig(cfg); ce != nil {
-		t.Errorf("ValidateConfig(%T) => unexpected error %v", cfg, ce)
-	}
+func TestAdapterInvariants(t *testing.T) {
+	adaptertesting.TestAdapterInvariants(&adapter{}, Register, t)
 }
 
 func TestAdapter_ValidateConfigBadConfig(t *testing.T) {
@@ -198,11 +154,6 @@ type (
 		input []logger.Entry
 		want  []string
 	}
-	testRegistry struct {
-		registry.Registrar
-
-		l logger.Adapter
-	}
 	testWriter struct {
 		io.Writer
 
@@ -232,11 +183,6 @@ var (
 	overridesAspectImpl = &aspectImpl{os.Stdout, "service_log", "struct_payload", structFmt, "severity", "", "", nil}
 	timeFn              = func() time.Time { r, _ := time.Parse("2006-Jan-02", "2017-Jan-09"); return r }
 )
-
-func (r *testRegistry) RegisterLogger(l logger.Adapter) error {
-	r.l = l
-	return nil
-}
 
 func (t *testWriter) Write(p []byte) (n int, err error) {
 	if t.errorOnWrite {

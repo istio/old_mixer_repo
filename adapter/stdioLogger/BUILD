@@ -24,6 +24,7 @@ go_test(
     srcs = ["stdioLogger_test.go"],
     library = ":go_default_library",
     deps = [
+        "//pkg/adaptertesting:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     ],
 )
