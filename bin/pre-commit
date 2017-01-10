@@ -30,3 +30,6 @@ cd $ROOT
 bin/fmt.sh
 
 bazel test //...
+
+bin/linters.sh
+
