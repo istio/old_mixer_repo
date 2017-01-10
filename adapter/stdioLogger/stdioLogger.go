@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package stdLogger provides an implementation of the mixer logger aspect
+// Package stdioLogger provides an implementation of the mixer logger aspect
 // that writes logs (serialized as JSON) to a standard expectedStream (stdout | stderr).
-package stdLogger
+package stdioLogger
 
 import (
 	"encoding/json"
@@ -62,49 +62,43 @@ const (
 	structFmt payloadFormat = iota
 )
 
-// Register adds the stdLogger adapter to the list of logger.Aspects known to
+// Register adds the stdioLogger adapter to the list of logger.Aspects known to
 // mixer.
 func Register(r registry.Registrar) error { return r.RegisterLogger(&adapter{}) }
 
-func (a *adapter) Name() string { return "istio/stdLogger" }
+func (a *adapter) Name() string { return "istio/stdioLogger" }
 func (a *adapter) Description() string {
-	return "Writes log entries to a standard I/O stream with JSON encoding"
+	return "Writes structured log entries to a standard I/O stream"
 }
-func (a *adapter) DefaultConfig() proto.Message { return &config.Params{} }
-func (a *adapter) Close() error                 { return nil }
-func (a *adapter) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) {
-	if _, ok := cfg.(*config.Params); ok {
-		return nil
-	}
-
-	return ce.Append("", fmt.Errorf("unexpected type for proto: %T", cfg))
-}
+func (a *adapter) DefaultConfig() proto.Message                               { return &config.Params{} }
+func (a *adapter) Close() error                                               { return nil }
+func (a *adapter) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return nil }
 func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr
-	if c.GetLogStream() == config.Params_STDOUT {
+	if c.LogStream == config.Params_STDOUT {
 		w = os.Stdout
 	}
 
 	name := "istio_log"
-	if c.GetLogName() != "" {
-		name = c.GetLogName()
+	if c.LogName != "" {
+		name = c.LogName
 	}
 
 	pFmt := textFmt
-	if c.GetPayloadFormat() == config.Params_STRUCTURED {
+	if c.PayloadFormat == config.Params_STRUCTURED {
 		pFmt = structFmt
 	}
 
 	return &aspectImpl{
 		logStream:       w,
 		logName:         name,
-		payloadAttr:     c.GetPayloadAttribute(),
+		payloadAttr:     c.PayloadAttribute,
 		payloadFormat:   pFmt,
-		severityAttr:    c.GetSeverityAttribute(),
-		timestampAttr:   c.GetTimestampAttribute(),
-		timestampFormat: c.GetTimestampFormat(),
+		severityAttr:    c.SeverityAttribute,
+		timestampAttr:   c.TimestampAttribute,
+		timestampFormat: c.TimestampFormat,
 		timeFn:          time.Now,
 	}, nil
 }

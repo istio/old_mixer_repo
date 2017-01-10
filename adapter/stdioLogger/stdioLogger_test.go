@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stdLogger
+package stdioLogger
 
 import (
 	"errors"
@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"google.golang.org/genproto/googleapis/rpc/status"
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/adaptertesting"
 	"istio.io/mixer/pkg/aspect"
@@ -35,24 +33,8 @@ func TestAdapterInvariants(t *testing.T) {
 	adaptertesting.TestAdapterInvariants(&adapter{}, Register, t)
 }
 
-func TestAdapter_ValidateConfigBadConfig(t *testing.T) {
-	tests := []proto.Message{
-		nil,
-		&status.Status{},
-	}
-
-	a := &adapter{}
-
-	for _, v := range tests {
-		if ce := a.ValidateConfig(v); ce == nil {
-			t.Errorf("ValidateConfig(%T) => expected error.", v)
-		}
-	}
-}
-
 func TestAdapter_NewAspect(t *testing.T) {
 	tests := []newAspectTests{
-		{nil, defaultAspectImpl},
 		{&config.Params{}, defaultAspectImpl},
 		{defaultParams, defaultAspectImpl},
 		{overridesParams, overridesAspectImpl},
