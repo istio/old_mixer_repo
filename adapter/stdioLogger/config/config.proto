@@ -34,11 +34,6 @@ message Params {
     // Selects which standard stream to write to for log entries.
     Stream log_stream = 1;
 
-    // Provides a way to identify a collection of related logs within the
-    // single stream. If no log_name is provided, a default value of
-    // "istio_log" will be used.
-    string log_name = 2;
-
     // PayloadFormat details the currently supported logging payload formats.
     // TEXT is the default payload format.
     enum PayloadFormat {
@@ -50,24 +45,18 @@ message Params {
         STRUCTURED = 1;
     }
 
-    // The name of the attribute to treat as the payload of the logs message.
-    // If payload_attribute is not specified, there will be no payload specified
-    // in the log entry written. All provided attributes will be written out
-    // as logging metadata.
-    string payload_attribute = 3;
-
     // Format of the value of the payload attribute.
-    PayloadFormat payload_format = 4;
+    PayloadFormat payload_format = 2;
 
     // The name of the attribute that will be used to derive log severity.
     // If this attribute is not found in the set of attributes passed to this
     // implementation, a default severity of INFO will be used.
-    string severity_attribute = 5;
+    string severity_attribute = 3;
 
     // The name of the attribute that will be used to derive the timestamp
     // for the corresponding log enty. If this attribute is not specified, the
     // value from time.Now() will be used as the timestamp for the log.
-    string timestamp_attribute = 6;
+    string timestamp_attribute = 4;
 
     // The format of the value of the timestamp_attribute. It is expected that
     // this format string will follow the conventions of golang's time.Time
@@ -75,5 +64,5 @@ message Params {
     // https://golang.org/pkg/time/#pkg-constants.
     //
     // Example: "2006-01-02T15:04:05Z07:00"
-    string timestamp_format = 7;
+    string timestamp_format = 5;
 }

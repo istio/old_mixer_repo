@@ -67,30 +67,32 @@ func TestAspectImpl_Log(t *testing.T) {
 
 	tw := &testWriter{lines: make([]string, 0)}
 
-	textPayloadEntry := logger.Entry{"payload": "payload value"}
-	structPayloadEntry := logger.Entry{"payload": `{"val":"42", "obj":{"val":"false"}}`}
+	textPayloadEntry := logger.Entry{LogName: "istio_log", Payload: "text payload"}
+	structPayloadEntry := logger.Entry{LogName: "istio_log", Payload: `{"val":"42", "obj":{"val":"false"}}`}
+	severityEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"severity": "WARNING"}}
+	labelEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}}
+	timestampEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42, "timestamp": "2017-Jan-10"}}
 
 	baseLog := `{"logName":"istio_log","timestamp":"2017-01-09T00:00:00Z","severity":"INFO"}`
-	textPayloadLog := `{"logName":"istio_log","timestamp":"2017-01-09T00:00:00Z","severity":"INFO","textPayload":"payload value"}`
+	textPayloadLog := `{"logName":"istio_log","timestamp":"2017-01-09T00:00:00Z","severity":"INFO","textPayload":"text payload"}`
 	structPayloadLog := `{"logName":"istio_log","timestamp":"2017-01-09T00:00:00Z","severity":"INFO","structPayload":{"obj":{"val":"false"},"val":"42"}}`
 	warningLog := `{"logName":"istio_log","timestamp":"2017-01-09T00:00:00Z","severity":"WARNING"}`
-	labelLog := `{"logName":"istio_log","timestamp":"2017-01-09T00:00:00Z","labels":{"label":"42"},"severity":"INFO"}`
-	timestampLog := `{"logName":"istio_log","timestamp":"2017-01-10T00:00:00Z","labels":{"label":"42"},"severity":"INFO"}`
+	labelLog := `{"logName":"istio_log","timestamp":"2017-01-09T00:00:00Z","labels":{"label":42},"severity":"INFO"}`
+	timestampLog := `{"logName":"istio_log","timestamp":"2017-01-10T00:00:00Z","labels":{"label":42},"severity":"INFO"}`
 
-	baseAspectImpl := &aspectImpl{tw, "istio_log", "", textFmt, "", "", "timefmt", timeFn}
-	textPayloadAspectImpl := &aspectImpl{tw, "istio_log", "payload", textFmt, "", "", "timefmt", timeFn}
-	structPayloadAspectImpl := &aspectImpl{tw, "istio_log", "payload", structFmt, "", "", "timefmt", timeFn}
-	severityAspectImpl := &aspectImpl{tw, "istio_log", "", textFmt, "severity", "", "timefmt", timeFn}
-	timestampAspectImpl := &aspectImpl{tw, "istio_log", "", textFmt, "", "timestamp", "2006-Jan-02", timeFn}
+	baseAspectImpl := &aspectImpl{tw, textFmt, "", "", "timefmt", timeFn}
+	structPayloadAspectImpl := &aspectImpl{tw, structFmt, "", "", "timefmt", timeFn}
+	severityAspectImpl := &aspectImpl{tw, textFmt, "severity", "", "timefmt", timeFn}
+	timestampAspectImpl := &aspectImpl{tw, textFmt, "", "timestamp", "2006-Jan-02", timeFn}
 
 	tests := []logTests{
 		{baseAspectImpl, []logger.Entry{}, []string{}},
-		{baseAspectImpl, []logger.Entry{{}}, []string{baseLog}},
-		{textPayloadAspectImpl, []logger.Entry{textPayloadEntry}, []string{textPayloadLog}},
+		{baseAspectImpl, []logger.Entry{{LogName: "istio_log"}}, []string{baseLog}},
+		{baseAspectImpl, []logger.Entry{textPayloadEntry}, []string{textPayloadLog}},
 		{structPayloadAspectImpl, []logger.Entry{structPayloadEntry}, []string{structPayloadLog}},
-		{severityAspectImpl, []logger.Entry{{"severity": "WARNING"}}, []string{warningLog}},
-		{baseAspectImpl, []logger.Entry{{"label": 42}}, []string{labelLog}},
-		{timestampAspectImpl, []logger.Entry{{"label": 42, "timestamp": "2017-Jan-10"}}, []string{timestampLog}},
+		{severityAspectImpl, []logger.Entry{severityEntry}, []string{warningLog}},
+		{baseAspectImpl, []logger.Entry{labelEntry}, []string{labelLog}},
+		{timestampAspectImpl, []logger.Entry{timestampEntry}, []string{timestampLog}},
 	}
 
 	for _, v := range tests {
@@ -108,12 +110,13 @@ func TestAspectImpl_LogBad(t *testing.T) {
 
 	tw := &testWriter{lines: make([]string, 0)}
 
-	structPayloadEntry := logger.Entry{"payload": `{"val":"42", "obj":{"val":`}
+	badTimestampEntry := logger.Entry{Labels: map[string]interface{}{"timestamp": "bad timestamp"}}
+	structPayloadEntry := logger.Entry{Payload: `{"val":"42", "obj":{"val":`}
 
 	tests := []logTests{
-		{&aspectImpl{tw, "istio_log", "", textFmt, "", "timestamp", "2006-Jan-02", timeFn}, []logger.Entry{{"timestamp": "bad timestamp"}}, []string{}},
-		{&aspectImpl{tw, "istio_log", "payload", structFmt, "", "", "time-fmt-ignored", timeFn}, []logger.Entry{structPayloadEntry}, []string{}},
-		{&aspectImpl{&testWriter{errorOnWrite: true}, "istio_log", "", textFmt, "", "", "", timeFn}, []logger.Entry{{}}, []string{}},
+		{&aspectImpl{tw, textFmt, "", "timestamp", "2006-Jan-02", timeFn}, []logger.Entry{badTimestampEntry}, []string{}},
+		{&aspectImpl{tw, structFmt, "", "", "time-fmt-ignored", timeFn}, []logger.Entry{structPayloadEntry}, []string{}},
+		{&aspectImpl{&testWriter{errorOnWrite: true}, textFmt, "", "", "", timeFn}, []logger.Entry{{}}, []string{}},
 	}
 
 	for _, v := range tests {
@@ -148,21 +151,17 @@ type (
 var (
 	defaultParams = &config.Params{
 		LogStream:         config.Params_STDERR,
-		LogName:           "",
 		PayloadFormat:     config.Params_TEXT,
-		PayloadAttribute:  "",
 		SeverityAttribute: "",
 	}
-	defaultAspectImpl = &aspectImpl{os.Stderr, "istio_log", "", textFmt, "", "", "", nil}
+	defaultAspectImpl = &aspectImpl{os.Stderr, textFmt, "", "", "", nil}
 
 	overridesParams = &config.Params{
 		LogStream:         config.Params_STDOUT,
-		LogName:           "service_log",
-		PayloadAttribute:  "struct_payload",
 		PayloadFormat:     config.Params_STRUCTURED,
 		SeverityAttribute: "severity",
 	}
-	overridesAspectImpl = &aspectImpl{os.Stdout, "service_log", "struct_payload", structFmt, "severity", "", "", nil}
+	overridesAspectImpl = &aspectImpl{os.Stdout, structFmt, "severity", "", "", nil}
 	timeFn              = func() time.Time { r, _ := time.Parse("2006-Jan-02", "2017-Jan-09"); return r }
 )
 
