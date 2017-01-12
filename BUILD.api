@@ -77,7 +77,7 @@ go_proto_library(
         "mixer/v1/config/descriptor/metric_descriptor.proto",
         "mixer/v1/config/descriptor/monitored_resource_descriptor.proto",
         "mixer/v1/config/descriptor/principal_descriptor.proto",
-        # "mixer/v1/config/descriptor/quota_descriptor.proto",
+        "mixer/v1/config/descriptor/quota_descriptor.proto",
     ],
     verbose = 0,
     visibility = ["//visibility:public"],
