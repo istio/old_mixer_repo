@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package stdioLogger provides an implementation of the mixer logger aspect
-// that writes logs (serialized as JSON) to a standard expectedStream (stdout | stderr).
+// that writes logs (serialized as JSON) to a standard stream (stdout | stderr).
 package stdioLogger
 
 import (
@@ -36,8 +36,6 @@ type (
 	adapter    struct{}
 	aspectImpl struct {
 		logStream       io.Writer
-		logName         string
-		payloadAttr     string
 		payloadFormat   payloadFormat
 		severityAttr    string
 		timestampAttr   string
@@ -50,7 +48,7 @@ type (
 	logEntry struct {
 		Name          string                 `json:"logName,omitempty"`
 		Timestamp     time.Time              `json:"timestamp,omitempty"`
-		Labels        map[string]string      `json:"labels,omitempty"`
+		Labels        map[string]interface{} `json:"labels,omitempty"`
 		Severity      string                 `json:"severity,omitempty"`
 		TextPayload   string                 `json:"textPayload,omitempty"`
 		StructPayload map[string]interface{} `json:"structPayload,omitempty"`
@@ -81,11 +79,6 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 		w = os.Stdout
 	}
 
-	name := "istio_log"
-	if c.LogName != "" {
-		name = c.LogName
-	}
-
 	pFmt := textFmt
 	if c.PayloadFormat == config.Params_STRUCTURED {
 		pFmt = structFmt
@@ -93,8 +86,6 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 
 	return &aspectImpl{
 		logStream:       w,
-		logName:         name,
-		payloadAttr:     c.PayloadAttribute,
 		payloadFormat:   pFmt,
 		severityAttr:    c.SeverityAttribute,
 		timestampAttr:   c.TimestampAttribute,
@@ -135,24 +126,25 @@ func (a *aspectImpl) entries(le []logger.Entry) ([]logEntry, error) {
 
 func (a *aspectImpl) entry(l logger.Entry) (logEntry, error) {
 	e := logEntry{
-		Name:      a.logName,
+		Name:      l.LogName,
 		Timestamp: a.timeFn(),
 		Severity:  "INFO",
-		Labels:    make(map[string]string),
+		Labels:    make(map[string]interface{}),
 	}
 
-	for k, v := range l {
-		switch k {
-		case a.payloadAttr:
-			switch a.payloadFormat {
-			case textFmt:
-				e.TextPayload = fmt.Sprint(v)
-			case structFmt:
-				err := json.Unmarshal([]byte(v.(string)), &e.StructPayload)
-				if err != nil {
-					return logEntry{}, fmt.Errorf("could not unmarshal struct payload: %v", err)
-				}
+	if l.Payload != "" {
+		switch a.payloadFormat {
+		case structFmt:
+			if err := json.Unmarshal([]byte(l.Payload), &e.StructPayload); err != nil {
+				return logEntry{}, fmt.Errorf("could not unmarshal struct payload: %v", err)
 			}
+		default:
+			e.TextPayload = l.Payload
+		}
+	}
+
+	for k, v := range l.Labels {
+		switch k {
 		case a.severityAttr:
 			e.Severity = fmt.Sprint(v)
 		case a.timestampAttr:
@@ -162,7 +154,7 @@ func (a *aspectImpl) entry(l logger.Entry) (logEntry, error) {
 			}
 			e.Timestamp = t
 		default:
-			e.Labels[k] = fmt.Sprint(v)
+			e.Labels[k] = v
 		}
 	}
 

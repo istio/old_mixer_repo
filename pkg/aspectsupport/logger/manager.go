@@ -19,7 +19,6 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/aspect"
@@ -27,14 +26,19 @@ import (
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
+
+	aspectpb "istio.io/api/mixer/v1/config/aspect"
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 type (
 	manager struct{}
 
 	executor struct {
-		inputs map[string]string
-		aspect logger.Aspect
+		logName     string
+		descriptors []dpb.LogEntryDescriptor // describe entries to gen
+		inputs      map[string]string        // map from param to expr
+		aspect      logger.Aspect
 	}
 )
 
@@ -44,13 +48,25 @@ func NewManager() aspectsupport.Manager {
 }
 
 func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, env aspect.Env) (aspectsupport.AspectWrapper, error) {
+	// Handle aspect config to get log name and log entry descriptors.
+	aspectCfg := m.DefaultConfig()
+	if c.Aspect.Params != nil {
+		if err := structToProto(c.Aspect.Params, aspectCfg); err != nil {
+			return nil, fmt.Errorf("could not parse aspect config: %v", err)
+		}
+	}
+
+	logCfg := aspectCfg.(*aspectpb.LoggerConfig)
+	logName := logCfg.LogName
+	// TODO: look up actual descriptors by name and build an array
+
 	// cast to logger.Adapter from aspect.Adapter
 	logAdapter, ok := a.(logger.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type. Expected logger.Adapter got %#v %T", a, a)
 	}
 
-	// TODO: replace when c.Adapter.TypedParams is ready
+	// Handle adapter config
 	cpb := logAdapter.DefaultConfig()
 	if c.Adapter.Params != nil {
 		if err := structToProto(c.Adapter.Params, cpb); err != nil {
@@ -68,26 +84,56 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 		inputs = c.Aspect.Inputs
 	}
 
-	return &executor{inputs, aspectImpl}, nil
+	return &executor{logName, []dpb.LogEntryDescriptor{}, inputs, aspectImpl}, nil
 }
 
-func (*manager) Kind() string                                                      { return "istio/logger" }
-func (*manager) DefaultConfig() proto.Message                                      { return &empty.Empty{} }
-func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) { return }
+func (*manager) Kind() string { return "istio/logger" }
+func (*manager) DefaultConfig() proto.Message {
+	return &aspectpb.LoggerConfig{LogName: "istio_log"}
+}
+func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) { return nil }
 
 func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
-	entry := make(logger.Entry)
+	var entries []logger.Entry
+	labels := make(map[string]interface{})
 	for attr, expr := range e.inputs {
 		if val, err := mapper.Eval(expr, attrs); err == nil {
-			entry[attr] = val
+			labels[attr] = val
 		}
-		// TODO: define error-handling bits (is mapping failure a
-		//       total failure, or should we just not pass the attr
-		//       and let adapter impls decide if that is an error
-		//       condition?)
 	}
-	if err := e.aspect.Log([]logger.Entry{entry}); err != nil {
-		return nil, err
+
+	for _, d := range e.descriptors {
+		entry := logger.Entry{LogName: e.logName, Labels: make(map[string]interface{})}
+		for _, a := range d.Attributes {
+			if val, ok := labels[a]; ok {
+				entry.Labels[a] = val
+				continue
+			}
+			if val, found := attribute.Value(attrs, a); found {
+				entry.Labels[a] = val
+			}
+
+			// TODO: do we want to error for attributes that cannot
+			// be found?
+		}
+		if d.PayloadAttribute != "" {
+			payload, found := attrs.String(d.PayloadAttribute)
+			if !found {
+				// TODO: should this be an error that is returned
+				// or should we skip this log entry or
+				// should we simply not pass a payload in the
+				// entry?
+				continue
+			}
+			entry.Payload = payload
+		}
+		entries = append(entries, entry)
+	}
+
+	if len(entries) > 0 {
+		if err := e.aspect.Log(entries); err != nil {
+			return nil, err
+		}
 	}
 	return &aspectsupport.Output{Code: code.Code_OK}, nil
 }

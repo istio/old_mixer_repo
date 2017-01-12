@@ -30,10 +30,16 @@ type (
 		Log([]Entry) error
 	}
 
-	// Entry is a set of key-value pairs of attributes that together
-	// constitute the data for log entry. The key is the attribute name,
-	// and the value is a typed value for the named attribute.
-	Entry map[string]interface{}
+	// Entry is the set of data that together constitutes a log entry.
+	Entry struct {
+		// LogName is the name of the log in which to record this entry.
+		LogName string
+		// Labels are the set of metadata associated with this entry.
+		Labels map[string]interface{}
+		// Payload is the actual data for which the entry is being
+		// generated.
+		Payload string
+	}
 
 	// Adapter is the interface for building Aspect instances for mixer
 	// logging backends.
