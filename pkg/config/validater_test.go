@@ -29,7 +29,7 @@ type fakeVFinder struct {
 	v map[string]aspect.ConfigValidater
 }
 
-func (f *fakeVFinder) Get(name string) (aspect.ConfigValidater, bool) {
+func (f *fakeVFinder) Find(name string) (aspect.ConfigValidater, bool) {
 	v, found := f.v[name]
 	return v, found
 }
@@ -58,7 +58,7 @@ type configTable struct {
 
 func TestConfigValidatorError(t *testing.T) {
 	var ct *aspect.ConfigErrors
-	evaluator := NewFakeExpr()
+	evaluator := newFakeExpr()
 	cerr := ct.Appendf("Url", "Must have a valid URL")
 
 	ctable := []*configTable{
@@ -66,35 +66,35 @@ func TestConfigValidatorError(t *testing.T) {
 			map[string]aspect.ConfigValidater{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
-			}, 0, "service.name == “*”", false, SVC_CONFIG},
+			}, 0, "service.name == “*”", false, sSvcConfig},
 		{nil,
 			map[string]aspect.ConfigValidater{
 				"istio/denychecker": &lc{},
 				"metrics2":          &lc{},
-			}, 0, "service.name == “*”", false, GLOBAL_CONFIG},
+			}, 0, "service.name == “*”", false, sGlobalConfig},
 		{nil,
 			map[string]aspect.ConfigValidater{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
-			}, 1, "service.name == “*”", false, GLOBAL_CONFIG},
+			}, 1, "service.name == “*”", false, sGlobalConfig},
 		{nil,
 			map[string]aspect.ConfigValidater{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
-			}, 1, "service.name == “*”", true, SVC_CONFIG},
+			}, 1, "service.name == “*”", true, sSvcConfig},
 		{cerr,
 			map[string]aspect.ConfigValidater{
 				"metrics": &lc{ce: cerr},
-			}, 2, "service.name == “*”", false, SVC_CONFIG},
+			}, 2, "service.name == “*”", false, sSvcConfig},
 		{ct.Append("/:metrics", UnknownValidater("metrics")),
-			nil, 3, "\"\"", false, SVC_CONFIG},
+			nil, 3, "\"\"", false, sSvcConfig},
 	}
 
 	for idx, ctx := range ctable {
 		var ce *aspect.ConfigErrors
 		mgr := &fakeVFinder{v: ctx.v}
 		p := NewValidater(mgr, mgr, ctx.strict, evaluator)
-		if ctx.cfg == SVC_CONFIG {
+		if ctx.cfg == sSvcConfig {
 			ce = p.validateServiceConfig(fmt.Sprintf(ctx.cfg, ctx.selector), false)
 		} else {
 			ce = p.validateGlobalConfig(ctx.cfg)
@@ -103,7 +103,7 @@ func TestConfigValidatorError(t *testing.T) {
 		ok := ctx.nerrors == 0
 
 		if ok != cok {
-			t.Errorf("%d Expected %s Got %s", idx, ok, cok)
+			t.Errorf("%d Expected %t Got %t", idx, ok, cok)
 		}
 		if ce == nil {
 			continue
@@ -121,7 +121,7 @@ func TestFullConfigValidator(t *testing.T) {
 	//if err != nil {
 	//	t.Error("Unable to get attribute bag")
 	//}
-	fe := NewFakeExpr()
+	fe := newFakeExpr()
 
 	ctable := []*configTable{
 		{nil,
@@ -129,24 +129,24 @@ func TestFullConfigValidator(t *testing.T) {
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
-			}, 1, "service.name == “*”", false, SVC_CONFIG1},
+			}, 1, "service.name == “*”", false, sSvcConfig1},
 		{nil,
 			map[string]aspect.ConfigValidater{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
-			}, 0, "service.name == “*”", false, SVC_CONFIG2},
+			}, 0, "service.name == “*”", false, sSvcConfig2},
 	}
 	for idx, ctx := range ctable {
 		mgr := &fakeVFinder{v: ctx.v}
 		p := NewValidater(mgr, mgr, ctx.strict, fe)
 
-		_, ce := p.Validate(ctx.cfg, GLOBAL_CONFIG)
+		_, ce := p.Validate(ctx.cfg, sGlobalConfig)
 		cok := ce == nil
 		ok := ctx.nerrors == 0
 
 		if ok != cok {
-			t.Errorf("%d Expected %s Got %s", idx, ok, cok)
+			t.Errorf("%d Expected %t Got %t", idx, ok, cok)
 		}
 
 		if ce != nil && len(ce.Multi.Errors) != ctx.nerrors {
@@ -158,7 +158,7 @@ func TestFullConfigValidator(t *testing.T) {
 
 func TestConfigParseError(t *testing.T) {
 	mgr := &fakeVFinder{}
-	evaluator := NewFakeExpr()
+	evaluator := newFakeExpr()
 	p := NewValidater(mgr, mgr, false, evaluator)
 	ce := p.validateServiceConfig("<config>  </config>", false)
 
@@ -173,7 +173,7 @@ func TestConfigParseError(t *testing.T) {
 	}
 }
 
-const GLOBAL_CONFIG = `
+const sGlobalConfig = `
 subject: "namespace:ns"
 revision: "2022"
 adapters:
@@ -186,7 +186,7 @@ adapters:
       unknown_field: true
 `
 
-const SVC_CONFIG1 = `
+const sSvcConfig1 = `
 subject: "namespace:ns"
 revision: "2022"
 rules:
@@ -201,7 +201,7 @@ rules:
         labels:
         - key: target_consumer_id
 `
-const SVC_CONFIG2 = `
+const sSvcConfig2 = `
 subject: namespace:ns
 revision: "2022"
 rules:
@@ -212,7 +212,7 @@ rules:
     params:
 `
 
-const SVC_CONFIG = `
+const sSvcConfig = `
 subject: namespace:ns
 revision: "2022"
 rules:
@@ -239,8 +239,8 @@ rules:
 type fakeExpr struct {
 }
 
-// NewFakeExpr returns the basic
-func NewFakeExpr() *fakeExpr {
+// newFakeExpr returns the basic
+func newFakeExpr() *fakeExpr {
 	return &fakeExpr{}
 }
 
