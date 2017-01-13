@@ -28,16 +28,18 @@ type (
 		// used to evaluate selectors
 		evaluator expr.PredicateEvaluator
 	}
-
 	// Combined config is given to aspect managers
 	Combined struct {
 		Adapter *Adapter
 		Aspect  *Aspect
 	}
 
+	// AspectSet is a set of aspects. ex: Check call will result in {"listChecker", "iam"}
+	// Runtime should only return aspects matching a certain type
 	AspectSet map[string]bool
 )
 
+// NewRuntime returns a Runtime object given a validated config and a predicate evaluator
 func NewRuntime(v *Validated, evaluator expr.PredicateEvaluator) *Runtime {
 	return &Runtime{
 		Validated: *v,

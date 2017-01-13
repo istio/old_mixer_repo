@@ -15,13 +15,11 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 
-	"istio.io/mixer/pkg/attribute"
-
-	"fmt"
-
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/attribute"
 )
 
 type trueEval struct {
@@ -43,17 +41,16 @@ type ttable struct {
 	ncalls int
 	ret    bool
 	nlen   int
-	nerr   int
 	asp    []string
 }
 
 func TestRuntime(t *testing.T) {
 	table := []*ttable{
-		{nil, 0, true, 4, 0, []string{"listChecker"}},
-		{nil, 1, false, 2, 0, []string{"listChecker"}},
-		{fmt.Errorf("Predicate Error"), 1, false, 2, 0, []string{"listChecker"}},
-		{nil, 0, true, 0, 0, []string{}},
-		{fmt.Errorf("Predicate Error"), 0, true, 0, 0, []string{"listChecker"}},
+		{nil, 0, true, 4, []string{"listChecker"}},
+		{nil, 1, false, 2, []string{"listChecker"}},
+		{fmt.Errorf("predicate error"), 1, false, 2, []string{"listChecker"}},
+		{nil, 0, true, 0, []string{}},
+		{fmt.Errorf("predicate error"), 0, true, 0, []string{"listChecker"}},
 	}
 
 	LC := "listChecker"
