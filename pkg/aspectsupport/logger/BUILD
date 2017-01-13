@@ -11,6 +11,7 @@ go_library(
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/logger:go_default_library",
         "//pkg/aspectsupport:go_default_library",
+        "//pkg/aspectsupport/logger/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",

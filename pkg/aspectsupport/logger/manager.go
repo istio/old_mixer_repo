@@ -16,6 +16,7 @@ package logger
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -24,10 +25,10 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/logger"
 	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/aspectsupport/logger/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
-	aspectpb "istio.io/api/mixer/v1/config/aspect"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
@@ -35,10 +36,13 @@ type (
 	manager struct{}
 
 	executor struct {
-		logName     string
-		descriptors []dpb.LogEntryDescriptor // describe entries to gen
-		inputs      map[string]string        // map from param to expr
-		aspect      logger.Aspect
+		logName            string
+		descriptors        []dpb.LogEntryDescriptor // describe entries to gen
+		inputs             map[string]string        // map from param to expr
+		severityAttribute  string
+		timestampAttribute string
+		aspect             logger.Aspect
+		defaultTimeFn      func() time.Time
 	}
 )
 
@@ -56,8 +60,10 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 		}
 	}
 
-	logCfg := aspectCfg.(*aspectpb.LoggerConfig)
+	logCfg := aspectCfg.(*config.Params)
 	logName := logCfg.LogName
+	severityAttr := logCfg.SeverityAttribute
+	timestampAttr := logCfg.TimestampAttribute
 	// TODO: look up actual descriptors by name and build an array
 
 	// cast to logger.Adapter from aspect.Adapter
@@ -84,17 +90,20 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 		inputs = c.Aspect.Inputs
 	}
 
-	return &executor{logName, []dpb.LogEntryDescriptor{}, inputs, aspectImpl}, nil
+	return &executor{logName, []dpb.LogEntryDescriptor{}, inputs, severityAttr, timestampAttr, aspectImpl, time.Now}, nil
 }
 
 func (*manager) Kind() string { return "istio/logger" }
 func (*manager) DefaultConfig() proto.Message {
-	return &aspectpb.LoggerConfig{LogName: "istio_log"}
+	return &config.Params{LogName: "istio_log"}
 }
 func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) { return nil }
 
 func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
 	var entries []logger.Entry
+
+	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
+	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})
 	for attr, expr := range e.inputs {
 		if val, err := mapper.Eval(expr, attrs); err == nil {
@@ -103,7 +112,15 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 	}
 
 	for _, d := range e.descriptors {
-		entry := logger.Entry{LogName: e.logName, Labels: make(map[string]interface{})}
+		// TODO: replace all logic for value generation with uber manager refactor
+		entry := logger.Entry{
+			LogName:   e.logName,
+			Labels:    make(map[string]interface{}),
+			Payload:   stringVal(d.PayloadAttribute, attrs, labels, ""),
+			Severity:  stringVal(e.severityAttribute, attrs, labels, "INFO"),
+			Timestamp: timeVal(e.timestampAttribute, attrs, labels, e.defaultTimeFn()),
+		}
+
 		for _, a := range d.Attributes {
 			if val, ok := labels[a]; ok {
 				entry.Labels[a] = val
@@ -116,17 +133,7 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 			// TODO: do we want to error for attributes that cannot
 			// be found?
 		}
-		if d.PayloadAttribute != "" {
-			payload, found := attrs.String(d.PayloadAttribute)
-			if !found {
-				// TODO: should this be an error that is returned
-				// or should we skip this log entry or
-				// should we simply not pass a payload in the
-				// entry?
-				continue
-			}
-			entry.Payload = payload
-		}
+
 		entries = append(entries, entry)
 	}
 
@@ -136,6 +143,45 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 		}
 	}
 	return &aspectsupport.Output{Code: code.Code_OK}, nil
+}
+
+type attrBagFn func(bag attribute.Bag, name string) (interface{}, bool)
+
+var (
+	strFn  = func(bag attribute.Bag, name string) (interface{}, bool) { return bag.String(name) }
+	timeFn = func(bag attribute.Bag, name string) (interface{}, bool) { return bag.Time(name) }
+)
+
+func stringVal(attrName string, attrs attribute.Bag, labels map[string]interface{}, dfault string) string {
+	if v, ok := value(attrName, attrs, strFn, labels).(string); ok {
+		return v
+	}
+	return dfault
+}
+
+func timeVal(attrName string, attrs attribute.Bag, labels map[string]interface{}, dfault time.Time) time.Time {
+	if v, ok := value(attrName, attrs, timeFn, labels).(time.Time); ok {
+		return v
+	}
+	return dfault
+}
+
+func value(attrName string, attrBag attribute.Bag, fn attrBagFn, labels map[string]interface{}) interface{} {
+	if attrName == "" {
+		return nil
+	}
+
+	// check generated labels first, then attributes
+	if payload, ok := labels[attrName]; ok {
+		return payload
+	}
+
+	if payload, ok := fn(attrBag, attrName); ok {
+		return payload
+	}
+
+	// TODO: errors needed here? As of now, this causes default vals to be returned
+	return nil
 }
 
 func structToProto(in *structpb.Struct, out proto.Message) error {

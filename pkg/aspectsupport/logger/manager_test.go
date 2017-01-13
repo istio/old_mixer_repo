@@ -24,12 +24,14 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/logger"
 	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/aspectsupport/logger/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
+	"time"
+
 	jtpb "github.com/golang/protobuf/jsonpb/jsonpb_test_proto"
 	configpb "istio.io/api/mixer/v1/config"
-	aspectpb "istio.io/api/mixer/v1/config/aspect"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
@@ -50,7 +52,10 @@ func TestManager_NewAspect(t *testing.T) {
 	m := NewManager()
 
 	for _, v := range newAspectShouldSucceed {
-		c := aspectsupport.CombinedConfig{Adapter: &configpb.Adapter{Params: v.params}, Aspect: &configpb.Aspect{Inputs: map[string]string{}}}
+		c := aspectsupport.CombinedConfig{
+			Adapter: &configpb.Adapter{Params: v.params},
+			Aspect:  &configpb.Aspect{Inputs: map[string]string{}},
+		}
 		if _, err := m.NewAspect(&c, &testLogger{defaultCfg: v.defaultCfg}, testEnv{}); err != nil {
 			t.Errorf("NewAspect(): should not have received error for %s (%v)", v.name, err)
 		}
@@ -78,7 +83,7 @@ func TestManager_NewAspectFailures(t *testing.T) {
 	m := NewManager()
 	for _, v := range failureCases {
 		if _, err := m.NewAspect(v.cfg, v.adptr, testEnv{}); err == nil {
-			t.Error("NewAspect(): expected error for bad adapter")
+			t.Errorf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
 		}
 	}
 }
@@ -86,7 +91,7 @@ func TestManager_NewAspectFailures(t *testing.T) {
 func TestExecutor_Execute(t *testing.T) {
 	noPayloadDesc := dpb.LogEntryDescriptor{
 		Name:       "test",
-		Attributes: []string{"key"},
+		Attributes: []string{"attr"},
 	}
 	payloadDesc := dpb.LogEntryDescriptor{
 		Name:             "test",
@@ -95,20 +100,22 @@ func TestExecutor_Execute(t *testing.T) {
 	}
 	withInputsDesc := dpb.LogEntryDescriptor{
 		Name:             "test",
-		Attributes:       []string{"attr"},
-		PayloadAttribute: "payload",
+		Attributes:       []string{"key"},
+		PayloadAttribute: "attr",
 	}
 
-	noDescriptorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, nil}
-	noPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, nil}
-	payloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, nil}
-	withInputsExec := &executor{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, nil}
+	noDescriptorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", nil, time.Now}
+	noPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
+	payloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
+	withInputsExec := &executor{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
 
 	executeShouldSucceed := []executeTestCase{
 		{"no descriptors", noDescriptorExec, &testBag{}, &testEvaluator{}, 0},
 		{"no payload", noPayloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
-		{"payload not found", payloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 0},
+		{"payload not found", payloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
 		{"with payload", payloadExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
+		{"with payload from inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
+		{"with non-default time", payloadExec, &testBag{times: map[string]time.Time{"ts": time.Now()}}, &testEvaluator{}, 1},
 		{"with inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
 	}
 
@@ -120,7 +127,7 @@ func TestExecutor_Execute(t *testing.T) {
 			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, err)
 		}
 		if l.entryCount != v.wantEntryCount {
-			t.Errorf("Execute(): got %d entries, wanted %d", l.entryCount, v.wantEntryCount)
+			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.entryCount, v.wantEntryCount, v.name)
 		}
 	}
 }
@@ -132,7 +139,7 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 		Attributes: []string{"key"},
 	}
 
-	errorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, &testLogger{errOnLog: true}}
+	errorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", &testLogger{errOnLog: true}, time.Now}
 
 	executeShouldFail := []executeTestCase{
 		{"log failure", errorExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
@@ -148,7 +155,7 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 func TestManager_DefaultConfig(t *testing.T) {
 	m := NewManager()
 	o := m.DefaultConfig()
-	if !proto.Equal(o, &aspectpb.LoggerConfig{LogName: "istio_log"}) {
+	if !proto.Equal(o, &config.Params{LogName: "istio_log"}) {
 		t.Errorf("DefaultConfig(): wanted empty proto, got %v", o)
 	}
 }
@@ -189,7 +196,8 @@ type (
 	testBag struct {
 		attribute.Bag
 
-		strs map[string]string
+		strs  map[string]string
+		times map[string]time.Time
 	}
 	testEnv struct {
 		aspect.Env
@@ -225,6 +233,16 @@ func (t *testBag) String(name string) (string, bool) {
 	v, found := t.strs[name]
 	return v, found
 }
+
+func (t *testBag) Time(name string) (time.Time, bool) {
+	v, found := t.times[name]
+	return v, found
+}
+
+func (t *testBag) Int64(name string) (int64, bool)     { return 0, false }
+func (t *testBag) Float64(name string) (float64, bool) { return 0, false }
+func (t *testBag) Bool(name string) (bool, bool)       { return false, false }
+func (t *testBag) Bytes(name string) ([]byte, bool)    { return []byte{}, false }
 
 func newStringVal(s string) *structpb.Value {
 	return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: s}}

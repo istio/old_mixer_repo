@@ -35,21 +35,18 @@ import (
 type (
 	adapter    struct{}
 	aspectImpl struct {
-		logStream       io.Writer
-		payloadFormat   payloadFormat
-		severityAttr    string
-		timestampAttr   string
-		timestampFormat string
-		timeFn          func() time.Time
+		logStream     io.Writer
+		payloadFormat payloadFormat
+		timestampFmt  string
 	}
 
 	payloadFormat int
 
 	logEntry struct {
 		Name          string                 `json:"logName,omitempty"`
-		Timestamp     time.Time              `json:"timestamp,omitempty"`
-		Labels        map[string]interface{} `json:"labels,omitempty"`
+		Timestamp     string                 `json:"timestamp,omitempty"`
 		Severity      string                 `json:"severity,omitempty"`
+		Labels        map[string]interface{} `json:"labels,omitempty"`
 		TextPayload   string                 `json:"textPayload,omitempty"`
 		StructPayload map[string]interface{} `json:"structPayload,omitempty"`
 	}
@@ -84,13 +81,16 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 		pFmt = structFmt
 	}
 
+	tFmt := time.RFC3339
+	if c.TimestampFormat != "" {
+		// TODO: validation of timestamp format
+		tFmt = c.TimestampFormat
+	}
+
 	return &aspectImpl{
-		logStream:       w,
-		payloadFormat:   pFmt,
-		severityAttr:    c.SeverityAttribute,
-		timestampAttr:   c.TimestampAttribute,
-		timestampFormat: c.TimestampFormat,
-		timeFn:          time.Now,
+		logStream:     w,
+		payloadFormat: pFmt,
+		timestampFmt:  tFmt,
 	}, nil
 }
 
@@ -127,9 +127,9 @@ func (a *aspectImpl) entries(le []logger.Entry) ([]logEntry, error) {
 func (a *aspectImpl) entry(l logger.Entry) (logEntry, error) {
 	e := logEntry{
 		Name:      l.LogName,
-		Timestamp: a.timeFn(),
-		Severity:  "INFO",
-		Labels:    make(map[string]interface{}),
+		Severity:  l.Severity,
+		Labels:    l.Labels,
+		Timestamp: l.Timestamp.Format(a.timestampFmt),
 	}
 
 	if l.Payload != "" {
@@ -140,21 +140,6 @@ func (a *aspectImpl) entry(l logger.Entry) (logEntry, error) {
 			}
 		default:
 			e.TextPayload = l.Payload
-		}
-	}
-
-	for k, v := range l.Labels {
-		switch k {
-		case a.severityAttr:
-			e.Severity = fmt.Sprint(v)
-		case a.timestampAttr:
-			t, err := time.Parse(a.timestampFormat, v.(string))
-			if err != nil {
-				return logEntry{}, fmt.Errorf("could not parse timestamp supplied (format: %v): %v", a.timestampFormat, err)
-			}
-			e.Timestamp = t
-		default:
-			e.Labels[k] = v
 		}
 	}
 
