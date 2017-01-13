@@ -15,6 +15,8 @@
 package logger
 
 import (
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/pkg/aspect"
 )
@@ -34,11 +36,18 @@ type (
 	Entry struct {
 		// LogName is the name of the log in which to record this entry.
 		LogName string
-		// Labels are the set of metadata associated with this entry.
+		// Labels are a set of metadata associated with this entry.
+		// For instance, Labels can be used to describe the monitored
+		// resource that corresponds to the log entry.
 		Labels map[string]interface{}
 		// Payload is the actual data for which the entry is being
 		// generated.
 		Payload string
+		// Timestamp is the time value for the log entry
+		Timestamp time.Time
+		// Severity indicates the log level for the log entry.
+		// Example levels: "INFO", "WARNING", "500"
+		Severity string
 	}
 
 	// Adapter is the interface for building Aspect instances for mixer
