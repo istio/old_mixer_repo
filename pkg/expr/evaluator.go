@@ -28,7 +28,7 @@ type (
 		PredicateEvaluator
 	}
 
-	// Evaluates a predicate to true or false
+	// PredicateEvaluator evaluates a predicate to true or false
 	PredicateEvaluator interface {
 		// EvalPredicate evaluates given predicate using the attribute bag
 		EvalPredicate(expression string, attrs attribute.Bag) (bool, error)
