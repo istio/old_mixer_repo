@@ -20,35 +20,35 @@ import (
 )
 
 type (
-	// Runtime Represents the runtime view of the config
-	// It is prevalidated and immutable.
-	// It can be safely dispatched
+	// Runtime Represents the runtime view of the config.
+	// It contains  pre-validated and immutable.
+	// It can be safely used concurrently
 	Runtime struct {
 		Validated
 		// used to evaluate selectors
-		evaluator expr.PredicateEvaluator
+		eval expr.PredicateEvaluator
 	}
-	// Combined config is given to aspect managers
+	// Combined config is given to aspect managers.
 	Combined struct {
 		Adapter *Adapter
 		Aspect  *Aspect
 	}
 
 	// AspectSet is a set of aspects. ex: Check call will result in {"listChecker", "iam"}
-	// Runtime should only return aspects matching a certain type
+	// Runtime should only return aspects matching a certain type.
 	AspectSet map[string]bool
 )
 
-// NewRuntime returns a Runtime object given a validated config and a predicate evaluator
+// NewRuntime returns a Runtime object given a validated config and a predicate eval.
 func NewRuntime(v *Validated, evaluator expr.PredicateEvaluator) *Runtime {
 	return &Runtime{
 		Validated: *v,
-		evaluator: evaluator,
+		eval:      evaluator,
 	}
 }
 
-// Resolve returns a list of CombinedConfig  given an attribute bag
-// It will only return config from the requested set of aspects
+// Resolve returns a list of CombinedConfig given an attribute bag.
+// It will only return config from the requested set of aspects.
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
 func (p *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error) {
@@ -62,7 +62,7 @@ func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 	var selected bool
 
 	for _, rule := range rules {
-		if selected, err = p.evaluator.EvalPredicate(rule.GetSelector(), bag); err != nil {
+		if selected, err = p.eval.EvalPredicate(rule.GetSelector(), bag); err != nil {
 			return err
 		}
 

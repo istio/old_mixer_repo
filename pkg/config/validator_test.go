@@ -26,10 +26,10 @@ import (
 )
 
 type fakeVFinder struct {
-	v map[string]aspect.ConfigValidater
+	v map[string]aspect.ConfigValidator
 }
 
-func (f *fakeVFinder) Find(name string) (aspect.ConfigValidater, bool) {
+func (f *fakeVFinder) Find(name string) (aspect.ConfigValidator, bool) {
 	v, found := f.v[name]
 	return v, found
 }
@@ -49,7 +49,7 @@ func (m *lc) ValidateConfig(implConfig proto.Message) *aspect.ConfigErrors {
 
 type configTable struct {
 	cerr     *aspect.ConfigErrors
-	v        map[string]aspect.ConfigValidater
+	v        map[string]aspect.ConfigValidator
 	nerrors  int
 	selector string
 	strict   bool
@@ -63,37 +63,37 @@ func TestConfigValidatorError(t *testing.T) {
 
 	ctable := []*configTable{
 		{nil,
-			map[string]aspect.ConfigValidater{
+			map[string]aspect.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
 			}, 0, "service.name == “*”", false, sSvcConfig},
 		{nil,
-			map[string]aspect.ConfigValidater{
+			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics2":          &lc{},
 			}, 0, "service.name == “*”", false, sGlobalConfig},
 		{nil,
-			map[string]aspect.ConfigValidater{
+			map[string]aspect.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
 			}, 1, "service.name == “*”", false, sGlobalConfig},
 		{nil,
-			map[string]aspect.ConfigValidater{
+			map[string]aspect.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
 			}, 1, "service.name == “*”", true, sSvcConfig},
 		{cerr,
-			map[string]aspect.ConfigValidater{
+			map[string]aspect.ConfigValidator{
 				"metrics": &lc{ce: cerr},
 			}, 2, "service.name == “*”", false, sSvcConfig},
-		{ct.Append("/:metrics", UnknownValidater("metrics")),
-			nil, 3, "\"\"", false, sSvcConfig},
+		{ct.Append("/:metrics", UnknownValidator("metrics")),
+			nil, 2, "\"\"", false, sSvcConfig},
 	}
 
 	for idx, ctx := range ctable {
 		var ce *aspect.ConfigErrors
 		mgr := &fakeVFinder{v: ctx.v}
-		p := NewValidater(mgr, mgr, ctx.strict, evaluator)
+		p := NewValidator(mgr, mgr, ctx.strict, evaluator)
 		if ctx.cfg == sSvcConfig {
 			ce = p.validateServiceConfig(fmt.Sprintf(ctx.cfg, ctx.selector), false)
 		} else {
@@ -116,22 +116,17 @@ func TestConfigValidatorError(t *testing.T) {
 }
 
 func TestFullConfigValidator(t *testing.T) {
-	//var ccfg []*Combined
-	//bag, err := attribute.NewManager().NewTracker().StartRequest(&mixerpb.Attributes{})
-	//if err != nil {
-	//	t.Error("Unable to get attribute bag")
-	//}
 	fe := newFakeExpr()
 
 	ctable := []*configTable{
 		{nil,
-			map[string]aspect.ConfigValidater{
+			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
 			}, 1, "service.name == “*”", false, sSvcConfig1},
 		{nil,
-			map[string]aspect.ConfigValidater{
+			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
@@ -139,7 +134,7 @@ func TestFullConfigValidator(t *testing.T) {
 	}
 	for idx, ctx := range ctable {
 		mgr := &fakeVFinder{v: ctx.v}
-		p := NewValidater(mgr, mgr, ctx.strict, fe)
+		p := NewValidator(mgr, mgr, ctx.strict, fe)
 
 		_, ce := p.Validate(ctx.cfg, sGlobalConfig)
 		cok := ce == nil
@@ -150,7 +145,7 @@ func TestFullConfigValidator(t *testing.T) {
 		}
 
 		if ce != nil && len(ce.Multi.Errors) != ctx.nerrors {
-			t.Error(idx, "\nExpected:", ctx.cerr.Error(), "\nGot:", ce.Error(), len(ce.Multi.Errors), ctx.nerrors)
+			t.Error(idx, "\nExpected:", ctx.cerr.Error(), "\nGot:", ce.Error(), len(ce.Multi.Errors))
 		}
 
 	}
@@ -159,7 +154,7 @@ func TestFullConfigValidator(t *testing.T) {
 func TestConfigParseError(t *testing.T) {
 	mgr := &fakeVFinder{}
 	evaluator := newFakeExpr()
-	p := NewValidater(mgr, mgr, false, evaluator)
+	p := NewValidator(mgr, mgr, false, evaluator)
 	ce := p.validateServiceConfig("<config>  </config>", false)
 
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
