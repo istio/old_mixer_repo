@@ -23,7 +23,7 @@ type (
 		Eval(expression string, attrs attribute.Bag) (interface{}, error)
 
 		// Eval evaluates given expression using the attribute bag to a string
-		EvalString(expression string, attrs attribute.Bag) (string, error)
+		EvalString(expr string, attrs attribute.Bag) (string, error)
 
 		PredicateEvaluator
 	}
@@ -31,11 +31,11 @@ type (
 	// PredicateEvaluator evaluates a predicate to true or false
 	PredicateEvaluator interface {
 		// EvalPredicate evaluates given predicate using the attribute bag
-		EvalPredicate(expression string, attrs attribute.Bag) (bool, error)
+		EvalPredicate(expr string, attrs attribute.Bag) (bool, error)
 	}
 
-	// Validater validates a given expression
-	Validater interface {
+	// Validator validates a given expression
+	Validator interface {
 		// Validate ensures that the given expression is syntactically correct
 		Validate(expression string) error
 	}

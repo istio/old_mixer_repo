@@ -26,37 +26,37 @@ import (
 )
 
 type (
-	// ValidaterFinder is used to find specific underlying validaters
+	// ValidatorFinder is used to find specific underlying validators.
 	// Manager registry and adapter registry should implement this interface
-	// so ConfigValidaters can be uniformly accessed
-	ValidaterFinder interface {
-		Find(name string) (aspect.ConfigValidater, bool)
+	// so ConfigValidators can be uniformly accessed.
+	ValidatorFinder interface {
+		Find(name string) (aspect.ConfigValidator, bool)
 	}
 )
 
-// NewValidater returns a validater given component validaters
-func NewValidater(managerFinder ValidaterFinder, adapterFinder ValidaterFinder, strict bool, exprValidater expr.Validater) *Validater {
-	return &Validater{
+// NewValidator returns a validator given component validators.
+func NewValidator(managerFinder ValidatorFinder, adapterFinder ValidatorFinder, strict bool, exprValidator expr.Validator) *Validator {
+	return &Validator{
 		managerFinder: managerFinder,
 		adapterFinder: adapterFinder,
 		strict:        strict,
-		exprValidater: exprValidater,
+		exprValidator: exprValidator,
 		validated:     &Validated{},
 	}
 }
 
 type (
-	// Validater is the Configuration validator
-	Validater struct {
-		managerFinder ValidaterFinder
-		adapterFinder ValidaterFinder
+	// Validator is the Configuration validator.
+	Validator struct {
+		managerFinder ValidatorFinder
+		adapterFinder ValidatorFinder
 		strict        bool
-		exprValidater expr.Validater
+		exprValidator expr.Validator
 		validated     *Validated
 	}
 
-	// Validated store validated configuration
-	// It has been validated as internally consistent and correct
+	// Validated store validated configuration.
+	// It has been validated as internally consistent and correct.
 	Validated struct {
 		// Names are given to specific adapter configurations: unique
 		adapterByName map[string]*Adapter
@@ -67,9 +67,9 @@ type (
 	}
 )
 
-// ValidateAdapterConfig consumes a yml config string with adapter config
-// It is validated in presence of
-func (p *Validater) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
+// validateAdapterConfig consumes a yml config string with adapter config.
+// It is validated in presence of validators.
+func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
 	m := &GlobalConfig{}
 	err := yaml.Unmarshal([]byte(cfg), m)
 	if err != nil {
@@ -101,16 +101,18 @@ func (p *Validater) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
 	return
 }
 
-// ValidateSelector ensures that the selector is valid per expression language
-func (p *Validater) validateSelector(selector string) (err error) {
+// ValidateSelector ensures that the selector is valid per expression language.
+func (p *Validator) validateSelector(selector string) (err error) {
+	// empty selector always selects
 	if len(selector) == 0 {
-		return fmt.Errorf("empty selector not allowed")
+		return nil
 	}
-	return p.exprValidater.Validate(selector)
+	return p.exprValidator.Validate(selector)
 }
 
-// ValidateRules  processes Aspect Rules
-func (p *Validater) ValidateRules(rules []*AspectRule, path string, validatePresence bool) (ce *aspect.ConfigErrors) {
+// validateAspectRules validates the recursive configuration data structure.
+// It is primarily used by validate ServiceConfig.
+func (p *Validator) validateAspectRules(rules []*AspectRule, path string, validatePresence bool) (ce *aspect.ConfigErrors) {
 	var acfg proto.Message
 	var err error
 	for _, rule := range rules {
@@ -139,16 +141,16 @@ func (p *Validater) ValidateRules(rules []*AspectRule, path string, validatePres
 		if len(rs) == 0 {
 			continue
 		}
-		if verr := p.ValidateRules(rs, path, validatePresence); verr != nil {
+		if verr := p.validateAspectRules(rs, path, validatePresence); verr != nil {
 			ce = ce.Extend(verr)
 		}
 	}
 	return ce
 }
 
-// Validate a single serviceConfig and globalConfig together
-// returns a fully validated runtimeConfig if no errors are found
-func (p *Validater) Validate(serviceCfg string, globalCfg string) (rt *Validated, ce *aspect.ConfigErrors) {
+// Validate validates a single serviceConfig and globalConfig together.
+// It returns a fully validated Config if no errors are found.
+func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated, ce *aspect.ConfigErrors) {
 
 	if re := p.validateGlobalConfig(globalCfg); re != nil {
 		return rt, ce.Append("GlobalConfig", re)
@@ -162,33 +164,33 @@ func (p *Validater) Validate(serviceCfg string, globalCfg string) (rt *Validated
 	return p.validated, nil
 }
 
-// ValidateServiceConfig validates service config
+// ValidateServiceConfig validates service config.
 // if validatePresence is true it will ensure that the named adapter and Kinds
-// have an available and configured adapter
-func (p *Validater) validateServiceConfig(cfg string, validatePresence bool) (ce *aspect.ConfigErrors) {
+// have an available and configured adapter.
+func (p *Validator) validateServiceConfig(cfg string, validatePresence bool) (ce *aspect.ConfigErrors) {
 	m := &ServiceConfig{}
 	err := yaml.Unmarshal([]byte(cfg), m)
 	if err != nil {
 		ce = ce.Append("ServiceConfig", err)
 		return
 	}
-	if ce = p.ValidateRules(m.GetRules(), "", validatePresence); ce != nil {
+	if ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
 		return ce
 	}
 	p.validated.serviceConfig = m
 	return
 }
 
-// UnknownValidater returns error for the given name
-func UnknownValidater(name string) error {
+// UnknownValidator returns error for the given name.
+func UnknownValidator(name string) error {
 	return fmt.Errorf("unknown type [%s]", name)
 }
 
-// ConvertParams converts returns a typed protomessage based on available Validater
-func ConvertParams(finder ValidaterFinder, name string, params interface{}, strict bool) (proto.Message, error) {
+// ConvertParams converts returns a typed proto message based on available Validator.
+func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (proto.Message, error) {
 	avl, found := finder.Find(name)
 	if !found {
-		return nil, UnknownValidater(name)
+		return nil, UnknownValidator(name)
 	}
 
 	acfg := avl.DefaultConfig()
@@ -201,7 +203,7 @@ func ConvertParams(finder ValidaterFinder, name string, params interface{}, stri
 	return acfg, nil
 }
 
-// Decode interprets src interface{} as the specified proto message
+// Decode interprets src interface{} as the specified proto message.
 func Decode(src interface{}, dest proto.Message, strict bool) (err error) {
 	var md mapstructure.Metadata
 	mcfg := mapstructure.DecoderConfig{
