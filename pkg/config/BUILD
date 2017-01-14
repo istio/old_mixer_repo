@@ -7,7 +7,7 @@ go_library(
     srcs = [
         "cfg.pb.go",
         "runtime.go",
-        "validater.go",
+        "validator.go",
     ],
     deps = [
         "//pkg/aspect:go_default_library",
@@ -20,11 +20,11 @@ go_library(
 )
 
 go_test(
-    name = "config_test",
+    name = "small_test",
     size = "small",
     srcs = [
         "runtime_test.go",
-        "validater_test.go",
+        "validator_test.go",
     ],
     library = ":go_default_library",
     deps = [

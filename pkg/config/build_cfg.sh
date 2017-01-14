@@ -4,6 +4,7 @@
 # 
 # This file works around the issue that go jsonpb does not support
 # ptype.Struct parsing yet
+# https://github.com/istio/mixer/issues/134
 # It does so by replacing Struct with interface{}.
 # From this point on the protos will only have a valid external representation as json.
 
