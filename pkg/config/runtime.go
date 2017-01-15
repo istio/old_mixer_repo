@@ -17,6 +17,8 @@ package config
 import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
+
+	pb "istio.io/mixer/pkg/config/proto"
 )
 
 type (
@@ -30,8 +32,8 @@ type (
 	}
 	// Combined config is given to aspect managers.
 	Combined struct {
-		Adapter *Adapter
-		Aspect  *Aspect
+		Adapter *pb.Adapter
+		Aspect  *pb.Aspect
 	}
 
 	// AspectSet is a set of aspects. ex: Check call will result in {"listChecker", "iam"}
@@ -57,7 +59,7 @@ func (p *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, 
 	return dlist, err
 }
 
-func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*AspectRule, path string, dlist *[]*Combined) (err error) {
+func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
 
 	var selected bool
 
@@ -71,7 +73,7 @@ func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 		}
 		path = path + "/" + rule.GetSelector()
 		for _, aa := range rule.GetAspects() {
-			var adp *Adapter
+			var adp *pb.Adapter
 			if aspectSet[aa.GetKind()] {
 				// find matching adapter
 				// assume that config references are correct
