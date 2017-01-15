@@ -18,7 +18,7 @@ It has these top-level messages:
 	GlobalConfig
 	ClientConfig
 */
-package config
+package istio_mixer_v1_config
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
