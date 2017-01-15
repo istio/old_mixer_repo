@@ -20,6 +20,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
+	pb "istio.io/mixer/pkg/config/proto"
 )
 
 type trueEval struct {
@@ -54,27 +55,27 @@ func TestRuntime(t *testing.T) {
 	}
 
 	LC := "listChecker"
-	a1 := &Adapter{
+	a1 := &pb.Adapter{
 		Name: "a1",
 		Kind: LC,
 	}
-	a2 := &Adapter{
+	a2 := &pb.Adapter{
 		Name: "a2",
 		Kind: LC,
 	}
 
 	v := &Validated{
-		adapterByName: map[string]*Adapter{
+		adapterByName: map[string]*pb.Adapter{
 			"a1": a1, "a2": a2,
 		},
-		adapterByKind: map[string][]*Adapter{
+		adapterByKind: map[string][]*pb.Adapter{
 			LC: {a1, a2},
 		},
-		serviceConfig: &ServiceConfig{
-			Rules: []*AspectRule{
+		serviceConfig: &pb.ServiceConfig{
+			Rules: []*pb.AspectRule{
 				{
 					Selector: "ok",
-					Aspects: []*Aspect{
+					Aspects: []*pb.Aspect{
 						{
 							Kind: LC,
 						},
@@ -83,10 +84,10 @@ func TestRuntime(t *testing.T) {
 							Kind:    LC,
 						},
 					},
-					Rules: []*AspectRule{
+					Rules: []*pb.AspectRule{
 						{
 							Selector: "ok",
-							Aspects: []*Aspect{
+							Aspects: []*pb.Aspect{
 								{
 									Kind: LC,
 								},

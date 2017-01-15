@@ -22,6 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/pkg/aspect"
+	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -59,10 +60,10 @@ type (
 	// It has been validated as internally consistent and correct.
 	Validated struct {
 		// Names are given to specific adapter configurations: unique
-		adapterByName map[string]*Adapter
+		adapterByName map[string]*pb.Adapter
 		// This is more often used to match adapters
-		adapterByKind map[string][]*Adapter
-		serviceConfig *ServiceConfig
+		adapterByKind map[string][]*pb.Adapter
+		serviceConfig *pb.ServiceConfig
 		numAspects    int
 	}
 )
@@ -70,16 +71,16 @@ type (
 // validateAdapterConfig consumes a yml config string with adapter config.
 // It is validated in presence of validators.
 func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
-	m := &GlobalConfig{}
+	m := &pb.GlobalConfig{}
 	err := yaml.Unmarshal([]byte(cfg), m)
 	if err != nil {
 		ce = ce.Append("AdapterConfig", err)
 		return
 	}
-	p.validated.adapterByKind = make(map[string][]*Adapter)
-	p.validated.adapterByName = make(map[string]*Adapter)
+	p.validated.adapterByKind = make(map[string][]*pb.Adapter)
+	p.validated.adapterByName = make(map[string]*pb.Adapter)
 	var acfg proto.Message
-	var aArr []*Adapter
+	var aArr []*pb.Adapter
 	var found bool
 	for _, aa := range m.GetAdapters() {
 		if acfg, err = ConvertParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
@@ -89,7 +90,7 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
 		aa.Params = acfg
 
 		if aArr, found = p.validated.adapterByKind[aa.GetKind()]; !found {
-			aArr = []*Adapter{}
+			aArr = []*pb.Adapter{}
 		}
 		aArr = append(aArr, aa)
 		p.validated.adapterByKind[aa.GetKind()] = aArr
@@ -112,7 +113,7 @@ func (p *Validator) validateSelector(selector string) (err error) {
 
 // validateAspectRules validates the recursive configuration data structure.
 // It is primarily used by validate ServiceConfig.
-func (p *Validator) validateAspectRules(rules []*AspectRule, path string, validatePresence bool) (ce *aspect.ConfigErrors) {
+func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (ce *aspect.ConfigErrors) {
 	var acfg proto.Message
 	var err error
 	for _, rule := range rules {
@@ -168,7 +169,7 @@ func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated
 // if validatePresence is true it will ensure that the named adapter and Kinds
 // have an available and configured adapter.
 func (p *Validator) validateServiceConfig(cfg string, validatePresence bool) (ce *aspect.ConfigErrors) {
-	m := &ServiceConfig{}
+	m := &pb.ServiceConfig{}
 	err := yaml.Unmarshal([]byte(cfg), m)
 	if err != nil {
 		ce = ce.Append("ServiceConfig", err)
