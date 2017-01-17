@@ -32,7 +32,7 @@ func TestValue_BoolError(t *testing.T) {
 	v := Value{metricValue: "test"}
 
 	if _, err := v.Bool(); err == nil {
-		t.Errorf("Bool() => expected error for value of type %T", v.metricValue)
+		t.Errorf("Bool() expected error for value of type %T", v.metricValue)
 	}
 }
 
@@ -44,7 +44,7 @@ func TestValue_String(t *testing.T) {
 		t.Errorf("String() => unexpected error: %v (for value: %v)", err, v)
 	}
 	if got != v.metricValue {
-		t.Errorf("String() => %t, wanted %t", got, v.metricValue)
+		t.Errorf("String() => %s, wanted %s", got, v.metricValue)
 	}
 }
 
@@ -52,7 +52,7 @@ func TestValue_StringError(t *testing.T) {
 	v := Value{metricValue: 32}
 
 	if _, err := v.String(); err == nil {
-		t.Errorf("Bool() => expected error for value of type %T", v.metricValue)
+		t.Errorf("String() expected error for value of type %T", v.metricValue)
 	}
 }
 
@@ -64,7 +64,7 @@ func TestValue_Int64(t *testing.T) {
 		t.Errorf("Int64() => unexpected error: %v (for value: %v)", err, v)
 	}
 	if got != v.metricValue {
-		t.Errorf("Int64() => %t, wanted %t", got, v.metricValue)
+		t.Errorf("Int64() => %d, wanted %d", got, v.metricValue)
 	}
 }
 
@@ -72,7 +72,7 @@ func TestValue_Int64Error(t *testing.T) {
 	v := Value{metricValue: "test"}
 
 	if _, err := v.Int64(); err == nil {
-		t.Errorf("Int64() => expected error for value of type %T", v.metricValue)
+		t.Errorf("Int64() expected error for value of type %T", v.metricValue)
 	}
 }
 
@@ -84,7 +84,7 @@ func TestValue_Float64(t *testing.T) {
 		t.Errorf("Float64() => unexpected error: %v (for value: %v)", err, v)
 	}
 	if got != v.metricValue {
-		t.Errorf("Float64() => %t, wanted %t", got, v.metricValue)
+		t.Errorf("Float64() => %f, wanted %f", got, v.metricValue)
 	}
 }
 
@@ -92,6 +92,6 @@ func TestValue_Float64Error(t *testing.T) {
 	v := Value{metricValue: "test"}
 
 	if _, err := v.Float64(); err == nil {
-		t.Errorf("Float64() => expected error for value of type %T", v.metricValue)
+		t.Errorf("Float64() expected error for value of type %T", v.metricValue)
 	}
 }
