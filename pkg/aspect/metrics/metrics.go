@@ -18,6 +18,7 @@
 package metrics
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -42,7 +43,7 @@ type (
 		Record([]Value) error
 	}
 
-	// Value holds an single metric value that will be generated through
+	// Value holds a single metric value that will be generated through
 	// a Report() call to the mixer. It is synthesized by the mixer, based
 	// on mixer config and the attributes passed to Report().
 	Value struct {
@@ -54,14 +55,6 @@ type (
 		// Labels provide metadata about the metric value. They are
 		// generated from the set of attributes provided by Report().
 		Labels map[string]interface{}
-		// StringValue is used to pass a string-valued metric value.
-		StringValue string
-		// Int64Value is used to pass a integer-valued metric value.
-		Int64Value int64
-		// Float64Value is used to pass a double-valued metric value.
-		Float64Value float64
-		// BoolValue is used to pass a boolean-valued metric value.
-		BoolValue bool
 		// StartTime marks the beginning of the period for which the
 		// metric value is being reported. For instantaneous metrics,
 		// StartTime records the relevant instant.
@@ -70,6 +63,8 @@ type (
 		// value is being reported. For instantaneous metrics, EndTime
 		// will be set to the same value as StartTime.
 		EndTime time.Time
+
+		metricValue interface{}
 	}
 
 	// Kind defines the set of known metrics types that can be generated
@@ -86,3 +81,31 @@ type (
 		NewAspect(env aspect.Env, config proto.Message) (Aspect, error)
 	}
 )
+
+func (v Value) String() (string, error) {
+	if v, ok := v.metricValue.(string); ok {
+		return v, nil
+	}
+	return "", errors.New("metric value is not a string")
+}
+
+func (v Value) Bool() (bool, error) {
+	if v, ok := v.metricValue.(bool); ok {
+		return v, nil
+	}
+	return false, errors.New("metric value is not a boolean")
+}
+
+func (v Value) Int64() (int64, error) {
+	if v, ok := v.metricValue.(int64); ok {
+		return v, nil
+	}
+	return 0, errors.New("metric value is not an int64")
+}
+
+func (v Value) Float64() (float64, error) {
+	if v, ok := v.metricValue.(float64); ok {
+		return v, nil
+	}
+	return 0, errors.New("metric value is not a float64")
+}
