@@ -25,6 +25,8 @@ option go_package="config";
 // params:
 //    log_name: "endpoint_log"
 //    log_entry_descriptor_names: "application_log_entry", "action_log_entry"
+//    severity_attribute: "severity"
+//    timestamp_attribute: "timestamp"
 //
 message Params {
     // Provides a way to identify a collection of related log entries.
