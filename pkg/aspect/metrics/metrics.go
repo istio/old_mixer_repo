@@ -82,6 +82,7 @@ type (
 	}
 )
 
+// String returns the string-valued metric value for a metrics.Value.
 func (v Value) String() (string, error) {
 	if v, ok := v.metricValue.(string); ok {
 		return v, nil
@@ -89,6 +90,7 @@ func (v Value) String() (string, error) {
 	return "", errors.New("metric value is not a string")
 }
 
+// Bool returns the boolean metric value for a metrics.Value.
 func (v Value) Bool() (bool, error) {
 	if v, ok := v.metricValue.(bool); ok {
 		return v, nil
@@ -96,6 +98,7 @@ func (v Value) Bool() (bool, error) {
 	return false, errors.New("metric value is not a boolean")
 }
 
+// Int64 returns the int64-valued metric value for a metrics.Value.
 func (v Value) Int64() (int64, error) {
 	if v, ok := v.metricValue.(int64); ok {
 		return v, nil
@@ -103,6 +106,7 @@ func (v Value) Int64() (int64, error) {
 	return 0, errors.New("metric value is not an int64")
 }
 
+// Float64 returns the float64-valued metric value for a metrics.Value.
 func (v Value) Float64() (float64, error) {
 	if v, ok := v.metricValue.(float64); ok {
 		return v, nil
