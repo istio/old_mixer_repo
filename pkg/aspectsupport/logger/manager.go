@@ -15,6 +15,7 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -28,8 +29,6 @@ import (
 	"istio.io/mixer/pkg/aspectsupport/logger/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
-
-	"encoding/json"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
@@ -117,7 +116,7 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 		entry := logger.Entry{
 			LogName:   e.logName,
 			Labels:    make(map[string]interface{}),
-			Severity:  stringVal(e.severityAttribute, attrs, labels, "INFO"),
+			Severity:  severityVal(e.severityAttribute, attrs, labels),
 			Timestamp: timeVal(e.timestampAttribute, attrs, labels, e.defaultTimeFn()),
 		}
 
@@ -170,6 +169,15 @@ func stringVal(attrName string, attrs attribute.Bag, labels map[string]interface
 	return dfault
 }
 
+func severityVal(attrName string, attrs attribute.Bag, labels map[string]interface{}) logger.Severity {
+	if name, ok := value(attrName, attrs, strFn, labels).(string); ok {
+		if s, found := logger.SeverityByName(name); found {
+			return s
+		}
+	}
+	return logger.Default
+}
+
 func timeVal(attrName string, attrs attribute.Bag, labels map[string]interface{}, dfault time.Time) time.Time {
 	if v, ok := value(attrName, attrs, timeFn, labels).(time.Time); ok {
 		return v
@@ -183,12 +191,12 @@ func value(attrName string, attrBag attribute.Bag, fn attrBagFn, labels map[stri
 	}
 
 	// check generated labels first, then attributes
-	if payload, ok := labels[attrName]; ok {
-		return payload
+	if v, ok := labels[attrName]; ok {
+		return v
 	}
 
-	if payload, ok := fn(attrBag, attrName); ok {
-		return payload
+	if v, ok := fn(attrBag, attrName); ok {
+		return v
 	}
 
 	// TODO: errors needed here? As of now, this causes default vals to be returned

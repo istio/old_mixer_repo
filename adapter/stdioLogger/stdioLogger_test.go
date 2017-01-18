@@ -68,14 +68,16 @@ func TestAspectImpl_Log(t *testing.T) {
 	stamp, _ := time.Parse("2006-Jan-02", "2017-Jan-09")
 	jan10, _ := time.Parse("2006-Jan-02", "2017-Jan-10")
 
-	textPayloadEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{}, TextPayload: "text payload", Timestamp: stamp, Severity: "INFO"}
-	jsonPayloadEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{}, StructPayload: map[string]interface{}{"val": 42, "obj": map[string]interface{}{"val": false}}, Timestamp: stamp, Severity: "INFO"}
-	labelEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: stamp, Severity: "INFO"}
-	timeOverrideEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: jan10, Severity: "INFO"}
+	structPayload := map[string]interface{}{"val": 42, "obj": map[string]interface{}{"val": false}}
 
-	baseLog := `{"timestamp":"2017-01-09T00:00:00Z","logName":"istio_log","labels":{},"severity":"INFO"}`
-	textPayloadLog := `{"timestamp":"2017-01-09T00:00:00Z","logName":"istio_log","labels":{},"severity":"INFO","textPayload":"text payload"}`
-	jsonPayloadLog := `{"timestamp":"2017-01-09T00:00:00Z","logName":"istio_log","labels":{},"severity":"INFO","structPayload":{"obj":{"val":false},"val":42}}`
+	textPayloadEntry := logger.Entry{LogName: "istio_log", TextPayload: "text payload", Timestamp: stamp, Severity: logger.Info}
+	jsonPayloadEntry := logger.Entry{LogName: "istio_log", StructPayload: structPayload, Timestamp: stamp, Severity: logger.Info}
+	labelEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: stamp, Severity: logger.Info}
+	timeOverrideEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: jan10, Severity: logger.Info}
+
+	baseLog := `{"timestamp":"2017-01-09T00:00:00Z","logName":"istio_log","severity":"INFO"}`
+	textPayloadLog := `{"timestamp":"2017-01-09T00:00:00Z","logName":"istio_log","severity":"INFO","textPayload":"text payload"}`
+	jsonPayloadLog := `{"timestamp":"2017-01-09T00:00:00Z","logName":"istio_log","severity":"INFO","structPayload":{"obj":{"val":false},"val":42}}`
 	labelLog := `{"timestamp":"2017-01-09T00:00:00Z","logName":"istio_log","labels":{"label":42},"severity":"INFO"}`
 	timestampLog := `{"timestamp":"2017-Jan-10","logName":"istio_log","labels":{"label":42},"severity":"INFO"}`
 
@@ -84,7 +86,7 @@ func TestAspectImpl_Log(t *testing.T) {
 
 	tests := []logTests{
 		{baseAspectImpl, []logger.Entry{}, []string{}},
-		{baseAspectImpl, []logger.Entry{{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: stamp, Severity: "INFO"}}, []string{baseLog}},
+		{baseAspectImpl, []logger.Entry{{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: stamp, Severity: logger.Info}}, []string{baseLog}},
 		{baseAspectImpl, []logger.Entry{textPayloadEntry}, []string{textPayloadLog}},
 		{baseAspectImpl, []logger.Entry{jsonPayloadEntry}, []string{jsonPayloadLog}},
 		{baseAspectImpl, []logger.Entry{labelEntry}, []string{labelLog}},

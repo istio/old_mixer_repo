@@ -40,7 +40,7 @@ type (
 
 	logEntry struct {
 		logger.Entry
-		timestampFmt string `json:"-"`
+		timestampFmt string
 	}
 )
 

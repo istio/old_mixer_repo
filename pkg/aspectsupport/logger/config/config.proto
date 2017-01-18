@@ -40,7 +40,7 @@ message Params {
 
     // The name of the attribute that will be used to derive log severity.
     // If this attribute is not found in the set of attributes passed to this
-    // implementation, a default severity of INFO will be used.
+    // implementation, a default severity of "DEFAULT" will be used.
     string severity_attribute = 3;
 
     // The name of the attribute that will be used to derive the timestamp

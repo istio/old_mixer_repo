@@ -17,6 +17,7 @@ package logger
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -27,8 +28,6 @@ import (
 	"istio.io/mixer/pkg/aspectsupport/logger/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
-
-	"time"
 
 	jtpb "github.com/golang/protobuf/jsonpb/jsonpb_test_proto"
 	configpb "istio.io/api/mixer/v1/config"
@@ -116,12 +115,16 @@ func TestExecutor_Execute(t *testing.T) {
 	jsonPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
 	withInputsExec := &executor{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
 
+	jsonBag := &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":true}`}}
+
 	executeShouldSucceed := []executeTestCase{
 		{"no descriptors", noDescriptorExec, &testBag{}, &testEvaluator{}, 0},
 		{"no payload", noPayloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
+		{"severity", noPayloadExec, &testBag{strs: map[string]string{"key": "value", "severity": "info"}}, &testEvaluator{}, 1},
+		{"bad severity", noPayloadExec, &testBag{strs: map[string]string{"key": "value", "severity": "500"}}, &testEvaluator{}, 1},
 		{"payload not found", payloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
 		{"with payload", payloadExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
-		{"with json payload", jsonPayloadExec, &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":true}`}}, &testEvaluator{}, 1},
+		{"with json payload", jsonPayloadExec, jsonBag, &testEvaluator{}, 1},
 		{"with payload from inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
 		{"with non-default time", payloadExec, &testBag{times: map[string]time.Time{"ts": time.Now()}}, &testEvaluator{}, 1},
 		{"with inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
