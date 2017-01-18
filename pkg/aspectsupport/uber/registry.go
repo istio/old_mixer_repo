@@ -48,26 +48,26 @@ func (r *Registry) ByImpl(adapterName string) (aspect.Adapter, bool) {
 }
 
 // RegisterCheckList registers adapters implementing the listChecker aspect.
-func (r *Registry) RegisterCheckList(a listChecker.Adapter) error {
-	r.insert(a)
+func (r *Registry) RegisterCheckList(list listChecker.Adapter) error {
+	r.insert(list)
 	return nil
 }
 
 // RegisterDeny registers adapters implementing the denyChecker aspect.
-func (r *Registry) RegisterDeny(a denyChecker.Adapter) error {
-	r.insert(a)
+func (r *Registry) RegisterDeny(deny denyChecker.Adapter) error {
+	r.insert(deny)
 	return nil
 }
 
 // RegisterLogger registers adapters implementing the logger aspect.
-func (r *Registry) RegisterLogger(a alogger.Adapter) error {
-	r.insert(a)
+func (r *Registry) RegisterLogger(logger alogger.Adapter) error {
+	r.insert(logger)
 	return nil
 }
 
 // RegisterQuota registers adapters implementing the quota aspect.
-func (r *Registry) RegisterQuota(a quota.Adapter) error {
-	r.insert(a)
+func (r *Registry) RegisterQuota(quota quota.Adapter) error {
+	r.insert(quota)
 	return nil
 }
 
