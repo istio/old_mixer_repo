@@ -32,7 +32,9 @@ type Registry struct {
 	adaptersByName map[string]aspect.Adapter
 }
 
-// NewRegistry returns a registry whose implementation assumes that all adapters are uniquely named.
+// NewRegistry returns a registry whose implementation requires that all adapters have a globally unique name
+// (not just unique per aspect). Registering two adapters with the same name results in the first registered adapter
+// being replaced by the second.
 func NewRegistry() *Registry {
 	return &Registry{adaptersByName: make(map[string]aspect.Adapter)}
 }
@@ -57,17 +59,13 @@ func (r *Registry) RegisterDeny(a denyChecker.Adapter) error {
 	return nil
 }
 
-// RegisterLogger informs the mixer that an implementation of the
-// logging aspect is provided by the supplied adapter. This adapter
-// will be used to build individual instances of the logger aspect
-// according to mixer config.
+// RegisterLogger registers adapters implementing the logger aspect.
 func (r *Registry) RegisterLogger(a alogger.Adapter) error {
 	r.insert(a)
 	return nil
 }
 
-// RegisterQuota is used by adapters to register themselves as implementing the
-// quota aspect.
+// RegisterQuota registers adapters implementing the quota aspect.
 func (r *Registry) RegisterQuota(a quota.Adapter) error {
 	r.insert(a)
 	return nil
