@@ -21,32 +21,16 @@ option go_package = "config";
 message Params {
 
     // Stream is used to select between different logs output sinks.
-    // STDERR is the default Stream.
     enum Stream {
-
         // STDERR refers to os.Stderr.
         STDERR = 0;
-
         // STDOUT refers to os.Stdout.
         STDOUT = 1;
     }
 
     // Selects which standard stream to write to for log entries.
+    // STDERR is the default Stream.
     Stream log_stream = 1;
-
-    // PayloadFormat details the currently supported logging payload formats.
-    // TEXT is the default payload format.
-    enum PayloadFormat {
-
-        // Indicates a payload format of raw text.
-        TEXT = 0;
-
-        // Indicates a structured payload (JSON object).
-        STRUCTURED = 1;
-    }
-
-    // Format of the value of the payload attribute.
-    PayloadFormat payload_format = 2;
 
     // The format to use when serializing timestamps. It is expected that
     // this format string will follow the conventions of golang's time.Time

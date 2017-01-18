@@ -35,19 +35,23 @@ type (
 	// Entry is the set of data that together constitutes a log entry.
 	Entry struct {
 		// LogName is the name of the log in which to record this entry.
-		LogName string
+		LogName string `json:"logName",omitempty`
 		// Labels are a set of metadata associated with this entry.
 		// For instance, Labels can be used to describe the monitored
 		// resource that corresponds to the log entry.
-		Labels map[string]interface{}
-		// Payload is the actual data for which the entry is being
-		// generated.
-		Payload string
+		Labels map[string]interface{} `json:"labels",omitempty`
 		// Timestamp is the time value for the log entry
-		Timestamp time.Time
+		Timestamp time.Time `json:"timestamp,omitempty"`
 		// Severity indicates the log level for the log entry.
 		// Example levels: "INFO", "WARNING", "500"
-		Severity string
+		Severity string `json:"severity",omitempty`
+		// TextPayload is textual logs data for which the entry is being
+		// generated.
+		TextPayload string `json:"textPayload,omitempty"`
+		// StructPayload is a structured set of data, extracted from
+		// a serialized JSON Object, that represent the actual data
+		// for which the entry is being generated.
+		StructPayload map[string]interface{} `json:"structPayload,omitempty"`
 	}
 
 	// Adapter is the interface for building Aspect instances for mixer

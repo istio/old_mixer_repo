@@ -157,7 +157,7 @@ new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
     path = "../api",
-    commit = "e55fd946afe11f7aab49ee5eaf1dc4f9ecd7e61d",
+    commit = "bfe9416e34c2b5f2207f949a2cad5e57dbffdef5",
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
     use_local = False,

@@ -98,6 +98,12 @@ func TestExecutor_Execute(t *testing.T) {
 		Attributes:       []string{"key"},
 		PayloadAttribute: "payload",
 	}
+	jsonPayloadDesc := dpb.LogEntryDescriptor{
+		Name:             "test",
+		Attributes:       []string{"key"},
+		PayloadAttribute: "payload",
+		PayloadFormat:    dpb.LogEntryDescriptor_JSON,
+	}
 	withInputsDesc := dpb.LogEntryDescriptor{
 		Name:             "test",
 		Attributes:       []string{"key"},
@@ -107,6 +113,7 @@ func TestExecutor_Execute(t *testing.T) {
 	noDescriptorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", nil, time.Now}
 	noPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
 	payloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
+	jsonPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
 	withInputsExec := &executor{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
 
 	executeShouldSucceed := []executeTestCase{
@@ -114,6 +121,7 @@ func TestExecutor_Execute(t *testing.T) {
 		{"no payload", noPayloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
 		{"payload not found", payloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
 		{"with payload", payloadExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
+		{"with json payload", jsonPayloadExec, &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":true}`}}, &testEvaluator{}, 1},
 		{"with payload from inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
 		{"with non-default time", payloadExec, &testBag{times: map[string]time.Time{"ts": time.Now()}}, &testEvaluator{}, 1},
 		{"with inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
@@ -138,11 +146,19 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 		Name:       "test",
 		Attributes: []string{"key"},
 	}
+	jsonPayloadDesc := dpb.LogEntryDescriptor{
+		Name:             "test",
+		Attributes:       []string{"key"},
+		PayloadAttribute: "payload",
+		PayloadFormat:    dpb.LogEntryDescriptor_JSON,
+	}
 
 	errorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", &testLogger{errOnLog: true}, time.Now}
+	jsonErrorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
 
 	executeShouldFail := []executeTestCase{
 		{"log failure", errorExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
+		{"json payload failure", jsonErrorExec, &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":`}}, &testEvaluator{}, 1},
 	}
 
 	for _, v := range executeShouldFail {

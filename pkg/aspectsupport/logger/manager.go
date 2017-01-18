@@ -29,6 +29,8 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
+	"encoding/json"
+
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
@@ -112,13 +114,22 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 	}
 
 	for _, d := range e.descriptors {
-		// TODO: replace all logic for value generation with uber manager refactor
 		entry := logger.Entry{
 			LogName:   e.logName,
 			Labels:    make(map[string]interface{}),
-			Payload:   stringVal(d.PayloadAttribute, attrs, labels, ""),
 			Severity:  stringVal(e.severityAttribute, attrs, labels, "INFO"),
 			Timestamp: timeVal(e.timestampAttribute, attrs, labels, e.defaultTimeFn()),
+		}
+
+		payloadStr := stringVal(d.PayloadAttribute, attrs, labels, "")
+		switch d.PayloadFormat {
+		case dpb.LogEntryDescriptor_TEXT:
+			entry.TextPayload = payloadStr
+		case dpb.LogEntryDescriptor_JSON:
+			err := json.Unmarshal([]byte(payloadStr), &entry.StructPayload)
+			if err != nil {
+				return nil, fmt.Errorf("could not unmarshal json payload: %v", err)
+			}
 		}
 
 		for _, a := range d.Attributes {

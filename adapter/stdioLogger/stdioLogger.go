@@ -18,7 +18,6 @@ package stdioLogger
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"time"
@@ -35,26 +34,14 @@ import (
 type (
 	adapter    struct{}
 	aspectImpl struct {
-		logStream     io.Writer
-		payloadFormat payloadFormat
-		timestampFmt  string
+		logStream    io.Writer
+		timestampFmt string
 	}
-
-	payloadFormat int
 
 	logEntry struct {
-		Name          string                 `json:"logName,omitempty"`
-		Timestamp     string                 `json:"timestamp,omitempty"`
-		Severity      string                 `json:"severity,omitempty"`
-		Labels        map[string]interface{} `json:"labels,omitempty"`
-		TextPayload   string                 `json:"textPayload,omitempty"`
-		StructPayload map[string]interface{} `json:"structPayload,omitempty"`
+		logger.Entry
+		timestampFmt string `json:"-"`
 	}
-)
-
-const (
-	textFmt   payloadFormat = iota
-	structFmt payloadFormat = iota
 )
 
 // Register adds the stdioLogger adapter to the list of logger.Aspects known to
@@ -76,11 +63,6 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 		w = os.Stdout
 	}
 
-	pFmt := textFmt
-	if c.PayloadFormat == config.Params_STRUCTURED {
-		pFmt = structFmt
-	}
-
 	tFmt := time.RFC3339
 	if c.TimestampFormat != "" {
 		// TODO: validation of timestamp format
@@ -88,19 +70,15 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 	}
 
 	return &aspectImpl{
-		logStream:     w,
-		payloadFormat: pFmt,
-		timestampFmt:  tFmt,
+		logStream:    w,
+		timestampFmt: tFmt,
 	}, nil
 }
 
 func (a *aspectImpl) Close() error { return nil }
 func (a *aspectImpl) Log(l []logger.Entry) error {
 	var errors *me.Error
-	entries, err := a.entries(l)
-	if err != nil {
-		errors = me.Append(errors, err)
-	}
+	entries := a.entries(l)
 	for _, le := range entries {
 		if err := writeJSON(a.logStream, le); err != nil {
 			errors = me.Append(errors, err)
@@ -110,40 +88,24 @@ func (a *aspectImpl) Log(l []logger.Entry) error {
 	return errors.ErrorOrNil()
 }
 
-func (a *aspectImpl) entries(le []logger.Entry) ([]logEntry, error) {
-	var errors *me.Error
+func (a *aspectImpl) entries(le []logger.Entry) []logEntry {
 	entries := make([]logEntry, 0, len(le))
 	for _, e := range le {
-		entry, err := a.entry(e)
-		if err != nil {
-			errors = me.Append(errors, fmt.Errorf("failed to build logStream entry: %v", err))
-			continue
-		}
-		entries = append(entries, entry)
+		entries = append(entries, logEntry{e, a.timestampFmt})
 	}
-	return entries, errors.ErrorOrNil()
+	return entries
 }
 
-func (a *aspectImpl) entry(l logger.Entry) (logEntry, error) {
-	e := logEntry{
-		Name:      l.LogName,
-		Severity:  l.Severity,
-		Labels:    l.Labels,
-		Timestamp: l.Timestamp.Format(a.timestampFmt),
-	}
-
-	if l.Payload != "" {
-		switch a.payloadFormat {
-		case structFmt:
-			if err := json.Unmarshal([]byte(l.Payload), &e.StructPayload); err != nil {
-				return logEntry{}, fmt.Errorf("could not unmarshal struct payload: %v", err)
-			}
-		default:
-			e.TextPayload = l.Payload
-		}
-	}
-
-	return e, nil
+// NOTE: this is added to support control for timestamp serialization
+func (l logEntry) MarshalJSON() ([]byte, error) {
+	type Alias logEntry
+	return json.Marshal(&struct {
+		Timestamp string `json:"timestamp"`
+		Alias
+	}{
+		Timestamp: l.Timestamp.Format(l.timestampFmt),
+		Alias:     (Alias)(l),
+	})
 }
 
 func writeJSON(w io.Writer, le logEntry) error {
