@@ -18,6 +18,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/struct"
@@ -110,6 +111,7 @@ func (s *StaticHandlers) handle(
 	output func(*status.Status)) {
 
 	ab, err := tracker.StartRequest(attrs)
+	defer tracker.EndRequest()
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
 		output(newStatus(code.Code_INVALID_ARGUMENT))
@@ -122,17 +124,18 @@ func (s *StaticHandlers) handle(
 	for _, conf := range configs {
 		out, err = s.mngr.Execute(conf, ab, s.eval)
 		if err != nil {
-			glog.Warningf("Adapter %s returned err: %v", conf.Adapter.Name, err)
-			output(newStatus(code.Code_INTERNAL))
+			errorStr := fmt.Sprintf("Adapter %s returned err: %v", conf.Adapter.Name, err)
+			glog.Warning(errorStr)
+			output(newStatusWithMessage(code.Code_INTERNAL, errorStr))
 			return
 		}
 		if out.Code != code.Code_OK {
 			glog.Infof("Adapter '%s' returned not-OK code: %v", conf.Adapter.Name, out.Code)
-			output(newStatus(out.Code))
+			output(newStatusWithMessage(out.Code, "Rejected by adapter "+conf.Adapter.Name))
 			return
 		}
 	}
-	output(newStatus(out.Code))
+	output(newStatus(code.Code_OK))
 }
 
 // Check performs the configured set of precondition checks.
