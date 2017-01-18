@@ -106,7 +106,7 @@ func runServer(sa *serverArgs) error {
 		CompressedPayload:    sa.compressedPayload,
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
-		Handlers:             api.NewMethodHandlers(),
+		Handlers:             api.NewStaticHandlers(),
 		AttributeManager:     attrMgr,
 		Tracer:               tracer,
 	}
