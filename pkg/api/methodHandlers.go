@@ -54,6 +54,10 @@ func newStatus(c code.Code) *status.Status {
 	return &status.Status{Code: int32(c)}
 }
 
+func newStatusWithMessage(c code.Code, message string) *status.Status {
+	return &status.Status{Code: int32(c), Message: message}
+}
+
 func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
 	return &mixerpb.QuotaResponse_Error{Error: newStatus(c)}
 }
