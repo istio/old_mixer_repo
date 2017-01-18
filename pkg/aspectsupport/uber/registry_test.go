@@ -42,7 +42,7 @@ func (denyAdapter) NewAspect(env aspect.Env, cfg proto.Message) (denyChecker.Asp
 	return nil, fmt.Errorf("not implemented")
 }
 
-func TestRegistry_RegisterDeny(t *testing.T) {
+func TestRegisterDeny(t *testing.T) {
 	reg := NewRegistry()
 	adapter := denyAdapter{testAdapter{name: "foo"}}
 
@@ -66,12 +66,12 @@ func (listAdapter) NewAspect(env aspect.Env, cfg proto.Message) (listChecker.Asp
 	return nil, fmt.Errorf("not implemented")
 }
 
-func TestRegistry_RegisterCheckList(t *testing.T) {
+func TestCheckList(t *testing.T) {
 	reg := NewRegistry()
 	adapter := listAdapter{testAdapter{name: "foo"}}
 
 	if err := reg.RegisterCheckList(adapter); err != nil {
-		t.Errorf("Failed to register deny adapter with err: %v", err)
+		t.Errorf("Failed to register check list adapter with err: %v", err)
 	}
 
 	impl, ok := reg.ByImpl(adapter.Name())
@@ -90,12 +90,12 @@ func (loggerAdapter) NewAspect(env aspect.Env, cfg proto.Message) (al.Aspect, er
 	return nil, fmt.Errorf("not implemented")
 }
 
-func TestRegistry_RegisterLogger(t *testing.T) {
+func TestRegisterLogger(t *testing.T) {
 	reg := NewRegistry()
 	adapter := loggerAdapter{testAdapter{name: "foo"}}
 
 	if err := reg.RegisterLogger(adapter); err != nil {
-		t.Errorf("Failed to register deny adapter with err: %v", err)
+		t.Errorf("Failed to register logging adapter with err: %v", err)
 	}
 
 	impl, ok := reg.ByImpl(adapter.Name())
@@ -114,12 +114,12 @@ func (quotaAdapter) NewAspect(env aspect.Env, cfg proto.Message) (quota.Aspect, 
 	return nil, fmt.Errorf("not implemented")
 }
 
-func TestRegistry_RegisterQuota(t *testing.T) {
+func TestRegisterQuota(t *testing.T) {
 	reg := NewRegistry()
 	adapter := quotaAdapter{testAdapter{name: "foo"}}
 
 	if err := reg.RegisterQuota(adapter); err != nil {
-		t.Errorf("Failed to register deny adapter with err: %v", err)
+		t.Errorf("Failed to register quota adapter with err: %v", err)
 	}
 
 	impl, ok := reg.ByImpl(adapter.Name())
@@ -132,7 +132,7 @@ func TestRegistry_RegisterQuota(t *testing.T) {
 	}
 }
 
-func TestRegistry_VerifyCollision(t *testing.T) {
+func TestCollision(t *testing.T) {
 	reg := NewRegistry()
 	name := "some name that they both have"
 

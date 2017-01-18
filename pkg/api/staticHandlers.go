@@ -18,7 +18,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/struct"
@@ -39,7 +38,7 @@ import (
 
 // StaticHandlers is an implementation of MethodHandlers whose configs are static and derived at compile time.
 type StaticHandlers struct {
-	u    uber.Manager
+	mngr uber.Manager
 	eval expr.Evaluator
 
 	// Configs for the aspects that'll be used to serve each API method.
@@ -95,8 +94,8 @@ func NewStaticHandlers() *StaticHandlers {
 	quotaConfs := []*aspectsupport.CombinedConfig{}
 
 	return &StaticHandlers{
-		u:      *uber.NewManager(registry, managers),
-		eval:   identityEval{},
+		mngr:   *uber.NewManager(registry, managers),
+		eval:   expr.NewIdentityEvaluator(),
 		check:  checkConfs,
 		report: reportConfs,
 		quota:  quotaConfs,
@@ -121,7 +120,7 @@ func (s *StaticHandlers) handle(
 	// returned by an adapter, and return the last adapter's status otherwise.
 	var out *aspectsupport.Output
 	for _, conf := range configs {
-		out, err = s.u.Execute(conf, ab, s.eval)
+		out, err = s.mngr.Execute(conf, ab, s.eval)
 		if err != nil {
 			glog.Warningf("Adapter %s returned err: %v", conf.Adapter.Name, err)
 			output(newStatus(code.Code_INTERNAL))
@@ -165,46 +164,4 @@ func (s *StaticHandlers) Quota(ctx context.Context, tracker attribute.Tracker, r
 			resp.Result = &mixerpb.QuotaResponse_EffectiveAmount{EffectiveAmount: 0}
 		}
 	})
-}
-
-// identityEval is an evaluator that expects mapExpression to be a key in the attribute bag. It does no evaluation, only lookup.
-type identityEval struct{}
-
-// Eval attempts to extract the key `mapExpression` from the attribute bag. It performs no evaluation.
-func (identityEval) Eval(mapExpression string, attrs attribute.Bag) (interface{}, error) {
-	if val, exists := attrs.Bool(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := attrs.String(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := attrs.Bytes(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := attrs.Float64(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := attrs.Int64(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := attrs.Time(mapExpression); exists {
-		return val, nil
-	}
-	return nil, fmt.Errorf("%s not in attribute bag", mapExpression)
-}
-
-// EvalString attempts to extract the key `mapExpression` from the attribute bag. It performs no evaluation.
-func (identityEval) EvalString(mapExpression string, attrs attribute.Bag) (string, error) {
-	if val, exists := attrs.String(mapExpression); exists {
-		return val, nil
-	}
-	return "", fmt.Errorf("%s not in attribute bag", mapExpression)
-}
-
-// EvalPredicate attempts to extract the a boolean key `mapExpression` from the attribute bag. It performs no evaluation.
-func (identityEval) EvalPredicate(mapExpression string, attrs attribute.Bag) (bool, error) {
-	if val, exists := attrs.Bool(mapExpression); exists {
-		return val, nil
-	}
-	return false, fmt.Errorf("%s not in attribute bag", mapExpression)
 }
