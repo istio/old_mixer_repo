@@ -20,12 +20,23 @@ type (
 	// Evaluator maps Given an expression Language
 	Evaluator interface {
 		// Eval evaluates given expression using the attribute bag
-		Eval(mapExpression string, attrs attribute.Bag) (interface{}, error)
+		Eval(expression string, attrs attribute.Bag) (interface{}, error)
 
 		// Eval evaluates given expression using the attribute bag to a string
-		EvalString(mapExpression string, attrs attribute.Bag) (string, error)
+		EvalString(expression string, attrs attribute.Bag) (string, error)
 
+		PredicateEvaluator
+	}
+
+	// Evaluates a predicate to true or false
+	PredicateEvaluator interface {
 		// EvalPredicate evaluates given predicate using the attribute bag
-		EvalPredicate(mapExpression string, attrs attribute.Bag) (bool, error)
+		EvalPredicate(expression string, attrs attribute.Bag) (bool, error)
+	}
+
+	// Validater validates a given expression
+	Validater interface {
+		// Validate ensures that the given expression is syntactically correct
+		Validate(expression string) error
 	}
 )
