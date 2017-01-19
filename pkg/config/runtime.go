@@ -85,10 +85,7 @@ func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 				} else {
 					adp = p.adapterByKind[aa.GetKind()][0]
 				}
-				*dlist = append(*dlist, &Combined{
-					Adapter: adp,
-					Aspect:  aa,
-				})
+				*dlist = append(*dlist, &Combined{adp, aa})
 			}
 		}
 		rs := rule.GetRules()
