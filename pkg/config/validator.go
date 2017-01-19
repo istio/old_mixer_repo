@@ -131,10 +131,10 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 			if validatePresence {
 				// ensure that aa.Kind has a registered adapter
 				if p.validated.adapterByKind[aa.GetKind()] == nil {
-					ce = ce.Appendf("Kind", "No adapter for Kind=%s is available", aa.GetKind())
+					ce = ce.Appendf("Kind", "adapter for Kind=%s is not available", aa.GetKind())
 				}
 				if aa.GetAdapter() != "" && p.validated.adapterByName[aa.GetAdapter()] == nil {
-					ce = ce.Appendf("NamedAdapter", "No adapter by name %s Available", aa.GetAdapter())
+					ce = ce.Appendf("NamedAdapter", "adapter by name %s not available", aa.GetAdapter())
 				}
 			}
 		}
@@ -152,14 +152,16 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 // Validate validates a single serviceConfig and globalConfig together.
 // It returns a fully validated Config if no errors are found.
 func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated, ce *aspect.ConfigErrors) {
-
+	var cerr *aspect.ConfigErrors
 	if re := p.validateGlobalConfig(globalCfg); re != nil {
-		return rt, ce.Append("GlobalConfig", re)
+		cerr = ce.Appendf("GlobalConfig", "failed validation")
+		return rt, cerr.Extend(re)
 	}
 	// The order is important here, because serviceConfig refers to global config
 
 	if re := p.validateServiceConfig(serviceCfg, true); re != nil {
-		return rt, ce.Append("ServiceConfig", re)
+		cerr = ce.Appendf("ServiceConfig", "failed validation")
+		return rt, cerr.Extend(re)
 	}
 
 	return p.validated, nil
@@ -207,17 +209,16 @@ func ConvertParams(finder ValidatorFinder, name string, params interface{}, stri
 // Decode interprets src interface{} as the specified proto message.
 func Decode(src interface{}, dest proto.Message, strict bool) (err error) {
 	var md mapstructure.Metadata
-	mcfg := mapstructure.DecoderConfig{
+	var decoder *mapstructure.Decoder
+	if decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Metadata: &md,
 		Result:   dest,
-	}
-	var decoder *mapstructure.Decoder
-	if decoder, err = mapstructure.NewDecoder(&mcfg); err != nil {
+	}); err != nil {
 		return err
 	}
+
 	if err = decoder.Decode(src); err == nil && strict && len(md.Unused) > 0 {
 		return fmt.Errorf("unused fields while parsing %s", md.Unused)
 	}
-
 	return err
 }

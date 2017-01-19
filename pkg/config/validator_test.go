@@ -117,37 +117,67 @@ func TestConfigValidatorError(t *testing.T) {
 
 func TestFullConfigValidator(t *testing.T) {
 	fe := newFakeExpr()
-
-	ctable := []*configTable{
+	ctable := []struct {
+		cerr     *aspect.ConfigError
+		v        map[string]aspect.ConfigValidator
+		selector string
+		strict   bool
+		cfg      string
+		exprErr  error
+	}{
+		{&aspect.ConfigError{"Kind", fmt.Errorf("adapter for Kind=metrics is not available")},
+			map[string]aspect.ConfigValidator{
+				"istio/denychecker": &lc{},
+				"metrics":           &lc{},
+				"listchecker":       &lc{},
+			}, "service.name == “*”", false, sSvcConfig1, nil},
 		{nil,
 			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
-			}, 1, "service.name == “*”", false, sSvcConfig1},
+			}, "service.name == “*”", false, sSvcConfig2, nil},
 		{nil,
 			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
-			}, 0, "service.name == “*”", false, sSvcConfig2},
+			}, "", false, sSvcConfig2, nil},
+		{&aspect.ConfigError{"NamedAdapter", fmt.Errorf("adapter by name denychecker.2 not available")},
+			map[string]aspect.ConfigValidator{
+				"istio/denychecker": &lc{},
+				"metrics":           &lc{},
+				"listchecker":       &lc{},
+			}, "", false, sSvcConfig3, nil},
+		{&aspect.ConfigError{":Selector service.name == “*”", fmt.Errorf("invalid expression")},
+			map[string]aspect.ConfigValidator{
+				"istio/denychecker": &lc{},
+				"metrics":           &lc{},
+				"listchecker":       &lc{},
+			}, "service.name == “*”", false, sSvcConfig1, fmt.Errorf("invalid expression")},
 	}
 	for idx, ctx := range ctable {
 		mgr := &fakeVFinder{v: ctx.v}
+		fe.err = ctx.exprErr
 		p := NewValidator(mgr, mgr, ctx.strict, fe)
-
+		// sGlobalConfig only defines 1 adapter: listChecker
 		_, ce := p.Validate(ctx.cfg, sGlobalConfig)
 		cok := ce == nil
-		ok := ctx.nerrors == 0
-
+		ok := ctx.cerr == nil
 		if ok != cok {
 			t.Errorf("%d Expected %t Got %t", idx, ok, cok)
 		}
-
-		if ce != nil && len(ce.Multi.Errors) != ctx.nerrors {
-			t.Error(idx, "\nExpected:", ctx.cerr.Error(), "\nGot:", ce.Error(), len(ce.Multi.Errors))
+		if ce == nil {
+			continue
 		}
-
+		if len(ce.Multi.Errors) < 2 {
+			t.Errorf("expected at least 2 errors reported")
+			continue
+		}
+		if ctx.cerr.Error() != ce.Multi.Errors[1].Error() {
+			t.Errorf("expected: %#v\ngot: %#v\n", ctx.cerr.Error(), ce.Multi.Errors[1].Error())
+			t.Errorf("expected: %#v\ngot: %#v\n", ctx.cerr, ce.Multi.Errors[1])
+		}
 	}
 }
 
@@ -166,6 +196,12 @@ func TestConfigParseError(t *testing.T) {
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
 		t.Error("Expected unmarhal Error", ce)
 	}
+
+	_, ce = p.Validate("<config>  </config>", "<config>  </config>")
+	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
+		t.Error("Expected unmarhal Error", ce)
+	}
+
 }
 
 const sGlobalConfig = `
@@ -206,7 +242,17 @@ rules:
     inputs: {}
     params:
 `
-
+const sSvcConfig3 = `
+subject: namespace:ns
+revision: "2022"
+rules:
+- selector: service.name == “*”
+  aspects:
+  - kind: listchecker
+    inputs: {}
+    params:
+    adapter: denychecker.2
+`
 const sSvcConfig = `
 subject: namespace:ns
 revision: "2022"
@@ -232,6 +278,7 @@ rules:
 `
 
 type fakeExpr struct {
+	err error
 }
 
 // newFakeExpr returns the basic
@@ -290,4 +337,4 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (v b
 	return v, UnboundVariable(mapExpression)
 }
 
-func (e *fakeExpr) Validate(expression string) error { return nil }
+func (e *fakeExpr) Validate(expression string) error { return e.err }

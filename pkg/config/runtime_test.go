@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hashicorp/go-multierror"
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	pb "istio.io/mixer/pkg/config/proto"
@@ -118,8 +119,12 @@ func TestRuntime(t *testing.T) {
 		rt := NewRuntime(v, fe)
 
 		al, err := rt.Resolve(bag, aspects)
-		if err != tt.err {
-			t.Error(idx, err)
+
+		if tt.err != nil {
+			merr := err.(*multierror.Error)
+			if merr.Errors[0] != tt.err {
+				t.Error(idx, "expected:", tt.err, "\ngot:", merr.Errors[0])
+			}
 		}
 
 		if len(al) != tt.nlen {
