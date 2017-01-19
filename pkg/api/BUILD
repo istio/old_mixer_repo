@@ -7,15 +7,13 @@ go_library(
     srcs = [
         "grpcServer.go",
         "methodHandlers.go",
-        "staticHandlers.go",
     ],
     deps = [
-        "//adapter/denyChecker:go_default_library",
         "//pkg/aspectsupport:go_default_library",
-        "//pkg/aspectsupport/denyChecker:go_default_library",
         "//pkg/aspectsupport/uber:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
+        "//pkg/registry:go_default_library",
         "//pkg/tracing:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
