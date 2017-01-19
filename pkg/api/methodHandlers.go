@@ -78,18 +78,14 @@ type methodHandlers struct {
 	eval expr.Evaluator
 
 	// Configs for the aspects that'll be used to serve each API method.
-	check  []*aspectsupport.CombinedConfig
-	report []*aspectsupport.CombinedConfig
-	quota  []*aspectsupport.CombinedConfig
+	configs map[Method][]*aspectsupport.CombinedConfig
 }
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
 func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 	registry := uber.NewRegistry()
 	managers := make([]aspectsupport.Manager, len(bindings))
-	check := make([]*aspectsupport.CombinedConfig, 0)
-	report := make([]*aspectsupport.CombinedConfig, 0)
-	quota := make([]*aspectsupport.CombinedConfig, 0)
+	configs := map[Method][]*aspectsupport.CombinedConfig{Check: {}, Report: {}, Quota: {}}
 
 	for i, binding := range bindings {
 		if err := binding.RegisterFn(registry); err != nil {
@@ -97,23 +93,14 @@ func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 		}
 		managers[i] = binding.Manager
 		for _, method := range binding.Methods {
-			switch method {
-			case Check:
-				check = append(check, binding.Config)
-			case Report:
-				report = append(report, binding.Config)
-			case Quota:
-				quota = append(quota, binding.Config)
-			}
+			configs[method] = append(configs[method], binding.Config)
 		}
 	}
 
 	return &methodHandlers{
-		mngr:   *uber.NewManager(registry, managers),
-		eval:   expr.NewIdentityEvaluator(),
-		check:  check,
-		report: report,
-		quota:  quota,
+		mngr:    *uber.NewManager(registry, managers),
+		eval:    expr.NewIdentityEvaluator(),
+		configs: configs,
 	}
 }
 
@@ -128,7 +115,7 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
-	for _, conf := range h.configsFor(method) {
+	for _, conf := range h.configs[method] {
 		// TODO: plumb ctx through uber.manager.Execute
 		_ = ctx
 		out, err := h.mngr.Execute(conf, ab, h.eval)
@@ -158,18 +145,6 @@ func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, r
 	response.RequestIndex = request.RequestIndex
 	status := h.execute(ctx, tracker, request.AttributeUpdate, Quota)
 	response.Result = newQuotaError(code.Code(status.Code))
-}
-
-func (h *methodHandlers) configsFor(method Method) []*aspectsupport.CombinedConfig {
-	switch method {
-	case Check:
-		return h.check
-	case Report:
-		return h.report
-	case Quota:
-		return h.quota
-	}
-	return []*aspectsupport.CombinedConfig{}
 }
 
 func newStatus(c code.Code) *status.Status {
