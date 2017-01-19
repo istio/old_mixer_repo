@@ -12,6 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package config handles configuration ingestion and processing.
+// Validator
+// 1. Accepts new configuration from user
+// 2. Validates configuration
+// 3. Produces a "ValidatedConfig"
+// Runtime
+// 1. It is validated and actionable configuration
+// 2. It resolves the configuration to a list of Combined {aspect, adapter} configs
+//    given an attribute.Bag.
+// 3. Combined config has complete information needed to dispatch aspect
 package config
 
 import (
@@ -31,7 +41,7 @@ type (
 	// Manager registry and adapter registry should implement this interface
 	// so ConfigValidators can be uniformly accessed.
 	ValidatorFinder interface {
-		Find(name string) (aspect.ConfigValidator, bool)
+		FindValidator(name string) (aspect.ConfigValidator, bool)
 	}
 )
 
@@ -71,9 +81,9 @@ type (
 // validateAdapterConfig consumes a yml config string with adapter config.
 // It is validated in presence of validators.
 func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
+	var err error
 	m := &pb.GlobalConfig{}
-	err := yaml.Unmarshal([]byte(cfg), m)
-	if err != nil {
+	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
 		ce = ce.Append("AdapterConfig", err)
 		return
 	}
@@ -171,9 +181,9 @@ func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated
 // if validatePresence is true it will ensure that the named adapter and Kinds
 // have an available and configured adapter.
 func (p *Validator) validateServiceConfig(cfg string, validatePresence bool) (ce *aspect.ConfigErrors) {
+	var err error
 	m := &pb.ServiceConfig{}
-	err := yaml.Unmarshal([]byte(cfg), m)
-	if err != nil {
+	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
 		ce = ce.Append("ServiceConfig", err)
 		return
 	}
@@ -191,8 +201,10 @@ func UnknownValidator(name string) error {
 
 // ConvertParams converts returns a typed proto message based on available Validator.
 func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (proto.Message, error) {
-	avl, found := finder.Find(name)
-	if !found {
+	var avl aspect.ConfigValidator
+	var found bool
+
+	if avl, found = finder.FindValidator(name); !found {
 		return nil, UnknownValidator(name)
 	}
 
