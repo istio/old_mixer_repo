@@ -23,7 +23,13 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
+	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/aspectsupport/uber"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
+	regpkg "istio.io/mixer/pkg/registry"
+
+	"fmt"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
@@ -47,7 +53,123 @@ type MethodHandlers interface {
 	Quota(context.Context, attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
+// Method constants are used to refer to the methods handled by MethodHandlers
+type Method int
+
+const (
+	// Check represents MethodHandlers.Check
+	Check Method = iota
+	// Report represents MethodHandlers.Report
+	Report
+	// Quota represents MethodHandlers.Quota
+	Quota
+)
+
+// StaticBinding contains all of the pieces required to wire up an adapter to serve traffic in the mixer.
+type StaticBinding struct {
+	RegisterFn regpkg.RegisterFn
+	Manager    aspectsupport.Manager
+	Config     *aspectsupport.CombinedConfig
+	Methods    []Method
+}
+
 type methodHandlers struct {
+	mngr uber.Manager
+	eval expr.Evaluator
+
+	// Configs for the aspects that'll be used to serve each API method.
+	check  []*aspectsupport.CombinedConfig
+	report []*aspectsupport.CombinedConfig
+	quota  []*aspectsupport.CombinedConfig
+}
+
+// NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
+func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
+	registry := uber.NewRegistry()
+	managers := make([]aspectsupport.Manager, len(bindings))
+	check := make([]*aspectsupport.CombinedConfig, 0)
+	report := make([]*aspectsupport.CombinedConfig, 0)
+	quota := make([]*aspectsupport.CombinedConfig, 0)
+
+	for i, binding := range bindings {
+		if err := binding.RegisterFn(registry); err != nil {
+			panic(fmt.Errorf("failed to register binding '%s' with err: %s", binding.Config.Adapter.Name, err))
+		}
+		managers[i] = binding.Manager
+		for _, method := range binding.Methods {
+			switch method {
+			case Check:
+				check = append(check, binding.Config)
+			case Report:
+				report = append(report, binding.Config)
+			case Quota:
+				quota = append(quota, binding.Config)
+			}
+		}
+	}
+
+	return &methodHandlers{
+		mngr:   *uber.NewManager(registry, managers),
+		eval:   expr.NewIdentityEvaluator(),
+		check:  check,
+		report: report,
+		quota:  quota,
+	}
+}
+
+// does the standard attribute dance for each request
+func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, method Method) *status.Status {
+	ab, err := tracker.StartRequest(attrs)
+	if err != nil {
+		glog.Warningf("Unable to process attribute update. error: '%v'", err)
+		return newStatus(code.Code_INVALID_ARGUMENT)
+	}
+	defer tracker.EndRequest()
+
+	// get a new context with the attribute bag attached
+	ctx = attribute.NewContext(ctx, ab)
+	for _, conf := range h.configsFor(method) {
+		// TODO: plumb ctx through uber.manager.Execute
+		_ = ctx
+		out, err := h.mngr.Execute(conf, ab, h.eval)
+		if err != nil {
+			errorStr := fmt.Sprintf("Adapter %s returned err: %v", conf.Adapter.Name, err)
+			glog.Warning(errorStr)
+			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
+		}
+		if out.Code != code.Code_OK {
+			return newStatusWithMessage(out.Code, "Rejected by adapter "+conf.Adapter.Name)
+		}
+	}
+	return newStatus(code.Code_OK)
+}
+
+func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+	response.RequestIndex = request.RequestIndex
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, Check)
+}
+
+func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+	response.RequestIndex = request.RequestIndex
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, Report)
+}
+
+func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+	response.RequestIndex = request.RequestIndex
+	status := h.execute(ctx, tracker, request.AttributeUpdate, Quota)
+	response.Result = newQuotaError(code.Code(status.Code))
+}
+
+func (h *methodHandlers) configsFor(method Method) []*aspectsupport.CombinedConfig {
+	switch method {
+	case Check:
+		return h.check
+	case Report:
+		return h.report
+	case Quota:
+		return h.quota
+	}
+	return []*aspectsupport.CombinedConfig{}
 }
 
 func newStatus(c code.Code) *status.Status {
@@ -60,55 +182,4 @@ func newStatusWithMessage(c code.Code, message string) *status.Status {
 
 func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
 	return &mixerpb.QuotaResponse_Error{Error: newStatus(c)}
-}
-
-// NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
-func NewMethodHandlers() MethodHandlers {
-	return &methodHandlers{}
-}
-
-type workFunc func(context.Context, attribute.MutableBag) *status.Status
-
-// does the standard attribute dance for each request
-func wrapper(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, workFn workFunc) *status.Status {
-	ab, err := tracker.StartRequest(attrs)
-	if err != nil {
-		glog.Warningf("Unable to process attribute update. error: '%v'", err)
-		return newStatus(code.Code_INVALID_ARGUMENT)
-	}
-	defer tracker.EndRequest()
-
-	// get a new context with the attribute bag attached
-	ctx = attribute.NewContext(ctx, ab)
-	_ = ctx // will eventually be passed down to adapters
-
-	return workFn(ctx, ab)
-}
-
-func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
-	response.RequestIndex = request.RequestIndex
-	response.Result = wrapper(ctx, tracker, request.AttributeUpdate, h.checkWorker)
-}
-
-func (h *methodHandlers) checkWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
-	return newStatus(code.Code_UNIMPLEMENTED)
-}
-
-func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
-	response.RequestIndex = request.RequestIndex
-	response.Result = wrapper(ctx, tracker, request.AttributeUpdate, h.reportWorker)
-}
-
-func (h *methodHandlers) reportWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
-	return newStatus(code.Code_UNIMPLEMENTED)
-}
-
-func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	response.RequestIndex = request.RequestIndex
-	status := wrapper(ctx, tracker, request.AttributeUpdate, h.quotaWorker)
-	response.Result = newQuotaError(code.Code(status.Code))
-}
-
-func (h *methodHandlers) quotaWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
-	return newStatus(code.Code_UNIMPLEMENTED)
 }

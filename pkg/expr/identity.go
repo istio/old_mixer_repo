@@ -31,22 +31,7 @@ func NewIdentityEvaluator() Evaluator {
 
 // Eval attempts to extract the key `mapExpression` from the attribute bag. It performs no evaluation.
 func (identity) Eval(mapExpression string, bag attribute.Bag) (interface{}, error) {
-	if val, exists := bag.Bool(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := bag.String(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := bag.Bytes(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := bag.Float64(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := bag.Int64(mapExpression); exists {
-		return val, nil
-	}
-	if val, exists := bag.Time(mapExpression); exists {
+	if val, found := attribute.Value(bag, mapExpression); found {
 		return val, nil
 	}
 	return nil, fmt.Errorf("%s not in attribute bag", mapExpression)
