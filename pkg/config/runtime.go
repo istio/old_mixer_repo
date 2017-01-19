@@ -18,13 +18,14 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
+	multierror "github.com/hashicorp/go-multierror"
 	pb "istio.io/mixer/pkg/config/proto"
 )
 
 type (
-	// Runtime Represents the runtime view of the config.
-	// It contains  pre-validated and immutable.
-	// It can be safely used concurrently
+	// Runtime represents the runtime view of the config.
+	// It is pre-validated and immutable.
+	// It can be safely used concurrently.
 	Runtime struct {
 		Validated
 		// used to evaluate selectors
@@ -62,10 +63,12 @@ func (p *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, 
 func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
 
 	var selected bool
+	var lerr error
 
 	for _, rule := range rules {
-		if selected, err = p.eval.EvalPredicate(rule.GetSelector(), bag); err != nil {
-			return err
+		if selected, lerr = p.eval.EvalPredicate(rule.GetSelector(), bag); lerr != nil {
+			err = multierror.Append(err, lerr)
+			continue
 		}
 
 		if !selected {
@@ -92,9 +95,10 @@ func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 		if len(rs) == 0 {
 			continue
 		}
-		if err = p.resolveRules(bag, aspectSet, rs, path, dlist); err != nil {
-			return err
+		if lerr = p.resolveRules(bag, aspectSet, rs, path, dlist); lerr != nil {
+			err = multierror.Append(err, lerr)
+			continue
 		}
 	}
-	return nil
+	return err
 }
