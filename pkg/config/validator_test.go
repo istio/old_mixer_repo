@@ -29,7 +29,7 @@ type fakeVFinder struct {
 	v map[string]aspect.ConfigValidator
 }
 
-func (f *fakeVFinder) Find(name string) (aspect.ConfigValidator, bool) {
+func (f *fakeVFinder) FindValidator(name string) (aspect.ConfigValidator, bool) {
 	v, found := f.v[name]
 	return v, found
 }
@@ -188,18 +188,18 @@ func TestConfigParseError(t *testing.T) {
 	ce := p.validateServiceConfig("<config>  </config>", false)
 
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
-		t.Error("Expected unmarhal Error", ce)
+		t.Error("Expected unmarshal Error", ce)
 	}
 
 	ce = p.validateGlobalConfig("<config>  </config>")
 
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
-		t.Error("Expected unmarhal Error", ce)
+		t.Error("Expected unmarshal Error", ce)
 	}
 
 	_, ce = p.Validate("<config>  </config>", "<config>  </config>")
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
-		t.Error("Expected unmarhal Error", ce)
+		t.Error("Expected unmarshal Error", ce)
 	}
 
 }
