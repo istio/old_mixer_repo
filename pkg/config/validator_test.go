@@ -21,9 +21,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/mitchellh/mapstructure"
-	aspectpb "istio.io/api/mixer/v1/config/aspect"
+	listcheckerpb "istio.io/mixer/pkg/aspectsupport/listChecker/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+
 )
 
 type fakeVFinder struct {
@@ -40,7 +41,7 @@ type lc struct {
 }
 
 func (m *lc) DefaultConfig() (implConfig proto.Message) {
-	return &aspectpb.ListCheckerConfig{}
+	return &listcheckerpb.Params{}
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
