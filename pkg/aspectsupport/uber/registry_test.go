@@ -38,7 +38,7 @@ func (testAdapter) ValidateConfig(implConfig proto.Message) *aspect.ConfigErrors
 
 type denyAdapter struct{ testAdapter }
 
-func (denyAdapter) NewAspect(env aspect.Env, cfg proto.Message) (denyChecker.Aspect, error) {
+func (denyAdapter) NewDenyChecker(env aspect.Env, cfg proto.Message) (denyChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -62,7 +62,7 @@ func TestRegisterDeny(t *testing.T) {
 
 type listAdapter struct{ testAdapter }
 
-func (listAdapter) NewAspect(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
+func (listAdapter) NewListChecker(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -86,7 +86,7 @@ func TestCheckList(t *testing.T) {
 
 type loggerAdapter struct{ testAdapter }
 
-func (loggerAdapter) NewAspect(env aspect.Env, cfg proto.Message) (al.Aspect, error) {
+func (loggerAdapter) NewLogger(env aspect.Env, cfg proto.Message) (al.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -110,7 +110,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type quotaAdapter struct{ testAdapter }
 
-func (quotaAdapter) NewAspect(env aspect.Env, cfg proto.Message) (quota.Aspect, error) {
+func (quotaAdapter) NewQuota(env aspect.Env, cfg proto.Message) (quota.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

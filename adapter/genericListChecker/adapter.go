@@ -38,6 +38,6 @@ func (a *adapterState) Close() error                                            
 func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return }
 func (a *adapterState) DefaultConfig() proto.Message                               { return &config.Params{} }
 
-func (a *adapterState) NewAspect(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
 	return newAspect(cfg.(*config.Params))
 }

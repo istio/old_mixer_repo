@@ -63,9 +63,9 @@ type (
 	Adapter interface {
 		aspect.Adapter
 
-		// NewAspect returns a new Logger implementation, based on the
+		// NewLogger returns a new Logger implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewAspect(env aspect.Env, config proto.Message) (Aspect, error)
+		NewLogger(env aspect.Env, config proto.Message) (Aspect, error)
 	}
 )
 

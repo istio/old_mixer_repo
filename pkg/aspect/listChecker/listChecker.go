@@ -30,7 +30,7 @@ type (
 	// Adapter builds the ListChecker Aspect
 	Adapter interface {
 		aspect.Adapter
-		// NewAspect returns a new ListChecker
-		NewAspect(env aspect.Env, cfg proto.Message) (Aspect, error)
+		// NewListChecker returns a new ListChecker.
+		NewListChecker(env aspect.Env, cfg proto.Message) (Aspect, error)
 	}
 )

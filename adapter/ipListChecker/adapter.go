@@ -65,6 +65,6 @@ func (a *adapterState) DefaultConfig() proto.Message {
 	}
 }
 
-func (a *adapterState) NewAspect(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
 	return newAspect(env, cfg.(*config.Params))
 }

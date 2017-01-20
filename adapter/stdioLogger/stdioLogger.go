@@ -48,7 +48,7 @@ func (a *adapter) Description() string {
 func (a *adapter) DefaultConfig() proto.Message                               { return &config.Params{} }
 func (a *adapter) Close() error                                               { return nil }
 func (a *adapter) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return nil }
-func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, error) {
+func (a *adapter) NewLogger(env aspect.Env, cfg proto.Message) (logger.Aspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr
@@ -58,7 +58,6 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 
 	return &aspectImpl{w}, nil
 }
-
 func (a *aspectImpl) Close() error { return nil }
 func (a *aspectImpl) Log(entries []logger.Entry) error {
 	var errors *me.Error

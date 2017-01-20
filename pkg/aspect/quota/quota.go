@@ -40,9 +40,9 @@ type (
 	Adapter interface {
 		aspect.Adapter
 
-		// NewAspect returns a new quota implementation, based on the
+		// NewQuota returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewAspect(env aspect.Env, config proto.Message) (Aspect, error)
+		NewQuota(env aspect.Env, config proto.Message) (Aspect, error)
 	}
 
 	// Args supplies the arguments for quota operations.

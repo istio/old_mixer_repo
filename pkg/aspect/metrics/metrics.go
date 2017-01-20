@@ -76,9 +76,9 @@ type (
 	Adapter interface {
 		aspect.Adapter
 
-		// NewAspect returns a new quota implementation, based on the
+		// NewMetrics returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewAspect(env aspect.Env, config proto.Message) (Aspect, error)
+		NewMetrics(env aspect.Env, config proto.Message) (Aspect, error)
 	}
 )
 
