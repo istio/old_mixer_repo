@@ -29,7 +29,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
+        "//pkg/aspectsupport/listChecker/config:go_default_library",
         "@com_github_istio_api//:mixer/v1",
-	"//pkg/aspectsupport/listChecker/config:go_default_library",
     ],
 )

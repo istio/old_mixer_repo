@@ -21,10 +21,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/mitchellh/mapstructure"
-	listcheckerpb "istio.io/mixer/pkg/aspectsupport/listChecker/config"
 	"istio.io/mixer/pkg/aspect"
+	listcheckerpb "istio.io/mixer/pkg/aspectsupport/listChecker/config"
 	"istio.io/mixer/pkg/attribute"
-
 )
 
 type fakeVFinder struct {
