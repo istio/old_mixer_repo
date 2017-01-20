@@ -119,18 +119,17 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
-	var out *aspect.Output
 	for _, conf := range h.configs[method] {
+		// TODO: should we keep this check? In theory, it saves us from starting a goroutine for the next adapter before we check to see
+		// if the context is done inside of execWrapper.
 		select {
 		case <-ctx.Done():
-			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
-			// then that adapter must have returned an OK code since we exit processing at the first non-OK status.
 			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
 		default: // Don't block on Done, keep on processing with adapters.
 		}
 
-		_ = ctx // TODO: plumb context through the manager's execute func.
-		out, err = h.mngr.Execute(conf, ab, h.eval)
+		// TODO: should we set a shorter deadline for each adapter? As written, we only care about the request's deadline.
+		out, err := h.execWrapper(ctx, conf, ab)
 		if err != nil {
 			errorStr := fmt.Sprintf("Adapter '%s' returned err: %v", conf.Builder.Name, err)
 			glog.Warning(errorStr)
@@ -141,6 +140,38 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 		}
 	}
 	return newStatus(code.Code_OK)
+}
+
+// execWrapper is responsible for dispatching calls to the manager and recovering from panics in adapter impls.
+// It also monitors the RPC's deadline for timeouts.
+func (h *methodHandlers) execWrapper(ctx context.Context, conf *aspect.CombinedConfig, ab attribute.Bag) (*aspect.Output, error) {
+	type result struct {
+		out *aspect.Output
+		err error
+	}
+	c := make(chan result)
+	// TODO: should we use some threadpool impl instead of just spawning a thread?
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				glog.Warningf("Recovered from panic in adapter '%s'", conf.Builder.Name)
+				if err, ok := r.(error); ok {
+					c <- result{nil, err}
+				} else {
+					c <- result{nil, fmt.Errorf("adapter '%s' panicked", conf.Builder.Name)}
+				}
+			}
+		}()
+		o, err := h.mngr.Execute(conf, ab, h.eval)
+		c <- result{o, err}
+	}()
+
+	select {
+	case res := <-c:
+		return res.out, res.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
