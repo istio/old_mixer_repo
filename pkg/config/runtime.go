@@ -54,48 +54,56 @@ func NewRuntime(v *Validated, evaluator expr.PredicateEvaluator) *Runtime {
 // It will only return config from the requested set of aspects.
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
-func (p *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error) {
-	dlist := make([]*Combined, 0, p.numAspects)
-	err := p.resolveRules(bag, aspectSet, p.serviceConfig.GetRules(), "/", &dlist)
+func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error) {
+	dlist := make([]*Combined, 0, r.numAspects)
+	err := r.resolveRules(bag, aspectSet, r.serviceConfig.GetRules(), "/", &dlist)
 	return dlist, err
 }
 
-func (p *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
-
+// resolveRules recurses thru the config struct and returns a list of combined aspects
+func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
 	var selected bool
 	var lerr error
 
 	for _, rule := range rules {
-		if selected, lerr = p.eval.EvalPredicate(rule.GetSelector(), bag); lerr != nil {
+		if selected, lerr = r.eval.EvalPredicate(rule.GetSelector(), bag); lerr != nil {
 			err = multierror.Append(err, lerr)
 			continue
 		}
-
 		if !selected {
 			continue
 		}
 		path = path + "/" + rule.GetSelector()
 		for _, aa := range rule.GetAspects() {
-			var adp *pb.Adapter
-			if aspectSet[aa.GetKind()] {
-				// find matching adapter
-				// assume that config references are correct
-				if aa.GetAdapter() != "" {
-					adp = p.adapterByName[aa.GetAdapter()]
-				} else {
-					adp = p.adapterByKind[aa.GetKind()][0]
-				}
-				*dlist = append(*dlist, &Combined{adp, aa})
+			if cs := r.combined(aa, aspectSet); cs != nil {
+				*dlist = append(*dlist, cs)
 			}
 		}
 		rs := rule.GetRules()
 		if len(rs) == 0 {
 			continue
 		}
-		if lerr = p.resolveRules(bag, aspectSet, rs, path, dlist); lerr != nil {
+		if lerr = r.resolveRules(bag, aspectSet, rs, path, dlist); lerr != nil {
 			err = multierror.Append(err, lerr)
-			continue
 		}
 	}
 	return err
+}
+
+// combined returns a Combined config given an aspect config
+func (r *Runtime) combined(aa *pb.Aspect, aspectSet AspectSet) *Combined {
+	if !aspectSet[aa.GetKind()] {
+		return nil
+	}
+
+	var adp *pb.Adapter
+	// find matching adapter
+	// assume that config references are correct
+	if aa.GetAdapter() != "" {
+		adp = r.adapterByName[aa.GetAdapter()]
+	} else {
+		adp = r.adapterByKind[aa.GetKind()][0]
+	}
+
+	return &Combined{adp, aa}
 }

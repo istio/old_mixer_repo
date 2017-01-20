@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/mitchellh/mapstructure"
 	aspectpb "istio.io/api/mixer/v1/config/aspect"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -201,7 +202,31 @@ func TestConfigParseError(t *testing.T) {
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
 		t.Error("Expected unmarshal Error", ce)
 	}
+}
 
+type fakeDecoder struct {
+	err error
+}
+
+func (f *fakeDecoder) Decode(raw interface{}) error {
+	return f.err
+}
+
+func TestDecodeError(t *testing.T) {
+	var err error
+	newDecoderErr := fmt.Errorf("decoder creation error")
+	if err = Decode(nil, nil, true, func(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
+		return nil, newDecoderErr
+	}); err != newDecoderErr {
+		t.Error("expected", newDecoderErr, "got:", err)
+	}
+
+	decodeError := fmt.Errorf("decode error")
+	if err = Decode(nil, nil, true, func(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
+		return &fakeDecoder{decodeError}, nil
+	}); err != decodeError {
+		t.Error("expected", decodeError, "got:", err)
+	}
 }
 
 const sGlobalConfig = `

@@ -78,7 +78,7 @@ type (
 	}
 )
 
-// validateAdapterConfig consumes a yml config string with adapter config.
+// validateGlobalConfig consumes a yml config string with adapter config.
 // It is validated in presence of validators.
 func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
 	var err error
@@ -218,19 +218,42 @@ func ConvertParams(finder ValidatorFinder, name string, params interface{}, stri
 	return acfg, nil
 }
 
+// Decoder interface is used for injecting alternate decoders
+type Decoder interface {
+	Decode(raw interface{}) error
+}
+
+type newDecoderFn func(md *mapstructure.Metadata, dst interface{}) (Decoder, error)
+
+// NewDecoder creates a standard mapstructure decoder given metadata
+// but returns a Decoder interface
+func NewDecoder(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
+	return mapstructure.NewDecoder(
+		&mapstructure.DecoderConfig{Metadata: md, Result: dst},
+	)
+}
+
 // Decode interprets src interface{} as the specified proto message.
-func Decode(src interface{}, dest proto.Message, strict bool) (err error) {
+// optional newDecoderFn can be passed in, otherwise standard NewDecoder is used.
+func Decode(src interface{}, dst proto.Message, strict bool, newDecoders ...newDecoderFn) (err error) {
 	var md mapstructure.Metadata
-	var decoder *mapstructure.Decoder
-	if decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Metadata: &md,
-		Result:   dest,
-	}); err != nil {
+	var d Decoder
+	newDecoder := NewDecoder
+	if len(newDecoders) > 0 {
+		newDecoder = newDecoders[0]
+	}
+
+	if d, err = newDecoder(&md, dst); err != nil {
 		return err
 	}
 
-	if err = decoder.Decode(src); err == nil && strict && len(md.Unused) > 0 {
+	if err = d.Decode(src); err != nil {
+		return err
+	}
+
+	if strict && len(md.Unused) > 0 {
 		return fmt.Errorf("unused fields while parsing %s", md.Unused)
 	}
-	return err
+
+	return nil
 }
