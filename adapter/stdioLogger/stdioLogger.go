@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/adapter/stdioLogger/config"
@@ -34,13 +33,7 @@ import (
 type (
 	adapter    struct{}
 	aspectImpl struct {
-		logStream    io.Writer
-		timestampFmt string
-	}
-
-	logEntry struct {
-		logger.Entry
-		timestampFmt string
+		logStream io.Writer
 	}
 )
 
@@ -63,24 +56,14 @@ func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, e
 		w = os.Stdout
 	}
 
-	tFmt := time.RFC3339
-	if c.TimestampFormat != "" {
-		// TODO: validation of timestamp format
-		tFmt = c.TimestampFormat
-	}
-
-	return &aspectImpl{
-		logStream:    w,
-		timestampFmt: tFmt,
-	}, nil
+	return &aspectImpl{w}, nil
 }
 
 func (a *aspectImpl) Close() error { return nil }
-func (a *aspectImpl) Log(l []logger.Entry) error {
+func (a *aspectImpl) Log(entries []logger.Entry) error {
 	var errors *me.Error
-	entries := a.entries(l)
-	for _, le := range entries {
-		if err := writeJSON(a.logStream, le); err != nil {
+	for _, entry := range entries {
+		if err := writeJSON(a.logStream, entry); err != nil {
 			errors = me.Append(errors, err)
 		}
 	}
@@ -88,26 +71,6 @@ func (a *aspectImpl) Log(l []logger.Entry) error {
 	return errors.ErrorOrNil()
 }
 
-func (a *aspectImpl) entries(le []logger.Entry) []logEntry {
-	entries := make([]logEntry, 0, len(le))
-	for _, e := range le {
-		entries = append(entries, logEntry{e, a.timestampFmt})
-	}
-	return entries
-}
-
-// NOTE: this is added to support control for timestamp serialization
-func (l logEntry) MarshalJSON() ([]byte, error) {
-	type Alias logEntry
-	return json.Marshal(&struct {
-		Timestamp string `json:"timestamp"`
-		Alias
-	}{
-		Timestamp: l.Timestamp.Format(l.timestampFmt),
-		Alias:     (Alias)(l),
-	})
-}
-
-func writeJSON(w io.Writer, le logEntry) error {
+func writeJSON(w io.Writer, le logger.Entry) error {
 	return json.NewEncoder(w).Encode(le)
 }

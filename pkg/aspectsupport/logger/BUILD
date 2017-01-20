@@ -29,7 +29,6 @@ go_test(
     srcs = ["manager_test.go"],
     library = ":go_default_library",
     deps = [
-        "@com_github_golang_protobuf//jsonpb/jsonpb_test_proto:go_default_library",
         "@com_github_istio_api//:mixer/v1/config",
     ],
 )

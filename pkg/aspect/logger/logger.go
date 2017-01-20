@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/pkg/aspect"
@@ -44,7 +43,7 @@ type (
 		// resource that corresponds to the log entry.
 		Labels map[string]interface{} `json:"labels,omitempty"`
 		// Timestamp is the time value for the log entry
-		Timestamp time.Time `json:"timestamp,omitempty"`
+		Timestamp string `json:"timestamp,omitempty"`
 		// Severity indicates the log level for the log entry.
 		Severity Severity `json:"severity,omitempty"`
 		// TextPayload is textual logs data for which the entry is being

@@ -42,6 +42,7 @@ type (
 		inputs             map[string]string        // map from param to expr
 		severityAttribute  string
 		timestampAttribute string
+		timestampFmt       string
 		aspect             logger.Aspect
 		defaultTimeFn      func() time.Time
 	}
@@ -65,6 +66,7 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 	logName := logCfg.LogName
 	severityAttr := logCfg.SeverityAttribute
 	timestampAttr := logCfg.TimestampAttribute
+	timestampFmt := logCfg.TimestampFormat
 	// TODO: look up actual descriptors by name and build an array
 
 	// cast to logger.Adapter from aspect.Adapter
@@ -91,13 +93,24 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 		inputs = c.Aspect.Inputs
 	}
 
-	return &executor{logName, []dpb.LogEntryDescriptor{}, inputs, severityAttr, timestampAttr, aspectImpl, time.Now}, nil
+	return &executor{
+		logName,
+		[]dpb.LogEntryDescriptor{},
+		inputs,
+		severityAttr,
+		timestampAttr,
+		timestampFmt,
+		aspectImpl,
+		time.Now,
+	}, nil
 }
 
 func (*manager) Kind() string { return "istio/logger" }
 func (*manager) DefaultConfig() proto.Message {
-	return &config.Params{LogName: "istio_log"}
+	return &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
+
+// TODO: validation of timestamp format
 func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) { return nil }
 
 func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
@@ -117,7 +130,7 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 			LogName:   e.logName,
 			Labels:    make(map[string]interface{}),
 			Severity:  severityVal(e.severityAttribute, attrs, labels),
-			Timestamp: timeVal(e.timestampAttribute, attrs, labels, e.defaultTimeFn()),
+			Timestamp: timeVal(e.timestampAttribute, attrs, labels, e.defaultTimeFn()).Format(e.timestampFmt),
 		}
 
 		payloadStr := stringVal(d.PayloadAttribute, attrs, labels, "")
@@ -132,6 +145,9 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 		}
 
 		for _, a := range d.Attributes {
+			if a == d.PayloadAttribute {
+				continue
+			}
 			if val, ok := labels[a]; ok {
 				entry.Labels[a] = val
 				continue

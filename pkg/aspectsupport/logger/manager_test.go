@@ -16,6 +16,7 @@ package logger
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
-	jtpb "github.com/golang/protobuf/jsonpb/jsonpb_test_proto"
 	configpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
@@ -42,21 +42,47 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestManager_NewAspect(t *testing.T) {
+	tl := &testLogger{}
+
+	defaultExec := &executor{
+		logName:      "istio_log",
+		timestampFmt: time.RFC3339,
+		aspect:       tl,
+		inputs:       map[string]string{},
+		descriptors:  []dpb.LogEntryDescriptor{},
+	}
+
+	overrideExec := &executor{
+		logName:      "istio_log",
+		timestampFmt: "2006-Jan-02",
+		aspect:       tl,
+		inputs:       map[string]string{},
+		descriptors:  []dpb.LogEntryDescriptor{},
+	}
+
+	overrideStruct := newStruct(structMap{"timestamp_format": newStringVal("2006-Jan-02")})
+
 	newAspectShouldSucceed := []aspectTestCase{
-		{"empty", widget, &structpb.Struct{}},
-		{"nil", widget, nil},
-		{"override", widget, widgetStruct},
+		{"empty", &config.Params{}, newStruct(nil), defaultExec},
+		{"nil", &config.Params{}, nil, defaultExec},
+		{"override", &config.Params{}, overrideStruct, overrideExec},
 	}
 
 	m := NewManager()
 
 	for _, v := range newAspectShouldSucceed {
 		c := aspectsupport.CombinedConfig{
-			Adapter: &configpb.Adapter{Params: v.params},
-			Aspect:  &configpb.Aspect{Inputs: map[string]string{}},
+			Adapter: &configpb.Adapter{},
+			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
-		if _, err := m.NewAspect(&c, &testLogger{defaultCfg: v.defaultCfg}, testEnv{}); err != nil {
+		asp, err := m.NewAspect(&c, tl, testEnv{})
+		if err != nil {
 			t.Errorf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+		}
+		got := asp.(*executor)
+		got.defaultTimeFn = nil // ignore time fns in equality comp
+		if !reflect.DeepEqual(got, v.want) {
+			t.Errorf("NewAspect() => %v (%T), want %v (%T)", got, got, v.want, v.want)
 		}
 	}
 }
@@ -88,13 +114,14 @@ func TestManager_NewAspectFailures(t *testing.T) {
 }
 
 func TestExecutor_Execute(t *testing.T) {
+	testTime, _ := time.Parse("2006-Jan-02", "2011-Aug-14")
 	noPayloadDesc := dpb.LogEntryDescriptor{
 		Name:       "test",
 		Attributes: []string{"attr"},
 	}
 	payloadDesc := dpb.LogEntryDescriptor{
 		Name:             "test",
-		Attributes:       []string{"key"},
+		Attributes:       []string{"attr", "payload"},
 		PayloadAttribute: "payload",
 	}
 	jsonPayloadDesc := dpb.LogEntryDescriptor{
@@ -109,25 +136,46 @@ func TestExecutor_Execute(t *testing.T) {
 		PayloadAttribute: "attr",
 	}
 
-	noDescriptorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", nil, time.Now}
-	noPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
-	payloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
-	jsonPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
-	withInputsExec := &executor{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
+	noDescriptorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", "", nil, time.Now}
+	noPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	payloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	jsonPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	withInputsExec := &executor{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	withTimestampFormatExec := &executor{
+		"istio_log",
+		[]dpb.LogEntryDescriptor{noPayloadDesc},
+		map[string]string{"attr": "val"},
+		"severity",
+		"ts",
+		"2006-Jan-02",
+		nil,
+		time.Now,
+	}
 
 	jsonBag := &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":true}`}}
+	tsBag := &testBag{times: map[string]time.Time{"ts": testTime}}
+
+	structPayload := map[string]interface{}{"obj": map[string]interface{}{"val": float64(54)}, "question": true}
+
+	defaultEntry := newEntry("istio_log", map[string]interface{}{"attr": "val"}, "", logger.Default, "", nil)
+	infoEntry := newEntry("istio_log", map[string]interface{}{"attr": "val"}, "", logger.Info, "", nil)
+	textPayloadEntry := newEntry("istio_log", map[string]interface{}{"attr": "val"}, "", logger.Default, "test", nil)
+	jsonPayloadEntry := newEntry("istio_log", map[string]interface{}{"key": "value"}, "", logger.Default, "", structPayload)
+	inputsEntry := newEntry("istio_log", map[string]interface{}{"key": "value"}, "", logger.Default, "val", nil)
+	timeEntry := newEntry("istio_log", map[string]interface{}{"attr": "val"}, "2011-Aug-14", logger.Default, "", nil)
 
 	executeShouldSucceed := []executeTestCase{
-		{"no descriptors", noDescriptorExec, &testBag{}, &testEvaluator{}, 0},
-		{"no payload", noPayloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
-		{"severity", noPayloadExec, &testBag{strs: map[string]string{"key": "value", "severity": "info"}}, &testEvaluator{}, 1},
-		{"bad severity", noPayloadExec, &testBag{strs: map[string]string{"key": "value", "severity": "500"}}, &testEvaluator{}, 1},
-		{"payload not found", payloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
-		{"with payload", payloadExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
-		{"with json payload", jsonPayloadExec, jsonBag, &testEvaluator{}, 1},
-		{"with payload from inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
-		{"with non-default time", payloadExec, &testBag{times: map[string]time.Time{"ts": time.Now()}}, &testEvaluator{}, 1},
-		{"with inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, 1},
+		{"no descriptors", noDescriptorExec, &testBag{}, &testEvaluator{}, nil},
+		{"no payload", noPayloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, []logger.Entry{defaultEntry}},
+		{"severity", noPayloadExec, &testBag{strs: map[string]string{"key": "value", "severity": "info"}}, &testEvaluator{}, []logger.Entry{infoEntry}},
+		{"bad severity", noPayloadExec, &testBag{strs: map[string]string{"key": "value", "severity": "500"}}, &testEvaluator{}, []logger.Entry{defaultEntry}},
+		{"payload not found", payloadExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, []logger.Entry{defaultEntry}},
+		{"with payload", payloadExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, []logger.Entry{textPayloadEntry}},
+		{"with json payload", jsonPayloadExec, jsonBag, &testEvaluator{}, []logger.Entry{jsonPayloadEntry}},
+		{"with payload from inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, []logger.Entry{inputsEntry}},
+		{"with non-default time", payloadExec, &testBag{times: map[string]time.Time{"ts": time.Now()}}, &testEvaluator{}, []logger.Entry{defaultEntry}},
+		{"with non-default time and format", withTimestampFormatExec, tsBag, &testEvaluator{}, []logger.Entry{timeEntry}},
+		{"with inputs", withInputsExec, &testBag{strs: map[string]string{"key": "value", "payload": "test"}}, &testEvaluator{}, []logger.Entry{inputsEntry}},
 	}
 
 	for _, v := range executeShouldSucceed {
@@ -137,8 +185,11 @@ func TestExecutor_Execute(t *testing.T) {
 		if _, err := v.exec.Execute(v.bag, v.mapper); err != nil {
 			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, err)
 		}
-		if l.entryCount != v.wantEntryCount {
-			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.entryCount, v.wantEntryCount, v.name)
+		if l.entryCount != len(v.wantEntries) {
+			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.entryCount, len(v.wantEntries), v.name)
+		}
+		if !reflect.DeepEqual(l.entries, v.wantEntries) {
+			t.Errorf("Execute(): got %v, wanted %v for %s", l.entries, v.wantEntries, v.name)
 		}
 	}
 }
@@ -156,12 +207,14 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 		PayloadFormat:    dpb.LogEntryDescriptor_JSON,
 	}
 
-	errorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", &testLogger{errOnLog: true}, time.Now}
-	jsonErrorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", nil, time.Now}
+	errorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", "", &testLogger{errOnLog: true}, time.Now}
+	jsonErrorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+
+	jsonPayloadBag := &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":`}}
 
 	executeShouldFail := []executeTestCase{
-		{"log failure", errorExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, 1},
-		{"json payload failure", jsonErrorExec, &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":`}}, &testEvaluator{}, 1},
+		{"log failure", errorExec, &testBag{strs: map[string]string{"key": "value"}}, &testEvaluator{}, []logger.Entry{}},
+		{"json payload failure", jsonErrorExec, jsonPayloadBag, &testEvaluator{}, []logger.Entry{}},
 	}
 
 	for _, v := range executeShouldFail {
@@ -173,9 +226,10 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 
 func TestManager_DefaultConfig(t *testing.T) {
 	m := NewManager()
-	o := m.DefaultConfig()
-	if !proto.Equal(o, &config.Params{LogName: "istio_log"}) {
-		t.Errorf("DefaultConfig(): wanted empty proto, got %v", o)
+	got := m.DefaultConfig()
+	want := &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	if !proto.Equal(got, want) {
+		t.Errorf("DefaultConfig(): got %v, wanted %v", got, want)
 	}
 }
 
@@ -192,13 +246,14 @@ type (
 		name       string
 		defaultCfg proto.Message
 		params     *structpb.Struct
+		want       *executor
 	}
 	executeTestCase struct {
-		name           string
-		exec           *executor
-		bag            attribute.Bag
-		mapper         expr.Evaluator
-		wantEntryCount int
+		name        string
+		exec        *executor
+		bag         attribute.Bag
+		mapper      expr.Evaluator
+		wantEntries []logger.Entry
 	}
 	testLogger struct {
 		logger.Adapter
@@ -206,6 +261,7 @@ type (
 
 		defaultCfg     proto.Message
 		entryCount     int
+		entries        []logger.Entry
 		errOnNewAspect bool
 		errOnLog       bool
 	}
@@ -223,11 +279,6 @@ type (
 	}
 )
 
-var (
-	widget       = &jtpb.Widget{Color: jtpb.Widget_RED.Enum(), RColor: []jtpb.Widget_Color{jtpb.Widget_GREEN}}
-	widgetStruct = newStruct(structMap{"color": newStringVal("BLUE"), "simple": newStructVal(structMap{"o_bool": newBoolVal(false)})})
-)
-
 func (t *testLogger) NewAspect(e aspect.Env, m proto.Message) (logger.Aspect, error) {
 	if t.errOnNewAspect {
 		return nil, errors.New("new aspect error")
@@ -235,11 +286,12 @@ func (t *testLogger) NewAspect(e aspect.Env, m proto.Message) (logger.Aspect, er
 	return t, nil
 }
 func (t *testLogger) DefaultConfig() proto.Message { return t.defaultCfg }
-func (t *testLogger) Log([]logger.Entry) error {
+func (t *testLogger) Log(l []logger.Entry) error {
 	if t.errOnLog {
 		return errors.New("log error")
 	}
 	t.entryCount++
+	t.entries = append(t.entries, l...)
 	return nil
 }
 func (t *testLogger) Close() error { return nil }
@@ -267,14 +319,17 @@ func newStringVal(s string) *structpb.Value {
 	return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: s}}
 }
 
-func newBoolVal(b bool) *structpb.Value {
-	return &structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: b}}
-}
-
 func newStruct(fields map[string]*structpb.Value) *structpb.Struct {
 	return &structpb.Struct{Fields: fields}
 }
 
-func newStructVal(fields map[string]*structpb.Value) *structpb.Value {
-	return &structpb.Value{Kind: &structpb.Value_StructValue{StructValue: newStruct(fields)}}
+func newEntry(n string, l map[string]interface{}, ts string, s logger.Severity, tp string, sp map[string]interface{}) logger.Entry {
+	return logger.Entry{
+		LogName:       n,
+		Labels:        l,
+		Timestamp:     ts,
+		Severity:      s,
+		TextPayload:   tp,
+		StructPayload: sp,
+	}
 }
