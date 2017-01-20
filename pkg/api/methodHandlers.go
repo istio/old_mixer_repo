@@ -120,8 +120,6 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
 	for _, conf := range h.configs[method] {
-		// TODO: should we keep this check? In theory, it saves us from starting a goroutine for the next adapter before we check to see
-		// if the context is done inside of execWrapper.
 		select {
 		case <-ctx.Done():
 			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
@@ -144,34 +142,20 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 // execWrapper is responsible for dispatching calls to the manager and recovering from panics in adapter impls.
 // It also monitors the RPC's deadline for timeouts.
-func (h *methodHandlers) execWrapper(ctx context.Context, conf *aspect.CombinedConfig, ab attribute.Bag) (*aspect.Output, error) {
-	type result struct {
-		out *aspect.Output
-		err error
-	}
-	c := make(chan result)
-	// TODO: should we use some threadpool impl instead of just spawning a thread?
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				glog.Warningf("Recovered from panic in adapter '%s'", conf.Builder.Name)
-				if err, ok := r.(error); ok {
-					c <- result{nil, err}
-				} else {
-					c <- result{nil, fmt.Errorf("adapter '%s' panicked", conf.Builder.Name)}
-				}
+func (h *methodHandlers) execWrapper(ctx context.Context, conf *aspect.CombinedConfig, ab attribute.Bag) (out *aspect.Output, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			glog.Errorf("Recovered from panic in adapter '%s'", conf.Builder.Name)
+			out = nil
+			if panicErr, ok := r.(error); ok {
+				err = panicErr
+			} else {
+				err = fmt.Errorf("adapter '%s' panicked", conf.Builder.Name)
 			}
-		}()
-		o, err := h.mngr.Execute(conf, ab, h.eval)
-		c <- result{o, err}
+			return
+		}
 	}()
-
-	select {
-	case res := <-c:
-		return res.out, res.err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+	return h.mngr.Execute(conf, ab, h.eval)
 }
 
 func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
