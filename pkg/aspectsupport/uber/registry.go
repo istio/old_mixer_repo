@@ -17,6 +17,8 @@ package uber
 import (
 	"sync"
 
+	"fmt"
+
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
@@ -27,23 +29,21 @@ import (
 // Registry is a simple implementation of pkg/registry.Registrar and pkg/aspectsupport/uber.RegistryQuerier which requires
 // that all registered adapters have a unique adapter name.
 type Registry struct {
-	// Guards adaptersByName
-	lock           sync.Mutex
+	sync.Mutex
 	adaptersByName map[string]aspect.Adapter
 }
 
 // NewRegistry returns a registry whose implementation requires that all adapters have a globally unique name
-// (not just unique per aspect). Registering two adapters with the same name results in the first registered adapter
-// being replaced by the second.
+// (not just unique per aspect). Registering two adapters with the same name results in a runtime panic.
 func NewRegistry() *Registry {
 	return &Registry{adaptersByName: make(map[string]aspect.Adapter)}
 }
 
 // ByImpl returns the implementation with aspect.Adapter.Name() == adapterName.
 func (r *Registry) ByImpl(adapterName string) (aspect.Adapter, bool) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	r.Lock()
 	adapter, ok := r.adaptersByName[adapterName]
+	r.Unlock()
 	return adapter, ok // yet `return r.adaptersByName[adapterName]` doesn't typecheck.
 }
 
@@ -72,7 +72,11 @@ func (r *Registry) RegisterQuota(quota quota.Adapter) error {
 }
 
 func (r *Registry) insert(a aspect.Adapter) {
-	r.lock.Lock()
+	r.Lock()
+	if _, exists := r.adaptersByName[a.Name()]; exists {
+		r.Unlock()
+		panic(fmt.Errorf("attempting to register an adapter with a name already in the registry: %s", a.Name()))
+	}
 	r.adaptersByName[a.Name()] = a
-	r.lock.Unlock()
+	r.Unlock()
 }

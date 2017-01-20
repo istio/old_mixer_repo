@@ -144,11 +144,15 @@ func TestCollision(t *testing.T) {
 		t.Errorf("Failed to get first adapter by impl name; expected: '%v', actual: '%v'", a1, a)
 	}
 
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected to recover from panic registering duplicate adapter, but recover was nil.")
+		}
+	}()
+
 	a2 := listAdapter{testAdapter{name}}
 	if err := reg.RegisterCheckList(a2); err != nil {
-		t.Errorf("Failed to insert second adapter with err: %s", err)
+		t.Errorf("Expected a panic inserting duplicate adapter, got err instead: %s", err)
 	}
-	if a, ok := reg.ByImpl(name); !ok || a != a2 {
-		t.Errorf("Expected registering adapter with identical name to overwrite existing one; expected: '%v', actual: '%v'", a2, a)
-	}
+	t.Error("Should not reach this statement due to panic.")
 }
