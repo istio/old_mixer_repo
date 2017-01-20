@@ -45,19 +45,35 @@ type (
 
 	// Entry defines a basic wrapper around the access log information for
 	// a single log entry. It is the job of the aspect manager to produce
-	// the access log string, based on a configuration and pass the entries
-	// to the various backend adapters.
+	// the access log data, based on the aspect configuration and pass the
+	// entries to the various backend adapters.
 	//
-	// Example: &Entry{
+	// Examples:
+	//
+	// &Entry{
 	// 	LogName: "logs/access_log",
 	// 	Log: "127.0.0.1 - testuser [10/Oct/2000:13:55:36 -0700] "GET /test.gif HTTP/1.0" 200 2326",
+	// }
+	//
+	// &Entry{
+	//	LogName: "logs/access_log",
+	//	Labels: map[string]interface{}{
+	//            "source_ip": "127.0.0.1",
+	//            "url": "/test.gif",
+	//            "protocol": "HTTP",
+	//            "response_code": 200,
+	//      }
 	// }
 	Entry struct {
 		// LogName is the name of the access log stream to which the
 		// entry corresponds.
 		LogName string
-		// Log is the actual access log entry data. It will be prepared
-		// by the aspect manager.
+		// Log is the text-formatted access log entry data. It will
+		// be prepared by the aspect manager, based upon aspect config.
 		Log string
+		// Labels is the set of key-value pairs that can be used to
+		// generate a structured access log for this entry. The aspect
+		// manager will populate this map based on aspect config.
+		Labels map[string]interface{}
 	}
 )
