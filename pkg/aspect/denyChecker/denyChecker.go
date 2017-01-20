@@ -15,7 +15,6 @@
 package denyChecker
 
 import (
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"istio.io/mixer/pkg/aspect"
 )
@@ -31,7 +30,8 @@ type (
 	// Adapter builds the DenyChecker Aspect
 	Adapter interface {
 		aspect.Adapter
+
 		// NewDenyChecker returns a new DenyChecker
-		NewDenyChecker(env aspect.Env, cfg proto.Message) (Aspect, error)
+		NewDenyChecker(env aspect.Env, c aspect.Config) (Aspect, error)
 	}
 )

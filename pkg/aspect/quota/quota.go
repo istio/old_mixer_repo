@@ -15,7 +15,6 @@
 package quota
 
 import (
-	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/pkg/aspect"
 )
 
@@ -42,7 +41,7 @@ type (
 
 		// NewQuota returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewQuota(env aspect.Env, config proto.Message) (Aspect, error)
+		NewQuota(env aspect.Env, c aspect.Config) (Aspect, error)
 	}
 
 	// Args supplies the arguments for quota operations.

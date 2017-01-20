@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/pkg/aspect"
 )
 
@@ -65,7 +64,7 @@ type (
 
 		// NewLogger returns a new Logger implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewLogger(env aspect.Env, config proto.Message) (Aspect, error)
+		NewLogger(env aspect.Env, c aspect.Config) (Aspect, error)
 	}
 )
 

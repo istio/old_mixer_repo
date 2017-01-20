@@ -15,7 +15,6 @@
 package listChecker
 
 import (
-	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/pkg/aspect"
 )
 
@@ -30,7 +29,8 @@ type (
 	// Adapter builds the ListChecker Aspect
 	Adapter interface {
 		aspect.Adapter
-		// NewListChecker returns a new ListChecker.
-		NewListChecker(env aspect.Env, cfg proto.Message) (Aspect, error)
+
+    // NewListChecker returns a new ListChecker.
+		NewListChecker(env aspect.Env, c aspect.Config) (Aspect, error)
 	}
 )
