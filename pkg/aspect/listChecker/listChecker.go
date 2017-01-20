@@ -30,7 +30,7 @@ type (
 	Adapter interface {
 		aspect.Adapter
 
-    // NewListChecker returns a new ListChecker.
+                // NewListChecker returns a new ListChecker.
 		NewListChecker(env aspect.Env, c aspect.Config) (Aspect, error)
 	}
 )
