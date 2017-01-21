@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logger
+package aspect
 
 import (
 	"errors"
+	"mandar/exp/pkg/aspect"
 	"reflect"
 	"testing"
 	"time"
@@ -24,8 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/logger/config"
+	"istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
@@ -33,14 +33,14 @@ import (
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
-func TestNewManager(t *testing.T) {
+func TestNewLoggerManager(t *testing.T) {
 	m := NewManager()
 	if m.Kind() != "istio/logger" {
 		t.Error("Wrong kind of adapter")
 	}
 }
 
-func TestManager_NewLogger(t *testing.T) {
+func TestLoggerManager_NewLogger(t *testing.T) {
 	tl := &testLogger{}
 
 	defaultExec := &executor{
@@ -86,7 +86,7 @@ func TestManager_NewLogger(t *testing.T) {
 	}
 }
 
-func TestManager_NewLoggerFailures(t *testing.T) {
+func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 
 	defaultCfg := &aspect.CombinedConfig{
 		Adapter: &configpb.Adapter{},
@@ -112,7 +112,7 @@ func TestManager_NewLoggerFailures(t *testing.T) {
 	}
 }
 
-func TestExecutor_Execute(t *testing.T) {
+func TestLogManager_Execute(t *testing.T) {
 	testTime, _ := time.Parse("2006-Jan-02", "2011-Aug-14")
 	noPayloadDesc := dpb.LogEntryDescriptor{
 		Name:       "test",
@@ -193,7 +193,7 @@ func TestExecutor_Execute(t *testing.T) {
 	}
 }
 
-func TestExecutor_ExecuteFailures(t *testing.T) {
+func TestLoggerManager_ExecuteFailures(t *testing.T) {
 
 	desc := dpb.LogEntryDescriptor{
 		Name:       "test",
@@ -223,7 +223,7 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 	}
 }
 
-func TestManager_DefaultConfig(t *testing.T) {
+func TestLoggerManager_DefaultConfig(t *testing.T) {
 	m := NewManager()
 	got := m.DefaultConfig()
 	want := &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
@@ -232,7 +232,7 @@ func TestManager_DefaultConfig(t *testing.T) {
 	}
 }
 
-func TestManager_ValidateConfig(t *testing.T) {
+func TestLoggerManager_ValidateConfig(t *testing.T) {
 	m := NewManager()
 	if err := m.ValidateConfig(&empty.Empty{}); err != nil {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
