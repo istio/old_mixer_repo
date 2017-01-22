@@ -61,7 +61,7 @@ func cacheKey(cfg *config.Combined) (*CacheKey, error) {
 		Impl: cfg.Adapter.GetImpl(),
 	}
 
-	//TODO shas and store with params
+	//TODO compute shas and store with params
 	var b bytes.Buffer
 	// use gob encoding so that we don't rely on proto marshal
 	enc := gob.NewEncoder(&b)
@@ -72,7 +72,6 @@ func cacheKey(cfg *config.Combined) (*CacheKey, error) {
 		}
 		ret.AdapterParamsSha = sha1.Sum(b.Bytes())
 	}
-
 	b.Reset()
 	if cfg.Adapter.GetParams() != nil {
 		if err := enc.Encode(cfg.Aspect.GetParams()); err != nil {
