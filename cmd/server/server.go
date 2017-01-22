@@ -26,7 +26,7 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/empty"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/tracing"
@@ -138,14 +138,14 @@ var configs = []api.StaticBinding{
 				Name:   "",
 				Kind:   "",
 				Impl:   "istio/denyChecker",
-				Params: new(structpb.Struct),
+				Params: &empty.Empty{},
 			},
 			// denyChecker ignores its configs
 			&istioconfig.Aspect{
 				Kind:    "istio/denyChecker",
 				Adapter: "",
 				Inputs:  make(map[string]string),
-				Params:  new(structpb.Struct),
+				Params:  &empty.Empty{},
 			},
 		},
 	},
