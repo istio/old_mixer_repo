@@ -19,13 +19,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect/config"
+	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -51,37 +49,16 @@ func NewLoggerManager() Manager {
 	return &loggerManager{}
 }
 
-func (m *loggerManager) NewAspect(c *CombinedConfig, a adapter.Adapter, env adapter.Env) (Wrapper, error) {
-	// Handle aspect config to get log name and log entry descriptors.
-	aspectCfg := m.DefaultConfig()
-	if c.Aspect.Params != nil {
-		if err := structToProto(c.Aspect.Params, aspectCfg); err != nil {
-			return nil, fmt.Errorf("could not parse aspect config: %v", err)
-		}
-	}
-
-	logCfg := aspectCfg.(*config.LoggerParams)
+func (m *loggerManager) NewAspect(c *config.Combined, a adapter.Adapter, env adapter.Env) (Wrapper, error) {
+	logCfg := c.Aspect.Params.(*aconfig.LoggerParams)
 	logName := logCfg.LogName
 	severityAttr := logCfg.SeverityAttribute
 	timestampAttr := logCfg.TimestampAttribute
 	timestampFmt := logCfg.TimestampFormat
 	// TODO: look up actual descriptors by name and build an array
 
-	// cast to adapter.LoggerAdapter from adapter.Adapter
-	logAdapter, ok := a.(adapter.LoggerAdapter)
-	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type. Expected adapter.LoggerAdapter got %#v %T", a, a)
-	}
-
-	// Handle adapter config
-	cpb := logAdapter.DefaultConfig()
-	if c.Adapter.Params != nil {
-		if err := structToProto(c.Adapter.Params, cpb); err != nil {
-			return nil, fmt.Errorf("could not parse adapter config: %v", err)
-		}
-	}
-
-	aspectImpl, err := logAdapter.NewLogger(env, cpb)
+	logAdapter := a.(adapter.LoggerAdapter)
+	aspectImpl, err := logAdapter.NewLogger(env, c.Adapter.Params.(adapter.AspectConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +82,7 @@ func (m *loggerManager) NewAspect(c *CombinedConfig, a adapter.Adapter, env adap
 
 func (*loggerManager) Kind() string { return "istio/logger" }
 func (*loggerManager) DefaultConfig() adapter.AspectConfig {
-	return &config.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	return &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
@@ -215,13 +192,4 @@ func value(attrName string, attrBag attribute.Bag, fn attrBagFn, labels map[stri
 
 	// TODO: errors needed here? As of now, this causes default vals to be returned
 	return nil
-}
-
-func structToProto(in *structpb.Struct, out proto.Message) error {
-	mm := &jsonpb.Marshaler{}
-	str, err := mm.MarshalToString(in)
-	if err != nil {
-		return fmt.Errorf("failed to marshal to string: %v", err)
-	}
-	return jsonpb.UnmarshalString(str, out)
 }

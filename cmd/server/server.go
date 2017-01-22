@@ -26,7 +26,7 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/empty"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/tracing"
@@ -34,7 +34,8 @@ import (
 	denyadapter "istio.io/mixer/adapter/denyChecker"
 	"istio.io/mixer/pkg/aspect"
 
-	istioconfig "istio.io/api/mixer/v1/config"
+	"istio.io/mixer/pkg/config"
+	istioconfig "istio.io/mixer/pkg/config/proto"
 )
 
 type serverArgs struct {
@@ -132,19 +133,19 @@ var configs = []api.StaticBinding{
 		RegisterFn: denyadapter.Register,
 		Manager:    aspect.NewDenyCheckerManager(),
 		Methods:    []api.Method{api.Check},
-		Config: &aspect.CombinedConfig{
+		Config: &config.Combined{
+			&istioconfig.Adapter{
+				Name:   "",
+				Kind:   "",
+				Impl:   "istio/denyChecker",
+				Params: &empty.Empty{},
+			},
 			// denyChecker ignores its configs
 			&istioconfig.Aspect{
 				Kind:    "istio/denyChecker",
 				Adapter: "",
 				Inputs:  make(map[string]string),
-				Params:  new(structpb.Struct),
-			},
-			&istioconfig.Adapter{
-				Name:   "",
-				Kind:   "",
-				Impl:   "istio/denyChecker",
-				Params: new(structpb.Struct),
+				Params:  &empty.Empty{},
 			},
 		},
 	},

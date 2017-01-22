@@ -18,9 +18,14 @@ import (
 	"fmt"
 	"sync"
 
+	"bytes"
+	"crypto/sha1"
+	"encoding/gob"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -44,27 +49,43 @@ type Manager struct {
 // CacheKey is used to cache fully constructed aspects
 // These parameters are used in constructing an aspect
 type CacheKey struct {
-	Kind   string
-	Impl   string
-	Params string
-	Args   string
+	Kind             string
+	Impl             string
+	AdapterParamsSha [sha1.Size]byte
+	AspectParamsSha  [sha1.Size]byte
 }
 
-func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
-	return CacheKey{
-		Kind:   cfg.Aspect.GetKind(),
-		Impl:   cfg.Adapter.GetImpl(),
-		Params: cfg.Aspect.GetParams().String(),
-		Args:   cfg.Adapter.GetParams().String(),
+func cacheKey(cfg *config.Combined) (*CacheKey, error) {
+	ret := CacheKey{
+		Kind: cfg.Aspect.GetKind(),
+		Impl: cfg.Adapter.GetImpl(),
 	}
+
+	//TODO pre-compute shas and store with params
+	var b bytes.Buffer
+	// use gob encoding so that we don't rely on proto marshal
+	enc := gob.NewEncoder(&b)
+
+	if cfg.Adapter.GetParams() != nil {
+		if err := enc.Encode(cfg.Adapter.GetParams()); err != nil {
+			return nil, err
+		}
+		ret.AdapterParamsSha = sha1.Sum(b.Bytes())
+	}
+	b.Reset()
+	if cfg.Adapter.GetParams() != nil {
+		if err := enc.Encode(cfg.Aspect.GetParams()); err != nil {
+			return nil, err
+		}
+
+		ret.AspectParamsSha = sha1.Sum(b.Bytes())
+	}
+
+	return &ret, nil
 }
 
 // NewManager Creates a new Uber Aspect manager
 func NewManager(areg RegistryQuerier, mgrs []aspect.Manager) *Manager {
-	// Add all managers here as new aspects are added
-	if mgrs == nil {
-		mgrs = aspectManagers()
-	}
 	mreg := make(map[string]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
@@ -78,7 +99,7 @@ func NewManager(areg RegistryQuerier, mgrs []aspect.Manager) *Manager {
 
 // Execute performs the aspect function based on CombinedConfig and attributes and an expression evaluator
 // returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -102,11 +123,14 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 }
 
 // CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter adapter.Adapter) (asp aspect.Wrapper, err error) {
-	key := cacheKey(cfg)
+func (m *Manager) CacheGet(cfg *config.Combined, mgr aspect.Manager, adapter adapter.Adapter) (asp aspect.Wrapper, err error) {
+	var key *CacheKey
+	if key, err = cacheKey(cfg); err != nil {
+		return nil, err
+	}
 	// try fast path with read lock
 	m.lock.RLock()
-	asp, found := m.aspectCache[key]
+	asp, found := m.aspectCache[*key]
 	m.lock.RUnlock()
 	if found {
 		return asp, nil
@@ -114,22 +138,14 @@ func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapt
 	// obtain write lock
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	asp, found = m.aspectCache[key]
+	asp, found = m.aspectCache[*key]
 	if !found {
 		env := newEnv(adapter.Name())
 		asp, err = mgr.NewAspect(cfg, adapter, env)
 		if err != nil {
 			return nil, err
 		}
-		m.aspectCache[key] = asp
+		m.aspectCache[*key] = asp
 	}
 	return asp, nil
-}
-
-// return list of aspect managers
-func aspectManagers() []aspect.Manager {
-	return []aspect.Manager{
-		aspect.NewListCheckerManager(),
-		aspect.NewDenyCheckerManager(),
-	}
 }

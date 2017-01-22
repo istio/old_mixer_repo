@@ -14,6 +14,8 @@ go_library(
         "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/attribute:go_default_library",
+        "//pkg/config:go_default_library",
+        "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
         "@com_github_golang_glog//:go_default_library",
     ],
@@ -28,6 +30,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
+        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
         "@com_github_istio_api//:mixer/v1/config",
     ],
 )
