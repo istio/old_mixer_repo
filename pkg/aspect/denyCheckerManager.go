@@ -20,8 +20,9 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect/config"
+	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -40,7 +41,7 @@ func NewDenyCheckerManager() Manager {
 }
 
 // NewAspect creates a denyChecker aspect.
-func (m *denyCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Adapter, env adapter.Env) (Wrapper, error) {
+func (m *denyCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Adapter, env adapter.Env) (Wrapper, error) {
 	aa, ok := ga.(adapter.DenyCheckerAdapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.DenyCheckerAdapter got %#v %T", ga, ga)
@@ -67,7 +68,7 @@ func (*denyCheckerManager) Kind() string {
 }
 
 func (*denyCheckerManager) DefaultConfig() adapter.AspectConfig {
-	return &config.DenyCheckerParams{}
+	return &aconfig.DenyCheckerParams{}
 }
 
 func (*denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {

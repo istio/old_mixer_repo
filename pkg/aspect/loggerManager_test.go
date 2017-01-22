@@ -22,14 +22,51 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/ptypes/struct"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect/config"
+	. "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
-	configpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/pkg/config"
+	configpb "istio.io/mixer/pkg/config/proto"
+)
+
+type (
+	aspectTestCase struct {
+		name   string
+		params adapter.AspectConfig
+		want   *loggerWrapper
+	}
+	executeTestCase struct {
+		name        string
+		exec        *loggerWrapper
+		bag         attribute.Bag
+		mapper      expr.Evaluator
+		wantEntries []adapter.LogEntry
+	}
+	testLogger struct {
+		adapter.LoggerAdapter
+		adapter.QuotaAspect
+
+		defaultCfg     adapter.AspectConfig
+		entryCount     int
+		entries        []adapter.LogEntry
+		errOnNewAspect bool
+		errOnLog       bool
+	}
+	testEvaluator struct {
+		expr.Evaluator
+	}
+	testBag struct {
+		attribute.Bag
+
+		strs  map[string]string
+		times map[string]time.Time
+	}
+	testEnv struct {
+		adapter.Env
+	}
 )
 
 func TestNewLoggerManager(t *testing.T) {
@@ -40,7 +77,9 @@ func TestNewLoggerManager(t *testing.T) {
 }
 
 func TestLoggerManager_NewLogger(t *testing.T) {
-	tl := &testLogger{}
+	tl := &testLogger{
+		defaultCfg: &empty.Empty{},
+	}
 
 	defaultExec := &loggerWrapper{
 		logName:      "istio_log",
@@ -58,19 +97,16 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		descriptors:  []dpb.LogEntryDescriptor{},
 	}
 
-	overrideStruct := newStruct(structMap{"timestamp_format": newStringVal("2006-Jan-02")})
-
 	newAspectShouldSucceed := []aspectTestCase{
-		{"empty", &config.LoggerParams{}, newStruct(nil), defaultExec},
-		{"nil", &config.LoggerParams{}, nil, defaultExec},
-		{"override", &config.LoggerParams{}, overrideStruct, overrideExec},
+		{"empty", &LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}, defaultExec},
+		{"override", &LoggerParams{LogName: "istio_log", TimestampFormat: "2006-Jan-02"}, overrideExec},
 	}
 
 	m := NewLoggerManager()
 
 	for _, v := range newAspectShouldSucceed {
-		c := CombinedConfig{
-			Adapter: &configpb.Adapter{},
+		c := config.Combined{
+			Adapter: &configpb.Adapter{Params: tl.DefaultConfig()},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
 		asp, err := m.NewAspect(&c, tl, testEnv{})
@@ -80,26 +116,28 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		got := asp.(*loggerWrapper)
 		got.defaultTimeFn = nil // ignore time fns in equality comp
 		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewAspect() => %v (%T), want %v (%T)", got, got, v.want, v.want)
+			t.Errorf("%s NewAspect() => %v (%T), want %v (%T)", v.name, got, got, v.want, v.want)
 		}
 	}
 }
 
 func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 
-	defaultCfg := &CombinedConfig{
-		Adapter: &configpb.Adapter{},
-		Aspect:  &configpb.Aspect{},
+	defaultCfg := &config.Combined{
+		Adapter: &configpb.Adapter{
+			Params: &empty.Empty{},
+		},
+		Aspect: &configpb.Aspect{
+			Params: &LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339},
+		},
 	}
 
-	var generic adapter.Adapter
-	errLogger := &testLogger{defaultCfg: &structpb.Struct{}, errOnNewAspect: true}
+	errLogger := &testLogger{defaultCfg: &empty.Empty{}, errOnNewAspect: true}
 
 	failureCases := []struct {
-		cfg   *CombinedConfig
+		cfg   *config.Combined
 		adptr adapter.Adapter
 	}{
-		{defaultCfg, generic},
 		{defaultCfg, errLogger},
 	}
 
@@ -226,7 +264,7 @@ func TestLoggerManager_ExecuteFailures(t *testing.T) {
 func TestLoggerManager_DefaultConfig(t *testing.T) {
 	m := NewLoggerManager()
 	got := m.DefaultConfig()
-	want := &config.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	want := &LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 	if !proto.Equal(got, want) {
 		t.Errorf("DefaultConfig(): got %v, wanted %v", got, want)
 	}
@@ -238,45 +276,6 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}
 }
-
-type (
-	structMap      map[string]*structpb.Value
-	aspectTestCase struct {
-		name       string
-		defaultCfg adapter.AspectConfig
-		params     *structpb.Struct
-		want       *loggerWrapper
-	}
-	executeTestCase struct {
-		name        string
-		exec        *loggerWrapper
-		bag         attribute.Bag
-		mapper      expr.Evaluator
-		wantEntries []adapter.LogEntry
-	}
-	testLogger struct {
-		adapter.LoggerAdapter
-		adapter.QuotaAspect
-
-		defaultCfg     adapter.AspectConfig
-		entryCount     int
-		entries        []adapter.LogEntry
-		errOnNewAspect bool
-		errOnLog       bool
-	}
-	testEvaluator struct {
-		expr.Evaluator
-	}
-	testBag struct {
-		attribute.Bag
-
-		strs  map[string]string
-		times map[string]time.Time
-	}
-	testEnv struct {
-		adapter.Env
-	}
-)
 
 func (t *testLogger) NewLogger(e adapter.Env, m adapter.AspectConfig) (adapter.LoggerAspect, error) {
 	if t.errOnNewAspect {
@@ -313,14 +312,6 @@ func (t *testBag) Int64(name string) (int64, bool)     { return 0, false }
 func (t *testBag) Float64(name string) (float64, bool) { return 0, false }
 func (t *testBag) Bool(name string) (bool, bool)       { return false, false }
 func (t *testBag) Bytes(name string) ([]byte, bool)    { return []byte{}, false }
-
-func newStringVal(s string) *structpb.Value {
-	return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: s}}
-}
-
-func newStruct(fields map[string]*structpb.Value) *structpb.Struct {
-	return &structpb.Struct{Fields: fields}
-}
 
 func newEntry(n string, l map[string]interface{}, ts string, s adapter.Severity, tp string, sp map[string]interface{}) adapter.LogEntry {
 	return adapter.LogEntry{

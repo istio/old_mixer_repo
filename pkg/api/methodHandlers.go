@@ -27,6 +27,7 @@ import (
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 
 	"fmt"
@@ -69,7 +70,7 @@ const (
 type StaticBinding struct {
 	RegisterFn adapter.RegisterFn
 	Manager    aspect.Manager
-	Config     *aspect.CombinedConfig
+	Config     *config.Combined
 	Methods    []Method
 }
 
@@ -78,14 +79,14 @@ type methodHandlers struct {
 	eval expr.Evaluator
 
 	// Configs for the aspects that'll be used to serve each API method.
-	configs map[Method][]*aspect.CombinedConfig
+	configs map[Method][]*config.Combined
 }
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
 func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 	registry := adapterManager.NewRegistry()
 	managers := make([]aspect.Manager, len(bindings))
-	configs := map[Method][]*aspect.CombinedConfig{Check: {}, Report: {}, Quota: {}}
+	configs := map[Method][]*config.Combined{Check: {}, Report: {}, Quota: {}}
 
 	for i, binding := range bindings {
 		if err := binding.RegisterFn(registry); err != nil {
