@@ -61,7 +61,7 @@ func cacheKey(cfg *config.Combined) (*CacheKey, error) {
 		Impl: cfg.Adapter.GetImpl(),
 	}
 
-	//TODO compute shas and store with params
+	//TODO pre-compute shas and store with params
 	var b bytes.Buffer
 	// use gob encoding so that we don't rely on proto marshal
 	enc := gob.NewEncoder(&b)
