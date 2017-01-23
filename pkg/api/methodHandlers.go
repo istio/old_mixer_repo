@@ -119,17 +119,20 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
+	var out *aspect.Output
 	for _, conf := range h.configs[method] {
 		select {
 		case <-ctx.Done():
+			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
+			// then that adapter must have returned an OK code since we exit processing at the first non-OK status.
 			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
 		default: // Don't block on Done, keep on processing with adapters.
 		}
 
-		// TODO: should we set a shorter deadline for each adapter? As written, we only care about the request's deadline.
-		out, err := h.execWrapper(ctx, conf, ab)
+		_ = ctx // TODO: plumb context through the manager's execute func.
+		out, err = h.mngr.Execute(conf, ab, h.eval)
 		if err != nil {
-			errorStr := fmt.Sprintf("Adapter %s returned err: %v", conf.Builder.Name, err)
+			errorStr := fmt.Sprintf("Adapter '%s' returned err: %v", conf.Builder.Name, err)
 			glog.Warning(errorStr)
 			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
 		}
@@ -138,24 +141,6 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 		}
 	}
 	return newStatus(code.Code_OK)
-}
-
-// execWrapper is responsible for dispatching calls to the manager and recovering from panics in adapter impls.
-// It also monitors the RPC's deadline for timeouts.
-func (h *methodHandlers) execWrapper(ctx context.Context, conf *aspectsupport.CombinedConfig, ab attribute.Bag) (out *aspectsupport.Output, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			glog.Errorf("Recovered from panic in adapter '%s'", conf.Adapter.Name)
-			out = nil
-			if panicErr, ok := r.(error); ok {
-				err = panicErr
-			} else {
-				err = fmt.Errorf("adapter '%s' panicked", conf.Adapter.Name)
-			}
-			return
-		}
-	}()
-	return h.mngr.Execute(conf, ab, h.eval)
 }
 
 func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
