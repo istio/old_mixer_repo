@@ -107,10 +107,9 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 	for _, conf := range cfgs {
 		select {
 		case <-ctx.Done():
-			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
-			// then that adapter must have returned an OK code since we exit processing at the first non-OK status.
+			glog.Warningf("Failed to enqueue all adapters for execution; ctx canceled before we finished with err: %s", ctx.Err())
 			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
-		default: // Don't block on Done, keep on processing with adapters.
+		default:
 		}
 
 		// TODO: plumb ctx through adaptermanager.Execute
