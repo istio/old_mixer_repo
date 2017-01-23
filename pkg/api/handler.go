@@ -107,6 +107,8 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 	for _, conf := range cfgs {
 		select {
 		case <-ctx.Done():
+			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
+			// then that adapter must have returned an OK code since we exit processing at the first non-OK status.
 			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
 		default: // Don't block on Done, keep on processing with adapters.
 		}
