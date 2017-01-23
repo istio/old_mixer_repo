@@ -32,7 +32,7 @@ func TestRequestCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration should've matter when we have a canceled ctx
 	handler := &methodHandlers{
-		configs: map[Method][]*aspect.CombinedConfig{Check: {&aspect.CombinedConfig{}}},
+		configs: map[Method][]*aspect.CombinedConfig{Check: {&aspect.CombinedConfig{&istioconfig.Aspect{Kind: ""}, &istioconfig.Adapter{Name: ""}}}},
 	}
 
 	cancel()
@@ -47,7 +47,8 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	// invalid configs so the aspectmanager.Manager fails
 	handler := &methodHandlers{
 		mngr:    adapterManager.NewManager(nil),
-		configs: map[Method][]*aspect.CombinedConfig{Check: {&aspect.CombinedConfig{&istioconfig.Aspect{Kind: ""}, &istioconfig.Adapter{}}}},
+		configs: map[Method][]*aspect.CombinedConfig{Check: {&aspect.CombinedConfig{&istioconfig.Aspect{Kind: ""}, &istioconfig.Adapter{Name: ""}}}},
+		pool:    newPool(1),
 	}
 
 	s := handler.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, Check)
