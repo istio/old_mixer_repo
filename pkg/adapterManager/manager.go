@@ -58,8 +58,9 @@ func NewManager(mgrs []aspect.Manager) *Manager {
 	// Add all managers here as new aspects are added
 	if mgrs == nil {
 		mgrs = []aspect.Manager{
-			aspect.NewListCheckerManager(),
 			aspect.NewDenyCheckerManager(),
+			aspect.NewListCheckerManager(),
+			aspect.NewLoggerManager(),
 		}
 	}
 

@@ -19,9 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/config"
@@ -51,12 +48,19 @@ func NewLoggerManager() Manager {
 	return loggerManager{}
 }
 
-func (m loggerManager) NewAspect(c *CombinedConfig, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	// Handle aspect config to get log name and log entry descriptors.
+func (m loggerManager) NewAspect(c *CombinedConfig, b adapter.Builder, env adapter.Env) (Wrapper, error) {
 	aspectCfg := m.DefaultConfig()
 	if c.Aspect.Params != nil {
 		if err := structToProto(c.Aspect.Params, aspectCfg); err != nil {
 			return nil, fmt.Errorf("could not parse aspect config: %v", err)
+		}
+	}
+
+	bldr := b.(adapter.LoggerBuilder)
+	adapterCfg := bldr.DefaultConfig()
+	if c.Builder.Params != nil {
+		if err := structToProto(c.Builder.Params, adapterCfg); err != nil {
+			return nil, fmt.Errorf("could not parse adapter config: %v", err)
 		}
 	}
 
@@ -67,21 +71,7 @@ func (m loggerManager) NewAspect(c *CombinedConfig, a adapter.Builder, env adapt
 	timestampFmt := logCfg.TimestampFormat
 	// TODO: look up actual descriptors by name and build an array
 
-	// cast to adapter.LoggerBuilder from adapter.Builder
-	logBuilder, ok := a.(adapter.LoggerBuilder)
-	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type. Expected adapter.LoggerBuilder got %#v %T", a, a)
-	}
-
-	// Handle adapter config
-	cpb := logBuilder.DefaultConfig()
-	if c.Builder.Params != nil {
-		if err := structToProto(c.Builder.Params, cpb); err != nil {
-			return nil, fmt.Errorf("could not parse adapter config: %v", err)
-		}
-	}
-
-	aspectImpl, err := logBuilder.NewLogger(env, cpb)
+	aspectImpl, err := bldr.NewLogger(env, adapterCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +205,4 @@ func value(attrName string, attrBag attribute.Bag, fn attrBagFn, labels map[stri
 
 	// TODO: errors needed here? As of now, this causes default vals to be returned
 	return nil
-}
-
-func structToProto(in *structpb.Struct, out proto.Message) error {
-	mm := &jsonpb.Marshaler{}
-	str, err := mm.MarshalToString(in)
-	if err != nil {
-		return fmt.Errorf("failed to marshal to string: %v", err)
-	}
-	return jsonpb.UnmarshalString(str, out)
 }

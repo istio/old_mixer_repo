@@ -92,14 +92,12 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 		Aspect:  &configpb.Aspect{},
 	}
 
-	var generic adapter.Builder
 	errLogger := &testLogger{defaultCfg: &structpb.Struct{}, errOnNewAspect: true}
 
 	failureCases := []struct {
 		cfg   *CombinedConfig
 		adptr adapter.Builder
 	}{
-		{defaultCfg, generic},
 		{defaultCfg, errLogger},
 	}
 

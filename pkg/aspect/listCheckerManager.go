@@ -29,10 +29,10 @@ type (
 	listCheckerManager struct{}
 
 	listCheckerWrapper struct {
-		cfg          *CombinedConfig
-		adapter      adapter.ListCheckerBuilder
-		aspect       adapter.ListCheckerAspect
-		aspectConfig *config.ListCheckerParams
+		aspect         adapter.ListCheckerAspect
+		blacklist      bool
+		inputs         map[string]string
+		checkAttribute string
 	}
 )
 
@@ -42,28 +42,37 @@ func NewListCheckerManager() Manager {
 }
 
 // NewAspect creates a listChecker aspect.
-func (listCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
-	aa, ok := ga.(adapter.ListCheckerBuilder)
-	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.ListCheckerBuilder got %#v %T", ga, ga)
+func (m listCheckerManager) NewAspect(c *CombinedConfig, b adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aspectCfg := m.DefaultConfig().(*config.ListCheckerParams)
+	if c.Aspect.Params != nil {
+		if err := structToProto(c.Aspect.Params, aspectCfg); err != nil {
+			return nil, fmt.Errorf("could not parse aspect config: %v", err)
+		}
 	}
 
-	// TODO: convert from proto Struct to Go struct here!
-	var aspectConfig *config.ListCheckerParams
-	adapterCfg := aa.DefaultConfig()
-	// TODO: parse cfg.Builder.Params (*ptypes.struct) into adapterCfg
-	var asp adapter.ListCheckerAspect
-	var err error
+	bldr := b.(adapter.ListCheckerBuilder)
+	adapterCfg := bldr.DefaultConfig()
+	if c.Builder.Params != nil {
+		if err := structToProto(c.Builder.Params, adapterCfg); err != nil {
+			return nil, fmt.Errorf("could not parse adapter config: %v", err)
+		}
+	}
 
-	if asp, err = aa.NewListChecker(env, adapterCfg); err != nil {
+	var inputs map[string]string
+	if c.Aspect != nil && c.Aspect.Inputs != nil {
+		inputs = c.Aspect.Inputs
+	}
+
+	a, err := bldr.NewListChecker(env, adapterCfg)
+	if err != nil {
 		return nil, err
 	}
 
 	return &listCheckerWrapper{
-		cfg:          cfg,
-		adapter:      aa,
-		aspect:       asp,
-		aspectConfig: aspectConfig,
+		aspect:         a,
+		blacklist:      aspectCfg.Blacklist,
+		inputs:         inputs,
+		checkAttribute: aspectCfg.CheckAttribute,
 	}, nil
 }
 
@@ -80,39 +89,32 @@ func (listCheckerManager) DefaultConfig() adapter.AspectConfig {
 func (listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	lc := c.(*config.ListCheckerParams)
 	if lc.CheckAttribute == "" {
-		ce = ce.Appendf("check_attribute", "Missing")
+		ce = ce.Appendf("CheckAttribute", "Missing")
 	}
 	return
-}
-
-func (a *listCheckerWrapper) BuilderName() string {
-	return a.adapter.Name()
 }
 
 func (a *listCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	var found bool
 	var err error
-	asp := a.aspect
-
 	var symbol string
 	var symbolExpr string
-	acfg := a.aspectConfig
 
 	// CheckAttribute should be processed and sent to input
-	if symbolExpr, found = a.cfg.Aspect.Inputs[acfg.CheckAttribute]; !found {
-		return nil, fmt.Errorf("mapping for %s not found", acfg.CheckAttribute)
+	if symbolExpr, found = a.inputs[a.checkAttribute]; !found {
+		return nil, fmt.Errorf("mapping for %s not found", a.checkAttribute)
 	}
 
 	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {
 		return nil, err
 	}
 
-	if found, err = asp.CheckList(symbol); err != nil {
+	if found, err = a.aspect.CheckList(symbol); err != nil {
 		return nil, err
 	}
 	rCode := code.Code_PERMISSION_DENIED
 
-	if found != acfg.Blacklist {
+	if found != a.blacklist {
 		rCode = code.Code_OK
 	}
 

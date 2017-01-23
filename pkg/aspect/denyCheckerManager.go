@@ -29,8 +29,7 @@ type (
 	denyCheckerManager struct{}
 
 	denyCheckerWrapper struct {
-		adapter adapter.DenyCheckerBuilder
-		aspect  adapter.DenyCheckerAspect
+		aspect adapter.DenyCheckerAspect
 	}
 )
 
@@ -40,43 +39,33 @@ func NewDenyCheckerManager() Manager {
 }
 
 // NewAspect creates a denyChecker aspect.
-func (denyCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
-	aa, ok := ga.(adapter.DenyCheckerBuilder)
-	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.DenyCheckerBuilder got %#v %T", ga, ga)
+func (m denyCheckerManager) NewAspect(c *CombinedConfig, b adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aspectCfg := m.DefaultConfig().(*config.DenyCheckerParams)
+	if c.Aspect.Params != nil {
+		if err := structToProto(c.Aspect.Params, aspectCfg); err != nil {
+			return nil, fmt.Errorf("could not parse aspect config: %v", err)
+		}
 	}
 
-	// TODO: convert from proto Struct to Go struct here!
-	adapterCfg := aa.DefaultConfig()
-	// TODO: parse cfg.Builder.Params (*ptypes.struct) into adapterCfg
-	var asp adapter.DenyCheckerAspect
-	var err error
+	bldr := b.(adapter.DenyCheckerBuilder)
+	adapterCfg := bldr.DefaultConfig()
+	if c.Builder.Params != nil {
+		if err := structToProto(c.Builder.Params, adapterCfg); err != nil {
+			return nil, fmt.Errorf("could not parse adapter config: %v", err)
+		}
+	}
 
-	if asp, err = aa.NewDenyChecker(env, adapterCfg); err != nil {
+	a, err := bldr.NewDenyChecker(env, adapterCfg)
+	if err != nil {
 		return nil, err
 	}
 
-	return &denyCheckerWrapper{
-		adapter: aa,
-		aspect:  asp,
-	}, nil
+	return &denyCheckerWrapper{a}, nil
 }
 
-func (denyCheckerManager) Kind() string {
-	return "istio/denyChecker"
-}
-
-func (denyCheckerManager) DefaultConfig() adapter.AspectConfig {
-	return &config.DenyCheckerParams{}
-}
-
-func (denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
-	return
-}
-
-func (a *denyCheckerWrapper) BuilderName() string {
-	return a.adapter.Name()
-}
+func (denyCheckerManager) Kind() string                                                     { return "istio/denyChecker" }
+func (denyCheckerManager) DefaultConfig() adapter.AspectConfig                              { return &config.DenyCheckerParams{} }
+func (denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
 func (a *denyCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	status := a.aspect.Deny()

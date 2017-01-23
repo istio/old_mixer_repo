@@ -18,6 +18,11 @@
 package aspect
 
 import (
+	"fmt"
+
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	istioconfig "istio.io/api/mixer/v1/config"
@@ -61,3 +66,12 @@ type (
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
 	}
 )
+
+func structToProto(in *structpb.Struct, out proto.Message) error {
+	mm := &jsonpb.Marshaler{}
+	str, err := mm.MarshalToString(in)
+	if err != nil {
+		return fmt.Errorf("failed to marshal to string: %v", err)
+	}
+	return jsonpb.UnmarshalString(str, out)
+}
