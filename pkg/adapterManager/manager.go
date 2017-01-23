@@ -131,6 +131,13 @@ func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag) (out *aspec
 		return nil, err
 	}
 
+	defer func() {
+		if r := recover(); r != nil {
+			out = nil // invalidate whatever partial result we got; should we set this to a Code.Code_INTERNAL or similar?
+			err = fmt.Errorf("adapter '%s' panicked with '%v'", cfg.Builder.Name, r)
+			return
+		}
+	}()
 	// TODO act on adapter.Output
 	return asp.Execute(attrs, m.mapper)
 }
