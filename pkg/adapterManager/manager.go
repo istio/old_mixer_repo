@@ -95,11 +95,7 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
 	}
 
-	var asp aspect.Wrapper
-	if asp, err = m.cacheGet(cfg, mgr, adapter); err != nil {
-		return nil, err
-	}
-
+	// Both cacheGet and asp.Execute call adapter-supplied code, so we need to guard against both panicking.
 	defer func() {
 		if r := recover(); r != nil {
 			out = nil // invalidate whatever partial result we got; should we set this to a Code.Code_INTERNAL or similar?
@@ -107,6 +103,12 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 			return
 		}
 	}()
+
+	var asp aspect.Wrapper
+	if asp, err = m.cacheGet(cfg, mgr, adapter); err != nil {
+		return nil, err
+	}
+
 	// TODO act on adapter.Output
 	return asp.Execute(attrs, mapper)
 }
