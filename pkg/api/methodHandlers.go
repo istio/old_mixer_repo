@@ -76,13 +76,14 @@ type StaticBinding struct {
 type methodHandlers struct {
 	mngr *adapterManager.Manager
 	eval expr.Evaluator
+	pool *pool
 
 	// Configs for the aspects that'll be used to serve each API method.
 	configs map[Method][]*aspect.CombinedConfig
 }
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
-func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
+func NewMethodHandlers(workerPoolSize uint, bindings ...StaticBinding) MethodHandlers {
 	managers := make([]aspect.Manager, len(bindings))
 	configs := map[Method][]*aspect.CombinedConfig{Check: {}, Report: {}, Quota: {}}
 
@@ -101,9 +102,12 @@ func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 		}
 	}
 
+	pool := newPool(workerPoolSize)
+
 	return &methodHandlers{
 		mngr:    adapterMgr,
 		eval:    expr.NewIdentityEvaluator(),
+		pool:    pool,
 		configs: configs,
 	}
 }
@@ -119,25 +123,39 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
-	var out *aspect.Output
+
+	numAdapters := len(h.configs[method])
+
+	// Loop over our configs, executing the adapter for each on another thread. Because enqueue blocks until a worker
+	// is available it could block for a long time, so we check to see if our context was canceled each time we attempt
+	// to enqueue work.
+	results, enqueue := h.pool.requestGroup(h.mngr, ab, h.eval, numAdapters)
 	for _, conf := range h.configs[method] {
+		glog.V(4).Infof("Enqueuing the execution of adapter '%s' for method %v", conf.Builder.Name, method)
+		select {
+		case <-ctx.Done():
+			glog.Warningf("Failed to enqueue all adapters for execution; ctx canceled before we finished with err: %s", ctx.Err())
+			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
+		default:
+			enqueue(ctx, conf)
+		}
+	}
+
+	// We know we'll get back one value for each adapter, so we'll loop till we've read that many results from the chan
+	for i := 0; i < numAdapters; i++ {
 		select {
 		case <-ctx.Done():
 			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
 			// then that adapter must have returned an OK code since we exit processing at the first non-OK status.
 			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
-		default: // Don't block on Done, keep on processing with adapters.
-		}
-
-		_ = ctx // TODO: plumb context through the manager's execute func.
-		out, err = h.mngr.Execute(conf, ab, h.eval)
-		if err != nil {
-			errorStr := fmt.Sprintf("Adapter '%s' returned err: %v", conf.Builder.Name, err)
-			glog.Warning(errorStr)
-			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
-		}
-		if out.Code != code.Code_OK {
-			return newStatusWithMessage(out.Code, "Rejected by builder "+conf.Builder.Name)
+		case r := <-results:
+			glog.V(4).Infof("Adapter '%s' returned status '%v' for method %v", r.name, r.out, method)
+			if r.err != nil {
+				return newStatusWithMessage(code.Code_INTERNAL, fmt.Sprintf("Error executing adapter '%s'", r.name))
+			}
+			if r.out.Code != code.Code_OK {
+				return newStatusWithMessage(r.out.Code, fmt.Sprintf("Rejected by adapter '%s'", r.name))
+			}
 		}
 	}
 	return newStatus(code.Code_OK)
@@ -157,6 +175,11 @@ func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, r
 	response.RequestIndex = request.RequestIndex
 	status := h.execute(ctx, tracker, request.AttributeUpdate, Quota)
 	response.Result = newQuotaError(code.Code(status.Code))
+}
+
+// Shutdown is used to gracefully terminate the methodHandlers.
+func (h *methodHandlers) Shutdown() {
+	h.pool.shutdown()
 }
 
 func newStatus(c code.Code) *status.Status {

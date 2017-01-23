@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "grpcServer.go",
         "methodHandlers.go",
+        "pool.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -37,6 +38,7 @@ go_test(
     srcs = [
         "grpcServer_test.go",
         "methodHandlers_test.go",
+        "pool_test.go",
     ],
     library = ":go_default_library",
 )

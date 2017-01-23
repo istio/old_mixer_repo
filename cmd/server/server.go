@@ -41,6 +41,7 @@ type serverArgs struct {
 	port                 uint
 	maxMessageSize       uint
 	maxConcurrentStreams uint
+	workerPoolSize       uint
 	compressedPayload    bool
 	enableTracing        bool
 	serverCertFile       string
@@ -65,6 +66,9 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
+	// TODO: define a sensible size for our worker pool; we probably want (max outstanding requests allowed)*(number of adapters executed per request)
+	serverCmd.PersistentFlags().UintVarP(&sa.workerPoolSize, "workerPoolSize", "", 100,
+		"Number of workers used to execute adapters in the entire server; this should be on the order of (max outstanding requests)*(number of adapters per request)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
@@ -112,7 +116,7 @@ func runServer(sa *serverArgs) error {
 		CompressedPayload:    sa.compressedPayload,
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
-		Handlers:             api.NewMethodHandlers(configs...),
+		Handlers:             api.NewMethodHandlers(sa.workerPoolSize, configs...),
 		AttributeManager:     attrMgr,
 		Tracer:               tracer,
 	}
@@ -141,7 +145,7 @@ var configs = []api.StaticBinding{
 				Params:  new(structpb.Struct),
 			},
 			&istioconfig.Adapter{
-				Name:   "",
+				Name:   "istio/denyChecker",
 				Kind:   "",
 				Impl:   "istio/denyChecker",
 				Params: new(structpb.Struct),
