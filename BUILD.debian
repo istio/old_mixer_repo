@@ -1,0 +1,17 @@
+# build base docker debian image
+
+load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
+
+# Extract .xz files
+genrule(
+    name = "jessie_tar",
+    srcs = ["docker-brew-debian-b39d31635ca26c8b1f3d982090ba8d54167c4d85/jessie/rootfs.tar.xz"],
+    outs = ["jessie_tar.tar"],
+    cmd = "cat $< | xzcat >$@",
+)
+
+docker_build(
+    name = "jessie",
+    tars = [":jessie_tar"],
+    visibility = ["//visibility:public"],
+)

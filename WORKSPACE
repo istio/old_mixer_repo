@@ -168,3 +168,11 @@ new_git_or_local_repository(
     # Change this to True to use ../api directory
     use_local = False,
 )
+
+new_http_archive(
+    name = "docker_debian",
+    url = "https://codeload.github.com/tianon/docker-brew-debian/zip/b39d31635ca26c8b1f3d982090ba8d54167c4d85",
+    build_file = "BUILD.debian",
+    type = "zip",
+    sha256 = "bc4d5a9f8296eb95f0a9e716b40e82ce3950bfd08f94d963523d716216bb7273",
+)
