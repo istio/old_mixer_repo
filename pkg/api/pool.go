@@ -86,7 +86,7 @@ func newPool(size uint) *pool {
 //
 // numAdapters is used to size the buffer of the result chan; it's important that the pool's workers not block returning results
 // to avoid a deadlock amongst request threads attempting to enqueue work onto the pool, so we need a buffer large enough for all
-// adapters in a request to return their values.
+// adapters in a request to return their values. To enforce this invariant, enqueueFunc will panic if called more than numAdpaters times.
 //
 // It's assumed that all adapter executions for a single request share the same manager, attribute bag, and evaluator.
 func (p *pool) requestGroup(mngr *adapterManager.Manager, ab attribute.Bag, eval expr.Evaluator, numAdapters int) (<-chan result, enqueueFunc) {
