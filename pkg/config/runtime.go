@@ -33,7 +33,7 @@ type (
 	}
 	// Combined config is given to aspect managers.
 	Combined struct {
-		Adapter *pb.Adapter
+		Builder *pb.Adapter
 		Aspect  *pb.Aspect
 	}
 

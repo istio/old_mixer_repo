@@ -20,7 +20,7 @@ package aspect
 import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
-	istioconfig "istio.io/api/mixer/v1/config"
+	"istio.io/mixer/pkg/config"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
@@ -28,11 +28,6 @@ import (
 )
 
 type (
-	// CombinedConfig combines all configuration related to an aspect.
-	CombinedConfig struct {
-		Aspect  *istioconfig.Aspect
-		Builder *istioconfig.Adapter
-	}
 
 	// Output captures the output from invoking an aspect.
 	Output struct {
@@ -49,7 +44,7 @@ type (
 		adapter.ConfigValidator
 
 		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *CombinedConfig, adapter adapter.Builder, env adapter.Env) (Wrapper, error)
+		NewAspect(cfg *config.Combined, adapter adapter.Builder, env adapter.Env) (Wrapper, error)
 
 		// Kind return the kind of aspect
 		Kind() string
@@ -59,5 +54,11 @@ type (
 	Wrapper interface {
 		// Execute dispatches to the adapter.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
+	}
+
+	// Executor executes any aspect as described by config.Combined. Only UberManager implements this interface.
+	Executor interface {
+		// Execute performs actions described in combined config using the attribute bag
+		Execute(cfg *config.Combined, attrs attribute.Bag) (*Output, error)
 	}
 )

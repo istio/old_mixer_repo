@@ -26,15 +26,15 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	"istio.io/mixer/adapter"
+	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/tracing"
 
-	denyadapter "istio.io/mixer/adapter/denyChecker"
-	"istio.io/mixer/pkg/aspect"
-
-	istioconfig "istio.io/api/mixer/v1/config"
+	"istio.io/mixer/pkg/expr"
 )
 
 type serverArgs struct {
@@ -46,6 +46,10 @@ type serverArgs struct {
 	serverCertFile       string
 	serverKeyFile        string
 	clientCertFiles      string
+
+	// mixer manager args
+	serviceConfigFile string
+	globalConfigFile  string
 }
 
 func serverCmd(errorf errorFn) *cobra.Command {
@@ -72,17 +76,21 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
+	// mixer manager args
+
+	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "serviceConfig.yml", "Combined Service Config")
+	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "globalConfig.yml", "Global Config")
 	return &serverCmd
 }
 
-func runServer(sa *serverArgs) error {
+func serverOpts(sa *serverArgs, handlers api.Handler) (*api.GRPCServerOptions, error) {
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
-			return fmt.Errorf("failed to load server certificate and server key: %v", err)
+			return nil, fmt.Errorf("failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
 	}
@@ -92,7 +100,7 @@ func runServer(sa *serverArgs) error {
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			pem, err := ioutil.ReadFile(clientCertFile)
 			if err != nil {
-				return fmt.Errorf("failed to load client certificate: %v", err)
+				return nil, fmt.Errorf("failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
@@ -103,49 +111,54 @@ func runServer(sa *serverArgs) error {
 		tracer = bt.New(tracing.IORecorder(os.Stdout))
 	}
 
-	attrMgr := attribute.NewManager()
-
-	grpcServerOptions := api.GRPCServerOptions{
+	return &api.GRPCServerOptions{
 		Port:                 uint16(sa.port),
 		MaxMessageSize:       sa.maxMessageSize,
 		MaxConcurrentStreams: sa.maxConcurrentStreams,
 		CompressedPayload:    sa.compressedPayload,
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
-		Handlers:             api.NewMethodHandlers(configs...),
-		AttributeManager:     attrMgr,
+		Handler:              handlers,
+		AttributeManager:     attribute.NewManager(),
 		Tracer:               tracer,
-	}
-
-	var grpcServer *api.GRPCServer
-	var err error
-	if grpcServer, err = api.NewGRPCServer(&grpcServerOptions); err != nil {
-		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
-	}
-
-	return grpcServer.Start()
+	}, nil
 }
 
-var configs = []api.StaticBinding{
-	{
-		// denyChecker
-		RegisterFn: denyadapter.Register,
-		Manager:    aspect.NewDenyCheckerManager(),
-		Methods:    []api.Method{api.Check},
-		Config: &aspect.CombinedConfig{
-			// denyChecker ignores its configs
-			&istioconfig.Aspect{
-				Kind:    "istio/denyChecker",
-				Adapter: "",
-				Inputs:  make(map[string]string),
-				Params:  new(structpb.Struct),
-			},
-			&istioconfig.Adapter{
-				Name:   "",
-				Kind:   "",
-				Impl:   "istio/denyChecker",
-				Params: new(structpb.Struct),
-			},
-		},
-	},
+func runServer(sa *serverArgs) error {
+	// get aspect registry with proper aspect --> api mappings
+	eval := expr.NewIdentityEvaluator()
+	aspectReg := aspect.DefaultRegistry()
+	builderReg := adapterManager.NewRegistry(adapter.Inventory())
+	adapterMgr := adapterManager.NewManager(builderReg, aspectReg, eval)
+	configMgr := config.NewManager(&config.ManagerArgs{
+		Eval:          eval,
+		AspectF:       aspectReg,
+		BuilderF:      builderReg,
+		GlobalConfig:  sa.globalConfigFile,
+		ServiceConfig: sa.serviceConfigFile,
+	})
+
+	handler := api.NewHandler(&api.HandlerArgs{
+		AspectExecutor: adapterMgr,
+		// set of aspect Kinds that should be dispatched for "check"
+		CheckSet: aspectReg.AspectSet(config.CheckMethod),
+		// set of aspect Kinds that should be dispatched for "report"
+		ReportSet: aspectReg.AspectSet(config.ReportMethod),
+		// set of aspect Kinds that should be dispatched for "quota"
+		QuotaSet: aspectReg.AspectSet(config.QuotaMethod),
+	})
+
+	grpcServerOptions, err := serverOpts(sa, handler)
+	if err != nil {
+		return err
+	}
+
+	configMgr.Register(handler)
+	configMgr.Start()
+
+	var grpcServer *api.GRPCServer
+	if grpcServer, err = api.NewGRPCServer(grpcServerOptions); err != nil {
+		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
+	}
+	return grpcServer.Start()
 }

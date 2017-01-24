@@ -28,7 +28,7 @@ import (
 )
 
 func TestAdapterInvariants(t *testing.T) {
-	at.TestAdapterInvariants(Register, t)
+	at.TestAdapterInvariants(MustRegister, t)
 }
 
 func TestAdapter_NewAspect(t *testing.T) {
