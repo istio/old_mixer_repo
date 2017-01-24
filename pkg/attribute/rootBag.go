@@ -89,6 +89,39 @@ func (rb *rootBag) Bytes(name string) ([]uint8, bool) {
 	return r, b
 }
 
+func (rb *rootBag) Foreach(handler func(key string, val interface{}) bool) {
+	for key, val := range rb.strings {
+		if !handler(key, val) {
+			return
+		}
+	}
+	for key, val := range rb.int64s {
+		if !handler(key, val) {
+			return
+		}
+	}
+	for key, val := range rb.float64s {
+		if !handler(key, val) {
+			return
+		}
+	}
+	for key, val := range rb.bools {
+		if !handler(key, val) {
+			return
+		}
+	}
+	for key, val := range rb.times {
+		if !handler(key, val) {
+			return
+		}
+	}
+	for key, val := range rb.bytes {
+		if !handler(key, val) {
+			return
+		}
+	}
+}
+
 func (rb *rootBag) reset() {
 	// my kingdom for a clear method on maps!
 
