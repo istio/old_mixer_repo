@@ -19,6 +19,8 @@ import (
 	"io/ioutil"
 	"time"
 
+	"sync"
+
 	"github.com/golang/glog"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/expr"
@@ -36,12 +38,13 @@ type ChangeListener interface {
 type Manager struct {
 	ManagerArgs
 
-	cl        []ChangeListener
-	closing   chan bool
-	scSha     [sha1.Size]byte
-	gcSha     [sha1.Size]byte
+	cl      []ChangeListener
+	closing chan bool
+	scSha   [sha1.Size]byte
+	gcSha   [sha1.Size]byte
+
+	lock      *sync.RWMutex
 	lastError error
-	loopDelay time.Duration
 }
 
 // ManagerArgs are constructor args for a manager
@@ -51,15 +54,20 @@ type ManagerArgs struct {
 	BuilderF      ValidatorFinder
 	GlobalConfig  string
 	ServiceConfig string
+	LoopDelay     time.Duration
 }
 
 // NewManager returns a config.Manager given ManagerArgs.
 func NewManager(args *ManagerArgs) *Manager {
-	return &Manager{
+	m := &Manager{
 		ManagerArgs: *args,
-		loopDelay:   time.Second * 5,
 		closing:     make(chan bool),
+		lock:        &sync.RWMutex{},
 	}
+	if m.LoopDelay == 0 {
+		m.LoopDelay = time.Second * 5
+	}
+	return m
 }
 
 // Register makes the ConfigManager aware of a ConfigChangeListener.
@@ -110,7 +118,9 @@ func (c *Manager) fetch() (*Runtime, error) {
 func (c *Manager) fetchAndNotify() error {
 	rt, err := c.fetch()
 	if err != nil {
+		c.lock.Lock()
 		c.lastError = err
+		c.lock.Unlock()
 		return err
 	}
 	if rt == nil {
@@ -124,11 +134,19 @@ func (c *Manager) fetchAndNotify() error {
 	return nil
 }
 
+// LastError returns last error encountered by the manager while processing config.
+func (c *Manager) LastError() (err error) {
+	c.lock.RLock()
+	err = c.lastError
+	c.lock.RUnlock()
+	return err
+}
+
 // Close stops the config manager go routine.
 func (c *Manager) Close() { close(c.closing) }
 
 func (c *Manager) loop() {
-	ticker := time.NewTicker(c.loopDelay)
+	ticker := time.NewTicker(c.LoopDelay)
 	defer ticker.Stop()
 	done := false
 	for !done {
