@@ -15,6 +15,7 @@
 package attribute
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -25,23 +26,25 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-func TestBag(t *testing.T) {
-	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
-	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	t42 := time.Date(2001, 1, 1, 1, 1, 1, 42, time.UTC)
-	ts9, _ := ptypes.TimestampProto(t9)
-	ts10, _ := ptypes.TimestampProto(t10)
+var (
+	t9      = time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
+	t10     = time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
+	t42     = time.Date(2001, 1, 1, 1, 1, 1, 42, time.UTC)
+	ts9, _  = ptypes.TimestampProto(t9)
+	ts10, _ = ptypes.TimestampProto(t10)
 
-	attrs := mixerpb.Attributes{
+	attrs = mixerpb.Attributes{
 		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12"},
 		StringAttributes:    map[int32]string{1: "1", 2: "2"},
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
 		TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
-		BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
+		BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
 	}
+)
 
+func TestBag(t *testing.T) {
 	am := NewManager()
 	at := am.NewTracker()
 	defer at.Done()
@@ -245,7 +248,7 @@ func TestBadTimestamp(t *testing.T) {
 	// a bogus timestamp value
 	ts1 := &ts.Timestamp{Seconds: -1, Nanos: -1}
 
-	attrs := mixerpb.Attributes{
+	attr := mixerpb.Attributes{
 		Dictionary:          dictionary{1: "N1"},
 		TimestampAttributes: map[int32]*ts.Timestamp{1: ts1},
 	}
@@ -254,7 +257,7 @@ func TestBadTimestamp(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	_, err := at.StartRequest(&attrs)
+	_, err := at.StartRequest(&attr)
 	if err == nil {
 		t.Error("Successfully updated attributes, expected an error")
 	}
@@ -262,21 +265,6 @@ func TestBadTimestamp(t *testing.T) {
 }
 
 func TestValue(t *testing.T) {
-	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
-	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	ts9, _ := ptypes.TimestampProto(t9)
-	ts10, _ := ptypes.TimestampProto(t10)
-
-	attrs := mixerpb.Attributes{
-		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12"},
-		StringAttributes:    map[int32]string{1: "1", 2: "2"},
-		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
-		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
-		BoolAttributes:      map[int32]bool{7: true, 8: false},
-		TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
-		BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
-	}
-
 	am := NewManager()
 	at := am.NewTracker()
 	defer at.Done()
@@ -339,5 +327,49 @@ func TestValue(t *testing.T) {
 
 	if _, found := Value(ab, "FOO"); found {
 		t.Error("Expecting FOO to not be found.")
+	}
+}
+
+func TestForeach(t *testing.T) {
+	am := NewManager()
+	at := am.NewTracker()
+	defer at.Done()
+	ab, _ := at.StartRequest(&attrs)
+	defer ab.Done()
+
+	callCount := 0
+	ab.Foreach(func(key string, val interface{}) bool {
+		callCount++
+		switch val.(type) {
+		case string:
+			if s, ok := ab.String(key); !ok || val != s {
+				t.Errorf("ab.Foreach(func(%s, %s) { ab.String(%s) = %v }); wanted %v", key, val, key, s, val)
+			}
+		case int64:
+			if i64, ok := ab.Int64(key); !ok || val != i64 {
+				t.Errorf("ab.Foreach(func(%s, %s) { ab.Int64(%s) = %v }); wanted %v", key, val, key, i64, val)
+			}
+		case float64:
+			if f64, ok := ab.Float64(key); !ok || val != f64 {
+				t.Errorf("ab.Foreach(func(%s, %s) { ab.Float64(%s) = %v }); wanted %v", key, val, key, f64, val)
+			}
+		case bool:
+			if b, ok := ab.Bool(key); !ok || val != b {
+				t.Errorf("ab.Foreach(func(%s, %s) { ab.Bool(%s) = %v }); wanted %v", key, val, key, b, val)
+			}
+		case time.Time:
+			if ti, ok := ab.Time(key); !ok || val != ti {
+				t.Errorf("ab.Foreach(func(%s, %s) { ab.Time(%s) = %v }); wanted %v", key, val, key, ti, val)
+			}
+		case []uint8:
+			bval := val.([]uint8)
+			if bits, ok := ab.Bytes(key); !ok || !bytes.Equal(bval, bits) {
+				t.Errorf("ab.Foreach(func(%s, %s) { ab.Bytes(%s) = %v }); wanted %v", key, val, key, bits, val)
+			}
+		}
+		return true
+	})
+	if callCount != len(attrs.Dictionary) {
+		t.Errorf("ab.Foreach(handler) only called handler %d times, expected %d calls.", callCount, len(attrs.Dictionary))
 	}
 }
