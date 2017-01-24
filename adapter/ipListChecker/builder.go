@@ -22,9 +22,9 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Register records the builders exposed by this adapter.
-func Register(r adapter.Registrar) error {
-	return r.RegisterListChecker(newBuilder())
+// MustRegister records the builders exposed by this adapter.
+func MustRegister(r adapter.Registrar) {
+	r.RegisterListChecker(newBuilder())
 }
 
 type builderState struct{}

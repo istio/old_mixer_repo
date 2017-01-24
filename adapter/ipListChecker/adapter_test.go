@@ -137,5 +137,5 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	at.TestAdapterInvariants(Register, t)
+	at.TestAdapterInvariants(MustRegister, t)
 }
