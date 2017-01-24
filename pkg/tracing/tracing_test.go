@@ -110,11 +110,7 @@ func TestPropagateSpan(t *testing.T) {
 	mockCtx, _ := sCtx.(mocktracer.MockSpanContext)
 
 	if mockCtx.SpanID != mockSpan.SpanContext.SpanID {
-		t.Errorf(
-			"tracer.Extract(...).SpanID = '%d'; want %v; ctx was %v",
-			mockSpan.SpanContext.SpanID,
-			mockCtx.SpanID,
-			ctx)
+		t.Errorf("tracer.Extract(...).SpanID = '%d'; want %v; ctx was %v", mockSpan.SpanContext.SpanID, mockCtx.SpanID, ctx)
 	}
 }
 
