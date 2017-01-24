@@ -26,7 +26,7 @@ type identity struct{}
 // NewIdentityEvaluator returns an evaluator that performs no evaluations; instead it uses the provided mapExpression
 // as the key into the attribute bag.
 func NewIdentityEvaluator() Evaluator {
-	return &identity{}
+	return identity{}
 }
 
 // Eval attempts to extract the key `mapExpression` from the attribute bag. It performs no evaluation.
