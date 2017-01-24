@@ -17,6 +17,7 @@ package adapterManager
 import (
 	"fmt"
 
+	"github.com/golang/glog"
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -33,6 +34,7 @@ func NewRegistry(builders []adapter.MustRegisterFn) *Registry {
 	for _, builder := range builders {
 		builder(r)
 	}
+	glog.V(2).Infof("Available Builders: %v", r.buildersByName)
 	return r
 }
 

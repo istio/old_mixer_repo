@@ -60,20 +60,29 @@ func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, 
 	return dlist, err
 }
 
+func (r *Runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error) {
+	// empty selector always selects
+	if selector == "" {
+		return true, nil
+	}
+	return r.eval.EvalPredicate(selector, bag)
+}
+
 // resolveRules recurses thru the config struct and returns a list of combined aspects
 func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
 	var selected bool
 	var lerr error
 
 	for _, rule := range rules {
-		if selected, lerr = r.eval.EvalPredicate(rule.GetSelector(), bag); lerr != nil {
+		sel := rule.GetSelector()
+		if selected, lerr = r.evalPredicate(sel, bag); lerr != nil {
 			err = multierror.Append(err, lerr)
 			continue
 		}
 		if !selected {
 			continue
 		}
-		path = path + "/" + rule.GetSelector()
+		path = path + "/" + sel
 		for _, aa := range rule.GetAspects() {
 			if cs := r.combined(aa, aspectSet); cs != nil {
 				*dlist = append(*dlist, cs)
