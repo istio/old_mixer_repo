@@ -29,6 +29,6 @@ type Registrar interface {
 	RegisterQuota(QuotaBuilder)
 }
 
-// MustRegisterFn is a function the mixer invokes to trigger adapters to registers
-// their aspect builders. It must succeed in registration or panic().
+// MustRegisterFn is a function the mixer invokes to trigger adapters to register
+// their aspect builders. It must succeed or panic().
 type MustRegisterFn func(Registrar)

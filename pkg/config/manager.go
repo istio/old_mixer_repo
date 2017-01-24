@@ -36,10 +36,12 @@ type ChangeListener interface {
 type Manager struct {
 	ManagerArgs
 
-	cl      []ChangeListener
-	closing chan bool
-	scSha   [sha1.Size]byte
-	gcSha   [sha1.Size]byte
+	cl        []ChangeListener
+	closing   chan bool
+	scSha     [sha1.Size]byte
+	gcSha     [sha1.Size]byte
+	lastError error
+	loopDelay time.Duration
 }
 
 // ManagerArgs are constructor args for a manager
@@ -53,7 +55,11 @@ type ManagerArgs struct {
 
 // NewManager returns a config.Manager given ManagerArgs.
 func NewManager(args *ManagerArgs) *Manager {
-	return &Manager{ManagerArgs: *args}
+	return &Manager{
+		ManagerArgs: *args,
+		loopDelay:   time.Second * 5,
+		closing:     make(chan bool),
+	}
 }
 
 // Register makes the ConfigManager aware of a ConfigChangeListener.
@@ -75,14 +81,14 @@ func (c *Manager) fetch() (*Runtime, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
-	scSha, sc, err1 := read(c.ServiceConfig)
-	if err1 != nil {
-		return nil, err1
-	}
-
 	gcSha, gc, err2 := read(c.GlobalConfig)
 	if err2 != nil {
 		return nil, err2
+	}
+
+	scSha, sc, err1 := read(c.ServiceConfig)
+	if err1 != nil {
+		return nil, err1
 	}
 
 	if gcSha == c.gcSha && scSha == c.scSha {
@@ -104,6 +110,7 @@ func (c *Manager) fetch() (*Runtime, error) {
 func (c *Manager) fetchAndNotify() error {
 	rt, err := c.fetch()
 	if err != nil {
+		c.lastError = err
 		return err
 	}
 	if rt == nil {
@@ -121,7 +128,7 @@ func (c *Manager) fetchAndNotify() error {
 func (c *Manager) Close() { close(c.closing) }
 
 func (c *Manager) loop() {
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(c.loopDelay)
 	defer ticker.Stop()
 	done := false
 	for !done {
