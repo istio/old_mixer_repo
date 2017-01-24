@@ -18,7 +18,9 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
@@ -89,7 +91,13 @@ func newPool(size uint) *pool {
 // It's assumed that all adapter executions for a single request share the same manager, attribute bag, and evaluator.
 func (p *pool) requestGroup(mngr *adapterManager.Manager, ab attribute.Bag, eval expr.Evaluator, numAdapters int) (<-chan result, enqueueFunc) {
 	c := make(chan result, numAdapters)
+	timesCalled := int32(0)
+	allowedCalls := int32(numAdapters)
+
 	return c, func(ctx context.Context, config *aspect.CombinedConfig) {
+		if atomic.AddInt32(&timesCalled, 1) > allowedCalls {
+			panic(fmt.Errorf("called enqueueFunc too many times; expected at most %d calls", allowedCalls))
+		}
 		p.work <- task{ctx, mngr, config, ab, eval, c}
 	}
 }

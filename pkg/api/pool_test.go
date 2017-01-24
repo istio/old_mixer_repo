@@ -28,6 +28,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/struct"
 	istioconfig "istio.io/api/mixer/v1/config"
+	"istio.io/mixer/pkg/adapterManager"
 )
 
 type testAspectFn func() (*aspect.Output, error)
@@ -167,4 +168,24 @@ func TestQuit(t *testing.T) {
 		t.Error("pool.shutown() didn't complete in the expected time")
 	case <-succeed:
 	}
+}
+
+func TestEnqueuePanics(t *testing.T) {
+	p := newPool(1)
+
+	mgr := adapterManager.NewManager(nil)
+
+	numCalls := 1
+	_, enqueue := p.requestGroup(mgr, nil, nil, numCalls)
+	for i := 0; i < numCalls; i++ {
+		enqueue(nil, nil)
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("enqueue(nil, nil) got nil, want panic and non-nil recover.")
+		}
+	}()
+	enqueue(nil, nil)
+	t.Error("enqueue(nil, nil) should panic")
 }
