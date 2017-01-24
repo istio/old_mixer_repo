@@ -41,6 +41,12 @@ type Bag interface {
 	// Bytes returns the named attribute if it exists.
 	Bytes(name string) ([]uint8, bool)
 
+	// Foreach allows a caller to process all of the (key, value) pairs this bag knows about. If the provided func
+	// returns false iteration is stopped.
+	//
+	// The view into the values is provided in this form so that the bag can keep iteration thread safe.
+	Foreach(handler func(key string, val interface{}) bool)
+
 	// Done indicates the bag can be reclaimed.
 	Done()
 }
