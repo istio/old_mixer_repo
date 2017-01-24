@@ -43,9 +43,10 @@ func TestConfigManagerError(t *testing.T) {
 	for idx, mt := range mlist {
 		vf := &fakeVFinder{v: mt.v}
 		ma := &ManagerArgs{
-			AspectF:  vf,
-			BuilderF: vf,
-			Eval:     evaluator,
+			AspectF:   vf,
+			BuilderF:  vf,
+			Eval:      evaluator,
+			LoopDelay: time.Millisecond * 300,
 		}
 		if mt.gc != "" {
 			tmpfile, _ := ioutil.TempFile("", mt.gc)
@@ -66,18 +67,18 @@ func TestConfigManagerError(t *testing.T) {
 		mgr := NewManager(ma)
 		fl := &fakelistener{}
 		mgr.Register(fl)
-		mgr.loopDelay = time.Millisecond * 300
 
 		_ = mgr.fetchAndNotify()
 		mgr.Start()
 
-		if mt.errStr != "" && mgr.lastError == nil {
+		le := mgr.LastError()
+		if mt.errStr != "" && le == nil {
 			t.Errorf("[%d] Expected an error %s Got nothing", idx, mt.errStr)
 			continue
 		}
 
-		if mt.errStr == "" && mgr.lastError != nil {
-			t.Errorf("[%d] Unexpected an error %s", idx, mgr.lastError)
+		if mt.errStr == "" && le != nil {
+			t.Errorf("[%d] Unexpected an error %s", idx, le)
 			continue
 		}
 
@@ -85,16 +86,15 @@ func TestConfigManagerError(t *testing.T) {
 			t.Errorf("[%d] Config listener was not notified", idx)
 		}
 
-		if mt.errStr == "" && mgr.lastError == nil {
+		if mt.errStr == "" && le == nil {
 			continue
 		}
 
-		if !strings.Contains(mgr.lastError.Error(), mt.errStr) {
-			t.Errorf("[%d] Unexpected error. Expected %s\nGot: %s\n", idx, mt.errStr, mgr.lastError)
+		if !strings.Contains(le.Error(), mt.errStr) {
+			t.Errorf("[%d] Unexpected error. Expected %s\nGot: %s\n", idx, mt.errStr, le)
 		}
 
 		time.Sleep(time.Second * 1)
 		mgr.Close()
-
 	}
 }
