@@ -65,6 +65,25 @@ func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect
 }
 func (testAspect) Deny() status.Status { return status.Status{Code: int32(code.Code_INTERNAL)} }
 
+var (
+	name = "denyChecker"
+
+	cfg = &aspect.CombinedConfig{
+		Aspect: &istioconfig.Aspect{
+			Kind:    name,
+			Adapter: "",
+			Inputs:  make(map[string]string),
+			Params:  new(structpb.Struct),
+		},
+		Builder: &istioconfig.Adapter{
+			Name:   "",
+			Kind:   "",
+			Impl:   name,
+			Params: new(structpb.Struct),
+		},
+	}
+)
+
 func TestNewPoolPanics(t *testing.T) {
 	sizeInt := -1 // this has type int; golint complains if we use a descriptive var declaration
 	defer func() {
@@ -79,26 +98,10 @@ func TestNewPoolPanics(t *testing.T) {
 
 func TestPoolSize(t *testing.T) {
 	blockChan := make(chan struct{})
-	name := "denyChecker"
-
 	testMngr := newTestManager(name, func() (*aspect.Output, error) {
 		<-blockChan
 		return &aspect.Output{Code: code.Code_OK}, nil
 	})
-	cfg := &aspect.CombinedConfig{
-		Aspect: &istioconfig.Aspect{
-			Kind:    name,
-			Adapter: "",
-			Inputs:  make(map[string]string),
-			Params:  new(structpb.Struct),
-		},
-		Builder: &istioconfig.Adapter{
-			Name:   "",
-			Kind:   "",
-			Impl:   name,
-			Params: new(structpb.Struct),
-		},
-	}
 	b := StaticBinding{
 		RegisterFn: func(r adapter.Registrar) error { return r.RegisterDenyChecker(testMngr) },
 		Manager:    testMngr,
@@ -176,7 +179,7 @@ func TestEnqueuePanics(t *testing.T) {
 	numCalls := 1
 	_, enqueue := p.requestGroup(mgr, nil, nil, numCalls)
 	for i := 0; i < numCalls; i++ {
-		enqueue(nil, nil)
+		enqueue(nil, cfg)
 	}
 
 	defer func() {
@@ -184,6 +187,6 @@ func TestEnqueuePanics(t *testing.T) {
 			t.Error("enqueue(nil, nil) got nil, want panic and non-nil recover.")
 		}
 	}()
-	enqueue(nil, nil)
+	enqueue(nil, cfg)
 	t.Error("enqueue(nil, nil) should panic")
 }
