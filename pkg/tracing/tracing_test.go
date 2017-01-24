@@ -128,4 +128,13 @@ func TestDisabledTracer(t *testing.T) {
 	if span, _ := tracer.StartSpanFromContext(context.Background(), ""); span != noopSpan {
 		t.Errorf("Expected disabled tracer to return noop span, actual: %+v", span)
 	}
+
+	ctx := context.Background()
+	if _, nctx := tracer.PropagateSpan(ctx, noopSpan); nctx != ctx {
+		t.Errorf("PropagateSpan on disabled tracer modified the context; expected: %v, actual %v", ctx, nctx)
+	}
+
+	if sc := tracer.extractSpanContext(ctx, extractMetadata(ctx)); sc != nil {
+		t.Errorf("ExtractSpan on disabled tracer should return a nil spancontext, actual: %v", sc)
+	}
 }
