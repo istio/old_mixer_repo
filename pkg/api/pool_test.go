@@ -85,7 +85,6 @@ func TestPoolSize(t *testing.T) {
 		<-blockChan
 		return &aspect.Output{Code: code.Code_OK}, nil
 	})
-
 	cfg := &aspect.CombinedConfig{
 		Aspect: &istioconfig.Aspect{
 			Kind:    name,
@@ -100,7 +99,6 @@ func TestPoolSize(t *testing.T) {
 			Params: new(structpb.Struct),
 		},
 	}
-
 	b := StaticBinding{
 		RegisterFn: func(r adapter.Registrar) error { return r.RegisterDenyChecker(testMngr) },
 		Manager:    testMngr,
@@ -108,7 +106,7 @@ func TestPoolSize(t *testing.T) {
 		Methods:    []Method{Check},
 	}
 
-	// Easier than creating a new manager directly
+	// Easier than creating a new manager directly and having to register everything. We need all the config either way.
 	mgr, _ := NewMethodHandlers(1, b).(*methodHandlers)
 	underTest := newPool(1)
 
