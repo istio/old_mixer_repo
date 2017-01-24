@@ -39,7 +39,7 @@ func TestRequestCancellation(t *testing.T) {
 
 	s := handler.execute(ctx, attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, Check)
 	if s.Code != int32(code.Code_DEADLINE_EXCEEDED) {
-		t.Errorf("Didn't return deadline exceeded when handler.execute was called with a canceled context, got status: %v", s)
+		t.Errorf("execute(canceledContext, ...) returned %v, wanted status with code %v", s, code.Code_DEADLINE_EXCEEDED)
 	}
 }
 
@@ -52,6 +52,6 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 
 	s := handler.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, Check)
 	if s.Code != int32(code.Code_INTERNAL) {
-		t.Errorf("Expected internal error status with invalid adapter config, got status: %v", s)
+		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
 	}
 }

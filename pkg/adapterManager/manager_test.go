@@ -118,12 +118,12 @@ func TestRecovery_NewAspect(t *testing.T) {
 		&istioconfig.Adapter{Name: name},
 	}
 
-	if _, err := m.Execute(cfg, nil, nil); err != nil {
-		if !strings.Contains(err.Error(), "NewAspect") {
-			t.Errorf("Expected err from panic with message containing 'NewAspect', actual: %v", err)
-		}
-	} else {
+	_, err := m.Execute(cfg, nil, nil)
+	if err == nil {
 		t.Error("Aspect threw, but got no err from manager.Execute")
+	}
+	if !strings.Contains(err.Error(), "NewAspect") {
+		t.Errorf("Expected err from panic with message containing 'NewAspect', actual: %v", err)
 	}
 }
 
@@ -140,11 +140,11 @@ func TestRecovery_AspectExecute(t *testing.T) {
 		&istioconfig.Adapter{Name: name},
 	}
 
-	if _, err := m.Execute(cfg, nil, nil); err != nil {
-		if !strings.Contains(err.Error(), "Execute") {
-			t.Errorf("Expected err from panic with message containing 'Execute', actual: %v", err)
-		}
-	} else {
+	_, err := m.Execute(cfg, nil, nil)
+	if err == nil {
 		t.Error("Aspect threw, but got no err from manager.Execute")
+	}
+	if !strings.Contains(err.Error(), "Execute") {
+		t.Errorf("Expected err from panic with message containing 'Execute', actual: %v", err)
 	}
 }
