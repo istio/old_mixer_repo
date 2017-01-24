@@ -64,6 +64,18 @@ func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect
 }
 func (testAspect) Deny() status.Status { return status.Status{Code: int32(code.Code_INTERNAL)} }
 
+func TestNewPoolPanics(t *testing.T) {
+	sizeInt := -1 // this has type int; golint complains if we use a descriptive var declaration
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected value in panic, got nothing.")
+		}
+	}()
+
+	newPool(uint(sizeInt))
+	t.Error("Expected panic in constructor due to size overflow")
+}
+
 func TestPoolSize(t *testing.T) {
 	blockChan := make(chan struct{})
 	name := "denyChecker"
