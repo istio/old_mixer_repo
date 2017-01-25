@@ -10,6 +10,8 @@ import (
 
 	"sync"
 	"time"
+
+	"istio.io/mixer/pkg/expr"
 )
 
 type mtest struct {
@@ -55,29 +57,42 @@ func TestConfigManager(t *testing.T) {
 	for idx, mt := range mlist {
 		loopDelay := time.Millisecond * 50
 		vf := &fakeVFinder{v: mt.v}
-		ma := &ManagerArgs{
-			AspectFinder:  vf,
-			BuilderFinder: vf,
-			Eval:          evaluator,
-			LoopDelay:     loopDelay,
+		ma := &managerArgs{
+			aspectFinder:  vf,
+			builderFinder: vf,
+			eval:          evaluator,
+			loopDelay:     loopDelay,
 		}
 		if mt.gc != "" {
 			tmpfile, _ := ioutil.TempFile("", mt.gc)
-			ma.GlobalConfig = tmpfile.Name()
-			defer func() { _ = os.Remove(ma.GlobalConfig) }()
+			ma.globalConfig = tmpfile.Name()
+			defer func() { _ = os.Remove(ma.globalConfig) }()
 			_, _ = tmpfile.Write([]byte(mt.gcContent))
 			_ = tmpfile.Close()
 		}
 
 		if mt.sc != "" {
 			tmpfile, _ := ioutil.TempFile("", mt.sc)
-			ma.ServiceConfig = tmpfile.Name()
-			defer func() { _ = os.Remove(ma.ServiceConfig) }()
+			ma.serviceConfig = tmpfile.Name()
+			defer func() { _ = os.Remove(ma.serviceConfig) }()
 			_, _ = tmpfile.Write([]byte(mt.scContent))
 			_ = tmpfile.Close()
 		}
-		testConfigManager(t, NewManager(ma), mt, idx, loopDelay)
+		testConfigManager(t, newmanager(ma), mt, idx, loopDelay)
 	}
+}
+
+func newmanager(args *managerArgs) *Manager {
+	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.globalConfig, args.serviceConfig, args.loopDelay)
+}
+
+type managerArgs struct {
+	eval          expr.Evaluator
+	aspectFinder  ValidatorFinder
+	builderFinder ValidatorFinder
+	loopDelay     time.Duration
+	globalConfig  string
+	serviceConfig string
 }
 
 func testConfigManager(t *testing.T, mgr *Manager, mt mtest, idx int, loopDelay time.Duration) {

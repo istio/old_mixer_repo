@@ -34,6 +34,8 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/tracing"
 
+	"time"
+
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -48,8 +50,9 @@ type serverArgs struct {
 	clientCertFiles      string
 
 	// mixer manager args
-	serviceConfigFile string
-	globalConfigFile  string
+	serviceConfigFile      string
+	globalConfigFile       string
+	configFetchIntervalSec uint
 }
 
 func serverCmd(errorf errorFn) *cobra.Command {
@@ -80,6 +83,8 @@ func serverCmd(errorf errorFn) *cobra.Command {
 
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "serviceConfig.yml", "Combined Service Config")
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "globalConfig.yml", "Global Config")
+	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Config fetch interval in seconds")
+
 	return &serverCmd
 }
 
@@ -129,30 +134,16 @@ func runServer(sa *serverArgs) error {
 	eval := expr.NewIdentityEvaluator()
 	aspectRegistry := aspect.DefaultRegistry()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspectRegistry, eval)
-	configManager := config.NewManager(&config.ManagerArgs{
-		Eval:          eval,
-		AspectFinder:  aspectRegistry,
-		BuilderFinder: adapterMgr,
-		GlobalConfig:  sa.globalConfigFile,
-		ServiceConfig: sa.serviceConfigFile,
-	})
-
-	handler := api.NewHandler(&api.HandlerArgs{
-		AspectExecutor: adapterMgr,
-		// set of aspect Kinds that should be dispatched for "check"
-		CheckSet: aspectRegistry.AspectSet(config.CheckMethod),
-		// set of aspect Kinds that should be dispatched for "report"
-		ReportSet: aspectRegistry.AspectSet(config.ReportMethod),
-		// set of aspect Kinds that should be dispatched for "quota"
-		QuotaSet: aspectRegistry.AspectSet(config.QuotaMethod),
-	})
+	configManager := config.NewManager(eval, aspectRegistry, adapterMgr,
+		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
+	handler := api.NewHandler(adapterMgr, aspectRegistry.AspectMap())
 
 	grpcServerOptions, err := serverOpts(sa, handler)
 	if err != nil {
 		return err
 	}
 
-	configManager.Register(handler)
+	configManager.Register(handler.(config.ChangeListener))
 	configManager.Start()
 
 	var grpcServer *api.GRPCServer
