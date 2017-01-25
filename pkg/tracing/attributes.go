@@ -61,7 +61,7 @@ func FromContext(ctx context.Context) *AttributeCarrier {
 // before its passed to handler.
 func (c *AttributeCarrier) ForeachKey(handler func(key, val string) error) error {
 	var err error
-	c.mb.Foreach(func(key string, val interface{}) bool {
+	c.mb.ForEach(func(key string, val interface{}) bool {
 		if sval, ok := val.(string); ok {
 			if strings.HasPrefix(key, prefix) {
 				if err = handler(key[prefixLength:], sval); err != nil {

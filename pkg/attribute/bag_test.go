@@ -330,7 +330,7 @@ func TestValue(t *testing.T) {
 	}
 }
 
-func TestForeach(t *testing.T) {
+func TestForEach(t *testing.T) {
 	am := NewManager()
 	at := am.NewTracker()
 	defer at.Done()
@@ -338,7 +338,7 @@ func TestForeach(t *testing.T) {
 	defer ab.Done()
 
 	callCount := 0
-	ab.Foreach(func(key string, val interface{}) bool {
+	ab.ForEach(func(key string, val interface{}) bool {
 		callCount++
 		switch val.(type) {
 		case string:
