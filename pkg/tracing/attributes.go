@@ -27,7 +27,7 @@ import (
 
 const (
 	// TODO: elevate this to a global registry, especially since non-go clients (the proxy) will need to use the same prefix
-	prefix       = "istio-ot-"
+	prefix       = ":istio-ot-"
 	prefixLength = len(prefix)
 )
 
