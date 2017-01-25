@@ -83,7 +83,7 @@ type methodHandlers struct {
 }
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
-func NewMethodHandlers(workerPoolSize uint, bindings ...StaticBinding) MethodHandlers {
+func NewMethodHandlers(workerPoolSize int, bindings ...StaticBinding) MethodHandlers {
 	managers := make([]aspect.Manager, len(bindings))
 	configs := map[Method][]*aspect.CombinedConfig{Check: {}, Report: {}, Quota: {}}
 
@@ -102,12 +102,10 @@ func NewMethodHandlers(workerPoolSize uint, bindings ...StaticBinding) MethodHan
 		}
 	}
 
-	pool := newPool(workerPoolSize)
-
 	return &methodHandlers{
 		mngr:    adapterMgr,
 		eval:    expr.NewIdentityEvaluator(),
-		pool:    pool,
+		pool:    newPool(workerPoolSize),
 		configs: configs,
 	}
 }
@@ -126,7 +124,7 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 	numAdapters := len(h.configs[method])
 
-	// Loop over our configs, executing the adapter for each on another thread. Because enqueue blocks until a worker
+	// Loop over our configs, executing the adapter for each on another go routine. Because enqueue blocks until a worker
 	// is available it could block for a long time, so we check to see if our context was canceled each time we attempt
 	// to enqueue work.
 	results, enqueue := h.pool.requestGroup(h.mngr, ab, h.eval, numAdapters)

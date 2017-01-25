@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"strings"
 
@@ -109,6 +110,11 @@ func runServer(sa *serverArgs) error {
 
 	attrMgr := attribute.NewManager()
 
+	poolsize := int(sa.workerPoolSize)
+	if poolsize < 0 {
+		return fmt.Errorf("--workerPoolSize must be non-negative and less than %d, got: %d", math.MaxInt32, poolsize)
+	}
+
 	grpcServerOptions := api.GRPCServerOptions{
 		Port:                 uint16(sa.port),
 		MaxMessageSize:       sa.maxMessageSize,
@@ -116,7 +122,7 @@ func runServer(sa *serverArgs) error {
 		CompressedPayload:    sa.compressedPayload,
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
-		Handlers:             api.NewMethodHandlers(sa.workerPoolSize, configs...),
+		Handlers:             api.NewMethodHandlers(poolsize, configs...),
 		AttributeManager:     attrMgr,
 		Tracer:               tracer,
 	}

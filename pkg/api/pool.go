@@ -28,7 +28,7 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
-// result holds the values returned by the execution of an adapter on a thread in the pool
+// result holds the values returned by the execution of an adapter on a go routine in the pool
 type result struct {
 	name string
 	out  *aspect.Output
@@ -53,31 +53,26 @@ type task struct {
 type pool struct {
 	work chan<- task     // Used to hand work items to the workers in the pool
 	quit chan<- struct{} // Used to kill the workers in the queue
-	wg   *sync.WaitGroup // Used to block shutdown until all workers complete
+	wg   sync.WaitGroup  // Used to block shutdown until all workers complete
 }
 
 // newPool returns a new pool of workers; it should be called once at server startup, and requestGroup should be called
 // per request to get a handle to enqueue work on the pool.
-func newPool(size uint) *pool {
+func newPool(size int) *pool {
 	work := make(chan task, size)
 	quit := make(chan struct{})
-	wg := &sync.WaitGroup{}
-
-	isize := int(size)
-	if isize < 0 {
-		panic("Number of workers must be less than max int val")
-	}
-
-	wg.Add(isize)
-	for i := 0; i < isize; i++ {
-		go worker(work, quit, wg)
-	}
-
-	return &pool{
+	p := &pool{
 		work: work,
 		quit: quit,
-		wg:   wg,
+		wg:   sync.WaitGroup{},
 	}
+
+	p.wg.Add(size)
+	for i := 0; i < size; i++ {
+		go worker(work, quit, &p.wg)
+	}
+
+	return p
 }
 
 // requestGroup is called on the pool to get a handle to enqueue all of the adapter executions for a single request into the pool.
@@ -85,7 +80,7 @@ func newPool(size uint) *pool {
 // of a single adapter. The enqueueFunc will bock until there is a worker available to perform the work being enqueued.
 //
 // numAdapters is used to size the buffer of the result chan; it's important that the pool's workers not block returning results
-// to avoid a deadlock amongst request threads attempting to enqueue work onto the pool, so we need a buffer large enough for all
+// to avoid a deadlock amongst request go routines attempting to enqueue work onto the pool, so we need a buffer large enough for all
 // adapters in a request to return their values. To enforce this invariant, enqueueFunc will panic if called more than numAdpaters times.
 //
 // It's assumed that all adapter executions for a single request share the same manager, attribute bag, and evaluator.

@@ -84,18 +84,6 @@ var (
 	}
 )
 
-func TestNewPoolPanics(t *testing.T) {
-	sizeInt := -1 // this has type int; golint complains if we use a descriptive var declaration
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected value in panic, got nothing.")
-		}
-	}()
-
-	newPool(uint(sizeInt))
-	t.Error("Expected panic in constructor due to size overflow")
-}
-
 func TestPoolSize(t *testing.T) {
 	blockChan := make(chan struct{})
 	testMngr := newTestManager(name, func() (*aspect.Output, error) {
@@ -131,7 +119,7 @@ func TestPoolSize(t *testing.T) {
 	}
 
 	close(blockChan) // unblock the queue
-	<-second         // block the test thread till the second enqueue completes
+	<-second         // block the test go routine till the second enqueue completes
 
 	// It takes a little time for the two goroutines to write their results; we loop to make the test more reliable.
 	for count := 0; len(res) != 2 && count < 5; count++ {
@@ -149,7 +137,7 @@ func TestPoolSize(t *testing.T) {
 	}
 }
 
-func TestQuit(t *testing.T) {
+func TestShutdown(t *testing.T) {
 	fail := make(chan struct{})
 	succeed := make(chan struct{})
 	p := newPool(1)
