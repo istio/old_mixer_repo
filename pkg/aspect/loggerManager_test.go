@@ -26,12 +26,13 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
+	"errors"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/proto"
-	"errors"
 )
 
 type (
@@ -39,13 +40,6 @@ type (
 		name   string
 		params adapter.AspectConfig
 		want   *loggerWrapper
-	}
-	executeTestCase struct {
-		name        string
-		exec        *loggerWrapper
-		bag         attribute.Bag
-		mapper      expr.Evaluator
-		wantEntries []adapter.LogEntry
 	}
 	testLogger struct {
 		adapter.LoggerBuilder
@@ -56,18 +50,6 @@ type (
 		entries        []adapter.LogEntry
 		errOnNewAspect bool
 		errOnLog       bool
-	}
-	testEvaluator struct {
-		expr.Evaluator
-	}
-	testBag struct {
-		attribute.Bag
-
-		strs  map[string]string
-		times map[string]time.Time
-	}
-	testEnv struct {
-		adapter.Env
 	}
 )
 
@@ -105,7 +87,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 
 	for _, v := range newAspectShouldSucceed {
 		c := config.Combined{
-			Builder: &configpb.Adapter{Params: tl.DefaultConfig()},
+			Builder: &configpb.Adapter{Params: &empty.Empty{}},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
 		asp, err := m.NewAspect(&c, tl, test.Env{})
@@ -124,13 +106,12 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 
 	defaultCfg := &config.Combined{
 		Builder: &configpb.Adapter{
-			Params: empty.Empty{},
+			Params: &empty.Empty{},
 		},
 		Aspect: &configpb.Aspect{
 			Params: &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339},
 		},
 	}
-
 
 	errLogger := &testLogger{defaultCfg: &empty.Empty{}, errOnNewAspect: true}
 
@@ -288,7 +269,6 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 	}
 }
 
-
 func (t *testLogger) NewLogger(e adapter.Env, m adapter.AspectConfig) (adapter.LoggerAspect, error) {
 	if t.errOnNewAspect {
 		return nil, errors.New("new aspect error")
@@ -305,34 +285,3 @@ func (t *testLogger) Log(l []adapter.LogEntry) error {
 	return nil
 }
 func (t *testLogger) Close() error { return nil }
-
-func (t *testEvaluator) Eval(e string, bag attribute.Bag) (interface{}, error) {
-	return e, nil
-}
-
-func (t *testBag) String(name string) (string, bool) {
-	v, found := t.strs[name]
-	return v, found
-}
-
-func (t *testBag) Time(name string) (time.Time, bool) {
-	v, found := t.times[name]
-	return v, found
-}
-
-func (t *testBag) Int64(name string) (int64, bool)     { return 0, false }
-func (t *testBag) Float64(name string) (float64, bool) { return 0, false }
-func (t *testBag) Bool(name string) (bool, bool)       { return false, false }
-func (t *testBag) Bytes(name string) ([]byte, bool)    { return []byte{}, false }
-
-func newEntry(n string, l map[string]interface{}, ts string, s adapter.Severity, tp string, sp map[string]interface{}) adapter.LogEntry {
-	return adapter.LogEntry{
-		LogName:       n,
-		Labels:        l,
-		Timestamp:     ts,
-		Severity:      s,
-		TextPayload:   tp,
-		StructPayload: sp,
-	}
-}
-
