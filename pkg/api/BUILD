@@ -38,7 +38,7 @@ go_test(
     size = "small",
     srcs = [
         "grpcServer_test.go",
-        "methodHandlers_test.go",
+        "handler_test.go",
     ],
     library = ":go_default_library",
 )

@@ -101,7 +101,7 @@ func newManager(r builderFinder, m aspect.ManagerFinder, exp expr.Evaluator) *Ma
 	}
 }
 
-
+// Execute performs action described in the combined config using the attribute bag
 func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag) (out *aspect.Output, err error) {
 	var mgr aspect.Manager
 	var found bool

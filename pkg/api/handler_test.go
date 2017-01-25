@@ -23,14 +23,13 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
-
 )
-
 
 type fakeresolver struct {
 	ret []*config.Combined
 	err error
 }
+
 func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*config.Combined, error) {
 	return f.ret, f.err
 }

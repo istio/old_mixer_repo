@@ -79,7 +79,7 @@ type handlerState struct {
 func NewHandler(aspectExecutor Executor, methodmap map[config.APIMethod]config.AspectSet) Handler {
 	return &handlerState{
 		aspectExecutor: aspectExecutor,
-		methodmap: methodmap,
+		methodmap:      methodmap,
 	}
 }
 
