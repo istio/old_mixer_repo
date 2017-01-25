@@ -26,6 +26,7 @@ import (
 )
 
 const (
+	// TODO: elevate this to a global registry, especially since non-go clients (the proxy) will need to use the same prefix
 	prefix       = "istio-ot-"
 	prefixLength = len(prefix)
 )
@@ -60,19 +61,17 @@ func FromContext(ctx context.Context) *AttributeCarrier {
 // AttributeCarrier to denote opentracing attributes. The AttributeCarrier specific prefix is stripped from the key
 // before its passed to handler.
 func (c *AttributeCarrier) ForeachKey(handler func(key, val string) error) error {
-	var err error
-	c.mb.ForEach(func(key string, val interface{}) bool {
-		if sval, ok := val.(string); ok {
-			if strings.HasPrefix(key, prefix) {
-				if err = handler(key[prefixLength:], sval); err != nil {
-					return false
+	keys := c.mb.StringKeys()
+	for _, key := range keys {
+		if strings.HasPrefix(key, prefix) {
+			if val, found := c.mb.String(key); found {
+				if err := handler(key[prefixLength:], val); err != nil {
+					return err
 				}
 			}
 		}
-		return true
-	})
-	// If we made it through with no problems, err == nil, otherwise it's some error from handler.
-	return err
+	}
+	return nil
 }
 
 // Set adds (key, val) to the set of string attributes in the request scope. It prefixes the key with an istio-private

@@ -15,7 +15,6 @@
 package attribute
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -330,46 +329,128 @@ func TestValue(t *testing.T) {
 	}
 }
 
-func TestForEach(t *testing.T) {
-	am := NewManager()
-	at := am.NewTracker()
+func TestStringKeys(t *testing.T) {
+	at := NewManager().NewTracker()
 	defer at.Done()
-	ab, _ := at.StartRequest(&attrs)
+	root, _ := at.StartRequest(&mixerpb.Attributes{})
+	defer root.Done()
+	ab := root.Child()
 	defer ab.Done()
 
-	callCount := 0
-	ab.ForEach(func(key string, val interface{}) bool {
-		callCount++
-		switch val.(type) {
-		case string:
-			if s, ok := ab.String(key); !ok || val != s {
-				t.Errorf("ab.Foreach(func(%s, %s) { ab.String(%s) = %v }); wanted %v", key, val, key, s, val)
-			}
-		case int64:
-			if i64, ok := ab.Int64(key); !ok || val != i64 {
-				t.Errorf("ab.Foreach(func(%s, %s) { ab.Int64(%s) = %v }); wanted %v", key, val, key, i64, val)
-			}
-		case float64:
-			if f64, ok := ab.Float64(key); !ok || val != f64 {
-				t.Errorf("ab.Foreach(func(%s, %s) { ab.Float64(%s) = %v }); wanted %v", key, val, key, f64, val)
-			}
-		case bool:
-			if b, ok := ab.Bool(key); !ok || val != b {
-				t.Errorf("ab.Foreach(func(%s, %s) { ab.Bool(%s) = %v }); wanted %v", key, val, key, b, val)
-			}
-		case time.Time:
-			if ti, ok := ab.Time(key); !ok || val != ti {
-				t.Errorf("ab.Foreach(func(%s, %s) { ab.Time(%s) = %v }); wanted %v", key, val, key, ti, val)
-			}
-		case []uint8:
-			bval := val.([]uint8)
-			if bits, ok := ab.Bytes(key); !ok || !bytes.Equal(bval, bits) {
-				t.Errorf("ab.Foreach(func(%s, %s) { ab.Bytes(%s) = %v }); wanted %v", key, val, key, bits, val)
-			}
+	data := map[string]string{"one": "a", "two": "b"}
+	for k, v := range data {
+		ab.SetString(k, v)
+	}
+
+	keys := ab.StringKeys()
+	for _, key := range keys {
+		if val, found := data[key]; !found {
+			t.Errorf("data[%s] = %s, wanted key in set: %v", key, val, keys)
 		}
-		return true
-	})
-	if callCount != len(attrs.Dictionary) {
-		t.Errorf("ab.Foreach(handler) only called handler %d times, expected %d calls.", callCount, len(attrs.Dictionary))
+	}
+}
+
+func TestInt64Keys(t *testing.T) {
+	at := NewManager().NewTracker()
+	defer at.Done()
+	root, _ := at.StartRequest(&mixerpb.Attributes{})
+	defer root.Done()
+	ab := root.Child()
+	defer ab.Done()
+
+	data := map[string]int64{"one": 1, "two": 2}
+	for k, v := range data {
+		ab.SetInt64(k, v)
+	}
+
+	keys := ab.Int64Keys()
+	for _, key := range keys {
+		if val, found := data[key]; !found {
+			t.Errorf("data[%s] = %d, wanted key in set: %v", key, val, keys)
+		}
+	}
+}
+
+func TestFloat64Keys(t *testing.T) {
+	at := NewManager().NewTracker()
+	defer at.Done()
+	root, _ := at.StartRequest(&mixerpb.Attributes{})
+	defer root.Done()
+	ab := root.Child()
+	defer ab.Done()
+
+	data := map[string]float64{"one": 1.0, "two": 2.0}
+	for k, v := range data {
+		ab.SetFloat64(k, v)
+	}
+
+	keys := ab.Float64Keys()
+	for _, key := range keys {
+		if val, found := data[key]; !found {
+			t.Errorf("data[%s] = %f, wanted key in set: %v", key, val, keys)
+		}
+	}
+}
+
+func TestBoolKeys(t *testing.T) {
+	at := NewManager().NewTracker()
+	defer at.Done()
+	root, _ := at.StartRequest(&mixerpb.Attributes{})
+	defer root.Done()
+	ab := root.Child()
+	defer ab.Done()
+
+	data := map[string]bool{"one": true, "two": false}
+	for k, v := range data {
+		ab.SetBool(k, v)
+	}
+
+	keys := ab.BoolKeys()
+	for _, key := range keys {
+		if val, found := data[key]; !found {
+			t.Errorf("data[%s] = %t, wanted key in set: %v", key, val, keys)
+		}
+	}
+}
+
+func TestTimeKeys(t *testing.T) {
+	at := NewManager().NewTracker()
+	defer at.Done()
+	root, _ := at.StartRequest(&mixerpb.Attributes{})
+	defer root.Done()
+	ab := root.Child()
+	defer ab.Done()
+
+	data := map[string]time.Time{"one": t10, "two": t9}
+	for k, v := range data {
+		ab.SetTime(k, v)
+	}
+
+	keys := ab.TimeKeys()
+	for _, key := range keys {
+		if val, found := data[key]; !found {
+			t.Errorf("data[%s] = %v, wanted key in set: %v", key, val, keys)
+		}
+	}
+}
+
+func TestByteKeys(t *testing.T) {
+	at := NewManager().NewTracker()
+	defer at.Done()
+	root, _ := at.StartRequest(&mixerpb.Attributes{})
+	defer root.Done()
+	ab := root.Child()
+	defer ab.Done()
+
+	data := map[string][]uint8{"one": {11}, "two": {13}}
+	for k, v := range data {
+		ab.SetBytes(k, v)
+	}
+
+	keys := ab.ByteKeys()
+	for _, key := range keys {
+		if val, found := data[key]; !found {
+			t.Errorf("data[%s] = %v, wanted key in set: %v", key, val, keys)
+		}
 	}
 }
