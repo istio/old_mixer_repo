@@ -72,6 +72,19 @@ func (mb *mutableBag) SetString(name string, value string) {
 	mb.Unlock()
 }
 
+func (mb *mutableBag) StringKeys() []string {
+	i := 0
+
+	mb.RLock()
+	keys := make([]string, len(mb.strings))
+	for k := range mb.strings {
+		keys[i] = k
+		i++
+	}
+	mb.RUnlock()
+	return append(keys, mb.parent.StringKeys()...)
+}
+
 func (mb *mutableBag) Int64(name string) (int64, bool) {
 	var r int64
 	var b bool
@@ -87,6 +100,19 @@ func (mb *mutableBag) SetInt64(name string, value int64) {
 	mb.Lock()
 	mb.int64s[name] = value
 	mb.Unlock()
+}
+
+func (mb *mutableBag) Int64Keys() []string {
+	i := 0
+
+	mb.RLock()
+	keys := make([]string, len(mb.int64s))
+	for k := range mb.int64s {
+		keys[i] = k
+		i++
+	}
+	mb.RUnlock()
+	return append(keys, mb.parent.Int64Keys()...)
 }
 
 func (mb *mutableBag) Float64(name string) (float64, bool) {
@@ -106,6 +132,19 @@ func (mb *mutableBag) SetFloat64(name string, value float64) {
 	mb.Unlock()
 }
 
+func (mb *mutableBag) Float64Keys() []string {
+	i := 0
+
+	mb.RLock()
+	keys := make([]string, len(mb.float64s))
+	for k := range mb.float64s {
+		keys[i] = k
+		i++
+	}
+	mb.RUnlock()
+	return append(keys, mb.parent.Float64Keys()...)
+}
+
 func (mb *mutableBag) Bool(name string) (bool, bool) {
 	var r bool
 	var b bool
@@ -121,6 +160,19 @@ func (mb *mutableBag) SetBool(name string, value bool) {
 	mb.Lock()
 	mb.bools[name] = value
 	mb.Unlock()
+}
+
+func (mb *mutableBag) BoolKeys() []string {
+	i := 0
+
+	mb.RLock()
+	keys := make([]string, len(mb.bools))
+	for k := range mb.bools {
+		keys[i] = k
+		i++
+	}
+	mb.RUnlock()
+	return append(keys, mb.parent.BoolKeys()...)
 }
 
 func (mb *mutableBag) Time(name string) (time.Time, bool) {
@@ -140,6 +192,19 @@ func (mb *mutableBag) SetTime(name string, value time.Time) {
 	mb.Unlock()
 }
 
+func (mb *mutableBag) TimeKeys() []string {
+	i := 0
+
+	mb.RLock()
+	keys := make([]string, len(mb.times))
+	for k := range mb.times {
+		keys[i] = k
+		i++
+	}
+	mb.RUnlock()
+	return append(keys, mb.parent.TimeKeys()...)
+}
+
 func (mb *mutableBag) Bytes(name string) ([]uint8, bool) {
 	var r []uint8
 	var b bool
@@ -157,51 +222,17 @@ func (mb *mutableBag) SetBytes(name string, value []uint8) {
 	mb.Unlock()
 }
 
-func (mb *mutableBag) ForEach(handler func(key string, val interface{}) bool) {
-	// We don't defer the unlock even though we have many exit points in this function so that we can unlock this
-	// bag before we recurse up to the parent bag.
+func (mb *mutableBag) ByteKeys() []string {
+	i := 0
+
 	mb.RLock()
-
-	for key, val := range mb.strings {
-		if !handler(key, val) {
-			mb.RUnlock()
-			return
-		}
+	keys := make([]string, len(mb.bytes))
+	for k := range mb.bytes {
+		keys[i] = k
+		i++
 	}
-	for key, val := range mb.int64s {
-		if !handler(key, val) {
-			mb.RUnlock()
-			return
-		}
-	}
-	for key, val := range mb.float64s {
-		if !handler(key, val) {
-			mb.RUnlock()
-			return
-		}
-	}
-	for key, val := range mb.bools {
-		if !handler(key, val) {
-			mb.RUnlock()
-			return
-		}
-	}
-	for key, val := range mb.times {
-		if !handler(key, val) {
-			mb.RUnlock()
-			return
-		}
-	}
-	for key, val := range mb.bytes {
-		if !handler(key, val) {
-			mb.RUnlock()
-			return
-		}
-	}
-
-	// We're done with this bag, there's no reason to hold the read lock while the iterating over the parent's keys.
 	mb.RUnlock()
-	mb.parent.ForEach(handler)
+	return append(keys, mb.parent.ByteKeys()...)
 }
 
 func (mb *mutableBag) Reset() {
