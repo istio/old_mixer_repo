@@ -15,16 +15,8 @@
 package aspect
 
 import (
-	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config"
 )
-
-// Registry registers all aspect managers along with
-// their APIMethod associations.
-type Registry struct {
-	r  map[string]Manager
-	as map[config.APIMethod]config.AspectSet
-}
 
 // ManagerFinder find an aspect Manager given aspect kind.
 type ManagerFinder interface {
@@ -32,8 +24,8 @@ type ManagerFinder interface {
 	FindManager(kind string) (Manager, bool)
 }
 
-// newRegistry returns a fully constructed aspect registry given APIBinding.
-func newRegistry(bnds []APIBinding) *Registry {
+// ProcessBindings returns a fully constructed aspect registry given APIBinding.
+func ProcessBindings(bnds []APIBinding) (map[string]Manager, map[config.APIMethod]config.AspectSet) {
 	r := make(map[string]Manager)
 	as := make(map[config.APIMethod]config.AspectSet)
 
@@ -41,33 +33,12 @@ func newRegistry(bnds []APIBinding) *Registry {
 	for _, am := range config.APIMethods() {
 		as[am] = config.AspectSet{}
 	}
-
 	for _, bnd := range bnds {
 		r[bnd.aspect.Kind()] = bnd.aspect
 		as[bnd.method][bnd.aspect.Kind()] = true
 	}
-	ar := &Registry{r: r, as: as}
-	// ensure that we implement the correct interfaces
-	var _ config.ValidatorFinder = ar
-	var _ ManagerFinder = ar
-	return ar
+	return r, as
 
-}
-
-// AspectMap returns a map from APIMethod to aspect set.
-func (r *Registry) AspectMap() map[config.APIMethod]config.AspectSet {
-	return r.as
-}
-
-// FindManager finds Manager given an aspect kind.
-func (r *Registry) FindManager(kind string) (Manager, bool) {
-	m, ok := r.r[kind]
-	return m, ok
-}
-
-// FindValidator finds a config validator given a name. see: config.ValidatorFinder.
-func (r *Registry) FindValidator(kind string) (adapter.ConfigValidator, bool) {
-	return r.FindManager(kind)
 }
 
 // APIBinding associates an aspect with an API method
@@ -76,15 +47,13 @@ type APIBinding struct {
 	method config.APIMethod
 }
 
-// DefaultRegistry returns a manager registry that contains
+// Inventory returns a manager inventory that contains
 // all available aspect managers
-func DefaultRegistry() *Registry {
+func Inventory() []APIBinding {
 	// Update the following list to add a new Aspect manager
-	ab := []APIBinding{
+	return []APIBinding{
 		{NewDenyCheckerManager(), config.CheckMethod},
 		{NewListCheckerManager(), config.CheckMethod},
 		{NewLoggerManager(), config.ReportMethod},
 	}
-
-	return newRegistry(ab)
 }

@@ -53,9 +53,9 @@ type Handler interface {
 	Quota(context.Context, attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
-// Executor executes any aspect as described by config.Combined. Only UberManager implements this interface.
+// Executor executes any aspect as described by config.Combined.
 type Executor interface {
-	// Execute performs actions described in combined config using the attribute bag
+	// Execute performs actions described in combined config using an attribute bag.
 	Execute(cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error)
 }
 
@@ -117,7 +117,7 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 		default: // Don't block on Done, keep on processing with adapters.
 		}
 
-		// TODO: plumb ctx through uber.manager.Execute
+		// TODO: plumb ctx through adaptermanager.Execute
 		_ = ctx
 		out, err := h.aspectExecutor.Execute(conf, ab)
 		if err != nil {

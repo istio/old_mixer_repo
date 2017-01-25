@@ -33,9 +33,10 @@ import (
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
-	managerFinder aspect.ManagerFinder
+	managerFinder map[string]aspect.Manager
 	mapper        expr.Evaluator
 	builderFinder builderFinder
+	aspectmap     map[config.APIMethod]config.AspectSet
 
 	// protects cache
 	lock        sync.RWMutex
@@ -87,12 +88,13 @@ func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
 }
 
 // NewManager creates a new adapterManager.
-func NewManager(builders []adapter.RegisterFn, m aspect.ManagerFinder, exp expr.Evaluator) *Manager {
-	return newManager(newRegistry(builders), m, exp)
+func NewManager(builders []adapter.RegisterFn, managers []aspect.APIBinding, exp expr.Evaluator) *Manager {
+	mm, am := aspect.ProcessBindings(managers)
+	return newManager(newRegistry(builders), mm, exp, am)
 }
 
 // newManager
-func newManager(r builderFinder, m aspect.ManagerFinder, exp expr.Evaluator) *Manager {
+func newManager(r builderFinder, m map[string]aspect.Manager, exp expr.Evaluator, am map[config.APIMethod]config.AspectSet) *Manager {
 	return &Manager{
 		managerFinder: m,
 		builderFinder: r,
@@ -106,7 +108,7 @@ func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag) (out *aspec
 	var mgr aspect.Manager
 	var found bool
 
-	if mgr, found = m.managerFinder.FindManager(cfg.Aspect.Kind); !found {
+	if mgr, found = m.managerFinder[cfg.Aspect.Kind]; !found {
 		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
 	}
 
@@ -157,9 +159,7 @@ func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder ada
 	m.lock.Lock()
 	// see if someone else beat you to it
 	if other, found := m.aspectCache[*key]; found {
-		if err1 := asp.Close(); err1 != nil {
-			glog.Warningf("Error closing aspect: %v", asp)
-		}
+		defer closeWrapper(asp)
 		asp = other
 	} else {
 		// your are the first one, save your aspect
@@ -171,7 +171,35 @@ func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder ada
 	return asp, nil
 }
 
-// FindValidator is used to find a config validator given a name. see: config.ValidatorFinder
-func (m *Manager) FindValidator(name string) (adapter.ConfigValidator, bool) {
-	return m.builderFinder.FindBuilder(name)
+func closeWrapper(asp aspect.Wrapper) {
+	if err := asp.Close(); err != nil {
+		glog.Warningf("Error closing aspect: %v: %v", asp, err)
+	}
+}
+
+type aspectValidatorFinder struct {
+	m map[string]aspect.Manager
+}
+
+func (a *aspectValidatorFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
+	c, ok := a.m[name]
+	return c, ok
+}
+func (m *Manager) AspectValidatorFinder() config.ValidatorFinder {
+	return &aspectValidatorFinder{m: m.managerFinder}
+}
+
+type builderValidatorFinder struct {
+	b builderFinder
+}
+
+func (a *builderValidatorFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
+	return a.b.FindBuilder(name)
+}
+func (m *Manager) BuilderValidatorFinder() config.ValidatorFinder {
+	return &builderValidatorFinder{b: m.builderFinder}
+}
+
+func (m *Manager) AspectMap() map[config.APIMethod]config.AspectSet {
+	return m.aspectmap
 }

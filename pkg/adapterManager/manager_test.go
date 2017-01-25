@@ -144,13 +144,13 @@ func getReg(found bool) *fakeBuilderReg {
 	return &fakeBuilderReg{&fakeadp{name: "k1impl1"}, found}
 }
 
-func newFakeMgrReg(w *fakewrapper) *fakeMgrReg {
+func newFakeMgrReg(w *fakewrapper) map[string]aspect.Manager {
 	mgrs := []aspect.Manager{&fakemgr{kind: "k1", w: w}, &fakemgr{kind: "k2"}}
 	mreg := make(map[string]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
 	}
-	return &fakeMgrReg{r: mreg}
+	return mreg
 }
 
 func TestManager(t *testing.T) {
@@ -169,7 +169,7 @@ func TestManager(t *testing.T) {
 		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
 			Params: &status.Status{}},
 	}
-	emptyMgrs := &fakeMgrReg{}
+	emptyMgrs := map[string]aspect.Manager{}
 	attrs := &fakebag{}
 	mapper := &fakeevaluator{}
 
@@ -188,7 +188,7 @@ func TestManager(t *testing.T) {
 		if tt.mgrFound {
 			mgr = newFakeMgrReg(tt.wrapper)
 		}
-		m := newManager(r, mgr, mapper)
+		m := newManager(r, mgr, mapper, nil)
 		errStr := ""
 		if _, err := m.Execute(tt.cfg, attrs); err != nil {
 			errStr = err.Error()
@@ -204,7 +204,7 @@ func TestManager(t *testing.T) {
 		if tt.wrapper.called != 1 {
 			t.Errorf("[%d] Expected wrapper call", idx)
 		}
-		mgr1, _ := mgr.FindManager("k1")
+		mgr1, _ := mgr["k1"]
 		fmgr := mgr1.(*fakemgr)
 		if fmgr.called != 1 {
 			t.Errorf("[%d] Expected mgr.NewAspect call", idx)
@@ -230,14 +230,14 @@ func TestRecovery_NewAspect(t *testing.T) {
 
 func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
 	cacheThrow := newTestManager(name, throwOnNewAspect, throwOnExecute)
-	mreg := &fakeMgrReg{r: map[string]aspect.Manager{
+	mreg := map[string]aspect.Manager{
 		name: cacheThrow,
-	}}
+	}
 	breg := &fakeBuilderReg{
 		adp:   cacheThrow,
 		found: true,
 	}
-	m := newManager(breg, mreg, nil)
+	m := newManager(breg, mreg, nil, nil)
 
 	cfg := &config.Combined{
 		&configpb.Adapter{Name: name},

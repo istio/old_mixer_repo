@@ -30,10 +30,9 @@ type (
 	listCheckerManager struct{}
 
 	listCheckerWrapper struct {
-		inputs      map[string]string
-		adapterName string
-		aspect      adapter.ListCheckerAspect
-		params      *aconfig.ListCheckerParams
+		inputs map[string]string
+		aspect adapter.ListCheckerAspect
+		params *aconfig.ListCheckerParams
 	}
 )
 
@@ -52,10 +51,9 @@ func (listCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, en
 		return nil, err
 	}
 	return &listCheckerWrapper{
-		adapterName: aa.Name(),
-		inputs:      cfg.Aspect.Inputs,
-		aspect:      asp,
-		params:      cfg.Aspect.Params.(*aconfig.ListCheckerParams),
+		inputs: cfg.Aspect.Inputs,
+		aspect: asp,
+		params: cfg.Aspect.Params.(*aconfig.ListCheckerParams),
 	}, nil
 }
 

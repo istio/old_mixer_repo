@@ -28,7 +28,6 @@ type (
 	denyCheckerManager struct{}
 
 	denyCheckerWrapper struct {
-		name   string
 		aspect adapter.DenyCheckerAspect
 	}
 )
@@ -49,7 +48,6 @@ func (denyCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, en
 	}
 
 	return &denyCheckerWrapper{
-		name:   aa.Name(),
 		aspect: asp,
 	}, nil
 }
