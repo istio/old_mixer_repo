@@ -13,6 +13,9 @@
 // limitations under the License.
 
 // pool.go contains an implementation of a pool of workers that execute aspects.
+//
+// TODO: when we implement metrics in the server we should have a gauge that measures request go routines blocked
+// on the enqueueFunc call (enqueueFunc increments the count, when a worker grabs a task it decrements the count).
 
 package api
 

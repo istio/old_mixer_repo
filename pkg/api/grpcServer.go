@@ -161,7 +161,7 @@ func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message,
 	tracker := s.attrMgr.NewTracker()
 	defer tracker.Done()
 
-	root, ctx := s.tracer.StartRootSpan(stream.Context(), methodName+"-root")
+	root, ctx := s.tracer.StartRootSpan(stream.Context(), methodName)
 	defer root.Finish()
 
 	for {

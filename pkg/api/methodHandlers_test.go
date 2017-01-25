@@ -23,6 +23,8 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	istioconfig "istio.io/api/mixer/v1/config"
 
+	"time"
+
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -54,5 +56,29 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	s := handler.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, Check)
 	if s.Code != int32(code.Code_INTERNAL) {
 		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
+	}
+}
+
+func TestMethodHandlers_Shutdown(t *testing.T) {
+	fail := make(chan struct{})
+	succeed := make(chan struct{})
+	handler := &methodHandlers{
+		pool: newPool(1),
+	}
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		close(fail)
+	}()
+
+	go func() {
+		handler.Shutdown()
+		close(succeed)
+	}()
+
+	select {
+	case <-fail:
+		t.Error("handler.Shutdown() didn't complete in the expected time")
+	case <-succeed:
 	}
 }

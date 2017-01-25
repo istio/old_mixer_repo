@@ -115,7 +115,7 @@ func TestPoolSize(t *testing.T) {
 	}()
 
 	if len(res) != 0 {
-		t.Errorf("Expected result chan to be empty before work completes, got length: %d", len(res))
+		t.Errorf("len(res) = %d, wanted 0", len(res))
 	}
 
 	close(blockChan) // unblock the queue
@@ -126,13 +126,13 @@ func TestPoolSize(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if len(res) != 2 {
-		t.Errorf("After unblocking queue expected two finished tasks, got %d", len(res))
+		t.Errorf("got %d finished tasks, wanted 2", len(res))
 	}
 
 	for i := 0; i < 2; i++ {
 		r := <-res
 		if r.out.Code != code.Code_OK {
-			t.Error("Got back bad code.")
+			t.Errorf("r.out.Code = %s, wanted %s", code.Code_name[int32(r.out.Code)], code.Code_name[int32(code.Code_OK)])
 		}
 	}
 }
@@ -154,14 +154,13 @@ func TestShutdown(t *testing.T) {
 
 	select {
 	case <-fail:
-		t.Error("pool.shutown() didn't complete in the expected time")
+		t.Error("pool.shutdown() didn't complete in the expected time")
 	case <-succeed:
 	}
 }
 
 func TestEnqueuePanics(t *testing.T) {
 	p := newPool(1)
-
 	mgr := adapterManager.NewManager(nil)
 
 	numCalls := 1
@@ -172,9 +171,9 @@ func TestEnqueuePanics(t *testing.T) {
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("enqueue(nil, nil) got nil, want panic and non-nil recover.")
+			t.Error("enqueue(nil, cfg) got nil, want panic and non-nil recover.")
 		}
 	}()
 	enqueue(nil, cfg)
-	t.Error("enqueue(nil, nil) should panic")
+	t.Fail()
 }
