@@ -52,7 +52,7 @@ type Manager struct {
 	lastError error
 }
 
-// NewManager returns a config.Manager given ManagerArgs.
+// NewManager returns a config.Manager.
 // Eval validates and evaluates selectors.
 // It is also used downstream for attribute mapping.
 // AspectFinder finds aspect validator given aspect 'Kind'.
