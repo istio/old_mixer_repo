@@ -170,9 +170,10 @@ new_git_or_local_repository(
 )
 
 new_http_archive(
-    name = "docker_debian",
-    url = "https://codeload.github.com/tianon/docker-brew-debian/zip/b39d31635ca26c8b1f3d982090ba8d54167c4d85",
-    build_file = "BUILD.debian",
+    name = "docker_ubuntu",
+    url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
+    build_file = "BUILD.ubuntu",
     type = "zip",
-    sha256 = "bc4d5a9f8296eb95f0a9e716b40e82ce3950bfd08f94d963523d716216bb7273",
+    sha256 = "2c63dd81d714b825acd1cb3629c57d6ee733645479d0fcdf645203c2c35924c5",
 )
+

@@ -16,8 +16,11 @@ pkg_tar(
 
 docker_build(
     name = "mixer",
-    base = "@docker_debian//:jessie",
-    entrypoint = ["/usr/local/bin/mixs", "server"],
+    base = "@docker_ubuntu//:xenial",
+    entrypoint = [
+        "/usr/local/bin/mixs",
+        "server",
+    ],
     ports = ["9091"],
     repository = "istio",
     tags = ["manual"],
