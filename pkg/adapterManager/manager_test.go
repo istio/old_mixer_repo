@@ -18,17 +18,14 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"istio.io/mixer/pkg/config"
-	configpb "istio.io/mixer/pkg/config/proto"
-	"fmt"
-	"google.golang.org/genproto/googleapis/rpc/status"
+
 	"google.golang.org/genproto/googleapis/rpc/code"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/expr"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
+	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -60,7 +57,7 @@ type (
 	}
 
 	testAspect struct {
-	throw bool
+		throw bool
 	}
 	fakewrapper struct {
 		called int8
@@ -83,7 +80,6 @@ func (f *fakewrapper) Close() error { return nil }
 func (m *fakemgr) Kind() string {
 	return m.kind
 }
-
 
 func newTestManager(name string, throwOnNewAspect bool, aspectThrowOnExecute bool) testManager {
 	return testManager{name, throwOnNewAspect, testAspect{aspectThrowOnExecute}}
@@ -157,7 +153,6 @@ func newFakeMgrReg(w *fakewrapper) *fakeMgrReg {
 	return &fakeMgrReg{r: mreg}
 }
 
-
 func TestManager(t *testing.T) {
 	goodcfg := &config.Combined{
 		Aspect:  &configpb.Aspect{Kind: "k1", Params: &status.Status{}},
@@ -230,45 +225,35 @@ func TestManager(t *testing.T) {
 }
 
 func TestRecovery_NewAspect(t *testing.T) {
-	name := "NewAspect Throws"
-	cacheThrow := newTestManager(name, true, false)
-	m := NewManager([]aspect.Manager{cacheThrow})
-	if err := m.Registry().RegisterDenyChecker(cacheThrow); err != nil {
-		t.Errorf("Failed to register deny checker in test setup with err: %v", err)
+	testRecovery(t, "NewAspect Throws", true, false, "NewAspect")
+}
+
+func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
+	cacheThrow := newTestManager(name, throwOnNewAspect, throwOnExecute)
+	mreg := &fakeMgrReg{r: map[string]aspect.Manager{
+		name: cacheThrow,
+	}}
+	breg := &fakeBuilderReg{
+		adp:   cacheThrow,
+		found: true,
 	}
+	m := newManager(breg, mreg, nil)
 
 	cfg := &config.Combined{
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}
 
-	_, err := m.Execute(cfg, nil, nil)
+	_, err := m.Execute(cfg, nil)
 	if err == nil {
 		t.Error("Aspect threw, but got no err from manager.Execute")
 	}
-	if !strings.Contains(err.Error(), "NewAspect") {
-		t.Errorf("Expected err from panic with message containing 'NewAspect', actual: %v", err)
+
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, err)
 	}
 }
 
 func TestRecovery_AspectExecute(t *testing.T) {
-	name := "aspect.Execute Throws"
-	aspectThrow := newTestManager(name, false, true)
-	m := NewManager([]aspect.Manager{aspectThrow})
-	if err := m.Registry().RegisterDenyChecker(aspectThrow); err != nil {
-		t.Errorf("Failed to register deny checker in test setup with err: %v", err)
-	}
-
-	cfg := &config.Combined{
-		&configpb.Adapter{Name: name},
-		&configpb.Aspect{Kind: name},
-	}
-
-	_, err := m.Execute(cfg, nil, nil)
-	if err == nil {
-		t.Error("Aspect threw, but got no err from manager.Execute")
-	}
-	if !strings.Contains(err.Error(), "Execute") {
-		t.Errorf("Expected err from panic with message containing 'Execute', actual: %v", err)
-	}
+	testRecovery(t, "aspect.Execute Throws", true, false, "Execute")
 }
