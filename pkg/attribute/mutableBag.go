@@ -157,7 +157,7 @@ func (mb *mutableBag) SetBytes(name string, value []uint8) {
 	mb.Unlock()
 }
 
-func (mb *mutableBag) Foreach(handler func(key string, val interface{}) bool) {
+func (mb *mutableBag) ForEach(handler func(key string, val interface{}) bool) {
 	// We don't defer the unlock even though we have many exit points in this function so that we can unlock this
 	// bag before we recurse up to the parent bag.
 	mb.RLock()
@@ -201,7 +201,7 @@ func (mb *mutableBag) Foreach(handler func(key string, val interface{}) bool) {
 
 	// We're done with this bag, there's no reason to hold the read lock while the iterating over the parent's keys.
 	mb.RUnlock()
-	mb.parent.Foreach(handler)
+	mb.parent.ForEach(handler)
 }
 
 func (mb *mutableBag) Reset() {

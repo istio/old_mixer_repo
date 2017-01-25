@@ -89,7 +89,7 @@ func (rb *rootBag) Bytes(name string) ([]uint8, bool) {
 	return r, b
 }
 
-func (rb *rootBag) Foreach(handler func(key string, val interface{}) bool) {
+func (rb *rootBag) ForEach(handler func(key string, val interface{}) bool) {
 	for key, val := range rb.strings {
 		if !handler(key, val) {
 			return
