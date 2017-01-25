@@ -123,15 +123,6 @@ func (m *fakeBuilderReg) FindBuilder(adapterName string) (adapter.Builder, bool)
 	return m.adp, m.found
 }
 
-type fakeMgrReg struct {
-	r map[string]aspect.Manager
-}
-
-func (m *fakeMgrReg) FindManager(kind string) (aspect.Manager, bool) {
-	mgr, f := m.r[kind]
-	return mgr, f
-}
-
 type ttable struct {
 	mgrFound  bool
 	kindFound bool

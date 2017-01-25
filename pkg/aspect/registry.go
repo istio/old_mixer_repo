@@ -24,27 +24,10 @@ type ManagerFinder interface {
 	FindManager(kind string) (Manager, bool)
 }
 
-// ProcessBindings returns a fully constructed aspect registry given APIBinding.
-func ProcessBindings(bnds []APIBinding) (map[string]Manager, map[config.APIMethod]config.AspectSet) {
-	r := make(map[string]Manager)
-	as := make(map[config.APIMethod]config.AspectSet)
-
-	// setup aspect sets for all methods
-	for _, am := range config.APIMethods() {
-		as[am] = config.AspectSet{}
-	}
-	for _, bnd := range bnds {
-		r[bnd.aspect.Kind()] = bnd.aspect
-		as[bnd.method][bnd.aspect.Kind()] = true
-	}
-	return r, as
-
-}
-
 // APIBinding associates an aspect with an API method
 type APIBinding struct {
-	aspect Manager
-	method config.APIMethod
+	Aspect Manager
+	Method config.APIMethod
 }
 
 // Inventory returns a manager inventory that contains

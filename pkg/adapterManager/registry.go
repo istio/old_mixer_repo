@@ -19,6 +19,8 @@ import (
 
 	"github.com/golang/glog"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/config"
 )
 
 // registry implements pkg/adapter/Registrar.
@@ -75,4 +77,20 @@ func (r *registry) insert(b adapter.Builder) {
 		panic(fmt.Errorf("attempting to register a builder with a name already in the registry: %s", b.Name()))
 	}
 	r.buildersByName[b.Name()] = b
+}
+
+// processBindings returns a fully constructed manager map and aspectSet given APIBinding.
+func processBindings(bnds []aspect.APIBinding) (map[string]aspect.Manager, map[config.APIMethod]config.AspectSet) {
+	r := make(map[string]aspect.Manager)
+	as := make(map[config.APIMethod]config.AspectSet)
+
+	// setup aspect sets for all methods
+	for _, am := range config.APIMethods() {
+		as[am] = config.AspectSet{}
+	}
+	for _, bnd := range bnds {
+		r[bnd.Aspect.Kind()] = bnd.Aspect
+		as[bnd.Method][bnd.Aspect.Kind()] = true
+	}
+	return r, as
 }

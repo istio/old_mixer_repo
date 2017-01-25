@@ -89,7 +89,7 @@ func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
 
 // NewManager creates a new adapterManager.
 func NewManager(builders []adapter.RegisterFn, managers []aspect.APIBinding, exp expr.Evaluator) *Manager {
-	mm, am := aspect.ProcessBindings(managers)
+	mm, am := processBindings(managers)
 	return newManager(newRegistry(builders), mm, exp, am)
 }
 
@@ -185,6 +185,8 @@ func (a *aspectValidatorFinder) FindValidator(name string) (adapter.ConfigValida
 	c, ok := a.m[name]
 	return c, ok
 }
+
+// AspectValidatorFinder returns ValidatorFinder for aspects.
 func (m *Manager) AspectValidatorFinder() config.ValidatorFinder {
 	return &aspectValidatorFinder{m: m.managerFinder}
 }
@@ -196,10 +198,13 @@ type builderValidatorFinder struct {
 func (a *builderValidatorFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
 	return a.b.FindBuilder(name)
 }
+
+// BuilderValidatorFinder returns ValidatorFinder for builders.
 func (m *Manager) BuilderValidatorFinder() config.ValidatorFinder {
 	return &builderValidatorFinder{b: m.builderFinder}
 }
 
+// AspectMap returns map of APIMethod --> AspectSet.
 func (m *Manager) AspectMap() map[config.APIMethod]config.AspectSet {
 	return m.aspectmap
 }
