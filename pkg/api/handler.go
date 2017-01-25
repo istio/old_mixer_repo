@@ -59,32 +59,31 @@ type Executor interface {
 	Execute(cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error)
 }
 
-// HandlerState holds state and configuration for the handler.
-type HandlerState struct {
-	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime)
+// handlerState holds state and configuration for the handler.
+type handlerState struct {
+	aspectExecutor Executor
+	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime>
 	cfg atomic.Value
-	*HandlerArgs
-}
-
-// HandlerArgs are constructor args for a method handler.
-type HandlerArgs struct {
-	// aspectExecutor is able to execute combined configuration.
-	AspectExecutor Executor
 	// set of aspect Kinds that should be dispatched for "check"
-	CheckSet config.AspectSet
+	checkSet config.AspectSet
 	// set of aspect Kinds that should be dispatched for "report"
-	ReportSet config.AspectSet
+	reportSet config.AspectSet
 	// set of aspect Kinds that should be dispatched for "quota"
-	QuotaSet config.AspectSet
+	quotaSet config.AspectSet
 }
 
 // NewHandler returns a canonical Handler that implements all of the mixer's API surface
-func NewHandler(ma *HandlerArgs) *HandlerState {
-	return &HandlerState{HandlerArgs: ma}
+func NewHandler(aspectExecutor Executor, methodmap map[config.APIMethod]config.AspectSet) Handler {
+	return &handlerState{
+		aspectExecutor: aspectExecutor,
+		checkSet:       methodmap[config.CheckMethod],
+		reportSet:      methodmap[config.ReportMethod],
+		quotaSet:       methodmap[config.QuotaMethod],
+	}
 }
 
-// execute the standard attribute dance for each request
-func (h *HandlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, aspects config.AspectSet) *status.Status {
+// execute performs common function shared across the api surface.
+func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, aspects config.AspectSet) *status.Status {
 	ab, err := tracker.StartRequest(attrs)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
@@ -118,7 +117,7 @@ func (h *HandlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 
 		// TODO: plumb ctx through uber.manager.Execute
 		_ = ctx
-		out, err := h.AspectExecutor.Execute(conf, ab)
+		out, err := h.aspectExecutor.Execute(conf, ab)
 		if err != nil {
 			errorStr := fmt.Sprintf("Adapter '%s' returned err: %v", conf.Builder.Name, err)
 			glog.Warning(errorStr)
@@ -132,21 +131,21 @@ func (h *HandlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 }
 
 // Check performs 'check' function corresponding to the mixer api.
-func (h *HandlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, h.CheckSet)
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, h.checkSet)
 }
 
 // Report performs 'report' function corresponding to the mixer api.
-func (h *HandlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, h.ReportSet)
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, h.reportSet)
 }
 
 // Quota performs 'quota' function corresponding to the mixer api.
-func (h *HandlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
-	status := h.execute(ctx, tracker, request.AttributeUpdate, h.QuotaSet)
+	status := h.execute(ctx, tracker, request.AttributeUpdate, h.quotaSet)
 	response.Result = newQuotaError(code.Code(status.Code))
 }
 
@@ -163,6 +162,6 @@ func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
 }
 
 // ConfigChange listens for config change notifications.
-func (h *HandlerState) ConfigChange(cfg *config.Runtime) {
+func (h *handlerState) ConfigChange(cfg *config.Runtime) {
 	h.cfg.Store(cfg)
 }

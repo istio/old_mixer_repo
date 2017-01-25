@@ -15,8 +15,6 @@
 package aspect
 
 import (
-	"fmt"
-
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config"
 )
@@ -56,13 +54,9 @@ func newRegistry(bnds []APIBinding) *Registry {
 
 }
 
-// AspectSet returns aspect set associated with the given api Method.
-func (r *Registry) AspectSet(method config.APIMethod) config.AspectSet {
-	a, ok := r.as[method]
-	if !ok {
-		panic(fmt.Errorf("request for invalid api method: %v", method))
-	}
-	return a
+// AspectMap returns a map from APIMethod to aspect set.
+func (r *Registry) AspectMap() map[config.APIMethod]config.AspectSet {
+	return r.as
 }
 
 // FindManager finds Manager given an aspect kind.

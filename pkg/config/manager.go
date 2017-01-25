@@ -36,7 +36,12 @@ type ChangeListener interface {
 // It applies validated changes to the registered config change listeners.
 // api.Handler listens for config changes.
 type Manager struct {
-	ManagerArgs
+	eval          expr.Evaluator
+	aspectFinder  ValidatorFinder
+	builderFinder ValidatorFinder
+	loopDelay     time.Duration
+	globalConfig  string
+	serviceConfig string
 
 	cl      []ChangeListener
 	closing chan bool
@@ -47,36 +52,27 @@ type Manager struct {
 	lastError error
 }
 
-// ManagerArgs are constructor args for a manager
-type ManagerArgs struct {
-	// Eval validates and evaluates selectors.
-	// It is also used downstream for attribute mapping.
-	Eval expr.Evaluator
-	// AspectFinder finds aspect validator given aspect 'Kind'.
-	AspectFinder ValidatorFinder
-	// BuilderFinder finds builder validator given builder 'Impl'.
-	BuilderFinder ValidatorFinder
-	// LoopDelay determines how often configuration is updated.
-	LoopDelay time.Duration
-
-	// The following fields will be eventually replaced by a
-	// repository location. At present we use GlobalConfig and ServiceConfig
-	// as command line input parameters.
-
-	// GlobalConfig specifies the location of Global Config.
-	GlobalConfig string
-	// ServiceConfig specifies the location of Service config.
-	ServiceConfig string
-}
-
 // NewManager returns a config.Manager given ManagerArgs.
-func NewManager(args *ManagerArgs) *Manager {
+// Eval validates and evaluates selectors.
+// It is also used downstream for attribute mapping.
+// AspectFinder finds aspect validator given aspect 'Kind'.
+// BuilderFinder finds builder validator given builder 'Impl'.
+// LoopDelay determines how often configuration is updated.
+// The following fields will be eventually replaced by a
+// repository location. At present we use GlobalConfig and ServiceConfig
+// as command line input parameters.
+// GlobalConfig specifies the location of Global Config.
+// ServiceConfig specifies the location of Service config.
+func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinder, builderFinder ValidatorFinder,
+	globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
-		ManagerArgs: *args,
-		closing:     make(chan bool),
-	}
-	if m.LoopDelay == 0 {
-		m.LoopDelay = time.Second * 5
+		eval:          eval,
+		aspectFinder:  aspectFinder,
+		builderFinder: builderFinder,
+		loopDelay:     loopDelay,
+		globalConfig:  globalConfig,
+		serviceConfig: serviceConfig,
+		closing:       make(chan bool),
 	}
 	return m
 }
@@ -100,12 +96,12 @@ func (c *Manager) fetch() (*Runtime, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
-	gcSHA, gc, err2 := read(c.GlobalConfig)
+	gcSHA, gc, err2 := read(c.globalConfig)
 	if err2 != nil {
 		return nil, err2
 	}
 
-	scSHA, sc, err1 := read(c.ServiceConfig)
+	scSHA, sc, err1 := read(c.serviceConfig)
 	if err1 != nil {
 		return nil, err1
 	}
@@ -115,14 +111,14 @@ func (c *Manager) fetch() (*Runtime, error) {
 		return nil, nil
 	}
 
-	v := NewValidator(c.AspectFinder, c.BuilderFinder, true, c.Eval)
+	v := NewValidator(c.aspectFinder, c.builderFinder, true, c.eval)
 	if vd, cerr = v.Validate(sc, gc); cerr != nil {
 		return nil, cerr
 	}
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
-	return NewRuntime(vd, c.Eval), nil
+	return NewRuntime(vd, c.eval), nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed
@@ -138,7 +134,7 @@ func (c *Manager) fetchAndNotify() error {
 		return nil
 	}
 
-	glog.Infof("Installing new config from %s sha=%x ", c.ServiceConfig, c.scSHA)
+	glog.Infof("Installing new config from %s sha=%x ", c.serviceConfig, c.scSHA)
 	for _, cl := range c.cl {
 		cl.ConfigChange(rt)
 	}
@@ -157,7 +153,7 @@ func (c *Manager) LastError() (err error) {
 func (c *Manager) Close() { close(c.closing) }
 
 func (c *Manager) loop() {
-	ticker := time.NewTicker(c.LoopDelay)
+	ticker := time.NewTicker(c.loopDelay)
 	defer ticker.Stop()
 	done := false
 	for !done {
