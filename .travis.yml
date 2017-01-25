@@ -40,6 +40,7 @@ script:
   - bazel test //...
   - bin/linters.sh
   - bin/codecov.sh
+  - docker/gcloud_build.sh
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
