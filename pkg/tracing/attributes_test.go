@@ -95,12 +95,15 @@ func TestForeachKey(t *testing.T) {
 			b.SetString(prefix+k, v)
 		}
 
-		NewCarrier(b).ForeachKey(func(key, val string) error {
+		err := NewCarrier(b).ForeachKey(func(key, val string) error {
 			if dval, found := c.data[key]; !found || dval != val {
 				t.Errorf("ForeachKey(func(%s, %s)); wanted func(%s, %s)", key, val, key, dval)
 			}
 			return nil
 		})
+		if err != nil {
+			t.Errorf("ForeachKey failed with unexpected err: %v", err)
+		}
 	}
 }
 
