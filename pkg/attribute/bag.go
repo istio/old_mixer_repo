@@ -45,7 +45,7 @@ type Bag interface {
 	// returns false iteration is stopped.
 	//
 	// The view into the values is provided in this form so that the bag can keep iteration thread safe.
-	Foreach(handler func(key string, val interface{}) bool)
+	ForEach(handler func(key string, val interface{}) bool)
 
 	// Done indicates the bag can be reclaimed.
 	Done()
