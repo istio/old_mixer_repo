@@ -83,5 +83,5 @@ func TestAll(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	at.TestAdapterInvariants(MustRegister, t)
+	at.TestAdapterInvariants(Register, t)
 }

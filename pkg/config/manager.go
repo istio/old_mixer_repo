@@ -33,28 +33,40 @@ type ChangeListener interface {
 
 // Manager represents the config Manager.
 // It is responsible for fetching and receiving configuration changes.
-// It applied validated changes to the registered config change listeners.
+// It applies validated changes to the registered config change listeners.
 // api.Handler listens for config changes.
 type Manager struct {
 	ManagerArgs
 
 	cl      []ChangeListener
 	closing chan bool
-	scSha   [sha1.Size]byte
-	gcSha   [sha1.Size]byte
+	scSHA   [sha1.Size]byte
+	gcSHA   [sha1.Size]byte
 
-	lock      *sync.RWMutex
+	sync.RWMutex
 	lastError error
 }
 
 // ManagerArgs are constructor args for a manager
 type ManagerArgs struct {
-	Eval          expr.Evaluator
-	AspectF       ValidatorFinder
-	BuilderF      ValidatorFinder
-	GlobalConfig  string
+	// Eval validates and evaluates selectors.
+	// It is also used downstream for attribute mapping.
+	Eval expr.Evaluator
+	// AspectFinder finds aspect validator given aspect 'Kind'.
+	AspectFinder ValidatorFinder
+	// BuilderFinder finds builder validator given builder 'Impl'.
+	BuilderFinder ValidatorFinder
+	// LoopDelay determines how often configuration is updated.
+	LoopDelay time.Duration
+
+	// The following fields will be eventually replaced by a
+	// repository location. At present we use GlobalConfig and ServiceConfig
+	// as command line input parameters.
+
+	// GlobalConfig specifies the location of Global Config.
+	GlobalConfig string
+	// ServiceConfig specifies the location of Service config.
 	ServiceConfig string
-	LoopDelay     time.Duration
 }
 
 // NewManager returns a config.Manager given ManagerArgs.
@@ -62,7 +74,6 @@ func NewManager(args *ManagerArgs) *Manager {
 	m := &Manager{
 		ManagerArgs: *args,
 		closing:     make(chan bool),
-		lock:        &sync.RWMutex{},
 	}
 	if m.LoopDelay == 0 {
 		m.LoopDelay = time.Second * 5
@@ -89,28 +100,28 @@ func (c *Manager) fetch() (*Runtime, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
-	gcSha, gc, err2 := read(c.GlobalConfig)
+	gcSHA, gc, err2 := read(c.GlobalConfig)
 	if err2 != nil {
 		return nil, err2
 	}
 
-	scSha, sc, err1 := read(c.ServiceConfig)
+	scSHA, sc, err1 := read(c.ServiceConfig)
 	if err1 != nil {
 		return nil, err1
 	}
 
-	if gcSha == c.gcSha && scSha == c.scSha {
+	if gcSHA == c.gcSHA && scSHA == c.scSHA {
 		glog.V(2).Info("No Change")
 		return nil, nil
 	}
 
-	v := NewValidator(c.AspectF, c.BuilderF, true, c.Eval)
+	v := NewValidator(c.AspectFinder, c.BuilderFinder, true, c.Eval)
 	if vd, cerr = v.Validate(sc, gc); cerr != nil {
 		return nil, cerr
 	}
 
-	c.gcSha = gcSha
-	c.scSha = scSha
+	c.gcSHA = gcSHA
+	c.scSHA = scSHA
 	return NewRuntime(vd, c.Eval), nil
 }
 
@@ -118,16 +129,16 @@ func (c *Manager) fetch() (*Runtime, error) {
 func (c *Manager) fetchAndNotify() error {
 	rt, err := c.fetch()
 	if err != nil {
-		c.lock.Lock()
+		c.Lock()
 		c.lastError = err
-		c.lock.Unlock()
+		c.Unlock()
 		return err
 	}
 	if rt == nil {
 		return nil
 	}
 
-	glog.Infof("Installing new config from %s sha=%x ", c.ServiceConfig, c.scSha)
+	glog.Infof("Installing new config from %s sha=%x ", c.ServiceConfig, c.scSHA)
 	for _, cl := range c.cl {
 		cl.ConfigChange(rt)
 	}
@@ -136,9 +147,9 @@ func (c *Manager) fetchAndNotify() error {
 
 // LastError returns last error encountered by the manager while processing config.
 func (c *Manager) LastError() (err error) {
-	c.lock.RLock()
+	c.RLock()
 	err = c.lastError
-	c.lock.RUnlock()
+	c.RUnlock()
 	return err
 }
 

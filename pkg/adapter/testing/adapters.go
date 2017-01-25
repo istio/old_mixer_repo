@@ -46,7 +46,7 @@ func (r *fakeRegistrar) RegisterQuota(b adapter.QuotaBuilder) {
 }
 
 // TestAdapterInvariants ensures that adapters implement expected semantics.
-func TestAdapterInvariants(r adapter.MustRegisterFn, t *gt.T) {
+func TestAdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 	fr := &fakeRegistrar{}
 	r(fr)
 
@@ -68,7 +68,7 @@ func TestAdapterInvariants(r adapter.MustRegisterFn, t *gt.T) {
 
 	count := len(fr.denyCheckers) + len(fr.listCheckers) + len(fr.loggers) + len(fr.quotas)
 	if count == 0 {
-		t.Errorf("MustRegister() => adapter didn't register any aspects")
+		t.Errorf("Register() => adapter didn't register any aspects")
 	}
 }
 

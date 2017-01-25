@@ -22,6 +22,8 @@ import (
 
 	"istio.io/mixer/pkg/config"
 
+	"io"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
@@ -52,13 +54,8 @@ type (
 
 	// Wrapper encapsulates a single aspect and allows it to be invoked.
 	Wrapper interface {
+		io.Closer
 		// Execute dispatches to the adapter.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
-	}
-
-	// Executor executes any aspect as described by config.Combined. Only UberManager implements this interface.
-	Executor interface {
-		// Execute performs actions described in combined config using the attribute bag
-		Execute(cfg *config.Combined, attrs attribute.Bag) (*Output, error)
 	}
 )

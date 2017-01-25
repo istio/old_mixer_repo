@@ -22,6 +22,7 @@ import (
 	"crypto/sha1"
 	"encoding/gob"
 
+	"github.com/golang/glog"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -29,37 +30,37 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
-// BuilderFinder finds a builder given the impl name.
-type BuilderFinder interface {
-	// ByImpl queries the registry by adapter name.
-	FindBuilder(impl string) (adapter.Builder, bool)
-}
-
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
 	managerFinder aspect.ManagerFinder
-	builderFinder BuilderFinder
 	mapper        expr.Evaluator
+	builderFinder builderFinder
 
 	// protects cache
 	lock        sync.RWMutex
 	aspectCache map[cacheKey]aspect.Wrapper
 }
 
+// builderFinder finds a builder by name.
+type builderFinder interface {
+	// FindBuilder finds a builder by name.
+	FindBuilder(name string) (adapter.Builder, bool)
+}
+
 // cacheKey is used to cache fully constructed aspects
 // These parameters are used in constructing an aspect
 type cacheKey struct {
-	Kind             string
-	Impl             string
-	BuilderParamsSha [sha1.Size]byte
-	AspectParamsSha  [sha1.Size]byte
+	kind             string
+	impl             string
+	builderParamsSHA [sha1.Size]byte
+	aspectParamsSHA  [sha1.Size]byte
 }
 
 func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
 	ret := cacheKey{
-		Kind: cfg.Aspect.GetKind(),
-		Impl: cfg.Builder.GetImpl(),
+		kind: cfg.Aspect.GetKind(),
+		impl: cfg.Builder.GetImpl(),
 	}
 
 	//TODO pre-compute shas and store with params
@@ -71,7 +72,7 @@ func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
 		if err := enc.Encode(cfg.Builder.GetParams()); err != nil {
 			return nil, err
 		}
-		ret.BuilderParamsSha = sha1.Sum(b.Bytes())
+		ret.builderParamsSHA = sha1.Sum(b.Bytes())
 	}
 	b.Reset()
 	if cfg.Aspect.GetParams() != nil {
@@ -79,17 +80,22 @@ func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
 			return nil, err
 		}
 
-		ret.AspectParamsSha = sha1.Sum(b.Bytes())
+		ret.aspectParamsSHA = sha1.Sum(b.Bytes())
 	}
 
 	return &ret, nil
 }
 
-// NewManager Creates a new Uber Aspect manager
-func NewManager(b BuilderFinder, m aspect.ManagerFinder, exp expr.Evaluator) *Manager {
+// NewManager creates a new adapterManager.
+func NewManager(builders []adapter.RegisterFn, m aspect.ManagerFinder, exp expr.Evaluator) *Manager {
+	return newManager(newRegistry(builders), m, exp)
+}
+
+// newManager
+func newManager(r builderFinder, m aspect.ManagerFinder, exp expr.Evaluator) *Manager {
 	return &Manager{
 		managerFinder: m,
-		builderFinder: b,
+		builderFinder: r,
 		mapper:        exp,
 		aspectCache:   make(map[cacheKey]aspect.Wrapper),
 	}
@@ -139,17 +145,33 @@ func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder ada
 	if found {
 		return asp, nil
 	}
+
+	// create an aspect
+	env := newEnv(builder.Name())
+	asp, err = mgr.NewAspect(cfg, builder, env)
+	if err != nil {
+		return nil, err
+	}
+
 	// obtain write lock
 	m.lock.Lock()
-	defer m.lock.Unlock()
-	asp, found = m.aspectCache[*key]
-	if !found {
-		env := newEnv(builder.Name())
-		asp, err = mgr.NewAspect(cfg, builder, env)
-		if err != nil {
-			return nil, err
+	// see if someone else beat you to it
+	if other, found := m.aspectCache[*key]; found {
+		if err1 := asp.Close(); err1 != nil {
+			glog.Warningf("Error closing aspect: %v", asp)
 		}
+		asp = other
+	} else {
+		// your are the first one, save your aspect
 		m.aspectCache[*key] = asp
 	}
+
+	m.lock.Unlock()
+
 	return asp, nil
+}
+
+// FindValidator is used to find a config validator given a name. see: config.ValidatorFinder
+func (m *Manager) FindValidator(name string) (adapter.ConfigValidator, bool) {
+	return m.builderFinder.FindBuilder(name)
 }

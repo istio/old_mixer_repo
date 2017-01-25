@@ -23,8 +23,8 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// MustRegister records the builders exposed by this adapter.
-func MustRegister(r adapter.Registrar) {
+// Register records the builders exposed by this adapter.
+func Register(r adapter.Registrar) {
 	r.RegisterDenyChecker(newBuilder())
 }
 

@@ -27,4 +27,6 @@ const (
 )
 
 // APIMethods is the authoritative place that lists supported api methods.
-var APIMethods = []APIMethod{CheckMethod, ReportMethod, QuotaMethod}
+func APIMethods() []APIMethod {
+	return []APIMethod{CheckMethod, ReportMethod, QuotaMethod}
+}

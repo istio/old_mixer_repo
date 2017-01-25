@@ -78,6 +78,7 @@ func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (outpu
 	f.called++
 	return
 }
+func (f *fakewrapper) Close() error { return nil }
 
 func (m *fakemgr) Kind() string {
 	return m.kind
@@ -192,7 +193,7 @@ func TestManager(t *testing.T) {
 		if tt.mgrFound {
 			mgr = newFakeMgrReg(tt.wrapper)
 		}
-		m := NewManager(r, mgr, mapper)
+		m := newManager(r, mgr, mapper)
 		errStr := ""
 		if _, err := m.Execute(tt.cfg, attrs); err != nil {
 			errStr = err.Error()

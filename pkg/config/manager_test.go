@@ -8,6 +8,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 
+	"sync"
 	"time"
 )
 
@@ -21,14 +22,25 @@ type mtest struct {
 }
 
 type fakelistener struct {
-	rt *Runtime
+	called int
+	rt     *Runtime
+	sync.Mutex
 }
 
 func (f *fakelistener) ConfigChange(cfg *Runtime) {
+	f.Lock()
 	f.rt = cfg
+	f.called++
+	f.Unlock()
+}
+func (f *fakelistener) Called() int {
+	f.Lock()
+	called := f.called
+	f.Unlock()
+	return called
 }
 
-func TestConfigManagerError(t *testing.T) {
+func TestConfigManager(t *testing.T) {
 	evaluator := newFakeExpr()
 	mlist := []mtest{
 		{"", "", "", "", nil, "no such file or directory"},
@@ -41,12 +53,13 @@ func TestConfigManagerError(t *testing.T) {
 		}, ""},
 	}
 	for idx, mt := range mlist {
+		loopDelay := time.Millisecond * 50
 		vf := &fakeVFinder{v: mt.v}
 		ma := &ManagerArgs{
-			AspectF:   vf,
-			BuilderF:  vf,
-			Eval:      evaluator,
-			LoopDelay: time.Millisecond * 300,
+			AspectFinder:  vf,
+			BuilderFinder: vf,
+			Eval:          evaluator,
+			LoopDelay:     loopDelay,
 		}
 		if mt.gc != "" {
 			tmpfile, _ := ioutil.TempFile("", mt.gc)
@@ -63,38 +76,51 @@ func TestConfigManagerError(t *testing.T) {
 			_, _ = tmpfile.Write([]byte(mt.scContent))
 			_ = tmpfile.Close()
 		}
+		testConfigManager(t, NewManager(ma), mt, idx, loopDelay)
+	}
+}
 
-		mgr := NewManager(ma)
-		fl := &fakelistener{}
-		mgr.Register(fl)
+func testConfigManager(t *testing.T, mgr *Manager, mt mtest, idx int, loopDelay time.Duration) {
+	fl := &fakelistener{}
+	mgr.Register(fl)
 
-		_ = mgr.fetchAndNotify()
-		mgr.Start()
+	mgr.Start()
+	defer mgr.Close()
 
-		le := mgr.LastError()
-		if mt.errStr != "" && le == nil {
-			t.Errorf("[%d] Expected an error %s Got nothing", idx, mt.errStr)
-			continue
+	le := mgr.LastError()
+
+	if mt.errStr != "" && le == nil {
+		t.Errorf("[%d] Expected an error %s Got nothing", idx, mt.errStr)
+		return
+	}
+
+	if mt.errStr == "" && le != nil {
+		t.Errorf("[%d] Unexpected an error %s", idx, le)
+		return
+	}
+
+	if mt.errStr == "" && fl.rt == nil {
+		t.Errorf("[%d] Config listener was not notified", idx)
+	}
+
+	if mt.errStr == "" && le == nil {
+		called := fl.Called()
+		if le == nil && called != 1 {
+			t.Errorf("called Got: %d, want: 1", called)
 		}
-
-		if mt.errStr == "" && le != nil {
-			t.Errorf("[%d] Unexpected an error %s", idx, le)
-			continue
+		// give mgr time to go thru the start Loop() go routine
+		// fetchAndNotify should be indirectly called multiple times.
+		time.Sleep(loopDelay * 2)
+		// check again. should not change, no new data is available
+		called = fl.Called()
+		if le == nil && called != 1 {
+			t.Errorf("called Got: %d, want: 1", called)
 		}
+		return
+	}
 
-		if mt.errStr == "" && fl.rt == nil {
-			t.Errorf("[%d] Config listener was not notified", idx)
-		}
-
-		if mt.errStr == "" && le == nil {
-			continue
-		}
-
-		if !strings.Contains(le.Error(), mt.errStr) {
-			t.Errorf("[%d] Unexpected error. Expected %s\nGot: %s\n", idx, mt.errStr, le)
-		}
-
-		time.Sleep(time.Second * 1)
-		mgr.Close()
+	if !strings.Contains(le.Error(), mt.errStr) {
+		t.Errorf("[%d] Unexpected error. Expected %s\nGot: %s\n", idx, mt.errStr, le)
+		return
 	}
 }
