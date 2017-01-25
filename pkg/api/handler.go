@@ -53,6 +53,12 @@ type Handler interface {
 	Quota(context.Context, attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
+// Executor executes any aspect as described by config.Combined. Only UberManager implements this interface.
+type Executor interface {
+	// Execute performs actions described in combined config using the attribute bag
+	Execute(cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error)
+}
+
 // HandlerState holds state and configuration for the handler.
 type HandlerState struct {
 	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime)
@@ -63,7 +69,7 @@ type HandlerState struct {
 // HandlerArgs are constructor args for a method handler.
 type HandlerArgs struct {
 	// aspectExecutor is able to execute combined configuration.
-	AspectExecutor aspect.Executor
+	AspectExecutor Executor
 	// set of aspect Kinds that should be dispatched for "check"
 	CheckSet config.AspectSet
 	// set of aspect Kinds that should be dispatched for "report"

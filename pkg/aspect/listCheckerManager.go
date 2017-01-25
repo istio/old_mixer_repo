@@ -39,11 +39,11 @@ type (
 
 // NewListCheckerManager returns "this" aspect Manager
 func NewListCheckerManager() Manager {
-	return &listCheckerManager{}
+	return listCheckerManager{}
 }
 
 // NewAspect creates a listChecker aspect.
-func (m *listCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (listCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
 	aa := ga.(adapter.ListCheckerBuilder)
 	var asp adapter.ListCheckerAspect
 	var err error
@@ -59,26 +59,22 @@ func (m *listCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder,
 	}, nil
 }
 
-func (*listCheckerManager) Kind() string {
+func (listCheckerManager) Kind() string {
 	return "istio/listChecker"
 }
 
-func (*listCheckerManager) DefaultConfig() adapter.AspectConfig {
+func (listCheckerManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.ListCheckerParams{
 		CheckAttribute: "src.ip",
 	}
 }
 
-func (*listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	lc := c.(*aconfig.ListCheckerParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("check_attribute", "Missing")
 	}
 	return
-}
-
-func (a *listCheckerWrapper) AdapterName() string {
-	return a.adapterName
 }
 
 func (a *listCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
@@ -107,3 +103,5 @@ func (a *listCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator)
 	}
 	return &Output{Code: rCode}, nil
 }
+
+func (a *listCheckerWrapper) Close() error { return a.aspect.Close() }

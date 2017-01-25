@@ -46,47 +46,39 @@ type (
 
 // NewLoggerManager returns an aspect manager for the logger aspect.
 func NewLoggerManager() Manager {
-	return &loggerManager{}
+	return loggerManager{}
 }
 
-func (m *loggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	logCfg := c.Aspect.Params.(*aconfig.LoggerParams)
-	logName := logCfg.LogName
-	severityAttr := logCfg.SeverityAttribute
-	timestampAttr := logCfg.TimestampAttribute
-	timestampFmt := logCfg.TimestampFormat
-	// TODO: look up actual descriptors by name and build an array
-
-	logAdapter := a.(adapter.LoggerBuilder)
-	aspectImpl, err := logAdapter.NewLogger(env, c.Builder.Params.(adapter.AspectConfig))
+func (loggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aspect, err := a.(adapter.LoggerBuilder).NewLogger(env, c.Builder.Params.(adapter.AspectConfig))
 	if err != nil {
 		return nil, err
 	}
 
-	var inputs map[string]string
-	if c.Aspect != nil && c.Aspect.Inputs != nil {
-		inputs = c.Aspect.Inputs
-	}
+	// TODO: look up actual descriptors by name and build an array
+	logCfg := c.Aspect.Params.(*aconfig.LoggerParams)
 
 	return &loggerWrapper{
-		logName,
+		logCfg.LogName,
 		[]dpb.LogEntryDescriptor{},
-		inputs,
-		severityAttr,
-		timestampAttr,
-		timestampFmt,
-		aspectImpl,
+		c.Aspect.GetInputs(),
+		logCfg.SeverityAttribute,
+		logCfg.TimestampAttribute,
+		logCfg.TimestampFormat,
+		aspect,
 		time.Now,
 	}, nil
 }
 
-func (*loggerManager) Kind() string { return "istio/logger" }
-func (*loggerManager) DefaultConfig() adapter.AspectConfig {
+func (loggerManager) Kind() string { return "istio/logger" }
+func (loggerManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
-func (*loggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (loggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+
+func (e *loggerWrapper) Close() error { return e.aspect.Close() }
 
 func (e *loggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	var entries []adapter.LogEntry

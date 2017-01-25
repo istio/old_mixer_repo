@@ -38,7 +38,7 @@ func (denyBuilder) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 }
 
 func TestRegisterDenyChecker(t *testing.T) {
-	reg := NewRegistry(nil)
+	reg := newRegistry(nil)
 	builder := denyBuilder{testBuilder{name: "foo"}}
 
 	reg.RegisterDenyChecker(builder)
@@ -60,7 +60,7 @@ func (listBuilder) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 }
 
 func TestRegisterListChecker(t *testing.T) {
-	reg := NewRegistry(nil)
+	reg := newRegistry(nil)
 	builder := listBuilder{testBuilder{name: "foo"}}
 
 	reg.RegisterListChecker(builder)
@@ -82,7 +82,7 @@ func (loggerBuilder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapt
 }
 
 func TestRegisterLogger(t *testing.T) {
-	reg := NewRegistry(nil)
+	reg := newRegistry(nil)
 	builder := loggerBuilder{testBuilder{name: "foo"}}
 
 	reg.RegisterLogger(builder)
@@ -104,7 +104,7 @@ func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter
 }
 
 func TestRegisterQuota(t *testing.T) {
-	reg := NewRegistry(nil)
+	reg := newRegistry(nil)
 	builder := quotaBuilder{testBuilder{name: "foo"}}
 
 	reg.RegisterQuota(builder)
@@ -119,7 +119,7 @@ func TestRegisterQuota(t *testing.T) {
 }
 
 func TestCollision(t *testing.T) {
-	reg := NewRegistry(nil)
+	reg := newRegistry(nil)
 	name := "some name that they both have"
 
 	a1 := denyBuilder{testBuilder{name}}

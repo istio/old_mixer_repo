@@ -23,11 +23,11 @@ import (
 )
 
 // Inventory  returns inventory of all available adapters.
-func Inventory() []adapter.MustRegisterFn {
-	return []adapter.MustRegisterFn{
-		denyChecker.MustRegister,
-		genericListChecker.MustRegister,
-		ipListChecker.MustRegister,
-		stdioLogger.MustRegister,
+func Inventory() []adapter.RegisterFn {
+	return []adapter.RegisterFn{
+		denyChecker.Register,
+		genericListChecker.Register,
+		ipListChecker.Register,
+		stdioLogger.Register,
 	}
 }

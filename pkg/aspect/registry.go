@@ -40,7 +40,7 @@ func newRegistry(bnds []APIBinding) *Registry {
 	as := make(map[config.APIMethod]config.AspectSet)
 
 	// setup aspect sets for all methods
-	for _, am := range config.APIMethods {
+	for _, am := range config.APIMethods() {
 		as[am] = config.AspectSet{}
 	}
 

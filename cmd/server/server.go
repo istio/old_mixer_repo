@@ -127,13 +127,12 @@ func serverOpts(sa *serverArgs, handlers api.Handler) (*api.GRPCServerOptions, e
 func runServer(sa *serverArgs) error {
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewIdentityEvaluator()
-	aspectReg := aspect.DefaultRegistry()
-	builderReg := adapterManager.NewRegistry(adapter.Inventory())
-	adapterMgr := adapterManager.NewManager(builderReg, aspectReg, eval)
-	configMgr := config.NewManager(&config.ManagerArgs{
+	aspectRegistry := aspect.DefaultRegistry()
+	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspectRegistry, eval)
+	configManager := config.NewManager(&config.ManagerArgs{
 		Eval:          eval,
-		AspectF:       aspectReg,
-		BuilderF:      builderReg,
+		AspectFinder:  aspectRegistry,
+		BuilderFinder: adapterMgr,
 		GlobalConfig:  sa.globalConfigFile,
 		ServiceConfig: sa.serviceConfigFile,
 	})
@@ -141,11 +140,11 @@ func runServer(sa *serverArgs) error {
 	handler := api.NewHandler(&api.HandlerArgs{
 		AspectExecutor: adapterMgr,
 		// set of aspect Kinds that should be dispatched for "check"
-		CheckSet: aspectReg.AspectSet(config.CheckMethod),
+		CheckSet: aspectRegistry.AspectSet(config.CheckMethod),
 		// set of aspect Kinds that should be dispatched for "report"
-		ReportSet: aspectReg.AspectSet(config.ReportMethod),
+		ReportSet: aspectRegistry.AspectSet(config.ReportMethod),
 		// set of aspect Kinds that should be dispatched for "quota"
-		QuotaSet: aspectReg.AspectSet(config.QuotaMethod),
+		QuotaSet: aspectRegistry.AspectSet(config.QuotaMethod),
 	})
 
 	grpcServerOptions, err := serverOpts(sa, handler)
@@ -153,8 +152,8 @@ func runServer(sa *serverArgs) error {
 		return err
 	}
 
-	configMgr.Register(handler)
-	configMgr.Start()
+	configManager.Register(handler)
+	configManager.Start()
 
 	var grpcServer *api.GRPCServer
 	if grpcServer, err = api.NewGRPCServer(grpcServerOptions); err != nil {

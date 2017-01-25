@@ -35,11 +35,11 @@ type (
 
 // NewDenyCheckerManager returns a DenyCheckerManager.
 func NewDenyCheckerManager() Manager {
-	return &denyCheckerManager{}
+	return denyCheckerManager{}
 }
 
 // NewAspect creates a denyChecker aspect.
-func (m *denyCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (denyCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
 	aa := ga.(adapter.DenyCheckerBuilder)
 	var asp adapter.DenyCheckerAspect
 	var err error
@@ -54,13 +54,13 @@ func (m *denyCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder,
 	}, nil
 }
 
-func (*denyCheckerManager) Kind() string                                                     { return "istio/denyChecker" }
-func (*denyCheckerManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenyCheckerParams{} }
-func (*denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
-
-func (a *denyCheckerWrapper) AdapterName() string { return a.name }
+func (denyCheckerManager) Kind() string                                                     { return "istio/denyChecker" }
+func (denyCheckerManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenyCheckerParams{} }
+func (denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
 func (a *denyCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	status := a.aspect.Deny()
 	return &Output{Code: code.Code(status.Code)}, nil
 }
+
+func (a *denyCheckerWrapper) Close() error { return a.aspect.Close() }
