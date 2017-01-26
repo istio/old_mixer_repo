@@ -15,7 +15,6 @@
 package aspect
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -38,16 +37,6 @@ type (
 		name   string
 		params adapter.AspectConfig
 		want   *loggerWrapper
-	}
-	testLogger struct {
-		adapter.LoggerBuilder
-		adapter.QuotaAspect
-
-		defaultCfg     adapter.AspectConfig
-		entryCount     int
-		entries        []adapter.LogEntry
-		errOnNewAspect bool
-		errOnLog       bool
 	}
 )
 
@@ -111,7 +100,7 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 		},
 	}
 
-	errLogger := &testLogger{defaultCfg: &empty.Empty{}, errOnNewAspect: true}
+	errLogger := &test.Logger{DefaultCfg: &empty.Empty{}, ErrOnNewAspect: true}
 
 	failureCases := []struct {
 		cfg   *config.Combined
