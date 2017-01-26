@@ -52,6 +52,7 @@ run_linters() {
     #
     # This doesn't work with our source tree for some reason, it can't find vendored imports
     # --enable=gotype\
+    $SCRIPTPATH/check_license.sh
 }
 
 set -e
@@ -64,6 +65,5 @@ prep_linters
 
 run_linters
 
-$SCRIPTPATH/check_license.sh
 
 echo Done running linters

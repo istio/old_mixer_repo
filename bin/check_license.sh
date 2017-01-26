@@ -14,7 +14,7 @@ for fn in $(find cmd pkg adapter -name '*.go'); do
 		ret=$(($ret+1))
 	fi
 
-	head -20 $fn | grep Copyright | grep Google > /dev/null
+	head -20 $fn | grep Copyright > /dev/null
 	if [[ $? -ne 0 ]]; then
 		echo "${fn} missing Copyright"
 		ret=$(($ret+1))
