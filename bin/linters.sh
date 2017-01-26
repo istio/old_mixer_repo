@@ -64,4 +64,6 @@ prep_linters
 
 run_linters
 
+$SCRIPTPATH/check_license.sh
+
 echo Done running linters
