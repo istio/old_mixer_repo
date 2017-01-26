@@ -15,14 +15,14 @@
 package adapterManager
 
 import (
-	"fmt"
-	"sync"
-
 	"bytes"
 	"crypto/sha1"
 	"encoding/gob"
+	"fmt"
+	"sync"
 
 	"github.com/golang/glog"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"

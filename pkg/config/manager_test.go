@@ -18,13 +18,11 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"testing"
-
-	"istio.io/mixer/pkg/adapter"
-
 	"sync"
+	"testing"
 	"time"
 
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/expr"
 )
 
