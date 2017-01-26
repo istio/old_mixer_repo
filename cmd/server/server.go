@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	bt "github.com/opentracing/basictracer-go"
 	ot "github.com/opentracing/opentracing-go"
@@ -32,11 +33,8 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
-	"istio.io/mixer/pkg/tracing"
-
-	"time"
-
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/tracing"
 )
 
 type serverArgs struct {

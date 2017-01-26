@@ -15,24 +15,22 @@
 package aspect
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 	"time"
 
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect/test"
-
-	aconfig "istio.io/mixer/pkg/aspect/config"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/expr"
-
-	"errors"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
+
 	dpb "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/pkg/adapter"
+	aconfig "istio.io/mixer/pkg/aspect/config"
+	"istio.io/mixer/pkg/aspect/test"
+	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/expr"
 )
 
 type (
@@ -268,20 +266,3 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}
 }
-
-func (t *testLogger) NewLogger(e adapter.Env, m adapter.AspectConfig) (adapter.LoggerAspect, error) {
-	if t.errOnNewAspect {
-		return nil, errors.New("new aspect error")
-	}
-	return t, nil
-}
-func (t *testLogger) DefaultConfig() adapter.AspectConfig { return t.defaultCfg }
-func (t *testLogger) Log(l []adapter.LogEntry) error {
-	if t.errOnLog {
-		return errors.New("log error")
-	}
-	t.entryCount++
-	t.entries = append(t.entries, l...)
-	return nil
-}
-func (t *testLogger) Close() error { return nil }

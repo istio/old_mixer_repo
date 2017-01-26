@@ -22,7 +22,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Inventory  returns inventory of all available adapters.
+// Inventory returns inventory of all available adapters.
 func Inventory() []adapter.RegisterFn {
 	return []adapter.RegisterFn{
 		denyChecker.Register,

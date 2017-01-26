@@ -18,14 +18,13 @@
 package aspect
 
 import (
-	"google.golang.org/genproto/googleapis/rpc/code"
-
-	"istio.io/mixer/pkg/config"
-
 	"io"
+
+	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
 

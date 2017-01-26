@@ -17,11 +17,11 @@ package config
 import (
 	"crypto/sha1"
 	"io/ioutil"
+	"sync"
 	"time"
 
-	"sync"
-
 	"github.com/golang/glog"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/expr"
 )

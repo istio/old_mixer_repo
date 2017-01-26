@@ -19,16 +19,16 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/golang/protobuf/ptypes/struct"
+
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
-	"istio.io/mixer/pkg/expr"
-
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/ptypes/struct"
 	configpb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/expr"
 )
 
 func TestNewAccessLoggerManager(t *testing.T) {
