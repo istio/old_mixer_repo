@@ -18,8 +18,6 @@ cache:
   - $HOME/bazel/install
   - $HOME/bazel/outbase
 before_install:
-- openssl aes-256-cbc -K $encrypted_2f660428f0db_key -iv $encrypted_2f660428f0db_iv
-  -in istio-test.json.enc -out istio-test.json -d
 - mkdir -p ${HOME}/bazel/install
 - cd ${HOME}/bazel/install
 - wget --no-clobber "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel_${BAZEL_VERSION}-linux-x86_64.deb"
@@ -29,13 +27,18 @@ before_install:
 - cd ${TRAVIS_BUILD_DIR}
 - mv .bazelrc .bazelrc.orig
 - cat .bazelrc.travis .bazelrc.orig > .bazelrc
-- gcloud auth activate-service-account --key-file istio-test.json
+
 script:
 - bazel test //...
 - bin/linters.sh
 - bin/codecov.sh
-- docker/gcloud_build.sh
 after_success:
 - bash <(curl -s https://codecov.io/bash)
+- if [ "$TRAVIS_BRANCH" == "master" ]; then
+    openssl aes-256-cbc -K $encrypted_2f660428f0db_key -iv $encrypted_2f660428f0db_iv -in istio-test.json.enc -out istio-test.json -d;
+    gcloud auth activate-service-account --key-file istio-test.json;
+    docker/gcloud_build.sh
+  fi
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
+after_success:
