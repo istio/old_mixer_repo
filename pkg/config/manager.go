@@ -27,7 +27,7 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
-// ConfigResolver resolves configuration to a list of combined configs.
+// Resolver resolves configuration to a list of combined configs.
 type Resolver interface {
 	// Resolve resolves configuration to a list of combined configs.
 	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error)

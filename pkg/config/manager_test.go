@@ -39,11 +39,11 @@ type mtest struct {
 
 type fakelistener struct {
 	called int
-	rt     *Runtime
+	rt     Resolver
 	sync.Mutex
 }
 
-func (f *fakelistener) ConfigChange(cfg *Runtime) {
+func (f *fakelistener) ConfigChange(cfg Resolver) {
 	f.Lock()
 	f.rt = cfg
 	f.called++
