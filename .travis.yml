@@ -41,7 +41,7 @@ script:
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
-- docker/gcloud_push.sh
+- docker/travis_gcloud.sh
 
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
