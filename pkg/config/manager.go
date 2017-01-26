@@ -114,7 +114,6 @@ func (c *Manager) fetch() (*Runtime, error) {
 	}
 
 	if gcSHA == c.gcSHA && scSHA == c.scSHA {
-		glog.V(2).Info("No Change")
 		return nil, nil
 	}
 

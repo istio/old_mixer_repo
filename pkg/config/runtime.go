@@ -18,6 +18,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
+	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	pb "istio.io/mixer/pkg/config/proto"
 )
@@ -74,6 +75,9 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 	var lerr error
 
 	for _, rule := range rules {
+		if glog.V(2) {
+			glog.Infof("resolveRules (%v) ==> %v ", rule, path)
+		}
 		sel := rule.GetSelector()
 		if selected, lerr = r.evalPredicate(sel, bag); lerr != nil {
 			err = multierror.Append(err, lerr)
@@ -102,6 +106,7 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 // combined returns a Combined config given an aspect config
 func (r *Runtime) combined(aa *pb.Aspect, aspectSet AspectSet) *Combined {
 	if !aspectSet[aa.GetKind()] {
+		glog.V(3).Infof("Aspect Rejected %v not is set (%v)", aa.GetKind(), aspectSet)
 		return nil
 	}
 

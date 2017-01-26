@@ -100,6 +100,7 @@ func newManager(r builderFinder, m map[string]aspect.Manager, exp expr.Evaluator
 		builderFinder: r,
 		mapper:        exp,
 		aspectCache:   make(map[cacheKey]aspect.Wrapper),
+		aspectmap:     am,
 	}
 }
 

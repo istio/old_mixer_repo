@@ -101,7 +101,9 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 	if err != nil {
 		return newStatusWithMessage(code.Code_INTERNAL, fmt.Sprintf("unable to resolve config %s", err.Error()))
 	}
-
+	if glog.V(2) {
+		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
+	}
 	for _, conf := range cfgs {
 		select {
 		case <-ctx.Done():
@@ -120,7 +122,8 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
 		}
 		if out.Code != code.Code_OK {
-			return newStatusWithMessage(out.Code, "Rejected by builder "+conf.Builder.Name)
+			return newStatusWithMessage(out.Code,
+				fmt.Sprintf("Rejected by %s [%s %s]", conf.Aspect.Kind, conf.Builder.Impl, conf.Builder.Name))
 		}
 	}
 	return newStatus(code.Code_OK)
@@ -130,12 +133,18 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, config.CheckMethod)
+	if glog.V(2) {
+		glog.Infof("Check (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
+	}
 }
 
 // Report performs 'report' function corresponding to the mixer api.
 func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, config.ReportMethod)
+	if glog.V(2) {
+		glog.Infof("Report (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
+	}
 }
 
 // Quota performs 'quota' function corresponding to the mixer api.
