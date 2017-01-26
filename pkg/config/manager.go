@@ -23,12 +23,19 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
 
+// ConfigResolver resolves configuration to a list of combined configs.
+type Resolver interface {
+	// Resolve resolves configuration to a list of combined configs.
+	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error)
+}
+
 // ChangeListener listens for config change notifications.
 type ChangeListener interface {
-	ConfigChange(cfg *Runtime)
+	ConfigChange(cfg Resolver)
 }
 
 // Manager represents the config Manager.

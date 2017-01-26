@@ -59,12 +59,6 @@ type Executor interface {
 	Execute(cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error)
 }
 
-// ConfigResolver resolves configuration to a list of combined configs.
-type ConfigResolver interface {
-	// Resolve resolves configuration to a list of combined configs.
-	Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*config.Combined, error)
-}
-
 // handlerState holds state and configuration for the handler.
 type handlerState struct {
 	aspectExecutor Executor
@@ -102,7 +96,7 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 		glog.Error(gerr)
 		return newStatusWithMessage(code.Code_INTERNAL, gerr)
 	}
-	cfg := untypedCfg.(ConfigResolver)
+	cfg := untypedCfg.(config.Resolver)
 	cfgs, err := cfg.Resolve(ab, h.methodmap[method])
 	if err != nil {
 		return newStatusWithMessage(code.Code_INTERNAL, fmt.Sprintf("unable to resolve config %s", err.Error()))
@@ -164,6 +158,6 @@ func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
 }
 
 // ConfigChange listens for config change notifications.
-func (h *handlerState) ConfigChange(cfg ConfigResolver) {
+func (h *handlerState) ConfigChange(cfg config.Resolver) {
 	h.cfg.Store(cfg)
 }
