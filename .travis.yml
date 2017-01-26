@@ -41,4 +41,3 @@ after_success:
   fi
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
-after_success:
