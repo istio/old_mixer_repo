@@ -2,8 +2,8 @@
 
 set -ex
 
-gcloud config set project istio-testing
+gcloud docker --authorize-only
 
-bazel run //docker:mixer gcr.io/istio-testing/mixer:experiment
+bazel run //docker:mixer gcr.io/$PROJECT/mixer:experiment
 
-gcloud docker -- push gcr.io/istio-testing/mixer:experiment
+gcloud docker -- push gcr.io/$PROJECT/mixer:experiment
