@@ -14,16 +14,34 @@ prep_linters() {
     bin/bazel_to_go.py
 }
 
-run_linters() {
-    echo Running linters
-    buildifier -showlog -mode=check $(find . -name BUILD -type f)
-
+go_metalinter(){
     # TODO: Enable this once more of mixer is connected and we don't
     # have dead code on purpose
     # codecoroner funcs ./...
     # codecoroner idents ./...
 
-    gometalinter --deadline=300s --disable-all\
+    if [[ ! -z ${TRAVIS_PULL_REQUEST} ]];then
+	# if travis pull request only lint changed code.
+	if [[ ${TRAVIS_PULL_REQUEST} != "false" ]]; then
+	    LAST_GOOD_GITSHA=${TRAVIS_COMMIT_RANGE}
+	fi
+    else
+        # for local run, only lint the current branch
+	LAST_GOOD_GITSHA=$(git log master.. --pretty="%H"|tail -1)
+    fi
+    
+    # default: lint everything. This runs on the main build
+    PKGS="./pkg/... ./cmd/... ./adapter/..."
+
+    # convert LAST_GOOD_GITSHA to list of packages.
+    if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
+        PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
+    fi
+    echo $PKGS
+
+    gometalinter\
+	--vendored-linters\
+	--deadline=300s --disable-all\
         --enable=aligncheck\
         --enable=deadcode\
         --enable=errcheck\
@@ -44,7 +62,7 @@ run_linters() {
         --enable=varcheck\
         --enable=vet\
         --enable=vetshadow\
-        ./...
+	$PKGS
 
     # TODO: These generate warnings which we should fix, and then should enable the linters
     # --enable=dupl\
@@ -52,6 +70,12 @@ run_linters() {
     #
     # This doesn't work with our source tree for some reason, it can't find vendored imports
     # --enable=gotype\
+}
+
+run_linters() {
+    echo Running linters
+    buildifier -showlog -mode=check $(find . -name BUILD -type f)
+    go_metalinter
     $SCRIPTPATH/check_license.sh
 }
 
