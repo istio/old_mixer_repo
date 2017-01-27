@@ -34,6 +34,7 @@ type (
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
+	//TODO update registration code after https://github.com/istio/mixer/issues/204 is resolved.
 	r.RegisterLogger(builder{adapter.NewDefaultBuilder(
 		"istio/stdioLogger",
 		"Writes structured log entries to a standard I/O stream",
