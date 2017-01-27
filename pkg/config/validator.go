@@ -253,8 +253,8 @@ func Decode(src interface{}, dst adapter.AspectConfig, strict bool, newDecoders 
 
 	if strict && len(md.Unused) > 0 {
 		if glog.V(2) {
-			out, _ := yaml.Marshal(dst)
-			glog.Infof(string(out[:]))
+			out, err := yaml.Marshal(dst)
+			glog.Infoln(string(out[:]), err)
 		}
 		return fmt.Errorf("unused fields while parsing %s", md.Unused)
 	}
