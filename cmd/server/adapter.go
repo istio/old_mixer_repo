@@ -21,7 +21,7 @@ import (
 func adapterCmd(errorf errorFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "adapter",
-		Short: "Diagnostics for the available mixer adapters",
+		Short: "Inventory of mixer adapters",
 	}
 
 	listCmd := cobra.Command{
