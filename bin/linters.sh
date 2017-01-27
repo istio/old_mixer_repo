@@ -9,7 +9,7 @@ prep_linters() {
 		go get -u github.com/alecthomas/gometalinter
 		go get -u github.com/bazelbuild/buildifier/buildifier
 		go get -u github.com/3rf/codecoroner
-		gometalinter --install >/dev/null
+		gometalinter --install --vendored-linters >/dev/null
 	fi
     bin/bazel_to_go.py
 }
@@ -85,9 +85,9 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-prep_linters
+time prep_linters
 
-run_linters
+time run_linters
 
 
 echo Done running linters
