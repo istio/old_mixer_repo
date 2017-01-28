@@ -37,6 +37,7 @@ var (
 	conf = &config.Params{}
 )
 
+// Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
 	r.RegisterMetrics(newFactory())
 }

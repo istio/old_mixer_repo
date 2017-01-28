@@ -39,6 +39,5 @@ func Inventory() []APIBinding {
 		{NewListCheckerManager(), config.CheckMethod},
 		{NewLoggerManager(), config.ReportMethod},
 		{NewAccessLoggerManager(), config.ReportMethod},
-		{NewMetricsManager(), config.ReportMethod},
 	}
 }
