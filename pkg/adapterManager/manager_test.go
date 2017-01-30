@@ -15,6 +15,7 @@
 package adapterManager
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -57,8 +58,9 @@ type (
 	}
 
 	testAspect struct {
-		throw bool
+		body func() (*aspect.Output, error)
 	}
+
 	fakewrapper struct {
 		called int8
 	}
@@ -81,8 +83,8 @@ func (m *fakemgr) Kind() string {
 	return m.kind
 }
 
-func newTestManager(name string, throwOnNewAspect bool, aspectThrowOnExecute bool) testManager {
-	return testManager{name, throwOnNewAspect, testAspect{aspectThrowOnExecute}}
+func newTestManager(name string, throwOnNewAspect bool, body func() (*aspect.Output, error)) testManager {
+	return testManager{name, throwOnNewAspect, testAspect{body}}
 }
 func (testManager) Close() error                                                { return nil }
 func (testManager) DefaultConfig() adapter.AspectConfig                         { return nil }
@@ -103,10 +105,7 @@ func (m testManager) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (ad
 
 func (testAspect) Close() error { return nil }
 func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
-	if t.throw {
-		panic("Execute panic")
-	}
-	return nil, fmt.Errorf("empty")
+	return t.body()
 }
 func (testAspect) Deny() status.Status { return status.Status{Code: int32(code.Code_INTERNAL)} }
 
@@ -181,7 +180,7 @@ func TestManager(t *testing.T) {
 		}
 		m := newManager(r, mgr, mapper, nil)
 		errStr := ""
-		if _, err := m.Execute(tt.cfg, attrs); err != nil {
+		if _, err := m.Execute(context.Background(), tt.cfg, attrs); err != nil {
 			errStr = err.Error()
 		}
 		if !strings.Contains(errStr, tt.errString) {
@@ -203,7 +202,7 @@ func TestManager(t *testing.T) {
 
 		// call again
 		// check for cache
-		_, _ = m.Execute(tt.cfg, attrs)
+		_, _ = m.Execute(context.Background(), tt.cfg, attrs)
 		if tt.wrapper.called != 2 {
 			t.Errorf("[%d] Expected 2nd wrapper call", idx)
 		}
@@ -215,12 +214,66 @@ func TestManager(t *testing.T) {
 	}
 }
 
+func TestManager_BulkExecute(t *testing.T) {
+	goodcfg := &config.Combined{
+		Aspect:  &configpb.Aspect{Kind: "k1", Params: &status.Status{}},
+		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1", Params: &status.Status{}},
+	}
+
+	badcfg1 := &config.Combined{
+		Aspect: &configpb.Aspect{Kind: "k1", Params: &status.Status{}},
+		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
+			Params: make(chan int)},
+	}
+	badcfg2 := &config.Combined{
+		Aspect: &configpb.Aspect{Kind: "k1", Params: make(chan int)},
+		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
+			Params: &status.Status{}},
+	}
+	cases := []struct {
+		errString string
+		cfgs      []*config.Combined
+	}{
+		{"", []*config.Combined{}},
+		{"", []*config.Combined{goodcfg}},
+		{"", []*config.Combined{goodcfg, goodcfg}},
+		{"can't handle type", []*config.Combined{badcfg1, goodcfg}},
+		{"can't handle type", []*config.Combined{goodcfg, badcfg2}},
+	}
+
+	attrs := &fakebag{}
+	mapper := &fakeevaluator{}
+	for idx, c := range cases {
+		r := getReg(true)
+		mgr := newFakeMgrReg(&fakewrapper{})
+		m := newManager(r, mgr, mapper, nil)
+
+		errStr := ""
+		if _, err := m.BulkExecute(context.Background(), c.cfgs, attrs); err != nil {
+			errStr = err.Error()
+		}
+		if !strings.Contains(errStr, c.errString) {
+			t.Errorf("[%d] expected: '%s' \ngot: '%s'", idx, c.errString, errStr)
+		}
+	}
+
+}
+
 func TestRecovery_NewAspect(t *testing.T) {
 	testRecovery(t, "NewAspect Throws", true, false, "NewAspect")
 }
 
 func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
-	cacheThrow := newTestManager(name, throwOnNewAspect, throwOnExecute)
+	var cacheThrow testManager
+	if throwOnExecute {
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() (*aspect.Output, error) {
+			panic("panic")
+		})
+	} else {
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() (*aspect.Output, error) {
+			return nil, fmt.Errorf("empty")
+		})
+	}
 	mreg := map[string]aspect.Manager{
 		name: cacheThrow,
 	}
@@ -235,7 +288,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 		Aspect:  &configpb.Aspect{Kind: name},
 	}
 
-	_, err := m.Execute(cfg, nil)
+	_, err := m.Execute(context.Background(), cfg, nil)
 	if err == nil {
 		t.Error("Aspect threw, but got no err from manager.Execute")
 	}
