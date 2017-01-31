@@ -82,6 +82,11 @@ func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
 	r.insert(quota)
 }
 
+// RegisterMetrics registers a new Metrics builder.
+func (r *registry) RegisterMetrics(quota adapter.MetricsBuilder) {
+	r.insert(quota)
+}
+
 func (r *registry) insert(b adapter.Builder) {
 	glog.V(2).Infof("Registering %v", b)
 	if old, exists := r.buildersByName[b.Name()]; exists {
