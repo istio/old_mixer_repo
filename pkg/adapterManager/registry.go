@@ -85,9 +85,7 @@ func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
 }
 
 func (r *registry) insert(b adapter.Builder) {
-	if glog.V(2) {
-		glog.Infof("Registering %v", b)
-	}
+	glog.V(2).Infof("Registering %v", b)
 	if old, exists := r.buildersByName[b.Name()]; exists {
 		panic(fmt.Errorf("duplicate registration for '%s' : %v %v", b.Name(), old, b))
 	}
