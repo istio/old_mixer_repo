@@ -17,6 +17,8 @@
 package prometheus
 
 import (
+	"fmt"
+
 	"istio.io/mixer/adapter/prometheus/config"
 	"istio.io/mixer/pkg/adapter"
 )
@@ -43,17 +45,18 @@ func Register(r adapter.Registrar) {
 }
 
 func newFactory() factory {
-	return factory{adapter.NewDefaultBuilder(name, desc, conf), newServer(defaultAddr)}
+	srv := newServer(defaultAddr)
+	if err := srv.Start(); err != nil {
+		panic(fmt.Errorf("could not create prometheus adapter: %v", err))
+	}
+	return factory{adapter.NewDefaultBuilder(name, desc, conf), srv}
 }
 
 func (f factory) Close() error {
-	if f.srv != nil {
-		return f.srv.Close()
-	}
-	return nil
+	return f.srv.Close()
 }
 
-func (f factory) NewMetrics(env adapter.Env, cfg adapter.AspectConfig) (adapter.MetricsAspect, error) {
+func (factory) NewMetrics(env adapter.Env, cfg adapter.AspectConfig) (adapter.MetricsAspect, error) {
 	return &prom{}, nil
 }
 

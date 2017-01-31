@@ -15,12 +15,11 @@
 package prometheus
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
-
-	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -75,5 +74,8 @@ func (s *serverInst) Start() error {
 }
 
 func (s *serverInst) Close() error {
-	return s.connCloser.Close()
+	if s.connCloser != nil {
+		return s.connCloser.Close()
+	}
+	return nil
 }
