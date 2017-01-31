@@ -17,11 +17,11 @@ package prometheus
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"istio.io/mixer/pkg/adapter"
 )
 
 // TODO: rethink when we switch to go1.8. the graceful shutdown changes
@@ -31,7 +31,7 @@ type (
 	server interface {
 		io.Closer
 
-		Start() error
+		Start(adapter.Logger) error
 	}
 
 	serverInst struct {
@@ -51,7 +51,7 @@ func newServer(addr string) server {
 	return &serverInst{addr: addr}
 }
 
-func (s *serverInst) Start() error {
+func (s *serverInst) Start(logger adapter.Logger) error {
 	var listener net.Listener
 	srv := &http.Server{Addr: s.addr}
 	listener, err := net.Listen("tcp", s.addr)
@@ -64,8 +64,7 @@ func (s *serverInst) Start() error {
 	go func() {
 		err := srv.Serve(listener.(*net.TCPListener))
 		if err != nil {
-			// TODO: update and fix
-			log.Println("Prometheus HTTP Server Error - ", err)
+			_ := logger.Errorf("prometheus HTTP server error: %v", err)
 		}
 	}()
 

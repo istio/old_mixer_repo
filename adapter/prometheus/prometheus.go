@@ -18,6 +18,7 @@ package prometheus
 
 import (
 	"fmt"
+	"sync"
 
 	"istio.io/mixer/adapter/prometheus/config"
 	"istio.io/mixer/pkg/adapter"
@@ -27,7 +28,8 @@ type (
 	factory struct {
 		adapter.DefaultBuilder
 
-		srv server
+		srv  server
+		once sync.Once
 	}
 
 	prom struct{}
@@ -45,18 +47,21 @@ func Register(r adapter.Registrar) {
 }
 
 func newFactory() factory {
-	srv := newServer(defaultAddr)
-	if err := srv.Start(); err != nil {
-		panic(fmt.Errorf("could not create prometheus adapter: %v", err))
-	}
-	return factory{adapter.NewDefaultBuilder(name, desc, conf), srv}
+	return factory{adapter.NewDefaultBuilder(name, desc, conf), newServer(defaultAddr), sync.Once{}}
 }
 
 func (f factory) Close() error {
 	return f.srv.Close()
 }
 
-func (factory) NewMetrics(env adapter.Env, cfg adapter.AspectConfig) (adapter.MetricsAspect, error) {
+func (f *factory) NewMetrics(env adapter.Env, cfg adapter.AspectConfig) (adapter.MetricsAspect, error) {
+
+	var serverErr error
+	f.once.Do(func() { serverErr = f.srv.Start(env.Logger()) })
+	if serverErr != nil {
+		return nil, fmt.Errorf("could not start prometheus server: %v", serverErr)
+	}
+
 	return &prom{}, nil
 }
 
