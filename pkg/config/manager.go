@@ -22,6 +22,8 @@ import (
 
 	"github.com/golang/glog"
 
+	"strings"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
@@ -49,11 +51,13 @@ type Manager struct {
 	loopDelay     time.Duration
 	globalConfig  string
 	serviceConfig string
+	kubeConfig    string
 
-	cl      []ChangeListener
-	closing chan bool
-	scSHA   [sha1.Size]byte
-	gcSHA   [sha1.Size]byte
+	cl        []ChangeListener
+	closing   chan bool
+	scSHA     [sha1.Size]byte
+	gcSHA     [sha1.Size]byte
+	configMap *K8sResourceFetcher
 
 	sync.RWMutex
 	lastError error
@@ -71,7 +75,7 @@ type Manager struct {
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
 func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinder, builderFinder ValidatorFinder,
-	globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
+	globalConfig string, serviceConfig string, kubeConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,
 		aspectFinder:  aspectFinder,
@@ -79,6 +83,7 @@ func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinder, builderFinder
 		loopDelay:     loopDelay,
 		globalConfig:  globalConfig,
 		serviceConfig: serviceConfig,
+		kubeConfig:    kubeConfig,
 		closing:       make(chan bool),
 	}
 	return m
@@ -89,12 +94,24 @@ func (c *Manager) Register(cc ChangeListener) {
 	c.cl = append(c.cl, cc)
 }
 
-func read(fname string) ([sha1.Size]byte, string, error) {
+// read reads given resource and returns data with computed sha1.
+func (c *Manager) read(fname string) (sha [sha1.Size]byte, ret string, err error) {
 	var data []byte
-	var err error
-	if data, err = ioutil.ReadFile(fname); err != nil {
+	if strings.HasPrefix(fname, ConfigMapScheme+"://") {
+		if c.configMap == nil {
+			if c.configMap, err = NewK8sResourceFetcher(c.kubeConfig); err != nil {
+				return [sha1.Size]byte{}, "", err
+			}
+		}
+		data, err = c.configMap.ReadFile(fname)
+
+	} else {
+		data, err = ioutil.ReadFile(fname)
+	}
+	if err != nil {
 		return [sha1.Size]byte{}, "", err
 	}
+
 	return sha1.Sum(data), string(data[:]), nil
 }
 
@@ -103,12 +120,12 @@ func (c *Manager) fetch() (*Runtime, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
-	gcSHA, gc, err2 := read(c.globalConfig)
+	gcSHA, gc, err2 := c.read(c.globalConfig)
 	if err2 != nil {
 		return nil, err2
 	}
 
-	scSHA, sc, err1 := read(c.serviceConfig)
+	scSHA, sc, err1 := c.read(c.serviceConfig)
 	if err1 != nil {
 		return nil, err1
 	}
@@ -141,6 +158,7 @@ func (c *Manager) fetchAndNotify() error {
 	}
 
 	glog.Infof("Installing new config from %s sha=%x ", c.serviceConfig, c.scSHA)
+	glog.V(3).Infof("%#v", rt)
 	for _, cl := range c.cl {
 		cl.ConfigChange(rt)
 	}
@@ -182,6 +200,6 @@ func (c *Manager) Start() {
 	// If it is not successful, we will continue to watch for changes.
 	go c.loop()
 	if err != nil {
-		glog.Warning("Unable to process config", err)
+		glog.Warning("Unable to process config ", err)
 	}
 }
