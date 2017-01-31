@@ -38,8 +38,6 @@ func newRegistry(builders []adapter.RegisterFn) *registry {
 		glog.V(2).Infof("Registering [%d] %v", idx, builder)
 		builder(r)
 	}
-	glog.V(2).Infof("Available Builders: %v", r.buildersByName)
-
 	// ensure interfaces are satisfied.
 	// should be compiled out.
 	var _ adapter.Registrar = r
