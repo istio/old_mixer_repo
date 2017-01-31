@@ -18,12 +18,20 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+
+	"istio.io/mixer/pkg/adapter"
 )
+
+type testLogger struct {
+	adapter.Logger
+}
+
+func (t testLogger) Errorf(format string, args ...interface{}) error { return nil }
 
 func TestServer(t *testing.T) {
 	testAddr := "127.0.0.1:9992"
 	s := newServer(testAddr)
-	if err := s.Start(); err != nil {
+	if err := s.Start(testLogger{}); err != nil {
 		t.Fatalf("Start() failed unexpectedly: %v", err)
 	}
 

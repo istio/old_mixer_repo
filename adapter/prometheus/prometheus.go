@@ -46,11 +46,11 @@ func Register(r adapter.Registrar) {
 	r.RegisterMetrics(newFactory())
 }
 
-func newFactory() factory {
-	return factory{adapter.NewDefaultBuilder(name, desc, conf), newServer(defaultAddr), sync.Once{}}
+func newFactory() *factory {
+	return &factory{adapter.NewDefaultBuilder(name, desc, conf), newServer(defaultAddr), sync.Once{}}
 }
 
-func (f factory) Close() error {
+func (f *factory) Close() error {
 	return f.srv.Close()
 }
 

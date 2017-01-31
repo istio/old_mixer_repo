@@ -64,7 +64,7 @@ func (s *serverInst) Start(logger adapter.Logger) error {
 	go func() {
 		err := srv.Serve(listener.(*net.TCPListener))
 		if err != nil {
-			_ := logger.Errorf("prometheus HTTP server error: %v", err)
+			_ = logger.Errorf("prometheus HTTP server error: %v", err)
 		}
 	}()
 
