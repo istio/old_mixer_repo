@@ -32,7 +32,7 @@ type (
 )
 
 var (
-	name = "prometheus.io/exporter" // TODO: better name?
+	name = "prometheus"
 	desc = "Publishes prometheus metrics"
 	conf = &config.Params{}
 )

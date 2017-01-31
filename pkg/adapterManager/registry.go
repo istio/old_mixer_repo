@@ -77,7 +77,7 @@ func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
 	r.insert(quota)
 }
 
-// RegisterMetrics registers a new Metrics factory.
+// RegisterMetrics registers a new Metrics builder.
 func (r *registry) RegisterMetrics(quota adapter.MetricsBuilder) {
 	r.insert(quota)
 }

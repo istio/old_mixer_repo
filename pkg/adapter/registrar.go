@@ -31,7 +31,7 @@ type Registrar interface {
 	// RegisterQuota registers a new Quota builder.
 	RegisterQuota(QuotaBuilder)
 
-	// RegisterMetrics registers a new Metrics factory.
+	// RegisterMetrics registers a new Metrics builder.
 	RegisterMetrics(MetricsBuilder)
 }
 

@@ -20,6 +20,8 @@ import (
 	"net"
 	"net/http"
 
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -55,7 +57,7 @@ func (s *serverInst) Start() error {
 	srv := &http.Server{Addr: s.addr}
 	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not start prometheus metrics server: %v", err)
 	}
 
 	http.Handle(metricsPath, promhttp.Handler())
