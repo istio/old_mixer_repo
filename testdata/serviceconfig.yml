@@ -10,4 +10,4 @@ rules:
     params:
       logName: "access_log"
       logFormat: 99 # AccessLoggerParams_CUSTOM
-      attributes: ["responseCode", "requestSize", "responseSize", "responseTime", "originIp", "originHost", "url", "serviceName" ]
+      attributes: ["responseCode", "requestSize", "responseSize", "responseTime", "originIp", "originHost", "url", "serviceName"]

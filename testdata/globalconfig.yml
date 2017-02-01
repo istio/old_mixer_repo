@@ -5,9 +5,7 @@ adapters:
     kind: istio/quota
     impl: istio/memQuota
     params:
-      error:
-        code: 403
-  - name: accessLogger.1
+  - name: default
     kind: istio/accessLogger
     impl: istio/stdioLogger
     params:
