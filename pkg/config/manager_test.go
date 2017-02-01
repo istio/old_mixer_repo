@@ -95,7 +95,7 @@ func TestConfigManager(t *testing.T) {
 }
 
 func newmanager(args *managerArgs) *Manager {
-	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.globalConfig, args.serviceConfig, args.loopDelay)
+	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.globalConfig, args.serviceConfig, args.kubeConfig, args.loopDelay)
 }
 
 type managerArgs struct {
@@ -105,6 +105,7 @@ type managerArgs struct {
 	loopDelay     time.Duration
 	globalConfig  string
 	serviceConfig string
+	kubeConfig    string
 }
 
 func testConfigManager(t *testing.T, mgr *Manager, mt mtest, idx int, loopDelay time.Duration) {

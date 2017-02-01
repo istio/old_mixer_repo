@@ -50,6 +50,7 @@ type serverArgs struct {
 	// mixer manager args
 	serviceConfigFile      string
 	globalConfigFile       string
+	kubeConfig             string
 	configFetchIntervalSec uint
 }
 
@@ -81,6 +82,8 @@ func serverCmd(errorf errorFn) *cobra.Command {
 
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "serviceConfig.yml", "Combined Service Config")
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "globalConfig.yml", "Global Config")
+	serverCmd.PersistentFlags().StringVarP(&sa.kubeConfig, "kubeConfig", "", "", "kube Config")
+
 	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Config fetch interval in seconds")
 
 	return &serverCmd
@@ -132,7 +135,7 @@ func runServer(sa *serverArgs) error {
 	eval := expr.NewIdentityEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
-		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
+		sa.globalConfigFile, sa.serviceConfigFile, sa.kubeConfig, time.Second*time.Duration(sa.configFetchIntervalSec))
 	handler := api.NewHandler(adapterMgr, adapterMgr.AspectMap())
 
 	grpcServerOptions, err := serverOpts(sa, handler)

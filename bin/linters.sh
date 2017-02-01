@@ -11,7 +11,10 @@ prep_linters() {
 		go get -u github.com/3rf/codecoroner
 		gometalinter --install --vendored-linters >/dev/null
 	fi
-    bin/bazel_to_go.py
+        bin/bazel_to_go.py
+
+	# remove vendor directory from k8s client-go
+	rm -Rf vendor/k8s.io/client-go/vendor/
 }
 
 go_metalinter(){
