@@ -329,128 +329,255 @@ func TestValue(t *testing.T) {
 	}
 }
 
+type d map[string]interface{}
+type ttable struct {
+	inRoot  d
+	inChild d
+	out     d
+}
+
 func TestStringKeys(t *testing.T) {
-	at := NewManager().NewTracker()
-	defer at.Done()
-	root, _ := at.StartRequest(&mixerpb.Attributes{})
-	defer root.Done()
-	ab := root.Child()
-	defer ab.Done()
-
-	data := map[string]string{"one": "a", "two": "b"}
-	for k, v := range data {
-		ab.SetString(k, v)
-	}
-
-	keys := ab.StringKeys()
-	for _, key := range keys {
-		if val, found := data[key]; !found {
-			t.Errorf("data[%s] = %s, wanted key in set: %v", key, val, keys)
-		}
-	}
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": "r"},
+				d{},
+				d{"root": "r"},
+			},
+			{
+				d{},
+				d{"one": "a", "two": "b"},
+				d{"one": "a", "two": "b"},
+			},
+			{
+				d{"root": "r"},
+				d{"one": "a", "two": "b"},
+				d{"root": "r", "one": "a", "two": "b"},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(string)
+			ab.SetString(k, vs)
+		},
+		func(b Bag) []string {
+			return b.StringKeys()
+		},
+	)
 }
 
 func TestInt64Keys(t *testing.T) {
-	at := NewManager().NewTracker()
-	defer at.Done()
-	root, _ := at.StartRequest(&mixerpb.Attributes{})
-	defer root.Done()
-	ab := root.Child()
-	defer ab.Done()
-
-	data := map[string]int64{"one": 1, "two": 2}
-	for k, v := range data {
-		ab.SetInt64(k, v)
-	}
-
-	keys := ab.Int64Keys()
-	for _, key := range keys {
-		if val, found := data[key]; !found {
-			t.Errorf("data[%s] = %d, wanted key in set: %v", key, val, keys)
-		}
-	}
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": int64(1)},
+				d{},
+				d{"root": int64(1)},
+			},
+			{
+				d{},
+				d{"one": int64(2), "two": int64(3)},
+				d{"one": int64(2), "two": int64(3)},
+			},
+			{
+				d{"root": int64(1)},
+				d{"one": int64(2), "two": int64(3)},
+				d{"root": int64(1), "one": int64(2), "two": int64(3)},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(int64)
+			ab.SetInt64(k, vs)
+		},
+		func(b Bag) []string {
+			return b.Int64Keys()
+		},
+	)
 }
 
 func TestFloat64Keys(t *testing.T) {
-	at := NewManager().NewTracker()
-	defer at.Done()
-	root, _ := at.StartRequest(&mixerpb.Attributes{})
-	defer root.Done()
-	ab := root.Child()
-	defer ab.Done()
-
-	data := map[string]float64{"one": 1.0, "two": 2.0}
-	for k, v := range data {
-		ab.SetFloat64(k, v)
-	}
-
-	keys := ab.Float64Keys()
-	for _, key := range keys {
-		if val, found := data[key]; !found {
-			t.Errorf("data[%s] = %f, wanted key in set: %v", key, val, keys)
-		}
-	}
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": float64(1)},
+				d{},
+				d{"root": float64(1)},
+			},
+			{
+				d{},
+				d{"one": float64(2), "two": float64(3)},
+				d{"one": float64(2), "two": float64(3)},
+			},
+			{
+				d{"root": float64(1)},
+				d{"one": float64(2), "two": float64(3)},
+				d{"root": float64(1), "one": float64(2), "two": float64(3)},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(float64)
+			ab.SetFloat64(k, vs)
+		},
+		func(b Bag) []string {
+			return b.Float64Keys()
+		},
+	)
 }
 
 func TestBoolKeys(t *testing.T) {
-	at := NewManager().NewTracker()
-	defer at.Done()
-	root, _ := at.StartRequest(&mixerpb.Attributes{})
-	defer root.Done()
-	ab := root.Child()
-	defer ab.Done()
-
-	data := map[string]bool{"one": true, "two": false}
-	for k, v := range data {
-		ab.SetBool(k, v)
-	}
-
-	keys := ab.BoolKeys()
-	for _, key := range keys {
-		if val, found := data[key]; !found {
-			t.Errorf("data[%s] = %t, wanted key in set: %v", key, val, keys)
-		}
-	}
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": true},
+				d{},
+				d{"root": true},
+			},
+			{
+				d{},
+				d{"one": true, "two": false},
+				d{"one": true, "two": false},
+			},
+			{
+				d{"root": false},
+				d{"one": true, "two": false},
+				d{"root": false, "one": true, "two": false},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(bool)
+			ab.SetBool(k, vs)
+		},
+		func(b Bag) []string {
+			return b.BoolKeys()
+		},
+	)
 }
 
 func TestTimeKeys(t *testing.T) {
-	at := NewManager().NewTracker()
-	defer at.Done()
-	root, _ := at.StartRequest(&mixerpb.Attributes{})
-	defer root.Done()
-	ab := root.Child()
-	defer ab.Done()
-
-	data := map[string]time.Time{"one": t10, "two": t9}
-	for k, v := range data {
-		ab.SetTime(k, v)
-	}
-
-	keys := ab.TimeKeys()
-	for _, key := range keys {
-		if val, found := data[key]; !found {
-			t.Errorf("data[%s] = %v, wanted key in set: %v", key, val, keys)
-		}
-	}
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": t9},
+				d{},
+				d{"root": t9},
+			},
+			{
+				d{},
+				d{"one": t10, "two": t42},
+				d{"one": t10, "two": t42},
+			},
+			{
+				d{"root": t9},
+				d{"one": t10, "two": t42},
+				d{"root": t9, "one": t10, "two": t42},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(time.Time)
+			ab.SetTime(k, vs)
+		},
+		func(b Bag) []string {
+			return b.TimeKeys()
+		},
+	)
 }
 
 func TestByteKeys(t *testing.T) {
-	at := NewManager().NewTracker()
-	defer at.Done()
-	root, _ := at.StartRequest(&mixerpb.Attributes{})
-	defer root.Done()
-	ab := root.Child()
-	defer ab.Done()
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": []byte{11}},
+				d{},
+				d{"root": []byte{11}},
+			},
+			{
+				d{},
+				d{"one": []byte{12}, "two": []byte{13}},
+				d{"one": []byte{12}, "two": []byte{13}},
+			},
+			{
+				d{"root": []byte{1}},
+				d{"one": []byte{2}, "two": []byte{3}},
+				d{"root": []byte{1}, "one": []byte{2}, "two": []byte{3}},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.([]byte)
+			ab.SetBytes(k, vs)
+		},
+		func(b Bag) []string {
+			return b.BytesKeys()
+		},
+	)
+}
 
-	data := map[string][]uint8{"one": {11}, "two": {13}}
-	for k, v := range data {
-		ab.SetBytes(k, v)
+func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, interface{}), keyFn func(Bag) []string) {
+	for _, tc := range cases {
+		at := NewManager().NewTracker()
+		root, _ := at.StartRequest(&mixerpb.Attributes{})
+		for k, v := range tc.inRoot {
+			setVal(root, k, v)
+		}
+
+		ab := root.Child()
+		for k, v := range tc.inChild {
+			setVal(ab, k, v)
+		}
+
+		keys := keyFn(ab)
+		// verify everything that was returned was expected
+		for _, key := range keys {
+			if _, found := tc.out[key]; !found {
+				t.Errorf("keyFn() = [..., %s, ...], wanted (key, val) in set: %v", key, tc.out)
+			}
+		}
+		// and that everything that was expected was returned
+		for key := range tc.out {
+			if !contains(keys, key) {
+				t.Errorf("keyFn() = %v, wanted '%s' in set", keys, key)
+			}
+		}
+
+		at.Done()
+		root.Done()
+		ab.Done()
 	}
+}
 
-	keys := ab.BytesKeys()
-	for _, key := range keys {
-		if val, found := data[key]; !found {
-			t.Errorf("data[%s] = %v, wanted key in set: %v", key, val, keys)
+func contains(keys []string, key string) bool {
+	for _, k := range keys {
+		if k == key {
+			return true
 		}
 	}
+	return false
 }
