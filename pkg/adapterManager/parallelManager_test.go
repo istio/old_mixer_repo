@@ -27,7 +27,7 @@ import (
 	configpb "istio.io/mixer/pkg/config/proto"
 )
 
-func TestBulkExecute(t *testing.T) {
+func TestExecute(t *testing.T) {
 	cases := []struct {
 		name     string
 		inCode   code.Code
@@ -57,27 +57,27 @@ func TestBulkExecute(t *testing.T) {
 
 		o, err := m.Execute(context.Background(), cfg, nil)
 		if c.inErr != nil && err == nil {
-			t.Errorf("m.BulkExecute(...) = %v; want err: %v", err, c.inErr)
+			t.Errorf("m.Execute(...) = %v; want err: %v", err, c.inErr)
 		}
 		if c.inErr == nil && !(len(o) > 0 && o[0].Code == code.Code_OK) {
-			t.Errorf("m.BulkExecute(...) = %v; wanted len(o) == 1 && o[0].Code == code.Code_OK", o)
+			t.Errorf("m.Execute(...) = %v; wanted len(o) == 1 && o[0].Code == code.Code_OK", o)
 		}
 	}
 }
 
-func TestBulkExecute_Cancellation(t *testing.T) {
+func TestExecute_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration should've matter when we have a canceled ctx
 	handler := NewParallelManager(&Manager{}, 1)
 	cancel()
 
 	if _, err := handler.Execute(ctx, []*config.Combined{nil}, &fakebag{}); err == nil {
-		t.Error("handler.BulkExecute(canceledContext, ...) = _, nil; wanted any err")
+		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
 }
 
-func TestBulkExecute_TimeoutWaitingForResults(t *testing.T) {
+func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	blockChan := make(chan struct{})
 
@@ -105,68 +105,9 @@ func TestBulkExecute_TimeoutWaitingForResults(t *testing.T) {
 		&configpb.Aspect{Kind: name},
 	}}
 	if _, err := m.Execute(ctx, cfg, &fakebag{}); err == nil {
-		t.Error("handler.BulkExecute(canceledContext, ...) = _, nil; wanted any err")
+		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)
-}
-
-func TestPoolSize(t *testing.T) {
-	name := "t"
-	blockChan := make(chan struct{})
-	testMngr := newTestManager(name, false, func() (*aspect.Output, error) {
-		<-blockChan
-		return &aspect.Output{Code: code.Code_OK}, nil
-	})
-	mreg := map[string]aspect.Manager{
-		name: testMngr,
-	}
-	breg := &fakeBuilderReg{
-		adp:   testMngr,
-		found: true,
-	}
-	manager := newManager(breg, mreg, nil, nil)
-	m := NewParallelManager(manager, 1)
-
-	cfg := &config.Combined{
-		&configpb.Adapter{Name: name},
-		&configpb.Aspect{Kind: name},
-	}
-	// Easier than creating a new manager directly and having to register everything. We need all the config either way.
-
-	// Note: we allocate a result buffer of size two by passing in numAdapters = 2
-	res, enqueue := m.requestGroup(&fakebag{}, 2)
-
-	// Enqueue work which will not complete until blockChan is closed; since the pool size == 1 this blocks the queue
-	enqueue(context.Background(), cfg)
-
-	second := make(chan struct{})
-	go func() {
-		// this second enqueue will block until blockChan is closed
-		enqueue(context.Background(), cfg)
-		close(second)
-	}()
-
-	if len(res) != 0 {
-		t.Errorf("len(res) = %d, wanted 0", len(res))
-	}
-
-	close(blockChan) // unblock the queue
-	<-second         // block the test go routine till the second enqueue completes
-
-	// It takes a little time for the two goroutines to write their results; we loop to make the test more reliable.
-	for count := 0; len(res) != 2 && count < 5; count++ {
-		time.Sleep(10 * time.Millisecond)
-	}
-	if len(res) != 2 {
-		t.Errorf("got %d finished tasks, wanted 2", len(res))
-	}
-
-	for i := 0; i < 2; i++ {
-		r := <-res
-		if r.out.Code != code.Code_OK {
-			t.Errorf("r.out.Code = %s, wanted %s", code.Code_name[int32(r.out.Code)], code.Code_name[int32(code.Code_OK)])
-		}
-	}
 }
 
 func TestShutdown(t *testing.T) {
@@ -186,42 +127,7 @@ func TestShutdown(t *testing.T) {
 
 	select {
 	case <-fail:
-		t.Error("pool.shutdown() didn't complete in the expected time")
+		t.Error("parallelManager.shutdown() didn't complete in the expected time")
 	case <-succeed:
 	}
-}
-
-func TestEnqueuePanics(t *testing.T) {
-	name := "t"
-	testMngr := newTestManager(name, false, func() (*aspect.Output, error) {
-		return &aspect.Output{Code: code.Code_OK}, nil
-	})
-	mreg := map[string]aspect.Manager{
-		name: testMngr,
-	}
-	breg := &fakeBuilderReg{
-		adp:   testMngr,
-		found: true,
-	}
-	manager := newManager(breg, mreg, nil, nil)
-	p := NewParallelManager(manager, 1)
-
-	cfg := &config.Combined{
-		&configpb.Adapter{Name: name},
-		&configpb.Aspect{Kind: name},
-	}
-
-	numCalls := 1
-	_, enqueue := p.requestGroup(&fakebag{}, numCalls)
-	for i := 0; i < numCalls; i++ {
-		enqueue(nil, cfg)
-	}
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("enqueue(nil, cfg) got nil, want panic and non-nil recover.")
-		}
-	}()
-	enqueue(nil, cfg)
-	t.Fail()
 }

@@ -17,7 +17,6 @@ package adapterManager
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"context"
 
@@ -61,18 +60,15 @@ func NewParallelManager(manager *Manager, size int) *ParallelManager {
 // Execute takes a set of configurations and uses the ParallelManager's embedded Manager to execute all of them in parallel.
 func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
 	numCfgs := len(cfgs)
-	// TODO: since we don't currently implement using different adapter sets per request,
-	// len(cfgs) is constant of the life of the configuration for all requests. We should probably use a
-	// pool for both the array of aspect outputs here and the result channels from requestGroup.
+	// TODO: look into pooling both result array and channel, they're created per-request and are constant size for cfg lifetime.
 	results := make([]*aspect.Output, numCfgs)
-
-	r, enqueue := p.requestGroup(attrs, numCfgs)
+	r := make(chan result, numCfgs)
 	for _, cfg := range cfgs {
+		// Take whichever case happens first: the context being canceled or a worker freeing up to accept our task.
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("failed to enqueue all config executions with err: %v", ctx.Err())
-		default:
-			enqueue(ctx, cfg)
+		case p.work <- task{ctx, cfg, attrs, r}:
 		}
 	}
 
@@ -80,12 +76,12 @@ func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, 
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("deadline exceeded waiting for adapter results with err: %v", ctx.Err())
-		case result := <-r:
-			if result.err != nil {
+		case res := <-r:
+			if res.err != nil {
 				// TODO: should we return partial results too when we encounter an err?
-				return nil, fmt.Errorf("%s returned err: %v", result.name, result.err)
+				return nil, fmt.Errorf("%s returned err: %v", res.name, res.err)
 			}
-			results[i] = result.out
+			results[i] = res.out
 		}
 	}
 	return results, nil
@@ -104,38 +100,12 @@ type result struct {
 	err  error
 }
 
-// enqueueFunc is a handle into the pool and is used to add work to the pool. It will block until a worker in the pool
-// is available to execute the work item.
-type enqueueFunc func(ctx context.Context, cfg *config.Combined)
-
 // task describes one unit of work to be executed by the pool
 type task struct {
 	ctx  context.Context
 	cfg  *config.Combined
 	ab   attribute.Bag
 	done chan<- result
-}
-
-// requestGroup is called on the pool to get a handle to enqueue all of the adapter executions for a single request into the pool.
-// The returned channel is the channel the adapters write their results to, and the enqueueFunc is used to enqueue the execution
-// of a single adapter. The enqueueFunc will bock until there is a worker available to perform the work being enqueued.
-//
-// numAdapters is used to size the buffer of the result chan; it's important that the pool's workers not block returning results
-// to avoid a deadlock amongst request go routines attempting to enqueue work onto the pool, so we need a buffer large enough for all
-// adapters in a request to return their values. To enforce this invariant, enqueueFunc will panic if called more than numAdpaters times.
-//
-// It's assumed that all adapter executions for a single request share the same manager, attribute bag, and evaluator.
-func (p *ParallelManager) requestGroup(ab attribute.Bag, numAdapters int) (<-chan result, enqueueFunc) {
-	c := make(chan result, numAdapters)
-	timesCalled := int32(0)
-	allowedCalls := int32(numAdapters)
-
-	return c, func(ctx context.Context, config *config.Combined) {
-		if atomic.AddInt32(&timesCalled, 1) > allowedCalls {
-			panic(fmt.Errorf("called enqueueFunc too many times; expected at most %d calls", allowedCalls))
-		}
-		p.work <- task{ctx, config, ab, c}
-	}
 }
 
 // worker grabs a task off the queue, executes it, then blocks for the next signal (either a quit or another task).
