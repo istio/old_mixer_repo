@@ -5,3 +5,10 @@ adapters:
     kind: istio/quota
     impl: istio/memQuota
     params:
+      error:
+        code: 403
+  - name: accessLogger.1
+    kind: istio/accessLogger
+    impl: istio/stdioLogger
+    params:
+      logStream: 0 # STDERR
