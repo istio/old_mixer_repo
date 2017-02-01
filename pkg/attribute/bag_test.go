@@ -447,7 +447,7 @@ func TestByteKeys(t *testing.T) {
 		ab.SetBytes(k, v)
 	}
 
-	keys := ab.ByteKeys()
+	keys := ab.BytesKeys()
 	for _, key := range keys {
 		if val, found := data[key]; !found {
 			t.Errorf("data[%s] = %v, wanted key in set: %v", key, val, keys)

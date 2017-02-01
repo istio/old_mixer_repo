@@ -222,7 +222,7 @@ func (mb *mutableBag) SetBytes(name string, value []uint8) {
 	mb.Unlock()
 }
 
-func (mb *mutableBag) ByteKeys() []string {
+func (mb *mutableBag) BytesKeys() []string {
 	i := 0
 
 	mb.RLock()
@@ -232,7 +232,7 @@ func (mb *mutableBag) ByteKeys() []string {
 		i++
 	}
 	mb.RUnlock()
-	return append(keys, mb.parent.ByteKeys()...)
+	return append(keys, mb.parent.BytesKeys()...)
 }
 
 func (mb *mutableBag) Reset() {

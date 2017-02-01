@@ -139,7 +139,7 @@ func (rb *rootBag) Bytes(name string) ([]uint8, bool) {
 	return r, b
 }
 
-func (rb *rootBag) ByteKeys() []string {
+func (rb *rootBag) BytesKeys() []string {
 	i := 0
 	keys := make([]string, len(rb.bytes))
 	for k := range rb.bytes {
