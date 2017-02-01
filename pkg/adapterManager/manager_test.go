@@ -127,7 +127,7 @@ type ttable struct {
 	kindFound bool
 	errString string
 	wrapper   *fakewrapper
-	cfg       *config.Combined
+	cfg       []*config.Combined
 }
 
 func getReg(found bool) *fakeBuilderReg {
@@ -164,12 +164,12 @@ func TestManager(t *testing.T) {
 	mapper := &fakeevaluator{}
 
 	ttt := []ttable{
-		{false, false, "could not find aspect manager", nil, goodcfg},
-		{true, false, "could not find registered adapter", nil, goodcfg},
-		{true, true, "", &fakewrapper{}, goodcfg},
-		{true, true, "", nil, goodcfg},
-		{true, true, "can't handle type", nil, badcfg1},
-		{true, true, "can't handle type", nil, badcfg2},
+		{false, false, "could not find aspect manager", nil, []*config.Combined{goodcfg}},
+		{true, false, "could not find registered adapter", nil, []*config.Combined{goodcfg}},
+		{true, true, "", &fakewrapper{}, []*config.Combined{goodcfg}},
+		{true, true, "", nil, []*config.Combined{goodcfg}},
+		{true, true, "can't handle type", nil, []*config.Combined{badcfg1}},
+		{true, true, "can't handle type", nil, []*config.Combined{badcfg2}},
 	}
 
 	for idx, tt := range ttt {
@@ -249,7 +249,7 @@ func TestManager_BulkExecute(t *testing.T) {
 		m := newManager(r, mgr, mapper, nil)
 
 		errStr := ""
-		if _, err := m.BulkExecute(context.Background(), c.cfgs, attrs); err != nil {
+		if _, err := m.Execute(context.Background(), c.cfgs, attrs); err != nil {
 			errStr = err.Error()
 		}
 		if !strings.Contains(errStr, c.errString) {
@@ -283,9 +283,11 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 	}
 	m := newManager(breg, mreg, nil, nil)
 
-	cfg := &config.Combined{
-		Builder: &configpb.Adapter{Name: name},
-		Aspect:  &configpb.Aspect{Kind: name},
+	cfg := []*config.Combined{
+		{
+			Builder: &configpb.Adapter{Name: name},
+			Aspect:  &configpb.Aspect{Kind: name},
+		},
 	}
 
 	_, err := m.Execute(context.Background(), cfg, nil)

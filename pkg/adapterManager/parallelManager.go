@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ type ParallelManager struct {
 	wg   *sync.WaitGroup // Used to block shutdown until all workers complete
 }
 
-// NewParallelManager a new Manager who's BulkExecute method calls manager.Execute on each config in parallel.
+// NewParallelManager returns a Manager who's Execute method calls the provided manager's Execute on each config in parallel.
 // size is the number of worker go routines in the worker pool the Manager schedules on to. This pool of workers is global:
 // the size of the pool should be roughly (max outstanding requests allowed)*(number of configs executed per request).
 func NewParallelManager(manager *Manager, size int) *ParallelManager {
@@ -58,8 +58,8 @@ func NewParallelManager(manager *Manager, size int) *ParallelManager {
 	return p
 }
 
-// BulkExecute takes a set of configurations and Executes all of them in parallel.
-func (p *ParallelManager) BulkExecute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+// Execute takes a set of configurations and uses the ParallelManager's embedded Manager to execute all of them in parallel.
+func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
 	numCfgs := len(cfgs)
 	// TODO: since we don't currently implement using different adapter sets per request,
 	// len(cfgs) is constant of the life of the configuration for all requests. We should probably use a
@@ -144,7 +144,7 @@ func (p *ParallelManager) worker(task <-chan task, quit <-chan struct{}, wg *syn
 	for {
 		select {
 		case t := <-task:
-			out, err := p.Execute(t.ctx, t.cfg, t.ab)
+			out, err := p.execute(t.ctx, t.cfg, t.ab)
 			t.done <- result{t.cfg.Builder.Name, out, err}
 		case <-quit:
 			return

@@ -55,11 +55,8 @@ type Handler interface {
 
 // Executor executes any aspect as described by config.Combined.
 type Executor interface {
-	// Execute performs actions described in combined config using an attribute bag.
-	Execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error)
-
-	// BulkExecute takes a set of configurations and Executes all of them.
-	BulkExecute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error)
+	// Execute takes a set of configurations and Executes all of them.
+	Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error)
 }
 
 // handlerState holds state and configuration for the handler.
@@ -108,7 +105,7 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
 	}
 
-	outs, err := h.aspectExecutor.BulkExecute(ctx, cfgs, ab)
+	outs, err := h.aspectExecutor.Execute(ctx, cfgs, ab)
 	if err != nil {
 		return newStatusWithMessage(code.Code_INTERNAL, err.Error())
 	}

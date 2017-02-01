@@ -55,7 +55,7 @@ func TestBulkExecute(t *testing.T) {
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
 
-		o, err := m.BulkExecute(context.Background(), cfg, nil)
+		o, err := m.Execute(context.Background(), cfg, nil)
 		if c.inErr != nil && err == nil {
 			t.Errorf("m.BulkExecute(...) = %v; want err: %v", err, c.inErr)
 		}
@@ -71,7 +71,7 @@ func TestBulkExecute_Cancellation(t *testing.T) {
 	handler := NewParallelManager(&Manager{}, 1)
 	cancel()
 
-	if _, err := handler.BulkExecute(ctx, []*config.Combined{nil}, &fakebag{}); err == nil {
+	if _, err := handler.Execute(ctx, []*config.Combined{nil}, &fakebag{}); err == nil {
 		t.Error("handler.BulkExecute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
@@ -104,7 +104,7 @@ func TestBulkExecute_TimeoutWaitingForResults(t *testing.T) {
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}}
-	if _, err := m.BulkExecute(ctx, cfg, &fakebag{}); err == nil {
+	if _, err := m.Execute(ctx, cfg, &fakebag{}); err == nil {
 		t.Error("handler.BulkExecute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)
