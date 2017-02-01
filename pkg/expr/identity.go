@@ -16,7 +16,9 @@ package expr
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/golang/glog"
 	"istio.io/mixer/pkg/attribute"
 )
 
@@ -45,12 +47,53 @@ func (identity) EvalString(mapExpression string, bag attribute.Bag) (string, err
 	return "", fmt.Errorf("%s not in attribute bag", mapExpression)
 }
 
+// resolve if a symbol starts with '$' attribute is accessed, otherwise it is treated as a constant
+func resolve(sym string, bag attribute.Bag) (ret interface{}, err error) {
+	if !strings.HasPrefix(sym, "$") {
+		return sym, nil
+	}
+	if len(sym) == 1 {
+		return sym, fmt.Errorf("empty attribute name")
+	}
+
+	var found bool
+
+	if ret, found = attribute.Value(bag, sym[1:]); !found {
+		return false, fmt.Errorf("unresolved attribute %s", sym[1:])
+	}
+	return ret, nil
+}
+
 // EvalPredicate attempts to extract the key `mapExpression` from the set of boolean attributes in the bag. It performs no evaluation.
 func (identity) EvalPredicate(mapExpression string, bag attribute.Bag) (bool, error) {
-	if val, exists := bag.Bool(mapExpression); exists {
-		return val, nil
+	vals := strings.Split(mapExpression, "==")
+	// a === b
+	if len(vals) != 2 {
+		return false, fmt.Errorf("invalid expression %s", mapExpression)
 	}
-	return false, fmt.Errorf("%s not in attribute bag", mapExpression)
+
+	lsym := strings.TrimSpace(vals[0])
+	rsym := strings.TrimSpace(vals[1])
+
+	var lval interface{}
+	var rval interface{}
+	var err error
+
+	if lval, err = resolve(lsym, bag); err != nil {
+		return false, fmt.Errorf("error evaluating lval %s: %s", mapExpression, err.Error())
+	}
+
+	if rval, err = resolve(rsym, bag); err != nil {
+		return false, fmt.Errorf("error evaluating rval %s: %s", mapExpression, err.Error())
+	}
+
+	// check if lval and rval match
+	if lval == rval {
+		return true, nil
+	}
+
+	glog.V(2).Infof("Predicate did not match %#v != %#v", lval, rval)
+	return false, nil
 }
 
 // Validate -- everything is valid
