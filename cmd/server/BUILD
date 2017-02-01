@@ -28,6 +28,7 @@ go_library(
         "@com_github_spf13_cobra//:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//grpclog/glogger:go_default_library",
     ],
 )
 
