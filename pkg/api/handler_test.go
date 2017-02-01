@@ -41,12 +41,8 @@ type fakeExecutor struct {
 	body func() (*aspect.Output, error)
 }
 
-func (f *fakeExecutor) Execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error) {
-	return f.body()
-}
-
 // BulkExecute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) BulkExecute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
 	o, err := f.body()
 	if err != nil {
 		return nil, err
