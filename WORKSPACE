@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_mixer")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "7828452850597b52b49ec603b23f8ad2bcb22aed",
+    commit = "76c63b5cd0d47c1f2b47ab4953db96c574af1c1d",
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
