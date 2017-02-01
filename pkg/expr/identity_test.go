@@ -25,6 +25,8 @@ import (
 
 	"strings"
 
+	"fmt"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 )
@@ -199,19 +201,19 @@ func TestEvalPredicate(t *testing.T) {
 			t.Errorf("[%d] Unexpected error %s", idx, err.Error())
 		}
 		val, err := id.EvalPredicate(c.in, bag)
-		if c.err != "" && err == nil {
-			t.Errorf("[%d] Expected err on case '%+v' but got none. val=#%v", idx, c, val)
-		}
-		if c.err == "" && err != nil {
-			t.Errorf("[%d] Failed to eval mapExpression '%s' in bag: %v; with err: %v", idx, c.in, bag, err)
-		}
-		if c.err != "" && err != nil {
-			if !strings.Contains(err.Error(), c.err) {
-				t.Errorf("[%d] Got :%s\nWant: %s", idx, err, c.err)
+		if c.err != "" { // error is expected
+			errStr := fmt.Sprintf("%s", err)
+			if !strings.Contains(errStr, c.err) {
+				t.Errorf("[%d] Got :%s\nWant: %s", idx, errStr, c.err)
 			}
-		}
-		if c.err == "" && val != c.out {
-			t.Errorf("[%d] Expected val '%v' for key '%s', actual '%v'", idx, c.out, c.in, val)
+		} else { // no error expected
+			if err == nil {
+				if val != c.out {
+					t.Errorf("[%d] Expected val '%v' for key '%s', actual '%v'", idx, c.out, c.in, val)
+				}
+			} else {
+				t.Errorf("[%d] Unexpected error %s evaluating mapExpression '%s'", idx, c.in, err)
+			}
 		}
 	}
 }

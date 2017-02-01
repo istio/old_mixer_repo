@@ -22,11 +22,13 @@ import (
 	"istio.io/mixer/pkg/attribute"
 )
 
-// identity is an evaluator that expects mapExpression to be a key in the attribute bag. It does no evaluation, only lookup.
+// identity is an evaluator that expects mapExpression to be a key in the attribute bag.
+// It does equality-only evaluation in EvalPredicate.
+// Otherwise it does no evaluation, only lookup.
 type identity struct{}
 
-// NewIdentityEvaluator returns an evaluator that performs no evaluations; instead it uses the provided mapExpression
-// as the key into the attribute bag.
+// NewIdentityEvaluator returns an evaluator that performs equality-only evaluation in EvalPredicate;
+// Otherwise it uses the provided mapExpression as the key into the attribute bag.
 func NewIdentityEvaluator() Evaluator {
 	return identity{}
 }
@@ -36,7 +38,7 @@ func (identity) Eval(mapExpression string, bag attribute.Bag) (interface{}, erro
 	if val, found := attribute.Value(bag, mapExpression); found {
 		return val, nil
 	}
-	return nil, fmt.Errorf("%s not in attribute bag", mapExpression)
+	return nil, fmt.Errorf("missing attribute %s", mapExpression)
 }
 
 // EvalString attempts to extract the key `mapExpression` from the set of string attributes in the bag. It performs no evaluation.
@@ -44,7 +46,7 @@ func (identity) EvalString(mapExpression string, bag attribute.Bag) (string, err
 	if val, exists := bag.String(mapExpression); exists {
 		return val, nil
 	}
-	return "", fmt.Errorf("%s not in attribute bag", mapExpression)
+	return "", fmt.Errorf("missing attribute %s", mapExpression)
 }
 
 // resolve if a symbol starts with '$' attribute is accessed, otherwise it is treated as a constant
