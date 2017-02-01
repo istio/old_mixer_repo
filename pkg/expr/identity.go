@@ -50,7 +50,7 @@ func (identity) EvalString(mapExpression string, bag attribute.Bag) (string, err
 }
 
 // resolve if a symbol starts with '$' attribute is accessed, otherwise it is treated as a constant
-func resolve(sym string, bag attribute.Bag) (ret interface{}, err error) {
+func resolve(sym string, bag attribute.Bag) (interface{}, error) {
 	if !strings.HasPrefix(sym, "$") {
 		return sym, nil
 	}
@@ -59,6 +59,7 @@ func resolve(sym string, bag attribute.Bag) (ret interface{}, err error) {
 	}
 
 	var found bool
+	var ret interface{}
 
 	if ret, found = attribute.Value(bag, sym[1:]); !found {
 		return false, fmt.Errorf("unresolved attribute %s", sym[1:])
