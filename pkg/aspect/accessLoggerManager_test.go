@@ -250,10 +250,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		exec   *access
-		
-		
-		gerWrapper
+		exec   *accessLoggerWrapper
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
