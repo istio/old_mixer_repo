@@ -198,8 +198,8 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		template:  tmpl,
 	}
 
-	emptyEntry := adapter.LogEntry{LogName: "access_log", Log: "<no value>", Labels: map[string]interface{}{}}
-	sourceEntry := adapter.LogEntry{LogName: "access_log", Log: "<no value>", Labels: map[string]interface{}{"originIp": "127.0.0.1"}}
+	emptyEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{}}
+	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"originIp": "127.0.0.1"}}
 
 	tests := []struct {
 		name        string
@@ -250,7 +250,10 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		exec   *accessLoggerWrapper
+		exec   *access
+		
+		
+		gerWrapper
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
