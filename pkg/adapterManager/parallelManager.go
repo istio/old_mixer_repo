@@ -15,10 +15,9 @@
 package adapterManager
 
 import (
+	"context"
 	"fmt"
 	"sync"
-
-	"context"
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"

@@ -253,7 +253,7 @@ func TestManager_BulkExecute(t *testing.T) {
 			errStr = err.Error()
 		}
 		if !strings.Contains(errStr, c.errString) {
-			t.Errorf("[%d] expected: '%s' \ngot: '%s'", idx, c.errString, errStr)
+			t.Errorf("[%d] got: '%s' want: '%s'", idx, c.errString, errStr)
 		}
 	}
 
@@ -261,6 +261,10 @@ func TestManager_BulkExecute(t *testing.T) {
 
 func TestRecovery_NewAspect(t *testing.T) {
 	testRecovery(t, "NewAspect Throws", true, false, "NewAspect")
+}
+
+func TestRecovery_AspectExecute(t *testing.T) {
+	testRecovery(t, "aspect.Execute Throws", true, false, "Execute")
 }
 
 func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
@@ -298,8 +302,4 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 	if !strings.Contains(err.Error(), want) {
 		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, err)
 	}
-}
-
-func TestRecovery_AspectExecute(t *testing.T) {
-	testRecovery(t, "aspect.Execute Throws", true, false, "Execute")
 }
