@@ -209,6 +209,6 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_cactus_statsd_client",
-    commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d",
+    commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d", # release 3.1.0
     importpath = "github.com/cactus/go-statsd-client",
 )
