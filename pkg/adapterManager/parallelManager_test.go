@@ -71,7 +71,10 @@ func TestExecute_Cancellation(t *testing.T) {
 	handler := NewParallelManager(&Manager{}, 1)
 	cancel()
 
-	if _, err := handler.Execute(ctx, []*config.Combined{nil}, &fakebag{}); err == nil {
+	cfg := []*config.Combined{
+		{&configpb.Adapter{Name: ""}, &configpb.Aspect{Kind: ""}},
+	}
+	if _, err := handler.Execute(ctx, cfg, &fakebag{}); err == nil {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
