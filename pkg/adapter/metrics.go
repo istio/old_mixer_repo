@@ -19,11 +19,23 @@ import (
 	"time"
 )
 
+// Metric kinds supported by mixer.
 const (
-	// GAUGE is used to record instantaneous (non-cumulative) measurement
-	GAUGE Kind = iota
-	// COUNTER is used to record increasing cumulative values.
-	COUNTER
+	Gauge   Kind = iota // records instantaneous (non-cumulative) measurements
+	Counter             // records increasing cumulative values
+)
+
+// Label kinds supported by mixer.
+const (
+	String LabelKind = iota
+	Int64
+	Float64
+	Bool
+	Time
+	IPAddress
+	EmailAddress
+	URI
+	DNSName
 )
 
 type (
@@ -61,7 +73,7 @@ type (
 	}
 
 	// Kind defines the set of known metrics types that can be generated
-	// by istio.
+	// by the mixer.
 	Kind int
 
 	// MetricsBuilder builds instances of the Metrics aspect.
@@ -69,8 +81,24 @@ type (
 		Builder
 
 		// NewMetricsAspect returns a new instance of the Metrics aspect.
-		NewMetricsAspect(env Env, config AspectConfig) (MetricsAspect, error)
+		NewMetricsAspect(env Env, config AspectConfig, metrics []MetricDefinition) (MetricsAspect, error)
 	}
+
+	// MetricDefinition provides the basic description of a metric schema
+	// for which metrics adapters will be sent Values at runtime.
+	MetricDefinition struct {
+		// Name is the canonical name of the metric.
+		Name string
+		// Kind provides type information about the metric.
+		Kind Kind
+		// Labels are the names of keys for dimensional data that will
+		// be generated at runtime and passed along with metric values.
+		Labels map[string]LabelKind
+	}
+
+	// LabelKind defines the set of known label types that can be generated
+	// by the mixer.
+	LabelKind int
 )
 
 // String returns the string-valued metric value for a metrics.Value.
