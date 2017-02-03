@@ -12,7 +12,9 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "c0013ac259444437f913e7dd0b10e36ce3325ed4",
+    # Nov 28 2016 - not a tagged release
+    # Justification: needed for importmap support in gogo_proto_library
+    commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a",
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
@@ -20,12 +22,11 @@ load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
 proto_repositories()
 
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_repositories")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
 load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
 
 cpp_proto_repositories()
-
-go_proto_repositories()
+gogo_proto_repositories()
 
 new_go_repository(
     name = "com_github_golang_glog",
@@ -35,7 +36,7 @@ new_go_repository(
 
 new_go_repository(
     name = "in_gopkg_yaml_v2",
-    commit = "a5b47d31c556af34a302ce5d659e6fea44d90de0",
+    commit = "14227de293ca979cf205cd88769fe71ed96a97e2",
     importpath = "gopkg.in/yaml.v2",
 )
 
@@ -98,31 +99,31 @@ new_git_repository(
 
 new_go_repository(
     name = "com_github_google_go_genproto",
-    commit = "08f135d1a31b6ba454287638a3ce23a55adace6f",
+    commit = "b3e7c2fb04031add52c4817f53f43757ccbf9c18",
     importpath = "google.golang.org/genproto",
 )
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "8712952b7d646dbbbc6fb73a782174f3115060f3",
+    commit = "21f8ed309495401e6fd79b3a9fd549582aed1b4c",
     importpath = "google.golang.org/grpc",
 )
 
 new_go_repository(
     name = "com_github_spf13_cobra",
-    commit = "9495bc009a56819bdb0ddbc1a373e29c140bc674",
+    commit = "35136c09d8da66b901337c6e86fd8e88a1a255bd",
     importpath = "github.com/spf13/cobra",
 )
 
 new_go_repository(
     name = "com_github_spf13_pflag",
-    commit = "5ccb023bc27df288a957c5e994cd44fd19619465",
+    commit = "9ff6c6923cfffbcd502984b8e0c80539a94968b7",
     importpath = "github.com/spf13/pflag",
 )
 
 new_go_repository(
     name = "com_github_hashicorp_go_multierror",
-    commit = "8484912a3b9987857bac52e0c5fec2b95f419628",
+    commit = "ed905158d87462226a13fe39ddf685ea65f1c11f",
     importpath = "github.com/hashicorp/go-multierror",
 )
 
@@ -142,13 +143,6 @@ new_go_repository(
     name = "com_github_opentracing_basictracer",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",
     importpath = "github.com/opentracing/basictracer-go",
-)
-
-# Transitive dep of com_github_opentracing_basictracer
-new_go_repository(
-    name = "com_github_gogo_protobuf",
-    commit = "909568be09de550ed094403c2bf8a261b5bb730a",
-    importpath = "github.com/gogo/protobuf",
 )
 
 new_go_repository(
