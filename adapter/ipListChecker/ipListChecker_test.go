@@ -22,44 +22,42 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"time"
+
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
 )
 
-// TODO: this test suite needs to be beefed up considerably.
-// Should be testing more edge cases, testing refresh behavior with and without errors,
-// testing TTL handling, testing malformed input, etc.
+type junk struct{}
 
-type env struct{}
-
-func (e env) Logger() adapter.Logger { return logger{} }
-
-type logger struct{}
-
-func (l logger) Infof(format string, args ...interface{})        {}
-func (l logger) Warningf(format string, args ...interface{})     {}
-func (l logger) Errorf(format string, args ...interface{}) error { return fmt.Errorf(format, args) }
+func (junk) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("nothing good ever happens to me")
+}
 
 func TestBasic(t *testing.T) {
-	goodList := listPayload{
+	list0 := listPayload{
 		WhiteList: []string{"10.10.11.2", "10.10.11.3", "9.9.9.9/28"},
 	}
 
-	badList := listPayload{
+	list1 := listPayload{
 		WhiteList: []string{"10.10.11.2", "X", "10.10.11.3"},
 	}
 
-	useGoodList := true
+	list2 := []string{"JUNK"}
+
+	listToUse := 0
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var out []byte
 		var err error
 
-		if useGoodList {
-			out, err = yaml.Marshal(goodList)
+		if listToUse == 0 {
+			out, err = yaml.Marshal(list0)
+		} else if listToUse == 1 {
+			out, err = yaml.Marshal(list1)
 		} else {
-			out, err = yaml.Marshal(badList)
+			out, err = yaml.Marshal(list2)
 		}
 
 		if err != nil {
@@ -79,7 +77,7 @@ func TestBasic(t *testing.T) {
 		Ttl:             10,
 	}
 
-	a, err := b.NewListsAspect(&env{}, &config)
+	a, err := b.NewListsAspect(test.NewEnv(t), &config)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -109,14 +107,33 @@ func TestBasic(t *testing.T) {
 	lc := a.(*listChecker)
 
 	// do a NOP refresh of the same data
-	lc.refreshList()
+	if err := lc.fetchList(); err != nil {
+		t.Errorf("Unable to refresh list: %v", err)
+	}
 
-	// now try to parse the bad list
-	useGoodList = false
-	lc.refreshList()
-	list := lc.getList()
-	if len(list.payload) != 2 {
-		t.Errorf("Expecting %d, got %d entries", len(badList.WhiteList)-1, len(list.payload))
+	// now try to parse a list with errors
+	listToUse = 1
+	if err := lc.fetchList(); err != nil {
+		t.Errorf("Unable to refresh list: %v", err)
+	}
+	list := lc.getListState()
+	if len(list.entries) != 2 {
+		t.Errorf("Expecting %d, got %d entries", len(list1.WhiteList)-1, len(list.entries))
+	}
+
+	// now try to parse a list in the wrong format
+	listToUse = 2
+	if err := lc.fetchList(); err == nil {
+		t.Errorf("Expecting error, got success")
+	}
+	list = lc.getListState()
+	if len(list.entries) != 2 {
+		t.Errorf("Expecting %d, got %d entries", len(list1.WhiteList)-1, len(list.entries))
+	}
+
+	// now try to process an incorrect body
+	if err := lc.fetchListWithBody(junk{}); err == nil {
+		t.Errorf("Expecting failure, got success")
 	}
 
 	if err := a.Close(); err != nil {
@@ -137,7 +154,7 @@ func TestBadUrl(t *testing.T) {
 		Ttl:             10,
 	}
 
-	a, err := b.NewListsAspect(&env{}, &config)
+	a, err := b.NewListsAspect(test.NewEnv(t), &config)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -194,6 +211,75 @@ func TestValidateConfig(t *testing.T) {
 		if err.Field != c.field {
 			t.Errorf("Case %d: expecting error for field %s, got %s", i, c.field, err.Field)
 		}
+	}
+}
+
+func TestRefreshAndPurge(t *testing.T) {
+	list := listPayload{
+		WhiteList: []string{"10.10.11.2", "10.10.11.3", "9.9.9.9/28"},
+	}
+
+	fetched := make(chan bool, 1)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var out []byte
+		var err error
+
+		out, err = yaml.Marshal(list)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if _, err := w.Write(out); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
+		fetched <- true
+	}))
+	defer ts.Close()
+
+	config := config.Params{
+		ProviderUrl:     ts.URL,
+		RefreshInterval: 1,
+		Ttl:             10,
+	}
+
+	refreshChan := make(chan time.Time)
+	purgeChan := make(chan time.Time)
+
+	refreshTicker := time.NewTicker(time.Second * 3600)
+	purgeTimer := time.NewTimer(time.Second * 3600)
+
+	refreshTicker.C = refreshChan
+	purgeTimer.C = purgeChan
+
+	a, err := newListCheckerWithTimers(test.NewEnv(t), &config, refreshTicker, purgeTimer)
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+
+	<-fetched
+
+	// cause a refetch
+	refreshChan <- time.Now()
+	<-fetched
+
+	// cause a purge
+	purgeChan <- time.Now()
+
+	// wait for the purge
+	for len(a.getListState().entries) == 0 {
+		time.Sleep(time.Millisecond)
+	}
+
+	// cause a refetch
+	refreshChan <- time.Now()
+	<-fetched
+
+	if len(a.getListState().entries) == 0 {
+		t.Errorf("Expecting the list to contain some entries, but it was empty")
+	}
+
+	if err := a.Close(); err != nil {
+		t.Errorf("Unable to close aspect: %v", err)
 	}
 }
 

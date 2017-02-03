@@ -25,6 +25,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"io"
+
 	"gopkg.in/yaml.v2"
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
@@ -34,18 +36,18 @@ type (
 	builder struct{ adapter.DefaultBuilder }
 
 	listChecker struct {
-		log             adapter.Logger
-		providerURL     string
-		atomicList      atomic.Value
-		refreshInterval time.Duration
-		ttl             time.Duration
-		closing         chan bool
-		client          http.Client
+		log           adapter.Logger
+		providerURL   string
+		atomicList    atomic.Value
+		client        http.Client
+		refreshTicker *time.Ticker
+		purgeTimer    *time.Timer
+		ttl           time.Duration
 	}
 
 	listState struct {
-		payload    []*net.IPNet
-		payloadSha [sha1.Size]byte
+		entries    []*net.IPNet
+		entriesSha [sha1.Size]byte
 		fetchError error
 	}
 )
@@ -56,7 +58,7 @@ var (
 	conf = &config.Params{
 		ProviderUrl:     "http://localhost",
 		RefreshInterval: 60,
-		Ttl:             120,
+		Ttl:             300,
 	}
 )
 
@@ -89,27 +91,52 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 }
 
 func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
+	return newListCheckerWithTimers(env, c,
+		time.NewTicker(time.Second*time.Duration(c.RefreshInterval)),
+		time.NewTimer(time.Second*time.Duration(c.Ttl)))
+}
+
+func newListCheckerWithTimers(env adapter.Env, c *config.Params,
+	refreshTicker *time.Ticker, purgeTimer *time.Timer) (*listChecker, error) {
 	l := &listChecker{
-		log:             env.Logger(),
-		providerURL:     c.ProviderUrl,
-		closing:         make(chan bool),
-		refreshInterval: time.Second * time.Duration(c.RefreshInterval),
-		ttl:             time.Second * time.Duration(c.Ttl),
+		log:           env.Logger(),
+		providerURL:   c.ProviderUrl,
+		refreshTicker: refreshTicker,
+		purgeTimer:    purgeTimer,
+		ttl:           time.Second * time.Duration(c.Ttl),
 	}
-	l.client = http.Client{Timeout: l.ttl}
-	l.setList(listState{})
+	l.setListState(listState{})
 
 	// load up the list synchronously so we're ready to accept traffic immediately
-	l.refreshList()
+	_ = l.fetchList()
+	purgeTimer.Reset(l.ttl)
 
-	// crank up the async list refresher
-	go l.listRefresher()
+	// go routine to periodically refresh the list
+	go func() {
+		for range refreshTicker.C {
+			if err := l.fetchList(); err == nil {
+				// reset the next purge time
+				purgeTimer.Reset(l.ttl)
+			}
+		}
+	}()
+
+	// go routine to periodically purge the list
+	go func() {
+		for range purgeTimer.C {
+			ls := l.getListState()
+			ls.entries = nil
+			ls.entriesSha = [20]byte{}
+			l.setListState(ls)
+		}
+	}()
 
 	return l, nil
 }
 
 func (l *listChecker) Close() error {
-	close(l.closing)
+	l.refreshTicker.Stop()
+	l.purgeTimer.Stop()
 	return nil
 }
 
@@ -121,12 +148,12 @@ func (l *listChecker) CheckList(symbol string) (bool, error) {
 	}
 
 	// get an atomic snapshot of the current list
-	list := l.getList()
-	if len(list.payload) == 0 {
-		return false, list.fetchError
+	ls := l.getListState()
+	if len(ls.entries) == 0 {
+		return false, ls.fetchError
 	}
 
-	for _, ipnet := range list.payload {
+	for _, ipnet := range ls.entries {
 		if ipnet.Contains(ipa) {
 			return true, nil
 		}
@@ -137,41 +164,13 @@ func (l *listChecker) CheckList(symbol string) (bool, error) {
 }
 
 // Typed accessors for the atomic list
-func (l *listChecker) getList() listState {
+func (l *listChecker) getListState() listState {
 	return l.atomicList.Load().(listState)
 }
 
 // Typed accessor for the atomic list
-func (l *listChecker) setList(list listState) {
-	l.atomicList.Store(list)
-}
-
-// Updates the list by polling from the provider on a fixed interval
-func (l *listChecker) listRefresher() {
-	refreshTicker := time.NewTicker(l.refreshInterval)
-	purgeTimer := time.NewTimer(l.ttl)
-
-	defer refreshTicker.Stop()
-	defer purgeTimer.Stop()
-
-	for {
-		select {
-		case <-refreshTicker.C:
-			// fetch a new list and reset the TTL timer
-			l.refreshList()
-			purgeTimer.Reset(l.ttl)
-
-		case <-purgeTimer.C:
-			// times up, nuke the list and start returning errors
-			list := l.getList()
-			list.payload = nil
-			list.payloadSha = [20]byte{}
-			l.setList(list)
-
-		case <-l.closing:
-			return
-		}
-	}
+func (l *listChecker) setListState(ls listState) {
+	l.atomicList.Store(ls)
 }
 
 // represents the format of the data in a list
@@ -179,45 +178,49 @@ type listPayload struct {
 	WhiteList []string `yaml:"whitelist" required:"true"`
 }
 
-func (l *listChecker) refreshList() {
+func (l *listChecker) fetchList() error {
 	l.log.Infof("Fetching list from %s", l.providerURL)
-
-	list := l.getList()
 
 	resp, err := l.client.Get(l.providerURL)
 	if err != nil {
-		list.fetchError = err
-		l.setList(list)
+		ls := l.getListState()
+		ls.fetchError = err
+		l.setListState(ls)
 		l.log.Warningf("Could not connect to %s: %v", l.providerURL, err)
-		return
+		return err
 	}
+
+	return l.fetchListWithBody(resp.Body)
+}
+
+func (l *listChecker) fetchListWithBody(body io.Reader) error {
+	ls := l.getListState()
 
 	// TODO: could lead to OOM since this is unbounded
-	var buf []byte
-	buf, err = ioutil.ReadAll(resp.Body)
+	buf, err := ioutil.ReadAll(body)
 	if err != nil {
-		list.fetchError = err
-		l.setList(list)
+		ls.fetchError = err
+		l.setListState(ls)
 		l.log.Warningf("Could not read from %s: %v", l.providerURL, err)
-		return
+		return err
 	}
 
-	// determine whether the list has changed since the last fetch
+	// determine whether the ls has changed since the last fetch
 	newsha := sha1.Sum(buf)
-	if newsha == list.payloadSha {
-		// the list hasn't changed since last time, just bail
-		l.log.Infof("Fetched list is unchanged")
-		return
+	if newsha == ls.entriesSha {
+		// the ls hasn't changed since last time, just bail
+		l.log.Infof("Fetched ls is unchanged")
+		return nil
 	}
 
 	// now parse
 	lp := listPayload{}
 	err = yaml.Unmarshal(buf, &lp)
 	if err != nil {
-		list.fetchError = err
-		l.setList(list)
+		ls.fetchError = err
+		l.setListState(ls)
 		l.log.Warningf("Could not unmarshal data from %s: %v", l.providerURL, err)
-		return
+		return err
 	}
 
 	// copy to the internal format
@@ -235,10 +238,12 @@ func (l *listChecker) refreshList() {
 		entries = append(entries, ipnet)
 	}
 
-	// Now create a new map and install it
-	l.log.Infof("Installing updated list with %d entries", len(entries))
-	list.payload = entries
-	list.payloadSha = newsha
-	list.fetchError = nil
-	l.setList(list)
+	// Now install the new ls
+	l.log.Infof("Installing updated ls with %d entries", len(entries))
+	ls.entries = entries
+	ls.entriesSha = newsha
+	ls.fetchError = nil
+	l.setListState(ls)
+
+	return nil
 }
