@@ -86,28 +86,25 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 
 func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
 	var u *url.URL
-	var err error
-	if u, err = url.Parse(c.ProviderUrl); err != nil {
-		// bogus URL format
-		return nil, err
-	}
+	u, _ = url.Parse(c.ProviderUrl)
 
-	aa := listChecker{
+	l := &listChecker{
 		log:             env.Logger(),
 		backend:         u,
 		closing:         make(chan bool),
 		refreshInterval: time.Second * time.Duration(c.RefreshInterval),
 		ttl:             time.Second * time.Duration(c.Ttl),
 	}
-	aa.client = http.Client{Timeout: aa.ttl}
+	l.client = http.Client{Timeout: l.ttl}
+	l.setList(nil)
 
 	// load up the list synchronously so we're ready to accept traffic immediately
-	aa.refreshList()
+	l.refreshList()
 
 	// crank up the async list refresher
-	go aa.listRefresher()
+	go l.listRefresher()
 
-	return &aa, nil
+	return l, nil
 }
 
 func (l *listChecker) Close() error {
