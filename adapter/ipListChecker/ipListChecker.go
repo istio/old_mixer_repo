@@ -17,6 +17,7 @@ package ipListChecker
 import (
 	"crypto/sha1"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -34,18 +35,19 @@ type (
 	builder struct{ adapter.DefaultBuilder }
 
 	listChecker struct {
-		log             adapter.Logger
-		providerURL     string
-		atomicList      atomic.Value
-		refreshInterval time.Duration
-		ttl             time.Duration
-		closing         chan bool
-		client          http.Client
+		log           adapter.Logger
+		providerURL   string
+		atomicList    atomic.Value
+		client        http.Client
+		closing       chan bool
+		refreshTicker *time.Ticker
+		purgeTimer    *time.Timer
+		ttl           time.Duration
 	}
 
 	listState struct {
-		payload    []*net.IPNet
-		payloadSha [sha1.Size]byte
+		entries    []*net.IPNet
+		entriesSHA [sha1.Size]byte
 		fetchError error
 	}
 )
@@ -56,7 +58,7 @@ var (
 	conf = &config.Params{
 		ProviderUrl:     "http://localhost",
 		RefreshInterval: 60,
-		Ttl:             120,
+		Ttl:             300,
 	}
 )
 
@@ -85,24 +87,40 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 		}
 	}
 
+	if c.RefreshInterval <= 0 {
+		ce = ce.Appendf("RefreshInterval", "RefreshInterval must be > 0, it is %d", c.RefreshInterval)
+	}
+
+	if c.Ttl <= c.RefreshInterval {
+		ce = ce.Appendf("Ttl", "Ttl must be > RefreshInterval, Ttl is %d and RefreshInterval is %d", c.Ttl, c.RefreshInterval)
+	}
+
 	return
 }
 
 func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
+	return newListCheckerWithTimers(env, c,
+		time.NewTicker(time.Second*time.Duration(c.RefreshInterval)),
+		time.NewTimer(time.Second*time.Duration(c.Ttl)))
+}
+
+func newListCheckerWithTimers(env adapter.Env, c *config.Params,
+	refreshTicker *time.Ticker, purgeTimer *time.Timer) (*listChecker, error) {
 	l := &listChecker{
-		log:             env.Logger(),
-		providerURL:     c.ProviderUrl,
-		closing:         make(chan bool),
-		refreshInterval: time.Second * time.Duration(c.RefreshInterval),
-		ttl:             time.Second * time.Duration(c.Ttl),
+		log:           env.Logger(),
+		providerURL:   c.ProviderUrl,
+		closing:       make(chan bool),
+		refreshTicker: refreshTicker,
+		purgeTimer:    purgeTimer,
+		ttl:           time.Second * time.Duration(c.Ttl),
 	}
-	l.client = http.Client{Timeout: l.ttl}
-	l.setList(listState{})
+	l.setListState(listState{})
 
-	// load up the list synchronously so we're ready to accept traffic immediately
-	l.refreshList()
+	// Load up the list synchronously so we're ready to accept traffic immediately.
+	// Failures here don't matter, they will be logged appropriately by fetchList.
+	l.fetchList()
 
-	// crank up the async list refresher
+	// go routine to periodically refresh the list
 	go l.listRefresher()
 
 	return l, nil
@@ -110,6 +128,8 @@ func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
 
 func (l *listChecker) Close() error {
 	close(l.closing)
+	l.refreshTicker.Stop()
+	l.purgeTimer.Stop()
 	return nil
 }
 
@@ -121,12 +141,12 @@ func (l *listChecker) CheckList(symbol string) (bool, error) {
 	}
 
 	// get an atomic snapshot of the current list
-	list := l.getList()
-	if len(list.payload) == 0 {
-		return false, list.fetchError
+	ls := l.getListState()
+	if len(ls.entries) == 0 {
+		return false, ls.fetchError
 	}
 
-	for _, ipnet := range list.payload {
+	for _, ipnet := range ls.entries {
 		if ipnet.Contains(ipa) {
 			return true, nil
 		}
@@ -137,36 +157,24 @@ func (l *listChecker) CheckList(symbol string) (bool, error) {
 }
 
 // Typed accessors for the atomic list
-func (l *listChecker) getList() listState {
+func (l *listChecker) getListState() listState {
 	return l.atomicList.Load().(listState)
 }
 
 // Typed accessor for the atomic list
-func (l *listChecker) setList(list listState) {
-	l.atomicList.Store(list)
+func (l *listChecker) setListState(ls listState) {
+	l.atomicList.Store(ls)
 }
 
 // Updates the list by polling from the provider on a fixed interval
 func (l *listChecker) listRefresher() {
-	refreshTicker := time.NewTicker(l.refreshInterval)
-	purgeTimer := time.NewTimer(l.ttl)
-
-	defer refreshTicker.Stop()
-	defer purgeTimer.Stop()
-
 	for {
 		select {
-		case <-refreshTicker.C:
-			// fetch a new list and reset the TTL timer
-			l.refreshList()
-			purgeTimer.Reset(l.ttl)
+		case <-l.refreshTicker.C:
+			l.fetchList()
 
-		case <-purgeTimer.C:
-			// times up, nuke the list and start returning errors
-			list := l.getList()
-			list.payload = nil
-			list.payloadSha = [20]byte{}
-			l.setList(list)
+		case <-l.purgeTimer.C:
+			l.purgeList()
 
 		case <-l.closing:
 			return
@@ -179,32 +187,34 @@ type listPayload struct {
 	WhiteList []string `yaml:"whitelist" required:"true"`
 }
 
-func (l *listChecker) refreshList() {
+func (l *listChecker) fetchList() {
 	l.log.Infof("Fetching list from %s", l.providerURL)
-
-	list := l.getList()
 
 	resp, err := l.client.Get(l.providerURL)
 	if err != nil {
-		list.fetchError = err
-		l.setList(list)
-		l.log.Warningf("Could not connect to %s: %v", l.providerURL, err)
+		ls := l.getListState()
+		ls.fetchError = l.log.Errorf("Could not connect to %s: %v", l.providerURL, err)
+		l.setListState(ls)
 		return
 	}
 
+	l.fetchListWithBody(resp.Body)
+}
+
+func (l *listChecker) fetchListWithBody(body io.Reader) {
+	ls := l.getListState()
+
 	// TODO: could lead to OOM since this is unbounded
-	var buf []byte
-	buf, err = ioutil.ReadAll(resp.Body)
+	buf, err := ioutil.ReadAll(body)
 	if err != nil {
-		list.fetchError = err
-		l.setList(list)
-		l.log.Warningf("Could not read from %s: %v", l.providerURL, err)
+		ls.fetchError = l.log.Errorf("Could not read from %s: %v", l.providerURL, err)
+		l.setListState(ls)
 		return
 	}
 
 	// determine whether the list has changed since the last fetch
-	newsha := sha1.Sum(buf)
-	if newsha == list.payloadSha {
+	newSHA := sha1.Sum(buf)
+	if newSHA == ls.entriesSHA {
 		// the list hasn't changed since last time, just bail
 		l.log.Infof("Fetched list is unchanged")
 		return
@@ -214,9 +224,8 @@ func (l *listChecker) refreshList() {
 	lp := listPayload{}
 	err = yaml.Unmarshal(buf, &lp)
 	if err != nil {
-		list.fetchError = err
-		l.setList(list)
-		l.log.Warningf("Could not unmarshal data from %s: %v", l.providerURL, err)
+		ls.fetchError = l.log.Errorf("Could not unmarshal data from %s: %v", l.providerURL, err)
+		l.setListState(ls)
 		return
 	}
 
@@ -235,10 +244,31 @@ func (l *listChecker) refreshList() {
 		entries = append(entries, ipnet)
 	}
 
-	// Now create a new map and install it
+	// Now install the new list
 	l.log.Infof("Installing updated list with %d entries", len(entries))
-	list.payload = entries
-	list.payloadSha = newsha
-	list.fetchError = nil
-	l.setList(list)
+	ls.entries = entries
+	ls.entriesSHA = newSHA
+	ls.fetchError = nil
+	l.setListState(ls)
+
+	// prevent the outstanding purge from happening
+	l.purgeTimer.Stop()
+
+	// clean up the channel in case a message is already pending
+	select {
+	case <-l.purgeTimer.C:
+	default:
+	}
+
+	// setup the purge timer to clean up the list if it doesn't get refreshed soon enough
+	l.purgeTimer.Reset(l.ttl)
+}
+
+func (l *listChecker) purgeList() {
+	l.log.Warningf("Purging list due to inability to refresh in time")
+
+	ls := l.getListState()
+	ls.entries = nil
+	ls.entriesSHA = [20]byte{}
+	l.setListState(ls)
 }
