@@ -29,11 +29,11 @@ message Params {
 
     // Flush Interval controls the maximum amount of time between sending metrics to the statsd collection server.
     // Metrics are reported when either flush_bytes is full or flush_interval time has elapsed since the last report.
-    google.protobuf.Duration flush_interval = 3;
+    google.protobuf.Duration flush_duration = 3;
 
     // Maximum UDP packet size to send; if not specified defaults to 512 bytes. If the statsd server is running on the
     // same (private) network 1432 bytes is recommended for better performance.
-    int64 flush_bytes = 4;
+    int32 flush_bytes = 4;
 
     // Chance that any particular metric is sampled when incremented; can take the range [0, 1], defaults to 1 if unspecified.
     float sampling_rate = 5;
@@ -43,5 +43,7 @@ message Params {
     // `action_name-response_code`. The template strings must conform to go's text/template syntax. For the example of
     // `action_name-response_code`, we use the template:
     //    `{{.apiMethod}}-{{.responseCode}}`
+    //
+    // If a metric's name is not in the map then the exported statsd metric name will be exactly the metric's name.
     map<string, string> metric_name_template_strings = 6;
 }

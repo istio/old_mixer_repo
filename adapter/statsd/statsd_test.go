@@ -39,7 +39,7 @@ func TestNewBuilder(t *testing.T) {
 	conf = &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushInterval:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:                512,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: map[string]string{"a": `{{ .apiMethod "-" .responseCode }}`},
@@ -49,17 +49,6 @@ func TestNewBuilder(t *testing.T) {
 	if err := b.Close(); err != nil {
 		t.Errorf("b.Close() = %s, expected no err", err)
 	}
-}
-
-func TestNewBuilder_BadTemplate(t *testing.T) {
-	conf.MetricNameTemplateStrings = map[string]string{"badtemplate": `{{if 1}}`}
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("newBuilder() didn't panic")
-		}
-	}()
-	_ = newBuilder()
-	t.Fail()
 }
 
 func TestNewBuilder_BadStatsdConfig(t *testing.T) {
@@ -111,16 +100,12 @@ func TestNewMetric(t *testing.T) {
 	conf = &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushInterval:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:                512,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: map[string]string{"a": `{{(.apiMethod) "-" (.responseCode)}}`},
 	}
 	b := newBuilder()
-	if _, err := b.NewMetricsAspect(test.NewEnv(t), &status.Status{}, nil); err == nil {
-		t.Error("b.NewMetrics(test.NewEnv(t), &status.Status{}) = _, nil; wanted err for wrong config type")
-	}
-
 	masp, err := b.NewMetricsAspect(test.NewEnv(t), &config.Params{}, nil)
 	if err != nil {
 		t.Errorf("b.NewMetrics(test.NewEnv(t), &config.Params{}) = %s, wanted no err", err)
@@ -131,18 +116,46 @@ func TestNewMetric(t *testing.T) {
 	}
 }
 
+func TestNewMetric_BadTemplate(t *testing.T) {
+	config := &config.Params{
+		Address:                   "localhost:8125",
+		Prefix:                    "",
+		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushBytes:                512,
+		SamplingRate:              1.0,
+		MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`},
+	}
+	metrics := []adapter.MetricDefinition{
+		{Name: "badtemplate"},
+	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("NewMetricsAspect(test.NewEnv(t), config, nil) didn't panic")
+		}
+	}()
+	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), config, metrics); err != nil {
+		t.Errorf("NewMetricsAspect(test.NewEnv(t), config, nil) = %v; wanted panic not err", err)
+	}
+	t.Fail()
+}
+
 func TestRecord(t *testing.T) {
 	var templateMetricName = "methodCode"
 
 	conf = &config.Params{
 		Address:       "localhost:8125",
 		Prefix:        "",
-		FlushInterval: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:    512,
 		SamplingRate:  1.0,
 		MetricNameTemplateStrings: map[string]string{
 			templateMetricName: `{{.apiMethod}}-{{.responseCode}}`,
-			"invalidTemplate":  `{{ .apiMethod "-" .responseCode }}`, // fails at execute time, not template parsing time
+		},
+	}
+	metrics := []adapter.MetricDefinition{
+		{
+			Name:   templateMetricName,
+			Labels: map[string]adapter.LabelKind{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
 		},
 	}
 
@@ -177,11 +190,6 @@ func TestRecord(t *testing.T) {
 	methodCodeMetric.Labels["responseCode"] = "500"
 	expectedMetricName := methodCodeMetric.Labels["apiMethod"].(string) + "-" + methodCodeMetric.Labels["responseCode"].(string)
 
-	invalidTemplateMetric := validGauge
-	invalidTemplateMetric.Name = "invalidTemplate" // this needs to match the name in conf.MetricNameTemplateStrings
-	invalidTemplateMetric.Labels["apiMethod"] = "some method"
-	invalidTemplateMetric.Labels["responseCode"] = "3"
-
 	cases := []struct {
 		vals      []adapter.Value
 		errString string
@@ -195,7 +203,6 @@ func TestRecord(t *testing.T) {
 		{[]adapter.Value{invalidKind}, "unknown metric kind"},
 		{[]adapter.Value{invalidCounter}, "could not record"},
 		{[]adapter.Value{invalidGauge}, "could not record"},
-		{[]adapter.Value{invalidTemplateMetric}, "failed to create metric name"},
 		{[]adapter.Value{validGauge, invalidGauge}, "could not record"},
 		{[]adapter.Value{methodCodeMetric, invalidCounter}, "could not record"},
 	}
@@ -208,9 +215,10 @@ func TestRecord(t *testing.T) {
 		}
 		b.client = cl
 
-		m, err := b.NewMetricsAspect(test.NewEnv(t), conf, nil)
+		m, err := b.NewMetricsAspect(test.NewEnv(t), conf, metrics)
 		if err != nil {
-			t.Errorf("newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", err)
+			t.Errorf("[%d] newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", idx, err)
+			continue
 		}
 		if err := m.Record(c.vals); err != nil {
 			if c.errString == "" {
@@ -221,7 +229,7 @@ func TestRecord(t *testing.T) {
 			}
 		}
 		if err := m.Close(); err != nil {
-			t.Errorf("m.Close() = %s; wanted no err", err)
+			t.Errorf("[%d] m.Close() = %s; wanted no err", idx, err)
 		}
 		if c.errString != "" {
 			continue
@@ -235,8 +243,32 @@ func TestRecord(t *testing.T) {
 			}
 			m := metrics.CollectNamed(name)
 			if len(m) < 1 {
-				t.Errorf("[%d] metrics.CollectNamed(%s) returned no stats, expected one", idx, name)
+				t.Errorf("[%d] metrics.CollectNamed(%s) returned no stats, expected one.\nHave metrics: %v", idx, name, metrics)
 			}
 		}
+	}
+}
+
+func TestRecord_InvalidTemplate(t *testing.T) {
+	name := "invalidTemplate"
+	conf = &config.Params{
+		Address:       "localhost:8125",
+		Prefix:        "",
+		FlushDuration: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushBytes:    512,
+		SamplingRate:  1.0,
+		MetricNameTemplateStrings: map[string]string{
+			name:      `{{ .apiMethod "-" .responseCode }}`, // fails at execute time, not template parsing time
+			"missing": "foo",
+		},
+	}
+	metrics := []adapter.MetricDefinition{
+		{
+			Name:   name,
+			Labels: map[string]adapter.LabelKind{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
+		},
+	}
+	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), conf, metrics); err == nil {
+		t.Error("NewMetricsAspect(test.NewEnv(t), conf, metrics) = _, nil, want error")
 	}
 }
