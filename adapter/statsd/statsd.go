@@ -17,10 +17,12 @@ package statsd
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"text/template"
 	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/mixer/adapter/statsd/config"
@@ -32,9 +34,7 @@ type (
 	// templates for constructing statsd metric names.
 	builder struct {
 		adapter.DefaultBuilder
-
-		client    statsd.Statter
-		templates map[string]*template.Template // metric name -> template
+		client statsd.Statter
 	}
 
 	aspect struct {
@@ -51,7 +51,7 @@ var (
 	conf = &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushInterval:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:                512,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: make(map[string]string),
@@ -64,37 +64,25 @@ func Register(r adapter.Registrar) {
 }
 
 func newBuilder() *builder {
-	client, err := statsd.NewBufferedClient(conf.Address, conf.Prefix, toTime(conf.FlushInterval), int(conf.FlushBytes))
+	flushDuration, err := ptypes.Duration(conf.FlushDuration)
+	if err != nil {
+		// we panic because we're reading in our static default config
+		panic(fmt.Errorf("failed to parse default duration, %v, as a time.Duration", conf.FlushDuration))
+	}
+
+	client, err := statsd.NewBufferedClient(conf.Address, conf.Prefix, flushDuration, int(conf.FlushBytes))
 	if err != nil {
 		// TODO: something other than panic?
 		panic("failed to construct statsd client with err: " + err.Error())
 	}
-
-	templates := make(map[string]*template.Template)
-	for metricName, s := range conf.MetricNameTemplateStrings {
-		if t, err := template.New(metricName).Parse(s); err != nil {
-			// This should never happen given ValidateConfig, but we call this before validateconfig? unclear how this needs to work.
-			// We could migrate this parsing into a sync.Once and called during NewMetrics, but then it happen during a request.
-			panic(fmt.Errorf("failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err))
-		} else {
-			templates[metricName] = t
-		}
-	}
-
-	return &builder{adapter.NewDefaultBuilder(name, desc, conf), client, templates}
+	return &builder{adapter.NewDefaultBuilder(name, desc, conf), client}
 }
 
 func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
-	params, ok := c.(*config.Params)
-	if !ok {
-		// TODO: should this just report an error?
-		panic(fmt.Errorf("invalid config type, want adapter/statsd/config/config.proto, got: %v", params))
-	}
-
-	// TODO: we need to validate that the provided template strings are satisfiable by the mixer's attributes/metric's labels
+	params := c.(*config.Params)
 	for metricName, s := range params.MetricNameTemplateStrings {
 		if _, err := template.New(metricName).Parse(s); err != nil {
-			ce = ce.Append("template "+metricName, fmt.Errorf("failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err))
+			ce = ce.Append("MetricNameTemplateStrings", fmt.Errorf("failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err))
 		}
 	}
 	return
@@ -105,14 +93,28 @@ func (b *builder) Close() error {
 }
 
 func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	// TODO: should we verify that templates are satisfiable here? we have the labels from the definitions, but it's not clear other than
-	// trying to fill in each template that we can satisfy them.
+	params := cfg.(*config.Params)
+	templates := make(map[string]*template.Template)
+	for metricName, s := range params.MetricNameTemplateStrings {
+		def, found := findMetric(metrics, metricName)
+		if !found {
+			continue // we don't have a metric that corresponds to this template, keep on going
+		}
 
-	params, ok := cfg.(*config.Params)
-	if !ok {
-		return nil, fmt.Errorf("invalid config, expected statsd.config.Params, got %+v", cfg)
+		t, err := template.New(metricName).Parse(s)
+		if err != nil {
+			// we panic here because ValidateConfig should catch any issues before this method is called.
+			panic(fmt.Errorf("failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err))
+		}
+
+		if err := t.Execute(ioutil.Discard, def.Labels); err != nil {
+			// TODO: alternative is to log a warning and keep processing. the result is that we get the 'wrong' statsd metric name
+			// for this metric when exporting.
+			return nil, fmt.Errorf("unable to satisfy template with labels for metric %s; err: %s", metricName, err)
+		}
+		templates[metricName] = t
 	}
-	return &aspect{params.SamplingRate, b.client, b.templates}, nil
+	return &aspect{params.SamplingRate, b.client, templates}, nil
 }
 
 func (a *aspect) Record(values []adapter.Value) error {
@@ -156,6 +158,11 @@ func (a *aspect) record(value adapter.Value) error {
 
 func (*aspect) Close() error { return nil }
 
-func toTime(d *duration.Duration) time.Duration {
-	return (time.Duration(d.Seconds) * time.Second) + (time.Duration(d.Nanos) * time.Nanosecond)
+func findMetric(metrics []adapter.MetricDefinition, name string) (adapter.MetricDefinition, bool) {
+	for _, m := range metrics {
+		if m.Name == name {
+			return m, true
+		}
+	}
+	return adapter.MetricDefinition{}, false
 }
