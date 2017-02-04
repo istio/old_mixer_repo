@@ -11,6 +11,7 @@ go_library(
         "//adapter/statsd/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "@com_github_cactus_statsd_client//statsd:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
     ],
 )
