@@ -19,11 +19,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"text/template"
+	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/golang/protobuf/ptypes"
-
-	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
 	"istio.io/mixer/adapter/statsd/config"
