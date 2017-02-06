@@ -47,7 +47,7 @@ func TestValidateConfig(t *testing.T) {
 		errString string
 	}{
 		{&config.Params{}, ""},
-		{&config.Params{MetricNameTemplateStrings: map[string]string{"a": `{{ .apiMethod "-" .responseCode }}`}}, ""},
+		{&config.Params{MetricNameTemplateStrings: map[string]string{"a": `{{.apiMethod}}-{{.responseCode}}`}}, ""},
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "MetricNameTemplateStrings"},
 		{&config.Params{Address: "notaurl:notaport"}, "Address"},
 		{&config.Params{FlushDuration: &duration.Duration{Seconds: math.MaxInt64, Nanos: math.MaxInt32}}, "FlushDuration"},
