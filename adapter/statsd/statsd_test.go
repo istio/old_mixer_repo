@@ -19,10 +19,10 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/genproto/googleapis/rpc/status"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
+
+	"math"
 
 	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/cactus/go-statsd-client/statsd/statsdtest"
@@ -36,30 +36,10 @@ func TestInvariants(t *testing.T) {
 }
 
 func TestNewBuilder(t *testing.T) {
-	conf = &config.Params{
-		Address:                   "localhost:8125",
-		Prefix:                    "",
-		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
-		FlushBytes:                512,
-		SamplingRate:              1.0,
-		MetricNameTemplateStrings: map[string]string{"a": `{{ .apiMethod "-" .responseCode }}`},
-	}
 	b := newBuilder()
-
 	if err := b.Close(); err != nil {
 		t.Errorf("b.Close() = %s, expected no err", err)
 	}
-}
-
-func TestNewBuilder_BadStatsdConfig(t *testing.T) {
-	conf.Address = "notaurl:notaport"
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("newBuilder() didn't panic")
-		}
-	}()
-	_ = newBuilder()
-	t.Fail()
 }
 
 func TestValidateConfig(t *testing.T) {
@@ -69,7 +49,10 @@ func TestValidateConfig(t *testing.T) {
 	}{
 		{&config.Params{}, ""},
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"a": `{{ .apiMethod "-" .responseCode }}`}}, ""},
-		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "badtemplate"},
+		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "MetricNameTemplateStrings"},
+		{&config.Params{Address: "notaurl:notaport"}, "Address"},
+		{&config.Params{FlushDuration: &duration.Duration{Seconds: math.MaxInt64, Nanos: math.MaxInt32}}, "FlushDuration"},
+		{&config.Params{SamplingRate: -1}, "SamplingRate"},
 	}
 	for idx, c := range cases {
 		b := &builder{}
@@ -83,41 +66,72 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_PanicsWithWrongConfig(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("b.ValidateConfig(<wrong type>) didn't panic")
-		}
-	}()
-	b := &builder{}
-	if err := b.ValidateConfig(&status.Status{}); err != nil {
-		t.Errorf("b.ValidateConfig(&badconfig.Params{}) = %v, wanted panic", err)
-	}
-	t.Fail()
-}
-
-func TestNewMetric(t *testing.T) {
-	conf = &config.Params{
+func TestNewMetricsAspect(t *testing.T) {
+	conf := &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
 		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
-		FlushBytes:                512,
+		FlushBytes:                -1,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: map[string]string{"a": `{{(.apiMethod) "-" (.responseCode)}}`},
 	}
-	b := newBuilder()
-	masp, err := b.NewMetricsAspect(test.NewEnv(t), &config.Params{}, nil)
-	if err != nil {
+	env := test.NewEnv(t)
+	if _, err := newBuilder().NewMetricsAspect(env, conf, nil); err != nil {
 		t.Errorf("b.NewMetrics(test.NewEnv(t), &config.Params{}) = %s, wanted no err", err)
 	}
-	asp := masp.(*aspect)
-	if asp.client != b.client {
-		t.Errorf("asp.client = %v, wanted b.client (%v) to verify shared connection", asp.client, b.client)
+
+	logs := env.GetLogs()
+	if len(logs) < 1 {
+		t.Errorf("len(logs) = %d, wanted at least 1 item logged", len(logs))
+	}
+	present := false
+	for _, l := range logs {
+		present = present || strings.Contains(l, "FlushBytes")
+	}
+	if !present {
+		t.Errorf("wanted NewMetricsAspect(env, conf, metrics) to log about '%s', only got logs: %v", name, logs)
 	}
 }
 
-func TestNewMetric_BadTemplate(t *testing.T) {
-	config := &config.Params{
+func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
+	name := "invalidTemplate"
+	conf := &config.Params{
+		Address:       "localhost:8125",
+		Prefix:        "",
+		FlushDuration: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushBytes:    512,
+		SamplingRate:  1.0,
+		MetricNameTemplateStrings: map[string]string{
+			name:      `{{ .apiMethod "-" .responseCode }}`, // fails at execute time, not template parsing time
+			"missing": "foo",
+		},
+	}
+	metrics := []adapter.MetricDefinition{
+		{
+			Name:   name,
+			Labels: map[string]adapter.LabelKind{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
+		},
+	}
+	env := test.NewEnv(t)
+	if _, err := newBuilder().NewMetricsAspect(env, conf, metrics); err != nil {
+		t.Errorf("NewMetricsAspect(test.NewEnv(t), conf, metrics) = _, %s, wanted no error", err)
+	}
+
+	logs := env.GetLogs()
+	if len(logs) < 1 {
+		t.Errorf("len(logs) = %d, wanted at least 1 item logged", len(logs))
+	}
+	present := false
+	for _, l := range logs {
+		present = present || strings.Contains(l, name)
+	}
+	if !present {
+		t.Errorf("wanted NewMetricsAspect(env, conf, metrics) to log template error containing '%s', only got logs: %v", name, logs)
+	}
+}
+
+func TestNewMetricsAspect_BadTemplate(t *testing.T) {
+	conf := &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
 		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
@@ -133,7 +147,7 @@ func TestNewMetric_BadTemplate(t *testing.T) {
 			t.Error("NewMetricsAspect(test.NewEnv(t), config, nil) didn't panic")
 		}
 	}()
-	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), config, metrics); err != nil {
+	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), conf, metrics); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), config, nil) = %v; wanted panic not err", err)
 	}
 	t.Fail()
@@ -141,8 +155,7 @@ func TestNewMetric_BadTemplate(t *testing.T) {
 
 func TestRecord(t *testing.T) {
 	var templateMetricName = "methodCode"
-
-	conf = &config.Params{
+	conf := &config.Params{
 		Address:       "localhost:8125",
 		Prefix:        "",
 		FlushDuration: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
@@ -213,13 +226,15 @@ func TestRecord(t *testing.T) {
 		if err != nil {
 			t.Errorf("statsd.NewClientWithSender(rs, \"\") = %s; wanted no err", err)
 		}
-		b.client = cl
-
 		m, err := b.NewMetricsAspect(test.NewEnv(t), conf, metrics)
 		if err != nil {
 			t.Errorf("[%d] newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", idx, err)
 			continue
 		}
+		// We don't have an easy handle into setting the client, so we'll just reach in and update it
+		asp := m.(*aspect)
+		asp.client = cl
+
 		if err := m.Record(c.vals); err != nil {
 			if c.errString == "" {
 				t.Errorf("[%d] m.Record(c.vals) = %s; wanted no err", idx, err)
@@ -246,29 +261,5 @@ func TestRecord(t *testing.T) {
 				t.Errorf("[%d] metrics.CollectNamed(%s) returned no stats, expected one.\nHave metrics: %v", idx, name, metrics)
 			}
 		}
-	}
-}
-
-func TestRecord_InvalidTemplate(t *testing.T) {
-	name := "invalidTemplate"
-	conf = &config.Params{
-		Address:       "localhost:8125",
-		Prefix:        "",
-		FlushDuration: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
-		FlushBytes:    512,
-		SamplingRate:  1.0,
-		MetricNameTemplateStrings: map[string]string{
-			name:      `{{ .apiMethod "-" .responseCode }}`, // fails at execute time, not template parsing time
-			"missing": "foo",
-		},
-	}
-	metrics := []adapter.MetricDefinition{
-		{
-			Name:   name,
-			Labels: map[string]adapter.LabelKind{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
-		},
-	}
-	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), conf, metrics); err == nil {
-		t.Error("NewMetricsAspect(test.NewEnv(t), conf, metrics) = _, nil, want error")
 	}
 }
