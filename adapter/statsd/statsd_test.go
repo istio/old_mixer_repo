@@ -15,17 +15,16 @@
 package statsd
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/cactus/go-statsd-client/statsd"
+	"github.com/cactus/go-statsd-client/statsd/statsdtest"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	"math"
-
-	"github.com/cactus/go-statsd-client/statsd"
-	"github.com/cactus/go-statsd-client/statsd/statsdtest"
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
