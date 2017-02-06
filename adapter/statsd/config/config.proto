@@ -45,5 +45,7 @@ message Params {
     //    `{{.apiMethod}}-{{.responseCode}}`
     //
     // If a metric's name is not in the map then the exported statsd metric name will be exactly the metric's name.
+    //
+    // TODO: unify templates to use our expression language when its finalized
     map<string, string> metric_name_template_strings = 6;
 }
