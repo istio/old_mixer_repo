@@ -19,22 +19,24 @@ import (
 	"fmt"
 	"io/ioutil"
 	"text/template"
-	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
 
+	"time"
+
+	"github.com/golang/protobuf/ptypes/duration"
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
 )
 
+const (
+	defaultFlushBytes = 512
+)
+
 type (
-	// builder holds a connection to the statsd server which is shared by all aspects, as well as the parsed
-	// templates for constructing statsd metric names.
 	builder struct {
 		adapter.DefaultBuilder
-		client statsd.Statter
 	}
 
 	aspect struct {
@@ -45,16 +47,10 @@ type (
 )
 
 var (
-	name = "statsd"
-	desc = "Pushes statsd metrics"
-	// conf encodes the default configuration for this adapter
-	conf = &config.Params{
-		Address:                   "localhost:8125",
-		Prefix:                    "",
-		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
-		FlushBytes:                512,
-		SamplingRate:              1.0,
-		MetricNameTemplateStrings: make(map[string]string),
+	name        = "statsd"
+	desc        = "Pushes statsd metrics"
+	defaultConf = &config.Params{
+		FlushDuration: &duration.Duration{Nanos: int32(300 * time.Millisecond)},
 	}
 )
 
@@ -64,22 +60,26 @@ func Register(r adapter.Registrar) {
 }
 
 func newBuilder() *builder {
-	flushDuration, err := ptypes.Duration(conf.FlushDuration)
-	if err != nil {
-		// we panic because we're reading in our static default config
-		panic(fmt.Errorf("failed to parse default duration, %v, as a time.Duration", conf.FlushDuration))
-	}
-
-	client, err := statsd.NewBufferedClient(conf.Address, conf.Prefix, flushDuration, int(conf.FlushBytes))
-	if err != nil {
-		// TODO: something other than panic?
-		panic("failed to construct statsd client with err: " + err.Error())
-	}
-	return &builder{adapter.NewDefaultBuilder(name, desc, conf), client}
+	return &builder{adapter.NewDefaultBuilder(name, desc, defaultConf)}
 }
 
 func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
+
+	flushDuration, err := ptypes.Duration(params.FlushDuration)
+	if err != nil {
+		ce = ce.Append("FlushDuration", fmt.Errorf("could not parse as time.Duration with err: %s", err))
+	}
+
+	if params.SamplingRate < 0 {
+		ce = ce.Append("SamplingRate", fmt.Errorf("sampling rate must be >= 0"))
+	}
+
+	if _, err := statsd.NewBufferedClient(params.Address, params.Prefix, flushDuration, int(params.FlushBytes)); err != nil {
+		// the only part of NewBufferedClient that yields an error is setting up the UDP connection to the statsd collection server
+		// described by params.Address; nothing else can cause the client creation to err.
+		ce = ce.Append("Address", fmt.Errorf("could not construct statsd client with address '%s' and err: %s", params.Address, err))
+	}
 	for metricName, s := range params.MetricNameTemplateStrings {
 		if _, err := template.New(metricName).Parse(s); err != nil {
 			ce = ce.Append("MetricNameTemplateStrings", fmt.Errorf("failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err))
@@ -88,33 +88,36 @@ func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErro
 	return
 }
 
-func (b *builder) Close() error {
-	return b.client.Close()
-}
-
-func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	params := cfg.(*config.Params)
+
+	flushBytes := int(params.FlushBytes)
+	if flushBytes <= 0 {
+		env.Logger().Infof("Got FlushBytes of '%d', defaulting to '%d'", flushBytes, defaultFlushBytes)
+		// the statsd impl we use defaults to 1432 byte UDP packets when flushBytes <= 0; we want to default to 512 so we check ourselves.
+		flushBytes = defaultFlushBytes
+	}
+
+	flushDuration, _ := ptypes.Duration(params.FlushDuration)
+	client, _ := statsd.NewBufferedClient(params.Address, params.Prefix, flushDuration, flushBytes)
+
 	templates := make(map[string]*template.Template)
 	for metricName, s := range params.MetricNameTemplateStrings {
 		def, found := findMetric(metrics, metricName)
 		if !found {
-			continue // we don't have a metric that corresponds to this template, keep on going
+			continue // we don't have a metric that corresponds to this template, skip processing it
 		}
 
-		t, err := template.New(metricName).Parse(s)
-		if err != nil {
-			// we panic here because ValidateConfig should catch any issues before this method is called.
-			panic(fmt.Errorf("failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err))
-		}
-
+		t, _ := template.New(metricName).Parse(s)
 		if err := t.Execute(ioutil.Discard, def.Labels); err != nil {
-			// TODO: alternative is to log a warning and keep processing. the result is that we get the 'wrong' statsd metric name
-			// for this metric when exporting.
-			return nil, fmt.Errorf("unable to satisfy template with labels for metric %s; err: %s", metricName, err)
+			env.Logger().Warningf(
+				"skipping custom statsd metric name for metric '%s', could not satisfy template '%s' with labels '%v' with err: %s",
+				metricName, s, def.Labels, err)
+			continue
 		}
 		templates[metricName] = t
 	}
-	return &aspect{params.SamplingRate, b.client, templates}, nil
+	return &aspect{params.SamplingRate, client, templates}, nil
 }
 
 func (a *aspect) Record(values []adapter.Value) error {
@@ -132,7 +135,8 @@ func (a *aspect) record(value adapter.Value) error {
 	if t, found := a.templates[value.Name]; found {
 		buf := new(bytes.Buffer)
 		if err := t.Execute(buf, value.Labels); err != nil {
-			// TODO: we should be able to verify that this will never happen at config time, should this panic?
+			// TODO: should this panic? this indicates that the value we were given wasn't filled in completely,
+			// since we validate in NewMetricsAspect that all templates are satisfiable with the metric's labels.
 			return fmt.Errorf("failed to create metric name with template '%s' and labels '%v'; got err: %s", t.Name(), value.Labels, err)
 		}
 		name = buf.String()
@@ -156,7 +160,7 @@ func (a *aspect) record(value adapter.Value) error {
 	}
 }
 
-func (*aspect) Close() error { return nil }
+func (a *aspect) Close() error { return a.client.Close() }
 
 func findMetric(metrics []adapter.MetricDefinition, name string) (adapter.MetricDefinition, bool) {
 	for _, m := range metrics {
