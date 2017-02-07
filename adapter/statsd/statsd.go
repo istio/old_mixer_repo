@@ -73,6 +73,9 @@ func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErro
 	if flushDuration < time.Duration(0) {
 		ce = ce.Append("FlushDuration", fmt.Errorf("flush duration must be >= 0"))
 	}
+	if params.FlushBytes < 0 {
+		ce = ce.Append("FlushBytes", fmt.Errorf("flush bytes must be >= 0"))
+	}
 	if params.SamplingRate < 0 {
 		ce = ce.Append("SamplingRate", fmt.Errorf("sampling rate must be >= 0"))
 	}

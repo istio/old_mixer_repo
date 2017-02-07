@@ -51,7 +51,9 @@ func TestValidateConfig(t *testing.T) {
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "MetricNameTemplateStrings"},
 		{&config.Params{Address: "notaurl:notaport"}, "Address"},
 		{&config.Params{FlushDuration: &duration.Duration{Seconds: math.MaxInt64, Nanos: math.MaxInt32}}, "FlushDuration"},
+		{&config.Params{FlushDuration: &duration.Duration{Seconds: -1, Nanos: 0}}, "FlushDuration"},
 		{&config.Params{SamplingRate: -1}, "SamplingRate"},
+		{&config.Params{FlushBytes: -1}, "FlushBytes"},
 	}
 	for idx, c := range cases {
 		b := &builder{}
