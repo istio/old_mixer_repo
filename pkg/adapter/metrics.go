@@ -17,6 +17,8 @@ package adapter
 import (
 	"errors"
 	"time"
+
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 // Metric kinds supported by mixer.
@@ -27,11 +29,12 @@ const (
 
 // Label kinds supported by mixer.
 const (
-	String LabelKind = iota
+	String LabelType = iota
 	Int64
 	Float64
 	Bool
 	Time
+	Duration
 	IPAddress
 	EmailAddress
 	URI
@@ -96,12 +99,12 @@ type (
 		Kind MetricKind
 		// Labels are the names of keys for dimensional data that will
 		// be generated at runtime and passed along with metric values.
-		Labels map[string]LabelKind
+		Labels map[string]LabelType
 	}
 
-	// LabelKind defines the set of known label types that can be generated
+	// LabelType defines the set of known label types that can be generated
 	// by the mixer.
-	LabelKind int
+	LabelType int
 )
 
 // String returns the string-valued metric value for a metrics.Value.
@@ -134,4 +137,44 @@ func (v Value) Float64() (float64, error) {
 		return v, nil
 	}
 	return 0, errors.New("metric value is not a float64")
+}
+
+// FromPbMetricKind translates from MetricDescriptor_MetricKind to Metric Kind.
+func FromPbMetricKind(pbk dpb.MetricDescriptor_MetricKind) MetricKind {
+	switch pbk {
+	case dpb.GAUGE:
+		return Gauge
+	case dpb.COUNTER:
+		return Counter
+	default:
+		return Counter // TODO: unclear what to return in the error case
+	}
+}
+
+// FromPbType translates from ValueType to LabelType.
+func FromPbType(pbk dpb.ValueType) LabelType {
+	switch pbk {
+	case dpb.STRING:
+		return String
+	case dpb.BOOL:
+		return Bool
+	case dpb.INT64:
+		return Int64
+	case dpb.DOUBLE:
+		return Float64
+	case dpb.TIMESTAMP:
+		return Time
+	case dpb.DNS_NAME:
+		return DNSName
+	case dpb.DURATION:
+		return Duration
+	case dpb.EMAIL_ADDRESS:
+		return EmailAddress
+	case dpb.IP_ADDRESS:
+		return IPAddress
+	case dpb.URI:
+		return URI
+	default:
+		return String // TODO: unclear what to return in the error case
+	}
 }
