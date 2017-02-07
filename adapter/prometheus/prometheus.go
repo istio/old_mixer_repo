@@ -39,8 +39,7 @@ type (
 	}
 
 	prom struct {
-		registry *prometheus.Registry
-		metrics  map[string]prometheus.Collector
+		metrics map[string]prometheus.Collector
 	}
 )
 
@@ -65,6 +64,9 @@ func (f *factory) Close() error {
 	return f.srv.Close()
 }
 
+// NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
+// It can panic if there is a failure to register a metric from the list of
+// metric definitions provided.
 func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	var serverErr error
 	f.once.Do(func() { serverErr = f.srv.Start(env.Logger()) })
@@ -72,25 +74,20 @@ func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, me
 		return nil, fmt.Errorf("could not start prometheus server: %v", serverErr)
 	}
 
-	reg := prometheus.NewPedanticRegistry()
 	metricsMap := make(map[string]prometheus.Collector, len(metrics))
 	for _, m := range metrics {
 		switch m.Kind {
 		case adapter.Gauge:
-			g := newGaugeVec(m.Name, m.Description, m.Labels)
-			reg.MustRegister(g)
-			metricsMap[m.Name] = g
+			metricsMap[m.Name] = mustRegisterOrGet(newGaugeVec(m.Name, m.Description, m.Labels))
 		case adapter.Counter:
-			c := newCounterVec(m.Name, m.Description, m.Labels)
-			reg.MustRegister(c)
-			metricsMap[m.Name] = c
+			metricsMap[m.Name] = mustRegisterOrGet(newCounterVec(m.Name, m.Description, m.Labels))
 		default:
 			// TODO: should we return error here, instead of logging?
 			env.Logger().Warningf("unknown metric kind for: %v", m)
 		}
 	}
 
-	return &prom{reg, metricsMap}, nil
+	return &prom{metricsMap}, nil
 }
 
 func (p *prom) Record(vals []adapter.Value) error {
@@ -161,6 +158,19 @@ func labelNames(m map[string]adapter.LabelKind) []string {
 	return keys
 }
 
+// borrowed from prometheus.MustRegisterOrGet. However, that method is
+// targeted for removal soon(tm). So, we duplicate that functionality here
+// to maintain the functionality, as we have a use case for the convenience.
+func mustRegisterOrGet(c prometheus.Collector) prometheus.Collector {
+	if err := prometheus.Register(c); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector
+		}
+		panic(err)
+	}
+	return c
+}
+
 func safeName(n string) string {
 	s := strings.TrimPrefix(n, "/")
 	return charReplacer.Replace(s)
@@ -169,7 +179,7 @@ func safeName(n string) string {
 func promValue(val adapter.Value) (float64, error) {
 	switch i := val.MetricValue.(type) {
 	case float64:
-		return float64(i), nil
+		return i, nil
 	case float32:
 		return float64(i), nil
 	case int64:

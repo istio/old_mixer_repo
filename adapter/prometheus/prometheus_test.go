@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package prometheus
 
 import (
@@ -107,30 +121,6 @@ func TestFactory_NewMetricsAspectServerFail(t *testing.T) {
 	}
 }
 
-func TestFactory_NewMetricsAspectPanic(t *testing.T) {
-	f := newFactory(&testServer{})
-	tests := []struct {
-		name    string
-		metrics []adapter.MetricDefinition
-	}{
-		{"Duplicate Metrics", []adapter.MetricDefinition{gaugeNoLabels, gaugeNoLabels}},
-	}
-
-	for _, v := range tests {
-		t.Run(v.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r == nil {
-					t.Error("NewMetricsAspect() - expected panic, no panic received.")
-				}
-			}()
-
-			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, v.metrics); err != nil {
-				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
-			}
-		})
-	}
-}
-
 func TestProm_Close(t *testing.T) {
 	f := newFactory(&testServer{})
 	prom, _ := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, []adapter.MetricDefinition{})
@@ -148,7 +138,7 @@ func TestProm_Record(t *testing.T) {
 	}{
 		{"Increment Counter", []adapter.MetricDefinition{counter}, []adapter.Value{counterVal}},
 		{"Change Gauge", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{gaugeVal}},
-		{"Counter and Gauge", []adapter.MetricDefinition{counter, gaugeNoLabels}, []adapter.Value{gaugeVal, counterVal}},
+		{"Counter and Gauge", []adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}, []adapter.Value{gaugeVal, newCounterVal(16)}},
 		{"Uint", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint(8))}},
 		{"Uint8", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint8(8))}},
 		{"Uint16", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint16(8))}},
@@ -185,9 +175,15 @@ func TestProm_Record(t *testing.T) {
 				m := new(dto.Metric)
 				switch c.(type) {
 				case *prometheus.CounterVec:
-					c.(*prometheus.CounterVec).With(promLabels(adapterVal.Labels)).Write(m)
+					if err := c.(*prometheus.CounterVec).With(promLabels(adapterVal.Labels)).Write(m); err != nil {
+						t.Errorf("Error writing metric value to proto: %v", err)
+						continue
+					}
 				case *prometheus.GaugeVec:
-					c.(*prometheus.GaugeVec).With(promLabels(adapterVal.Labels)).Write(m)
+					if err := c.(*prometheus.GaugeVec).With(promLabels(adapterVal.Labels)).Write(m); err != nil {
+						t.Errorf("Error writing metric value to proto: %v", err)
+						continue
+					}
 				}
 
 				got := metricValue(m)

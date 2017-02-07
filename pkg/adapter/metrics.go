@@ -72,7 +72,7 @@ type (
 		MetricValue interface{}
 	}
 
-	// Kind defines the set of known metrics types that can be generated
+	// MetricKind defines the set of known metrics types that can be generated
 	// by the mixer.
 	MetricKind int
 
