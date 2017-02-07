@@ -21,8 +21,8 @@ import (
 
 // Metric kinds supported by mixer.
 const (
-	Gauge   Kind = iota // records instantaneous (non-cumulative) measurements
-	Counter             // records increasing cumulative values
+	Gauge   MetricKind = iota // records instantaneous (non-cumulative) measurements
+	Counter                   // records increasing cumulative values
 )
 
 // Label kinds supported by mixer.
@@ -56,7 +56,7 @@ type (
 		// value is being reported.
 		Name string
 		// Kind provides type information on the metric itself
-		Kind Kind // TODO: will this be needed? Will adapters get descriptors ahead of time?
+		Kind MetricKind
 		// Labels provide metadata about the metric value. They are
 		// generated from the set of attributes provided by Report().
 		Labels map[string]interface{}
@@ -69,12 +69,12 @@ type (
 		// will be set to the same value as StartTime.
 		EndTime time.Time
 
-		metricValue interface{}
+		MetricValue interface{}
 	}
 
 	// Kind defines the set of known metrics types that can be generated
 	// by the mixer.
-	Kind int
+	MetricKind int
 
 	// MetricsBuilder builds instances of the Metrics aspect.
 	MetricsBuilder interface {
@@ -89,8 +89,10 @@ type (
 	MetricDefinition struct {
 		// Name is the canonical name of the metric.
 		Name string
+		// Description provides information about this metric.
+		Description string
 		// Kind provides type information about the metric.
-		Kind Kind
+		Kind MetricKind
 		// Labels are the names of keys for dimensional data that will
 		// be generated at runtime and passed along with metric values.
 		Labels map[string]LabelKind
@@ -103,7 +105,7 @@ type (
 
 // String returns the string-valued metric value for a metrics.Value.
 func (v Value) String() (string, error) {
-	if v, ok := v.metricValue.(string); ok {
+	if v, ok := v.MetricValue.(string); ok {
 		return v, nil
 	}
 	return "", errors.New("metric value is not a string")
@@ -111,7 +113,7 @@ func (v Value) String() (string, error) {
 
 // Bool returns the boolean metric value for a metrics.Value.
 func (v Value) Bool() (bool, error) {
-	if v, ok := v.metricValue.(bool); ok {
+	if v, ok := v.MetricValue.(bool); ok {
 		return v, nil
 	}
 	return false, errors.New("metric value is not a boolean")
@@ -119,7 +121,7 @@ func (v Value) Bool() (bool, error) {
 
 // Int64 returns the int64-valued metric value for a metrics.Value.
 func (v Value) Int64() (int64, error) {
-	if v, ok := v.metricValue.(int64); ok {
+	if v, ok := v.MetricValue.(int64); ok {
 		return v, nil
 	}
 	return 0, errors.New("metric value is not an int64")
@@ -127,7 +129,7 @@ func (v Value) Int64() (int64, error) {
 
 // Float64 returns the float64-valued metric value for a metrics.Value.
 func (v Value) Float64() (float64, error) {
-	if v, ok := v.metricValue.(float64); ok {
+	if v, ok := v.MetricValue.(float64); ok {
 		return v, nil
 	}
 	return 0, errors.New("metric value is not a float64")
