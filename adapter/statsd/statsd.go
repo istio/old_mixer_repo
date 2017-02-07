@@ -18,13 +18,15 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"text/template"
 	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/golang/protobuf/ptypes"
-
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
 )
@@ -64,20 +66,18 @@ func newBuilder() *builder {
 
 func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
-
 	flushDuration, err := ptypes.Duration(params.FlushDuration)
 	if err != nil {
-		ce = ce.Append("FlushDuration", fmt.Errorf("could not parse as time.Duration with err: %s", err))
+		ce = ce.Append("FlushDuration", err)
 	}
-
+	if flushDuration < time.Duration(0) {
+		ce = ce.Append("FlushDuration", fmt.Errorf("flush duration must be >= 0"))
+	}
 	if params.SamplingRate < 0 {
 		ce = ce.Append("SamplingRate", fmt.Errorf("sampling rate must be >= 0"))
 	}
-
-	if _, err := statsd.NewBufferedClient(params.Address, params.Prefix, flushDuration, int(params.FlushBytes)); err != nil {
-		// the only part of NewBufferedClient that yields an error is setting up the UDP connection to the statsd collection server
-		// described by params.Address; nothing else can cause the client creation to err.
-		ce = ce.Append("Address", fmt.Errorf("could not construct statsd client with address '%s' and err: %s", params.Address, err))
+	if _, err := net.ResolveUDPAddr("udp", params.Address); err != nil {
+		ce = ce.Append("Address", fmt.Errorf("could not resolve address '%s' with err: %s", params.Address, err))
 	}
 	for metricName, s := range params.MetricNameTemplateStrings {
 		if _, err := template.New(metricName).Parse(s); err != nil {
@@ -104,6 +104,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metr
 	for metricName, s := range params.MetricNameTemplateStrings {
 		def, found := findMetric(metrics, metricName)
 		if !found {
+			env.Logger().Infof("template registered for nonexistent metric '%s'", metricName)
 			continue // we don't have a metric that corresponds to this template, skip processing it
 		}
 
@@ -120,13 +121,13 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metr
 }
 
 func (a *aspect) Record(values []adapter.Value) error {
+	var result *multierror.Error
 	for _, v := range values {
 		if err := a.record(v); err != nil {
-			// TODO: should we keep track of all of the errors and return a composite, rather than aborting at the first problem?
-			return err
+			result = multierror.Append(result, err)
 		}
 	}
-	return nil
+	return result.ErrorOrNil()
 }
 
 func (a *aspect) record(value adapter.Value) error {
@@ -134,9 +135,7 @@ func (a *aspect) record(value adapter.Value) error {
 	if t, found := a.templates[value.Name]; found {
 		buf := new(bytes.Buffer)
 		if err := t.Execute(buf, value.Labels); err != nil {
-			// TODO: should this panic? this indicates that the value we were given wasn't filled in completely,
-			// since we validate in NewMetricsAspect that all templates are satisfiable with the metric's labels.
-			return fmt.Errorf("failed to create metric name with template '%s' and labels '%v'; got err: %s", t.Name(), value.Labels, err)
+			panic(fmt.Errorf("failed to create metric name with template '%s' and labels '%v'; got err: %s", t.Name(), value.Labels, err))
 		}
 		name = buf.String()
 	}
