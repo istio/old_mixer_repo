@@ -138,8 +138,8 @@ func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, re
 // Quota performs 'quota' function corresponding to the mixer api.
 func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
-	status := h.execute(ctx, tracker, request.AttributeUpdate, config.QuotaMethod)
-	response.Result = newStatus(code.Code(status.Code))
+	//	status := h.execute(ctx, tracker, request.AttributeUpdate, config.QuotaMethod)
+	//	response.Result = newStatus(code.Code(status.Code))
 }
 
 func newStatus(c code.Code) *status.Status {

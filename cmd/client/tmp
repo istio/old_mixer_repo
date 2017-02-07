@@ -1,0 +1,24 @@
+
+		istio_mixer_v1.Attributes{Dictionary:map[int32]string{6:"g", 17:"r", 19:"t", 0:"a", 1:"b", 2:"ccc", 11:"l", 12:"m", 13:"nnn", 14:"o", 15:"p", 21:"v", 4:"e", 7:"hhh", 8:"i", 9:"j", 10:"kkk", 18:"s", 20:"u", 3:"d", 5:"f", 16:"q", 22:"w", 23:"x"},
+		AttributeContext:0,
+		ResetContext:false,
+		StringAttributes:map[int32]string{0:"X", 1:"Y", 2:"XYZ", 3:"X Z", 4:"X", 18:"XYZ"},
+		Int64Attributes:map[int32]int64{5:1, 6:2, 7:345, 19:2},
+		DoubleAttributes:map[int32]float64{9:2, 10:345.678, 8:1, 20:3},
+		BoolAttributes:map[int32]bool{13:true, 11:true, 12:false, 21:true},
+		TimestampAttributes:map[int32]*timestamp.Timestamp{22:(*timestamp.Timestamp)(0xc420128f90), 14:(*timestamp.Timestamp)(0xc420128e70)},
+		DurationAttributes:map[int32]*duration.Duration{15:(*duration.Duration)(0xc420128e90)},
+		BytesAttributes:map[int32][]uint8{16:[]uint8{0x1}, 17:[]uint8{0x34, 0x56}, 23:[]uint8{0x98, 0x76}},
+		DeletedAttributes:[]int32(nil)}
+
+		istio_mixer_v1.Attributes{Dictionary:map[int32]string{16:"q", 19:"t", 1:"b", 5:"f", 6:"g", 10:"kkk", 12:"m", 14:"o", 15:"p", 0:"a", 3:"d", 8:"i", 11:"l", 17:"r", 23:"x", 20:"u", 21:"v", 2:"ccc", 4:"e", 7:"hhh", 9:"j", 13:"nnn", 18:"s", 22:"w"},
+		 AttributeContext:0,
+		 ResetContext:false,
+		 StringAttributes:map[int32]string{2:"XYZ", 3:"X Z", 4:"X", 18:"XYZ", 0:"X", 1:"Y"},
+		 Int64Attributes:map[int32]int64{5:1, 6:2, 7:345, 19:2},
+		 DoubleAttributes:map[int32]float64{8:1, 9:2, 10:345.678, 20:3},
+		 BoolAttributes:map[int32]bool{12:false, 13:true, 21:true, 11:true},
+		 TimestampAttributes:map[int32]*timestamp.Timestamp{14:(*timestamp.Timestamp)(0xc420128db0), 22:(*timestamp.Timestamp)(0xc420128db0)},
+		 DurationAttributes:map[int32]*duration.Duration{15:(*duration.Duration)(0xc420128dc0)},
+		 BytesAttributes:map[int32][]uint8{16:[]uint8{0x1}, 17:[]uint8{0x34, 0x56}, 23:[]uint8{0x98, 0x76}},
+		 DeletedAttributes:[]int32(nil)}
