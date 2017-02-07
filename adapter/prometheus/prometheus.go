@@ -74,20 +74,29 @@ func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, me
 		return nil, fmt.Errorf("could not start prometheus server: %v", serverErr)
 	}
 
+	var metricErr *multierror.Error
+
 	metricsMap := make(map[string]prometheus.Collector, len(metrics))
 	for _, m := range metrics {
 		switch m.Kind {
 		case adapter.Gauge:
-			metricsMap[m.Name] = mustRegisterOrGet(newGaugeVec(m.Name, m.Description, m.Labels))
+			c, err := registerOrGet(newGaugeVec(m.Name, m.Description, m.Labels))
+			if err != nil {
+				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
+			}
+			metricsMap[m.Name] = c
 		case adapter.Counter:
-			metricsMap[m.Name] = mustRegisterOrGet(newCounterVec(m.Name, m.Description, m.Labels))
+			c, err := registerOrGet(newCounterVec(m.Name, m.Description, m.Labels))
+			if err != nil {
+				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
+			}
+			metricsMap[m.Name] = c
 		default:
-			// TODO: should we return error here, instead of logging?
-			env.Logger().Warningf("unknown metric kind for: %v", m)
+			metricErr = multierror.Append(metricErr, fmt.Errorf("unknown metric kind (%d); could not register metric", m.Kind))
 		}
 	}
 
-	return &prom{metricsMap}, nil
+	return &prom{metricsMap}, metricErr.ErrorOrNil()
 }
 
 func (p *prom) Record(vals []adapter.Value) error {
@@ -161,14 +170,14 @@ func labelNames(m map[string]adapter.LabelKind) []string {
 // borrowed from prometheus.MustRegisterOrGet. However, that method is
 // targeted for removal soon(tm). So, we duplicate that functionality here
 // to maintain the functionality, as we have a use case for the convenience.
-func mustRegisterOrGet(c prometheus.Collector) prometheus.Collector {
+func registerOrGet(c prometheus.Collector) (prometheus.Collector, error) {
 	if err := prometheus.Register(c); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-			return are.ExistingCollector
+			return are.ExistingCollector, nil
 		}
-		panic(err)
+		return nil, err
 	}
-	return c
+	return c, nil
 }
 
 func safeName(n string) string {
@@ -180,27 +189,7 @@ func promValue(val adapter.Value) (float64, error) {
 	switch i := val.MetricValue.(type) {
 	case float64:
 		return i, nil
-	case float32:
-		return float64(i), nil
 	case int64:
-		return float64(i), nil
-	case int32:
-		return float64(i), nil
-	case int16:
-		return float64(i), nil
-	case int8:
-		return float64(i), nil
-	case uint64:
-		return float64(i), nil
-	case uint32:
-		return float64(i), nil
-	case uint16:
-		return float64(i), nil
-	case uint8:
-		return float64(i), nil
-	case int:
-		return float64(i), nil
-	case uint:
 		return float64(i), nil
 	case string:
 		f, err := strconv.ParseFloat(i, 64)

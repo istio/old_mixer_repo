@@ -102,7 +102,6 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 		{"One Counter", []adapter.MetricDefinition{counterNoLabels}},
 		{"Multiple Metrics", []adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}},
 		{"With Labels", []adapter.MetricDefinition{counter}},
-		{"Unknown Metric MetricKind", []adapter.MetricDefinition{unknown}},
 	}
 
 	for _, v := range tests {
@@ -118,6 +117,45 @@ func TestFactory_NewMetricsAspectServerFail(t *testing.T) {
 	f := newFactory(&testServer{errOnStart: true})
 	if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, []adapter.MetricDefinition{}); err == nil {
 		t.Error("NewMetricsAspect() => expected error on server startup")
+	}
+}
+
+func TestFactory_NewMetricsAspectMetricDefinitionErrors(t *testing.T) {
+	f := newFactory(&testServer{})
+
+	gaugeWithLabels := adapter.MetricDefinition{
+		Name:        "/funky_gauge",
+		Description: "funky all the time",
+		Kind:        adapter.Gauge,
+		Labels: map[string]adapter.LabelKind{
+			"test": adapter.String,
+		},
+	}
+
+	altCounter := adapter.MetricDefinition{
+		Name:        "special_counter",
+		Description: "count all the special tests",
+		Kind:        adapter.Counter,
+		Labels: map[string]adapter.LabelKind{
+			"email": adapter.EmailAddress,
+		},
+	}
+
+	tests := []struct {
+		name    string
+		metrics []adapter.MetricDefinition
+	}{
+		{"Gauge Definition Conflicts", []adapter.MetricDefinition{gaugeNoLabels, gaugeWithLabels}},
+		{"Gauge Definition Conflicts", []adapter.MetricDefinition{counter, altCounter}},
+		{"Unknown Metric MetricKind", []adapter.MetricDefinition{unknown}},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, v.metrics); err == nil {
+				t.Error("NewMetricsAspect() => expected error during metrics registration")
+			}
+		})
 	}
 }
 
@@ -138,18 +176,8 @@ func TestProm_Record(t *testing.T) {
 	}{
 		{"Increment Counter", []adapter.MetricDefinition{counter}, []adapter.Value{counterVal}},
 		{"Change Gauge", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{gaugeVal}},
-		{"Counter and Gauge", []adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}, []adapter.Value{gaugeVal, newCounterVal(16)}},
-		{"Uint", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint(8))}},
-		{"Uint8", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint8(8))}},
-		{"Uint16", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint16(8))}},
-		{"Uint32", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint32(8))}},
-		{"Uint64", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(uint64(8))}},
-		{"Int", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int(8))}},
-		{"Int8", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int8(8))}},
-		{"Int16", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int16(8))}},
-		{"Int32", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int32(8))}},
+		{"Counter and Gauge", []adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}, []adapter.Value{gaugeVal, newCounterVal(float64(16))}},
 		{"Int64", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int64(8))}},
-		{"Float32", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(float32(8))}},
 		{"String", []adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal("8.243543")}},
 	}
 
