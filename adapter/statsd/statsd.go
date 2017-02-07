@@ -51,7 +51,12 @@ var (
 	name        = "statsd"
 	desc        = "Pushes statsd metrics"
 	defaultConf = &config.Params{
-		FlushDuration: &duration.Duration{Nanos: int32(300 * time.Millisecond)},
+		Address:                   "localhost:8125",
+		Prefix:                    "",
+		FlushDuration:             &duration.Duration{Nanos: int32(300 * time.Millisecond)},
+		FlushBytes:                512,
+		SamplingRate:              1.0,
+		MetricNameTemplateStrings: make(map[string]string),
 	}
 )
 
