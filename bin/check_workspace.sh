@@ -18,7 +18,8 @@ ret=$?
 # found a commit line with no comment
 if [[ $ret -eq 0 ]];then
 	cat $TMPFILE
-	echo "Missing comment"
+	echo "Missing comment on dependency"
+	echo "https://github.com/istio/mixer/blob/master/doc/devel/development.md#adding-dependencies"
 	exit 1
 fi
 
