@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net"
+	"sync"
 	"text/template"
 	"time"
 
@@ -60,6 +60,12 @@ var (
 	}
 )
 
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
 	r.RegisterMetricsBuilder(newBuilder())
@@ -76,20 +82,17 @@ func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErro
 		ce = ce.Append("FlushDuration", err)
 	}
 	if flushDuration < time.Duration(0) {
-		ce = ce.Append("FlushDuration", fmt.Errorf("flush duration must be >= 0"))
+		ce = ce.Appendf("FlushDuration", "flush duration must be >= 0")
 	}
 	if params.FlushBytes < 0 {
-		ce = ce.Append("FlushBytes", fmt.Errorf("flush bytes must be >= 0"))
+		ce = ce.Appendf("FlushBytes", "flush bytes must be >= 0")
 	}
 	if params.SamplingRate < 0 {
-		ce = ce.Append("SamplingRate", fmt.Errorf("sampling rate must be >= 0"))
-	}
-	if _, err := net.ResolveUDPAddr("udp", params.Address); err != nil {
-		ce = ce.Append("Address", fmt.Errorf("could not resolve address '%s' with err: %s", params.Address, err))
+		ce = ce.Appendf("SamplingRate", "sampling rate must be >= 0")
 	}
 	for metricName, s := range params.MetricNameTemplateStrings {
 		if _, err := template.New(metricName).Parse(s); err != nil {
-			ce = ce.Append("MetricNameTemplateStrings", fmt.Errorf("failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err))
+			ce = ce.Appendf("MetricNameTemplateStrings", "failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err)
 		}
 	}
 	return
@@ -141,11 +144,16 @@ func (a *aspect) Record(values []adapter.Value) error {
 func (a *aspect) record(value adapter.Value) error {
 	name := value.Name
 	if t, found := a.templates[value.Name]; found {
-		buf := new(bytes.Buffer)
-		if err := t.Execute(buf, value.Labels); err != nil {
-			panic(fmt.Errorf("failed to create metric name with template '%s' and labels '%v'; got err: %s", t.Name(), value.Labels, err))
-		}
+		buf := bufferPool.Get().(*bytes.Buffer)
+
+		// We don't check the error here because Execute should only fail when the template is invalid; since
+		// we check that the templates are parsable in ValidateConfig and further check that they can be executed
+		// with the metric's labels in NewMetricsAspect, this should never fail.
+		_ = t.Execute(buf, value.Labels)
 		name = buf.String()
+
+		buf.Reset()
+		bufferPool.Put(buf)
 	}
 
 	switch value.Kind {
