@@ -23,8 +23,7 @@ import (
 	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/mixer/adapter/statsd/config"
@@ -53,7 +52,7 @@ var (
 	defaultConf = &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushDuration:             &duration.Duration{Nanos: int32(300 * time.Millisecond)},
+		FlushDuration:             &types.Duration{Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:                512,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: make(map[string]string),
@@ -77,7 +76,7 @@ func newBuilder() *builder {
 
 func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
-	flushDuration, err := ptypes.Duration(params.FlushDuration)
+	flushDuration, err := types.DurationFromProto(params.FlushDuration)
 	if err != nil {
 		ce = ce.Append("FlushDuration", err)
 	}
@@ -108,7 +107,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metr
 		flushBytes = defaultFlushBytes
 	}
 
-	flushDuration, _ := ptypes.Duration(params.FlushDuration)
+	flushDuration, _ := types.DurationFromProto(params.FlushDuration)
 	client, _ := statsd.NewBufferedClient(params.Address, params.Prefix, flushDuration, flushBytes)
 
 	templates := make(map[string]*template.Template)

@@ -22,8 +22,8 @@ import (
 
 	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/cactus/go-statsd-client/statsd/statsdtest"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
@@ -49,8 +49,8 @@ func TestValidateConfig(t *testing.T) {
 		{&config.Params{}, ""},
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"a": `{{.apiMethod}}-{{.responseCode}}`}}, ""},
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "MetricNameTemplateStrings"},
-		{&config.Params{FlushDuration: &duration.Duration{Seconds: math.MaxInt64, Nanos: math.MaxInt32}}, "FlushDuration"},
-		{&config.Params{FlushDuration: &duration.Duration{Seconds: -1, Nanos: 0}}, "FlushDuration"},
+		{&config.Params{FlushDuration: &types.Duration{Seconds: math.MaxInt64, Nanos: math.MaxInt32}}, "FlushDuration"},
+		{&config.Params{FlushDuration: &types.Duration{Seconds: -1, Nanos: 0}}, "FlushDuration"},
 		{&config.Params{SamplingRate: -1}, "SamplingRate"},
 		{&config.Params{FlushBytes: -1}, "FlushBytes"},
 	}
@@ -70,7 +70,7 @@ func TestNewMetricsAspect(t *testing.T) {
 	conf := &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration:             &types.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:                -1,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: map[string]string{"a": `{{(.apiMethod) "-" (.responseCode)}}`},
@@ -98,7 +98,7 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 	conf := &config.Params{
 		Address:       "localhost:8125",
 		Prefix:        "",
-		FlushDuration: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration: &types.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:    512,
 		SamplingRate:  1.0,
 		MetricNameTemplateStrings: map[string]string{
@@ -134,7 +134,7 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 	conf := &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushDuration:             &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration:             &types.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:                512,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`},
@@ -158,7 +158,7 @@ func TestRecord(t *testing.T) {
 	conf := &config.Params{
 		Address:       "localhost:8125",
 		Prefix:        "",
-		FlushDuration: &duration.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
+		FlushDuration: &types.Duration{Seconds: 0, Nanos: int32(300 * time.Millisecond)},
 		FlushBytes:    512,
 		SamplingRate:  1.0,
 		MetricNameTemplateStrings: map[string]string{

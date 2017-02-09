@@ -11,8 +11,7 @@ go_library(
         "//adapter/statsd/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "@com_github_cactus_statsd_client//statsd:go_default_library",
-        "@com_github_golang_protobuf//ptypes:go_default_library",
-        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
 )
@@ -26,6 +25,6 @@ go_test(
         "//pkg/adapter/test:go_default_library",
         "@com_github_cactus_statsd_client//statsd/statsdtest:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
