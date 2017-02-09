@@ -10,6 +10,7 @@ go_library(
     deps = [
         "//adapter/ipListChecker/config:go_default_library",
         "//pkg/adapter:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
     ],
 )

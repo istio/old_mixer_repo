@@ -12,7 +12,7 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a", # Nov 28 2016 (importmap support for gogo_proto_library)
+    commit = "52c843147b50e0f6d7a7d5bb261410e5097f19d3", # Feb 06 2017 (gogo* support)
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
@@ -50,13 +50,16 @@ package(default_visibility = ["//visibility:public"])
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 go_prefix("github.com/googleapis/googleapis")
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 
-gogo_proto_library(
-    name = "go_status_proto",
+gogoslick_proto_library(
+    name = "google/rpc",
     protos = [
         "google/rpc/status.proto",
     ],
+    importmap = {
+        "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
+    },
     imports = [
         "../../external/com_github_google_protobuf/src",
     ],
@@ -64,7 +67,7 @@ gogo_proto_library(
         "@com_github_google_protobuf//:well_known_protos",
     ],
     deps = [
-        "@com_github_golang_protobuf//ptypes/any:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
     ],
     verbose = 0,
 )
@@ -155,7 +158,7 @@ new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
     path = "../api",
-    commit = "7917b2d041a9ef931e242ae58caa584158eb4cf3", # Jan 31, 2017 (no releases)
+    commit = "2df567af4b8cf0727c59f48cf81d3268fe7ad628", # Feb 7, 2017 (no releases)
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
     use_local = False,
@@ -203,4 +206,10 @@ new_go_repository(
     name = "com_github_prometheus_client_model",
     commit = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6", # Feb 12, 2015 (only release too old)
     importpath = "github.com/prometheus/client_model",
+)
+
+new_go_repository(
+    name = "com_github_cactus_statsd_client",
+    commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d", # release 3.1.0, 5/30/2016
+    importpath = "github.com/cactus/go-statsd-client",
 )

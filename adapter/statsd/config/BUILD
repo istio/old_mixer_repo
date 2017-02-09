@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 
 gogoslick_proto_library(
@@ -17,8 +15,9 @@ gogoslick_proto_library(
         "config.proto",
     ],
     verbose = 0,
-    visibility = ["//adapter/ipListChecker:__pkg__"],
+    visibility = ["//adapter/statsd:__pkg__"],
     deps = [
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )

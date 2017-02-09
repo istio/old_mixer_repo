@@ -21,11 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"google.golang.org/grpc"
-
+	ptypes "github.com/gogo/protobuf/types"
 	bt "github.com/opentracing/basictracer-go"
+	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/tracing"
@@ -78,6 +76,15 @@ func parseTime(s string) (interface{}, error) {
 	}
 
 	return ptypes.TimestampProto(time)
+}
+
+func parseDuration(s string) (interface{}, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return ptypes.DurationProto(d), nil
 }
 
 func parseBytes(s string) (interface{}, error) {
@@ -133,7 +140,8 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	attrs.Int64Attributes = make(map[int32]int64)
 	attrs.DoubleAttributes = make(map[int32]float64)
 	attrs.BoolAttributes = make(map[int32]bool)
-	attrs.TimestampAttributes = make(map[int32]*timestamp.Timestamp)
+	attrs.TimestampAttributes = make(map[int32]*ptypes.Timestamp)
+	attrs.DurationAttributes = make(map[int32]*ptypes.Duration)
 	attrs.BytesAttributes = make(map[int32][]uint8)
 
 	// the following boilerplate would be more succinct with generics...
@@ -173,7 +181,14 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 		return nil, err
 	}
 	for k, v := range m {
-		attrs.TimestampAttributes[k] = v.(*timestamp.Timestamp)
+		attrs.TimestampAttributes[k] = v.(*ptypes.Timestamp)
+	}
+
+	if m, err = process(attrs.Dictionary, rootArgs.durationAttributes, parseDuration); err != nil {
+		return nil, err
+	}
+	for k, v := range m {
+		attrs.DurationAttributes[k] = v.(*ptypes.Duration)
 	}
 
 	if m, err = process(attrs.Dictionary, rootArgs.bytesAttributes, parseBytes); err != nil {
@@ -189,7 +204,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	for k, v := range m {
 		s := v.(string)
 
-		// auto-sense the type of attributes based on being to parse the value
+		// auto-sense the type of attributes based on being able to parse the value
 		if val, err := parseInt64(s); err == nil {
 			attrs.Int64Attributes[k] = val.(int64)
 		} else if val, err := parseFloat64(s); err == nil {
@@ -197,7 +212,9 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 		} else if val, err := parseBool(s); err == nil {
 			attrs.BoolAttributes[k] = val.(bool)
 		} else if val, err := parseTime(s); err == nil {
-			attrs.TimestampAttributes[k] = val.(*timestamp.Timestamp)
+			attrs.TimestampAttributes[k] = val.(*ptypes.Timestamp)
+		} else if val, err := parseDuration(s); err == nil {
+			attrs.DurationAttributes[k] = val.(*ptypes.Duration)
 		} else if val, err := parseBytes(s); err == nil {
 			attrs.BytesAttributes[k] = val.([]uint8)
 		} else {

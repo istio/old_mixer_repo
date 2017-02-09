@@ -17,17 +17,16 @@ package aspect
 import (
 	"strconv"
 	"sync/atomic"
-	"time"
 
+	ptypes "github.com/gogo/protobuf/types"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 type (
@@ -53,17 +52,19 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 	// TODO: get this from config
 	desc := []dpb.QuotaDescriptor{
 		{
-			Name:              "RequestCount",
-			MaxAmount:         5,
-			ExpirationSeconds: 1,
+			Name:       "RequestCount",
+			MaxAmount:  5,
+			Expiration: &ptypes.Duration{Seconds: 1},
 		},
 	}
 
 	defs := make(map[string]*adapter.QuotaDefinition)
 	for _, d := range desc {
+		dur, _ := ptypes.DurationFromProto(d.Expiration)
+
 		defs[d.Name] = &adapter.QuotaDefinition{
 			MaxAmount: d.MaxAmount,
-			Window:    time.Duration(d.ExpirationSeconds) * time.Second,
+			Window:    dur,
 		}
 	}
 
@@ -120,11 +121,9 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Ou
 
 func prepQuotaArgs(attrs attribute.Bag, d *dpb.QuotaDescriptor,
 	dedupID string, labels map[string]interface{}) adapter.QuotaArgs {
-	amount, ok := attrs.Int64(d.AmountAttribute)
-	if !ok {
-		// TODO: for now, assume no one passed in the amount
-		amount = 1
-	}
+
+	// TODO: for now, assume no one passed in the amount
+	amount := int64(1)
 
 	qa := adapter.QuotaArgs{
 		Name:            d.Name,
@@ -133,16 +132,17 @@ func prepQuotaArgs(attrs attribute.Bag, d *dpb.QuotaDescriptor,
 		DeduplicationID: dedupID,
 	}
 
-	for _, a := range d.Attributes {
-		if val, ok := labels[a]; ok {
-			qa.Labels[a] = val
-			continue
+	/*
+		for _, a := range d.Labels {
+			if val, ok := labels[a]; ok {
+				qa.Labels[a] = val
+				continue
+			}
+			if val, found := attribute.Value(attrs, a); found {
+				qa.Labels[a] = val
+			}
 		}
-		if val, found := attribute.Value(attrs, a); found {
-			qa.Labels[a] = val
-		}
-	}
-
+	*/
 	return qa
 }
 
