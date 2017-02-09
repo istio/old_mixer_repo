@@ -63,14 +63,14 @@ func listAspects() error {
 
 	keys := []string{}
 	for kind := range aspectMap {
-		keys = append(keys, kind)
+		keys = append(keys, aspect.KindNames[kind])
 	}
 
 	sort.Strings(keys)
 
 	for _, kind := range keys {
 		fmt.Printf("aspect %s\n", kind)
-		printConfigValidator(aspectMap[kind])
+		printConfigValidator(aspectMap[aspect.NamedKinds[kind]])
 	}
 	return nil
 }
@@ -79,13 +79,13 @@ func listBuilders() error {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
 	kinds := []string{}
 	for k := range builderMap {
-		kinds = append(kinds, k)
+		kinds = append(kinds, aspect.KindNames[k])
 	}
 
 	sort.Strings(kinds)
 
 	for _, kind := range kinds {
-		m := builderMap[kind]
+		m := builderMap[aspect.NamedKinds[kind]]
 
 		keys := []string{}
 		for impl := range m {

@@ -68,10 +68,7 @@ type (
 	// Validated store validated configuration.
 	// It has been validated as internally consistent and correct.
 	Validated struct {
-		// Names are given to specific adapter configurations: unique
 		adapterByName map[string]*pb.Adapter
-		// This is more often used to match adapters
-		adapterByKind map[string][]*pb.Adapter
 		serviceConfig *pb.ServiceConfig
 		numAspects    int
 	}
@@ -86,27 +83,15 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 		ce = ce.Append("AdapterConfig", err)
 		return
 	}
-	p.validated.adapterByKind = make(map[string][]*pb.Adapter)
 	p.validated.adapterByName = make(map[string]*pb.Adapter)
 	var acfg adapter.AspectConfig
-	var aArr []*pb.Adapter
-	var found bool
 	for _, aa := range m.GetAdapters() {
 		if acfg, err = ConvertParams(p.adapterFinder, aa.Kind, aa.Impl, aa.Params, p.strict); err != nil {
 			ce = ce.Append("Adapter: "+aa.Impl, err)
 			continue
 		}
 		aa.Params = acfg
-
-		if aArr, found = p.validated.adapterByKind[aa.GetKind()]; !found {
-			aArr = []*pb.Adapter{}
-		}
-		aArr = append(aArr, aa)
-		p.validated.adapterByKind[aa.GetKind()] = aArr
-		if aa.GetName() != "" {
-			p.validated.adapterByName[aa.GetName()] = aa
-		}
-
+		p.validated.adapterByName[aa.Name] = aa
 	}
 	return
 }
@@ -131,7 +116,7 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		}
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
-			if acfg, err = ConvertParams(p.managerFinder, "", aa.GetKind(), aa.GetParams(), p.strict); err != nil {
+			if acfg, err = ConvertParams(p.managerFinder, "", aa.Kind, aa.GetParams(), p.strict); err != nil {
 				ce = ce.Append(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), err)
 				continue
 			}
@@ -139,10 +124,7 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 			p.validated.numAspects++
 			if validatePresence {
 				// ensure that aa.Kind has a registered adapter
-				if p.validated.adapterByKind[aa.GetKind()] == nil {
-					ce = ce.Appendf("Kind", "adapter for Kind=%s is not available", aa.GetKind())
-				}
-				if aa.GetAdapter() != "" && p.validated.adapterByName[aa.GetAdapter()] == nil {
+				if aa.Adapter != "" && p.validated.adapterByName[aa.Adapter] == nil {
 					ce = ce.Appendf("NamedAdapter", "adapter by name %s not available", aa.GetAdapter())
 				}
 			}

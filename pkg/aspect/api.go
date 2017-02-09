@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package aspect
 
 // APIMethod constants are used to refer to the methods handled by api.Handler
 type APIMethod int
