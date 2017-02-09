@@ -65,8 +65,6 @@ func (f *factory) Close() error {
 }
 
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
-// It can panic if there is a failure to register a metric from the list of
-// metric definitions provided.
 func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	var serverErr error
 	f.once.Do(func() { serverErr = f.srv.Start(env.Logger()) })
@@ -83,12 +81,14 @@ func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, me
 			c, err := registerOrGet(newGaugeVec(m.Name, m.Description, m.Labels))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
+				continue
 			}
 			metricsMap[m.Name] = c
 		case adapter.Counter:
 			c, err := registerOrGet(newCounterVec(m.Name, m.Description, m.Labels))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
+				continue
 			}
 			metricsMap[m.Name] = c
 		default:
@@ -167,9 +167,9 @@ func labelNames(m map[string]adapter.LabelKind) []string {
 	return keys
 }
 
-// borrowed from prometheus.MustRegisterOrGet. However, that method is
+// borrowed from prometheus.RegisterOrGet. However, that method is
 // targeted for removal soon(tm). So, we duplicate that functionality here
-// to maintain the functionality, as we have a use case for the convenience.
+// to maintain it long-term, as we have a use case for the convenience.
 func registerOrGet(c prometheus.Collector) (prometheus.Collector, error) {
 	if err := prometheus.Register(c); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {

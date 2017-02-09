@@ -41,7 +41,7 @@ func (t testServer) Start(adapter.Logger) error {
 
 var (
 	gaugeNoLabels = adapter.MetricDefinition{
-		Name:        "/funky_gauge",
+		Name:        "/funky::gauge",
 		Description: "funky all the time",
 		Kind:        adapter.Gauge,
 		Labels:      map[string]adapter.LabelKind{},
@@ -124,7 +124,7 @@ func TestFactory_NewMetricsAspectMetricDefinitionErrors(t *testing.T) {
 	f := newFactory(&testServer{})
 
 	gaugeWithLabels := adapter.MetricDefinition{
-		Name:        "/funky_gauge",
+		Name:        "/funky::gauge",
 		Description: "funky all the time",
 		Kind:        adapter.Gauge,
 		Labels: map[string]adapter.LabelKind{
