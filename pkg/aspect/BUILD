@@ -40,10 +40,12 @@ go_test(
         "applicationLogsManager_test.go",
         "denialsManager_test.go",
         "listsManager_test.go",
+        "metricsManager_test.go",
         "quotasManager_test.go",
     ],
     library = ":go_default_library",
     deps = [
+        "//pkg/adapter/test:go_default_library",
         "//pkg/aspect/test:go_default_library",
     ],
 )
