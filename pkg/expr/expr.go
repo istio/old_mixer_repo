@@ -63,6 +63,8 @@ var tMap = map[token.Token]string{
 	token.NEQ: "NEQ",
 	token.LEQ: "LEQ",
 	token.GEQ: "GEQ",
+
+	token.LBRACK: "INDEX",
 }
 
 var typeMap = map[token.Token]config.ValueType{
@@ -236,6 +238,7 @@ func process(ex ast.Expr, tgt *Expression, err *list.List) {
 			err.PushBack(cErr)
 		}
 	case *ast.Ident:
+		// true and false
 		tgt.Var = &Variable{Name: v.Name}
 	case *ast.SelectorExpr:
 		// for selectorExpr length is guaranteed to be at least 2.
@@ -247,6 +250,9 @@ func process(ex ast.Expr, tgt *Expression, err *list.List) {
 			ww.WriteString("." + w[idx])
 		}
 		tgt.Var = &Variable{Name: ww.String()}
+	case *ast.IndexExpr:
+		tgt.Fn = &Function{Name: tMap[token.LBRACK]}
+		processFunc(tgt.Fn, []ast.Expr{v.X, v.Index}, err)
 	default:
 		err.PushBack(fmt.Errorf("unexpected expression: %#v", v))
 	}

@@ -156,14 +156,14 @@ func (f *lOr) Call(args []interface{}) interface{} {
 	return args[0].(bool) || args[1].(bool)
 }
 
-//
-type nonboolOr struct {
+// applies to non bools.
+type or struct {
 	*baseFunc
 }
 
 // selects first non empty string.
 func newORFunc() Func {
-	return &nonboolOr{
+	return &or{
 		baseFunc: &baseFunc{
 			name:     "OR",
 			retType:  config.VALUE_TYPE_UNSPECIFIED,
@@ -174,7 +174,7 @@ func newORFunc() Func {
 }
 
 // Call selects first non empty string
-func (f *nonboolOr) Call(args []interface{}) interface{} {
+func (f *or) Call(args []interface{}) interface{} {
 	if args[0] == nil {
 		return args[1]
 	}
@@ -185,6 +185,34 @@ func (f *nonboolOr) Call(args []interface{}) interface{} {
 	return args[1]
 }
 
+// func (Value) MapIndex
+type indexF struct {
+	*baseFunc
+}
+
+// selects first non empty string.
+func newIndexFunc() Func {
+	return &indexF{
+		baseFunc: &baseFunc{
+			name:     "INDEX",
+			retType:  config.VALUE_TYPE_UNSPECIFIED,
+			argTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.STRING},
+			nullArgs: false,
+		},
+	}
+}
+
+// Call returns map[key]
+func (f *indexF) Call(args []interface{}) interface{} {
+	m := reflect.ValueOf(args[0])
+	k := reflect.ValueOf(args[1])
+	if v := m.MapIndex(k); v.IsValid() {
+		return v.Interface()
+	}
+
+	return nil
+}
+
 func inventory() []Func {
 	return []Func{
 		newEQFunc(),
@@ -192,6 +220,7 @@ func inventory() []Func {
 		newORFunc(),
 		newLORFunc(),
 		newLANDFunc(),
+		newIndexFunc(),
 	}
 }
 
