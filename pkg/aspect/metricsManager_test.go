@@ -204,7 +204,7 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 				}},
 				metadata: c.mdin,
 			}
-			_, err := wrapper.Execute(test.NewBag(), c.eval)
+			_, err := wrapper.Execute(test.NewBag(), c.eval, &ReportMethodArgs{})
 
 			errString := ""
 			if err != nil {
@@ -246,7 +246,7 @@ func TestMetricsWrapper_Close(t *testing.T) {
 	}
 }
 
-func TestMetrics_DefinitionFromProto(t *testing.T) {
+func TestMetrics_DescToDef(t *testing.T) {
 	cases := []struct {
 		in        *dpb.MetricDescriptor
 		out       *adapter.MetricDefinition
@@ -286,17 +286,17 @@ func TestMetrics_DefinitionFromProto(t *testing.T) {
 	}
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
-			result, err := definitionFromProto(c.in)
+			result, err := metricDefinitionFromProto(c.in)
 
 			errString := ""
 			if err != nil {
 				errString = err.Error()
 			}
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("definitionFromProto(%v) = _, %v; wanted err containing %s", c.in, err, c.errString)
+				t.Errorf("metricsDescToDef(%v) = _, %v; wanted err containing %s", c.in, err, c.errString)
 			}
 			if !reflect.DeepEqual(result, c.out) {
-				t.Errorf("definitionFromProto(%v) = %v, %v; wanted %v", c.in, result, err, c.out)
+				t.Errorf("metricsDescToDef(%v) = %v, %v; wanted %v", c.in, result, err, c.out)
 			}
 		})
 	}
@@ -314,7 +314,7 @@ func TestMetrics_Find(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.find, func(t *testing.T) {
-			if _, found := find(c.in, c.find); found != c.out {
+			if _, found := findMetric(c.in, c.find); found != c.out {
 				t.Errorf("find(%v, %s) = _, %t; wanted %t", c.in, c.find, found, c.out)
 			}
 		})
