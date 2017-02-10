@@ -121,8 +121,13 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 			aa.Params = acfg
 			p.validated.numAspects++
 			if validatePresence {
+				name := aa.Adapter
+				if name == "" {
+					name = "default"
+				}
+
 				// ensure that aa.Kind has a registered adapter
-				if aa.Adapter != "" && p.validated.adapterByName[aa.Adapter] == nil {
+				if aa.Adapter != "" && p.validated.adapterByName[name] == nil {
 					ce = ce.Appendf("NamedAdapter", "adapter by name %s not available", aa.GetAdapter())
 				}
 			}
