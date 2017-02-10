@@ -1,7 +1,6 @@
 package expr
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -20,6 +19,7 @@ func TestGoodParse(t *testing.T) {
 		{`origin.host == "9.0.10.1"`, `EQ($origin.host, "9.0.10.1")`},
 		{`service.name == "cluster1.ns.*"`, `EQ($service.name, "cluster1.ns.*")`},
 		{`a() == 200`, `EQ(a(), 200)`},
+		{`true == false`, `EQ(true, false) `},
 	}
 	for _, tt := range tests {
 		ex, err := Parse(tt.src)
@@ -30,7 +30,6 @@ func TestGoodParse(t *testing.T) {
 		if tt.postfix != ex.String() {
 			t.Errorf("got %s\nwant: %s", ex.String(), tt.postfix)
 		}
-		fmt.Printf("%s\n", ex)
 	}
 }
 
