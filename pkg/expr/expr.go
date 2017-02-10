@@ -124,10 +124,9 @@ func (e *Expression) String() string {
 
 // newConstant creates a new constant of given type.
 // It also stores a typed form of the constant.
-func newConstant(v string, kind token.Token) (*Constant, error) {
+func newConstant(v string, vType config.ValueType) (*Constant, error) {
 	var typedVal interface{}
 	var err error
-	vType := mapToValueType(kind)
 	switch vType {
 	case config.INT64:
 		if typedVal, err = strconv.ParseInt(v, 10, 64); err != nil {
@@ -137,19 +136,9 @@ func newConstant(v string, kind token.Token) (*Constant, error) {
 		if typedVal, err = strconv.ParseFloat(v, 64); err != nil {
 			return nil, err
 		}
-	default:
-		// check bool
-		lv := strings.ToLower(v)
-		if lv == "true" || lv == "false" {
-			vType = config.BOOL
-			typedVal = true
-			if lv == "false" {
-				typedVal = false
-			}
-		} else { // string
-			if typedVal, err = strconv.Unquote(v); err != nil {
-				return nil, err
-			}
+	default: // string
+		if typedVal, err = strconv.Unquote(v); err != nil {
+			return nil, err
 		}
 	}
 	return &Constant{Value: v, Kind: vType, TypedValue: typedVal}, nil
@@ -233,13 +222,23 @@ func process(ex ast.Expr, tgt *Expression, err *list.List) {
 		process(v.X, tgt, err)
 	case *ast.BasicLit:
 		var cErr error
-		tgt.Const, cErr = newConstant(v.Value, v.Kind)
+		tgt.Const, cErr = newConstant(v.Value, mapToValueType(v.Kind))
 		if cErr != nil {
 			err.PushBack(cErr)
 		}
 	case *ast.Ident:
-		// true and false
-		tgt.Var = &Variable{Name: v.Name}
+		// true and false are treated as identifiers by parser
+		// we need to convert them into constants here
+		lv := strings.ToLower(v.Name)
+		if lv == "true" || lv=="false" {
+			typedVal := true
+			if lv == "false" {
+			typedVal = false
+			}
+			tgt.Const = &Constant{Value: lv, Kind: config.BOOL, TypedValue: typedVal}
+		} else {
+			tgt.Var = &Variable{Name: v.Name}
+		}
 	case *ast.SelectorExpr:
 		// for selectorExpr length is guaranteed to be at least 2.
 		var w []string
