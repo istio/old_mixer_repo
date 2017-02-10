@@ -19,7 +19,7 @@ func TestGoodParse(t *testing.T) {
 		{`origin.host == "9.0.10.1"`, `EQ($origin.host, "9.0.10.1")`},
 		{`service.name == "cluster1.ns.*"`, `EQ($service.name, "cluster1.ns.*")`},
 		{`a() == 200`, `EQ(a(), 200)`},
-		{`true == false`, `EQ(true, false) `},
+		{`true == false`, `EQ(true, false)`},
 	}
 	for _, tt := range tests {
 		ex, err := Parse(tt.src)
