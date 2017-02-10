@@ -47,8 +47,8 @@ const (
 	QuotasKindName          = "quotas"
 )
 
-// KindNames maps from kinds to their names.
-var KindNames = map[Kind]string{
+// kindToString maps from kinds to their names.
+var kindToString = map[Kind]string{
 	AccessLogsKind:      AccessLogsKindName,
 	ApplicationLogsKind: ApplicationLogsKindName,
 	DenialsKind:         DenialsKindName,
@@ -57,8 +57,13 @@ var KindNames = map[Kind]string{
 	QuotasKind:          QuotasKindName,
 }
 
-// NamedKinds maps from kind names to kind enum.
-var NamedKinds = map[string]Kind{
+// String returns the string representation of the kind, or "" if an unknown kind is given.
+func (k Kind) String() string {
+	return kindToString[k]
+}
+
+// stringToKinds maps from kind names to kind enum.
+var stringToKind = map[string]Kind{
 	AccessLogsKindName:      AccessLogsKind,
 	ApplicationLogsKindName: ApplicationLogsKind,
 	DenialsKindName:         DenialsKind,
@@ -67,21 +72,29 @@ var NamedKinds = map[string]Kind{
 	QuotasKindName:          QuotasKind,
 }
 
+// ParseKind converts a string into a Kind.
+func ParseKind(s string) (Kind, bool) {
+	k, found := stringToKind[s]
+	return k, found
+}
+
 // ManagerInventory holds a set of aspect managers.
 type ManagerInventory map[APIMethod][]Manager
 
-// Inventory is the authoritative set of aspect managers used by the mixer.
-var Inventory = ManagerInventory{
-	CheckMethod: {
-		NewDenialsManager(),
-		NewListsManager(),
-		NewQuotasManager(),
-	},
+// Inventory returns the authoritative set of aspect managers used by the mixer.
+func Inventory() ManagerInventory {
+	return ManagerInventory{
+		CheckMethod: {
+			NewDenialsManager(),
+			NewListsManager(),
+			NewQuotasManager(),
+		},
 
-	ReportMethod: {
-		NewApplicationLogsManager(),
-		NewAccessLogsManager(),
-	},
+		ReportMethod: {
+			NewApplicationLogsManager(),
+			NewAccessLogsManager(),
+		},
 
-	QuotaMethod: {},
+		QuotaMethod: {},
+	}
 }

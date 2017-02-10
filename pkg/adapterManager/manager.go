@@ -125,7 +125,7 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 	var mgr aspect.Manager
 	var found bool
 
-	kind, found := aspect.NamedKinds[cfg.Aspect.Kind]
+	kind, found := aspect.ParseKind(cfg.Aspect.Kind)
 	if !found {
 		return nil, fmt.Errorf("invalid aspect %#v", cfg.Aspect.Kind)
 	}
@@ -205,7 +205,7 @@ func closeWrapper(asp aspect.Wrapper) {
 // AspectValidatorFinder returns a ValidatorFinderFunc for aspects.
 func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
 	return func(kind string, name string) (adapter.ConfigValidator, bool) {
-		k, found := aspect.NamedKinds[name]
+		k, found := aspect.ParseKind(name)
 		if !found {
 			return nil, false
 		}
@@ -218,7 +218,7 @@ func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
 // BuilderValidatorFinder returns a ValidatorFinderFunc for builders.
 func (m *Manager) BuilderValidatorFinder() config.ValidatorFinderFunc {
 	return func(kind string, name string) (adapter.ConfigValidator, bool) {
-		k, found := aspect.NamedKinds[kind]
+		k, found := aspect.ParseKind(kind)
 		if !found {
 			return nil, false
 		}
@@ -241,7 +241,7 @@ func ProcessBindings(managers aspect.ManagerInventory) (map[aspect.Kind]aspect.M
 
 		for _, m := range mgrs {
 			r[m.Kind()] = m
-			as[method][aspect.KindNames[m.Kind()]] = true
+			as[method][m.Kind().String()] = true
 		}
 	}
 

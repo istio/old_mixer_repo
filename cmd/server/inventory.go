@@ -59,18 +59,19 @@ func adapterCmd(errorf errorFn) *cobra.Command {
 }
 
 func listAspects() error {
-	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory)
+	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
 
 	keys := []string{}
 	for kind := range aspectMap {
-		keys = append(keys, aspect.KindNames[kind])
+		keys = append(keys, kind.String())
 	}
 
 	sort.Strings(keys)
 
 	for _, kind := range keys {
 		fmt.Printf("aspect %s\n", kind)
-		printConfigValidator(aspectMap[aspect.NamedKinds[kind]])
+		k, _ := aspect.ParseKind(kind)
+		printConfigValidator(aspectMap[k])
 	}
 	return nil
 }
@@ -79,13 +80,14 @@ func listBuilders() error {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
 	kinds := []string{}
 	for k := range builderMap {
-		kinds = append(kinds, aspect.KindNames[k])
+		kinds = append(kinds, k.String())
 	}
 
 	sort.Strings(kinds)
 
 	for _, kind := range kinds {
-		m := builderMap[aspect.NamedKinds[kind]]
+		k, _ := aspect.ParseKind(kind)
+		m := builderMap[k]
 
 		keys := []string{}
 		for impl := range m {
