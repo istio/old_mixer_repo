@@ -16,6 +16,7 @@ package adapter
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -139,42 +140,42 @@ func (v Value) Float64() (float64, error) {
 	return 0, errors.New("metric value is not a float64")
 }
 
-// FromPbMetricKind translates from MetricDescriptor_MetricKind to Metric Kind.
-func FromPbMetricKind(pbk dpb.MetricDescriptor_MetricKind) MetricKind {
+// MetricKindFromProto translates from MetricDescriptor_MetricKind to Metric Kind.
+func MetricKindFromProto(pbk dpb.MetricDescriptor_MetricKind) (MetricKind, error) {
 	switch pbk {
 	case dpb.GAUGE:
-		return Gauge
+		return Gauge, nil
 	case dpb.COUNTER:
-		return Counter
+		return Counter, nil
 	default:
-		return Counter // TODO: unclear what to return in the error case
+		return 0, fmt.Errorf("invalid proto MetricKind %v", pbk)
 	}
 }
 
-// FromPbType translates from ValueType to LabelType.
-func FromPbType(pbk dpb.ValueType) LabelType {
-	switch pbk {
+// LabelTypeFromProto translates from ValueType to LabelType.
+func LabelTypeFromProto(pbt dpb.ValueType) (LabelType, error) {
+	switch pbt {
 	case dpb.STRING:
-		return String
+		return String, nil
 	case dpb.BOOL:
-		return Bool
+		return Bool, nil
 	case dpb.INT64:
-		return Int64
+		return Int64, nil
 	case dpb.DOUBLE:
-		return Float64
+		return Float64, nil
 	case dpb.TIMESTAMP:
-		return Time
+		return Time, nil
 	case dpb.DNS_NAME:
-		return DNSName
+		return DNSName, nil
 	case dpb.DURATION:
-		return Duration
+		return Duration, nil
 	case dpb.EMAIL_ADDRESS:
-		return EmailAddress
+		return EmailAddress, nil
 	case dpb.IP_ADDRESS:
-		return IPAddress
+		return IPAddress, nil
 	case dpb.URI:
-		return URI
+		return URI, nil
 	default:
-		return String // TODO: unclear what to return in the error case
+		return 0, fmt.Errorf("invalid proto ValueType %v", pbt)
 	}
 }

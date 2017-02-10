@@ -18,15 +18,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
-	"github.com/hashicorp/go-multierror"
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 type (
@@ -55,14 +56,36 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	// TODO: get descriptors from config
+	// TODO: sync these schemas with the new standardized metric schemas.
 	desc := []*dpb.MetricDescriptor{
 		{
-			Name:  "api_responses",
+			Name:  "request_count",
 			Kind:  dpb.COUNTER,
 			Value: dpb.INT64,
 			Labels: []*dpb.LabelDescriptor{
-				{Name: "api_method", ValueType: dpb.STRING},
-				{Name: "response_code", ValueType: dpb.INT64},
+				{Name: "source", ValueType: dpb.STRING},
+				{Name: "target", ValueType: dpb.STRING},
+				{Name: "service", ValueType: dpb.STRING},
+			},
+		},
+		{
+			Name:  "error_count",
+			Kind:  dpb.COUNTER,
+			Value: dpb.INT64,
+			Labels: []*dpb.LabelDescriptor{
+				{Name: "source", ValueType: dpb.STRING},
+				{Name: "target", ValueType: dpb.STRING},
+				{Name: "service", ValueType: dpb.STRING},
+			},
+		},
+		{
+			Name:  "request_latency",
+			Kind:  dpb.COUNTER, // TODO: nail this down; as is we'll have to do post-processing
+			Value: dpb.DURATION,
+			Labels: []*dpb.LabelDescriptor{
+				{Name: "source", ValueType: dpb.STRING},
+				{Name: "target", ValueType: dpb.STRING},
+				{Name: "service", ValueType: dpb.STRING},
 			},
 		},
 	}
@@ -70,14 +93,21 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 	metadata := make(map[string]*metricInfo)
 	defs := make([]adapter.MetricDefinition, len(desc))
 	for i, d := range desc {
-		def := toDefinition(d)
+		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
+		// if it cannot be converted into a MetricDefinition, so we should never have to handle the error case.
+		def, err := definitionFromProto(d)
+		if err != nil {
+			_ = env.Logger().Errorf("Failed to convert metric descriptor '%s' to definition with err: %s; skipping it.", d.Name, err)
+			continue
+		}
+
 		metric, found := find(params.Metrics, def.Name)
 		if !found {
 			env.Logger().Warningf("No metric found for descriptor %s, skipping it", def.Name)
 			continue
 		}
 
-		defs[i] = def
+		defs[i] = *def
 		metadata[def.Name] = &metricInfo{
 			metricKind: def.Kind,
 			value:      metric.Value,
@@ -99,6 +129,9 @@ func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigE
 	// TODO: we need to be provided the metric descriptors in addition to the metrics themselves here, so we can do type assertions.
 	// We also need some way to assert the type of the result of evaluating an expression, but we don't have any attributes or an
 	// evaluator on hand.
+
+	// TODO: verify all descriptors can be marshalled into istio structs (DefinitionFromProto)
+
 	return
 }
 
@@ -106,22 +139,16 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*O
 	result := &multierror.Error{}
 	var values []adapter.Value
 
-metadataLoop:
 	for name, md := range w.metadata {
 		metricValue, err := mapper.Eval(md.value, attrs)
 		if err != nil {
 			result = multierror.Append(result, fmt.Errorf("failed to eval metric value for metric '%s' with err: %s", name, err))
-			continue metadataLoop // we can't satisfy this metric because we have the wrong types, so skip to the next
+			continue
 		}
-
-		labels := make(map[string]interface{}, len(md.labels))
-		for label, texpr := range md.labels {
-			val, err := mapper.Eval(texpr, attrs)
-			if err != nil {
-				result = multierror.Append(result, fmt.Errorf("failed to construct value for metric '%s' with err: %s", name, err))
-				continue metadataLoop // we can't satisfy this metric because we have the wrong types, so skip to the next
-			}
-			labels[label] = val
+		labels, err := evalAll(md.labels, attrs, mapper)
+		if err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to eval labels for metric '%s' with err: %s", name, err))
+			continue
 		}
 
 		// TODO: investigate either pooling these, or keeping a set around that has only its field's values updated.
@@ -130,7 +157,7 @@ metadataLoop:
 			Name:   name,
 			Kind:   md.metricKind,
 			Labels: labels,
-			// TODO: how do we get times?
+			// TODO: extract standard timestamp attributes for start/end once we det'm what they are
 			StartTime:   time.Now(),
 			EndTime:     time.Now(),
 			MetricValue: metricValue,
@@ -154,16 +181,40 @@ func (w *metricsWrapper) Close() error {
 	return w.aspect.Close()
 }
 
-func toDefinition(desc *dpb.MetricDescriptor) adapter.MetricDefinition {
+func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
+	result := &multierror.Error{}
+	labels := make(map[string]interface{}, len(expressions))
+	for label, texpr := range expressions {
+		val, err := eval.Eval(texpr, attrs)
+		if err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s' with err: %s", label, err))
+			continue
+		}
+		labels[label] = val
+	}
+	return labels, result.ErrorOrNil()
+}
+
+func definitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
 	for _, label := range desc.Labels {
-		labels[label.Name] = adapter.FromPbType(label.ValueType)
+		l, err := adapter.LabelTypeFromProto(label.ValueType)
+		if err != nil {
+			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
+				desc.Name, label.Name, label.ValueType, err)
+		}
+		labels[label.Name] = l
 	}
-	return adapter.MetricDefinition{
+	kind, err := adapter.MetricKindFromProto(desc.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto with err: %s",
+			desc.Name, desc.Kind, err)
+	}
+	return &adapter.MetricDefinition{
 		Name:   desc.Name,
-		Kind:   adapter.FromPbMetricKind(desc.Kind),
+		Kind:   kind,
 		Labels: labels,
-	}
+	}, nil
 }
 
 func find(defs []*aconfig.MetricsParams_Metric, name string) (*aconfig.MetricsParams_Metric, bool) {
