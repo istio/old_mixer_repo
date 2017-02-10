@@ -16,6 +16,7 @@ package aspect
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,6 +28,8 @@ import (
 	"istio.io/mixer/pkg/config"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 type fakeBag struct {
@@ -90,9 +93,9 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 			Params: &aconfig.MetricsParams{
 				Metrics: []*aconfig.MetricsParams_Metric{
 					{
-						Descriptor_: "api_responses",
+						Descriptor_: "request_count",
 						Value:       "",
-						Labels:      map[string]string{"api_method": "", "response_code": ""},
+						Labels:      map[string]string{"source": "", "target": ""},
 					},
 				},
 			},
@@ -129,14 +132,18 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 }
 
 func TestMetricsWrapper_Execute(t *testing.T) {
+	// TODO: all of these test values are hardcoded to match the metric definitions hardcoded in metricsManager
+	// (since things have to line up for us to test them), they can be made dynamic when we get the ability to set the definitions
 	goodEval := &fakeEval{body: func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
 			return 1, nil
-		case "api_method":
-			return "method", nil
-		case "response_code":
-			return 200, nil
+		case "source":
+			return "me", nil
+		case "target":
+			return "you", nil
+		case "service":
+			return "echo", nil
 		default:
 			return nil, fmt.Errorf("default case for exp = %s", exp)
 		}
@@ -154,12 +161,13 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 	}}
 
 	goodMd := map[string]*metricInfo{
-		"api_responses": {
+		"request_count": {
 			metricKind: adapter.Counter,
 			value:      "value",
 			labels: map[string]string{
-				"api_method":    "api_method",
-				"response_code": "response_code",
+				"source":  "source",
+				"target":  "target",
+				"service": "service",
 			},
 		},
 	}
@@ -171,12 +179,13 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 				"bad": "bad",
 			},
 		},
-		"api_responses": {
+		"request_count": {
 			metricKind: adapter.Counter,
 			value:      "value",
 			labels: map[string]string{
-				"api_method":    "api_method",
-				"response_code": "response_code",
+				"source":  "source",
+				"target":  "target",
+				"service": "service",
 			},
 		},
 	}
@@ -195,9 +204,9 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 		{make(map[string]*metricInfo), nil, &fakeEval{}, make(map[string]o), ""},
 		{goodMd, nil, errEval, make(map[string]o), "expected"},
 		{goodMd, nil, labelErrEval, make(map[string]o), "expected"},
-		{goodMd, nil, goodEval, map[string]o{"api_responses": {1, []string{"api_method", "response_code"}}}, ""},
-		{goodMd, fmt.Errorf("record"), goodEval, map[string]o{"api_responses": {1, []string{"api_method", "response_code"}}}, "record"},
-		{badGoodMd, nil, goodEval, map[string]o{"api_responses": {1, []string{"api_method", "response_code"}}}, "default case"},
+		{goodMd, nil, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
+		{goodMd, fmt.Errorf("record"), goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "record"},
+		{badGoodMd, nil, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "default case"},
 	}
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
@@ -248,6 +257,62 @@ func TestMetricsWrapper_Close(t *testing.T) {
 	}
 	if !inner.closed {
 		t.Error("metricsWrapper.Close() didn't close the aspect inside")
+	}
+}
+
+func TestMetrics_DefinitionFromProto(t *testing.T) {
+	cases := []struct {
+		in        *dpb.MetricDescriptor
+		out       *adapter.MetricDefinition
+		errString string
+	}{
+		{&dpb.MetricDescriptor{}, nil, "METRIC_KIND_UNSPECIFIED"},
+		{
+			&dpb.MetricDescriptor{
+				Name:   "bad label",
+				Labels: []*dpb.LabelDescriptor{{ValueType: dpb.VALUE_TYPE_UNSPECIFIED}},
+			},
+			nil,
+			"VALUE_TYPE_UNSPECIFIED",
+		},
+		{
+			&dpb.MetricDescriptor{
+				Name:   "bad metric kind",
+				Kind:   dpb.METRIC_KIND_UNSPECIFIED,
+				Labels: []*dpb.LabelDescriptor{{Name: "string", ValueType: dpb.STRING}},
+			},
+			nil,
+			"METRIC_KIND_UNSPECIFIED",
+		},
+		{
+			&dpb.MetricDescriptor{
+				Name:   "good",
+				Kind:   dpb.COUNTER,
+				Value:  dpb.STRING,
+				Labels: []*dpb.LabelDescriptor{{Name: "string", ValueType: dpb.STRING}},
+			},
+			&adapter.MetricDefinition{
+				Name:   "good",
+				Kind:   adapter.Counter,
+				Labels: map[string]adapter.LabelType{"string": adapter.String},
+			},
+			""},
+	}
+	for idx, c := range cases {
+		t.Run(strconv.Itoa(idx), func(t *testing.T) {
+			result, err := definitionFromProto(c.in)
+
+			errString := ""
+			if err != nil {
+				errString = err.Error()
+			}
+			if !strings.Contains(errString, c.errString) {
+				t.Errorf("definitionFromProto(%v) = _, %v; wanted err containing %s", c.in, err, c.errString)
+			}
+			if !reflect.DeepEqual(result, c.out) {
+				t.Errorf("definitionFromProto(%v) = %v, %v; wanted %v", c.in, result, err, c.out)
+			}
+		})
 	}
 }
 
