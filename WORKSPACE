@@ -243,3 +243,10 @@ new_go_repository(
     commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d", # release 3.1.0, 5/30/2016
     importpath = "github.com/cactus/go-statsd-client",
 )
+
+new_go_repository(
+    name = "com_github_redis_client",
+    commit = "1ac54a28f5934ea5e08f588647e734aba2383cb8", # Jan 28, 2017 (no releases)
+    importpath = "github.com/mediocregopher/radix.v2",
+)
+
