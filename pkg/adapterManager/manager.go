@@ -34,10 +34,10 @@ import (
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
-	managerFinder map[aspect.Kind]aspect.Manager
-	mapper        expr.Evaluator
-	builderFinder builderFinder
-	aspectMap     map[aspect.APIMethod]config.AspectSet
+	managers  map[aspect.Kind]aspect.Manager
+	mapper    expr.Evaluator
+	builders  builderFinder
+	methodMap map[aspect.APIMethod]config.AspectSet
 
 	// protects cache
 	lock        sync.RWMutex
@@ -97,11 +97,11 @@ func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory,
 // newManager
 func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Evaluator, am map[aspect.APIMethod]config.AspectSet) *Manager {
 	return &Manager{
-		managerFinder: m,
-		builderFinder: r,
-		mapper:        exp,
-		aspectCache:   make(map[cacheKey]aspect.Wrapper),
-		aspectMap:     am,
+		managers:    m,
+		builders:    r,
+		mapper:      exp,
+		aspectCache: make(map[cacheKey]aspect.Wrapper),
+		methodMap:   am,
 	}
 }
 
@@ -130,13 +130,13 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 		return nil, fmt.Errorf("invalid aspect %#v", cfg.Aspect.Kind)
 	}
 
-	mgr, found = m.managerFinder[kind]
+	mgr, found = m.managers[kind]
 	if !found {
 		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
 	}
 
 	var adp adapter.Builder
-	if adp, found = m.builderFinder.FindBuilder(kind, cfg.Builder.Impl); !found {
+	if adp, found = m.builders.FindBuilder(kind, cfg.Builder.Impl); !found {
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
 	}
 
@@ -202,45 +202,33 @@ func closeWrapper(asp aspect.Wrapper) {
 	}
 }
 
-type aspectValidatorFinder struct {
-	m map[aspect.Kind]aspect.Manager
-}
+// AspectValidatorFinder returns a ValidatorFinderFunc for aspects.
+func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
+	return func(kind string, name string) (adapter.ConfigValidator, bool) {
+		k, found := aspect.NamedKinds[name]
+		if !found {
+			return nil, false
+		}
 
-func (a *aspectValidatorFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
-	k, found := aspect.NamedKinds[name]
-	if !found {
-		return nil, false
+		c, found := m.managers[k]
+		return c, found
 	}
-
-	c, found := a.m[k]
-	return c, found
 }
 
-// AspectValidatorFinder returns ValidatorFinder for aspects.
-func (m *Manager) AspectValidatorFinder() config.ValidatorFinder {
-	return &aspectValidatorFinder{m: m.managerFinder}
-}
-
-type builderValidatorFinder struct {
-	b builderFinder
-}
-
-func (a *builderValidatorFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
-	k, found := aspect.NamedKinds[kind]
-	if !found {
-		return nil, false
+// BuilderValidatorFinder returns a ValidatorFinderFunc for builders.
+func (m *Manager) BuilderValidatorFinder() config.ValidatorFinderFunc {
+	return func(kind string, name string) (adapter.ConfigValidator, bool) {
+		k, found := aspect.NamedKinds[kind]
+		if !found {
+			return nil, false
+		}
+		return m.builders.FindBuilder(k, name)
 	}
-	return a.b.FindBuilder(k, name)
 }
 
-// BuilderValidatorFinder returns ValidatorFinder for builders.
-func (m *Manager) BuilderValidatorFinder() config.ValidatorFinder {
-	return &builderValidatorFinder{b: m.builderFinder}
-}
-
-// AspectMap returns map of APIMethod --> AspectSet.
-func (m *Manager) AspectMap() map[aspect.APIMethod]config.AspectSet {
-	return m.aspectMap
+// MethodMap returns map of APIMethod --> AspectSet.
+func (m *Manager) MethodMap() map[aspect.APIMethod]config.AspectSet {
+	return m.methodMap
 }
 
 // ProcessBindings returns a fully constructed manager map and aspectSet.

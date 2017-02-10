@@ -67,10 +67,10 @@ type handlerState struct {
 }
 
 // NewHandler returns a canonical Handler that implements all of the mixer's API surface
-func NewHandler(aspectExecutor Executor, methodmap map[aspect.APIMethod]config.AspectSet) Handler {
+func NewHandler(aspectExecutor Executor, methodMap map[aspect.APIMethod]config.AspectSet) Handler {
 	return &handlerState{
 		aspectExecutor: aspectExecutor,
-		methodMap:      methodmap,
+		methodMap:      methodMap,
 	}
 }
 

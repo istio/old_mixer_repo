@@ -31,7 +31,7 @@ type BuildersPerKind map[aspect.Kind]BuildersByName
 // registry implements pkg/adapter/Registrar.
 // registry is initialized in the constructor and is immutable thereafter.
 // All registered builders must have unique names per aspect kind.
-// It also implements builderFinder that manager uses.
+// It also implements builders that manager uses.
 type registry struct {
 	builders BuildersPerKind
 }

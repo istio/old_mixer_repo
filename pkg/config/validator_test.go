@@ -93,7 +93,7 @@ func TestConfigValidatorError(t *testing.T) {
 	for idx, ctx := range ctable {
 		var ce *adapter.ConfigErrors
 		mgr := &fakeVFinder{v: ctx.v}
-		p := NewValidator(mgr, mgr, ctx.strict, evaluator)
+		p := NewValidator(mgr.FindValidator, mgr.FindValidator, ctx.strict, evaluator)
 		if ctx.cfg == sSvcConfig {
 			ce = p.validateServiceConfig(fmt.Sprintf(ctx.cfg, ctx.selector), false)
 		} else {
@@ -153,7 +153,7 @@ func TestFullConfigValidator(t *testing.T) {
 	for idx, ctx := range ctable {
 		mgr := &fakeVFinder{v: ctx.v}
 		fe.err = ctx.exprErr
-		p := NewValidator(mgr, mgr, ctx.strict, fe)
+		p := NewValidator(mgr.FindValidator, mgr.FindValidator, ctx.strict, fe)
 		// sGlobalConfig only defines 1 adapter: denyChecker
 		_, ce := p.Validate(ctx.cfg, sGlobalConfig)
 		cok := ce == nil
@@ -178,7 +178,7 @@ func TestFullConfigValidator(t *testing.T) {
 func TestConfigParseError(t *testing.T) {
 	mgr := &fakeVFinder{}
 	evaluator := newFakeExpr()
-	p := NewValidator(mgr, mgr, false, evaluator)
+	p := NewValidator(mgr.FindValidator, mgr.FindValidator, false, evaluator)
 	ce := p.validateServiceConfig("<config>  </config>", false)
 
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
