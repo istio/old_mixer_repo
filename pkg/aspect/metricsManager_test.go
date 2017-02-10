@@ -79,8 +79,8 @@ func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.AspectCon
 
 func TestNewMetricsManager(t *testing.T) {
 	m := NewMetricsManager()
-	if m.Kind() != MetricKind {
-		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), MetricKind)
+	if m.Kind() != MetricsKind {
+		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), MetricsKind)
 	}
 	if err := m.ValidateConfig(m.DefaultConfig()); err != nil {
 		t.Errorf("m.ValidateConfig(m.DefaultConfig()) = %v; wanted no err", err)

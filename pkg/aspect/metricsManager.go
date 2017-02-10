@@ -122,7 +122,7 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 	return &metricsWrapper{asp, metadata}, nil
 }
 
-func (*metricsManager) Kind() string                        { return MetricKind }
+func (*metricsManager) Kind() Kind                          { return MetricsKind }
 func (*metricsManager) DefaultConfig() adapter.AspectConfig { return &aconfig.MetricsParams{} }
 
 func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) {
