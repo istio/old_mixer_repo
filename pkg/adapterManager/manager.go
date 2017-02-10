@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -88,7 +89,7 @@ func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 }
 
 // NewManager creates a new adapterManager.
-func NewManager(builders []adapter.RegisterFn, managers []aspect.APIBinding, exp expr.Evaluator) *Manager {
+func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory, exp expr.Evaluator) *Manager {
 	mm, am := ProcessBindings(managers)
 	return newManager(newRegistry(builders), mm, exp, am)
 }
@@ -242,18 +243,19 @@ func (m *Manager) AspectMap() map[aspect.APIMethod]config.AspectSet {
 	return m.aspectMap
 }
 
-// ProcessBindings returns a fully constructed manager map and aspectSet given APIBinding.
-func ProcessBindings(bnds []aspect.APIBinding) (map[aspect.Kind]aspect.Manager, map[aspect.APIMethod]config.AspectSet) {
+// ProcessBindings returns a fully constructed manager map and aspectSet.
+func ProcessBindings(managers aspect.ManagerInventory) (map[aspect.Kind]aspect.Manager, map[aspect.APIMethod]config.AspectSet) {
 	r := make(map[aspect.Kind]aspect.Manager)
 	as := make(map[aspect.APIMethod]config.AspectSet)
 
-	// setup aspect sets for all methods
-	for _, am := range aspect.APIMethods() {
-		as[am] = config.AspectSet{}
+	for method, mgrs := range managers {
+		as[method] = config.AspectSet{}
+
+		for _, m := range mgrs {
+			r[m.Kind()] = m
+			as[method][aspect.KindNames[m.Kind()]] = true
+		}
 	}
-	for _, bnd := range bnds {
-		r[bnd.Aspect.Kind()] = bnd.Aspect
-		as[bnd.Method][aspect.KindNames[bnd.Aspect.Kind()]] = true
-	}
+
 	return r, as
 }

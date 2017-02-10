@@ -59,7 +59,7 @@ func adapterCmd(errorf errorFn) *cobra.Command {
 }
 
 func listAspects() error {
-	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
+	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory)
 
 	keys := []string{}
 	for kind := range aspectMap {

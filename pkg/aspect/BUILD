@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "accessLogsManager.go",
-        "api.go",
         "applicationLogsManager.go",
         "denialsManager.go",
         "inventory.go",

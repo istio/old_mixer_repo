@@ -14,16 +14,20 @@
 
 package aspect
 
-// APIBinding associates an aspect with an API method
-type APIBinding struct {
-	Aspect Manager
-	Method APIMethod
-}
+// APIMethod constants are used to refer to the methods handled by api.Handler
+type APIMethod int
+
+// Supported API methods
+const (
+	CheckMethod APIMethod = iota
+	ReportMethod
+	QuotaMethod
+)
 
 // Kind of aspect
 type Kind int
 
-// Supports kinds of aspects
+// Supported kinds of aspects
 const (
 	AccessLogsKind Kind = iota
 	ApplicationLogsKind
@@ -63,16 +67,21 @@ var NamedKinds = map[string]Kind{
 	QuotasKindName:          QuotasKind,
 }
 
-// Inventory returns a manager inventory that contains
-// all available aspect managers
-func Inventory() []APIBinding {
-	// Update the following list to add a new Aspect manager
-	return []APIBinding{
-		{NewDenialsManager(), CheckMethod},
-		{NewListsManager(), CheckMethod},
-		{NewApplicationLogsManager(), ReportMethod},
-		{NewAccessLogsManager(), ReportMethod},
-		{NewQuotasManager(), CheckMethod},
-		{NewQuotasManager(), QuotaMethod},
-	}
+// ManagerInventory holds a set of aspect managers.
+type ManagerInventory map[APIMethod][]Manager
+
+// Inventory is the authoritative set of aspect managers used by the mixer.
+var Inventory = ManagerInventory{
+	CheckMethod: {
+		NewDenialsManager(),
+		NewListsManager(),
+		NewQuotasManager(),
+	},
+
+	ReportMethod: {
+		NewApplicationLogsManager(),
+		NewAccessLogsManager(),
+	},
+
+	QuotaMethod: {},
 }
