@@ -102,19 +102,26 @@ func TestGoodEval(t *testing.T) {
 			},
 			true, "",
 		},
-		/*
-			  // The following will not work until we support
-			  // map as an attribute type
-			{
-				`request.header["X-FORWARDED-HOST"] == "aaa"`,
-				map[string]interface{}{
-					"request.header": map[string]string{
-						"X-FORWARDED-HOST": "bbb",
-					},
-					"y": int64(10),
+		{
+			`(x/y) == 30`,
+			map[string]interface{}{
+				"x": int64(20),
+				"y": int64(10),
+			},
+			false, "unknown function: QUO",
+		},
+		// The following will not work until we support
+		// map as an attribute type
+		{
+			`request.header["X-FORWARDED-HOST"] == "aaa"`,
+			map[string]interface{}{
+				"request.header": map[string]string{
+					"X-FORWARDED-HOST": "bbb",
 				},
-				true, "",
-			}, */
+				"y": int64(10),
+			},
+			true, "unresolved attribute",
+		},
 	}
 
 	for idx, tst := range tests {

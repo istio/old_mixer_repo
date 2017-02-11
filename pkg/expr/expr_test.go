@@ -3,6 +3,8 @@ package expr
 import (
 	"strings"
 	"testing"
+
+	config "istio.io/api/mixer/v1/config/descriptor"
 )
 
 func TestGoodParse(t *testing.T) {
@@ -20,6 +22,9 @@ func TestGoodParse(t *testing.T) {
 		{`service.name == "cluster1.ns.*"`, `EQ($service.name, "cluster1.ns.*")`},
 		{`a() == 200`, `EQ(a(), 200)`},
 		{`true == false`, `EQ(true, false)`},
+		{`a.b == 3.14`, `EQ($a.b, 3.14)`},
+		{`a/b`, `QUO($a, $b)`},
+		{`request.header["X-FORWARDED-HOST"] == "aaa"`, `EQ(INDEX($request.header, "X-FORWARDED-HOST"), "aaa")`},
 	}
 	for _, tt := range tests {
 		ex, err := Parse(tt.src)
@@ -33,6 +38,35 @@ func TestGoodParse(t *testing.T) {
 	}
 }
 
+func TestNewConstant(t *testing.T) {
+	tests := []struct {
+		v        string
+		vType    config.ValueType
+		typedVal interface{}
+		err      string
+	}{
+		{"3.75", config.DOUBLE, float64(3.75), "SUCCESS"},
+		{"not a double", config.DOUBLE, float64(3.75), "invalid syntax"},
+		{"1001", config.INT64, int64(1001), "SUCCESS"},
+		{"not an int64", config.INT64, int64(1001), "invalid syntax"},
+		{`"back quoted"`, config.STRING, "back quoted", "SUCCESS"},
+		{`'aaa'`, config.STRING, "aaa", "invalid syntax"},
+	}
+	for idx, tt := range tests {
+		c, err := newConstant(tt.v, tt.vType)
+		if err != nil {
+			if !strings.Contains(err.Error(), tt.err) {
+				t.Errorf("[%d] got %#v, want %s", idx, err.Error(), tt.err)
+			}
+			continue
+		}
+
+		if c.TypedValue != tt.typedVal {
+			t.Errorf("[%d] got %#v, want %s", idx, c.TypedValue, tt.typedVal)
+		}
+	}
+}
+
 func TestBadParse(t *testing.T) {
 	tests := []struct {
 		src string
@@ -42,17 +76,23 @@ func TestBadParse(t *testing.T) {
 		{"a = bc", `parse error`},
 		{`3 = 10`, "parse error"},
 		{`a.b.c() == 20`, "unexpected expression"},
+		{`a.b().c() == 20`, "unexpected expression"},
 		{`(a.c).d == 300`, `unexpected expression`},
+		{`substring(*a, 20) == 12`, `unexpected expression`},
+		{`(*a == 20) && 12`, `unexpected expression`},
+		{`!*a`, `unexpected expression`},
+		{`request.headers[*a] == 200`, `unexpected expression`},
+		{`atr == 'aaa'`, "parse error"},
 	}
-	for _, tt := range tests {
+	for idx, tt := range tests {
 		_, err := Parse(tt.src)
 		if err == nil {
-			t.Errorf("got: <nil>\nwant: %s", tt.err)
+			t.Errorf("[%d] got: <nil>\nwant: %s", idx, tt.err)
 			continue
 		}
 
 		if !strings.Contains(err.Error(), tt.err) {
-			t.Errorf("got: %s\nwant: %s", err.Error(), tt.err)
+			t.Errorf("[%d] got: %s\nwant: %s", idx, err.Error(), tt.err)
 		}
 	}
 
