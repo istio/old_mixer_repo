@@ -1,8 +1,8 @@
 package expr
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
 )

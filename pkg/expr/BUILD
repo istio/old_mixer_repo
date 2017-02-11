@@ -23,6 +23,7 @@ go_test(
     srcs = [
         "eval_test.go",
         "expr_test.go",
+	"func_test.go",
         "identity_test.go",
     ],
     library = ":go_default_library",
