@@ -16,7 +16,6 @@ package expr
 
 import (
 	"bytes"
-	"container/list"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -74,14 +73,6 @@ var typeMap = map[token.Token]config.ValueType{
 	token.STRING: config.STRING,
 }
 
-func mapToValueType(kind token.Token) config.ValueType {
-	vt, ok := typeMap[kind]
-	if ok {
-		return vt
-	}
-	return config.STRING
-}
-
 // Expression is a simplified expression AST
 type Expression struct {
 	// Oneof the following
@@ -102,10 +93,8 @@ func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{
 		}
 		return v, nil
 	}
-	if e.Fn != nil {
-		return e.Fn.Eval(attrs, fMap)
-	}
-	return nil, fmt.Errorf("internal error, empty expression")
+	// may panic
+	return e.Fn.Eval(attrs, fMap)
 }
 
 // String produces postfix version with all operators converted to function names
@@ -202,38 +191,44 @@ func (f *Function) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{},
 	return fn.Call(args), nil
 }
 
-func process(ex ast.Expr, tgt *Expression, err *list.List) {
+func process(ex ast.Expr, tgt *Expression) (err error) {
 	switch v := ex.(type) {
 	case *ast.UnaryExpr:
 		tgt.Fn = &Function{Name: tMap[v.Op]}
-		processFunc(tgt.Fn, []ast.Expr{v.X}, err)
+		if err = processFunc(tgt.Fn, []ast.Expr{v.X}); err != nil {
+			return
+		}
 	case *ast.BinaryExpr:
 		tgt.Fn = &Function{Name: tMap[v.Op]}
-		processFunc(tgt.Fn, []ast.Expr{v.X, v.Y}, err)
+		if err = processFunc(tgt.Fn, []ast.Expr{v.X, v.Y}); err != nil {
+			return
+		}
 	case *ast.CallExpr:
 		vfunc, found := v.Fun.(*ast.Ident)
 		if !found {
-			err.PushBack(fmt.Errorf("unexpected expression: %#v", v.Fun))
-			return
+			return fmt.Errorf("unexpected expression: %#v", v.Fun)
 		}
 		tgt.Fn = &Function{Name: vfunc.Name}
-		processFunc(tgt.Fn, v.Args, err)
+		if err = processFunc(tgt.Fn, v.Args); err != nil {
+			return
+		}
 	case *ast.ParenExpr:
-		process(v.X, tgt, err)
+		if err = process(v.X, tgt); err != nil {
+			return
+		}
 	case *ast.BasicLit:
-		var cErr error
-		tgt.Const, cErr = newConstant(v.Value, mapToValueType(v.Kind))
-		if cErr != nil {
-			err.PushBack(cErr)
+		tgt.Const, err = newConstant(v.Value, typeMap[v.Kind])
+		if err != nil {
+			return
 		}
 	case *ast.Ident:
 		// true and false are treated as identifiers by parser
 		// we need to convert them into constants here
 		lv := strings.ToLower(v.Name)
-		if lv == "true" || lv=="false" {
+		if lv == "true" || lv == "false" {
 			typedVal := true
 			if lv == "false" {
-			typedVal = false
+				typedVal = false
 			}
 			tgt.Const = &Constant{Value: lv, Kind: config.BOOL, TypedValue: typedVal}
 		} else {
@@ -242,7 +237,9 @@ func process(ex ast.Expr, tgt *Expression, err *list.List) {
 	case *ast.SelectorExpr:
 		// for selectorExpr length is guaranteed to be at least 2.
 		var w []string
-		processSelectorExpr(v, &w, err)
+		if err = processSelectorExpr(v, &w); err != nil {
+			return
+		}
 		var ww bytes.Buffer
 		ww.WriteString(w[len(w)-1])
 		for idx := len(w) - 2; idx >= 0; idx-- {
@@ -251,50 +248,56 @@ func process(ex ast.Expr, tgt *Expression, err *list.List) {
 		tgt.Var = &Variable{Name: ww.String()}
 	case *ast.IndexExpr:
 		tgt.Fn = &Function{Name: tMap[token.LBRACK]}
-		processFunc(tgt.Fn, []ast.Expr{v.X, v.Index}, err)
+		if err = processFunc(tgt.Fn, []ast.Expr{v.X, v.Index}); err != nil {
+			return
+		}
 	default:
-		err.PushBack(fmt.Errorf("unexpected expression: %#v", v))
+		return fmt.Errorf("unexpected expression: %#v", v)
+	}
+
+	return nil
+}
+
+func processSelectorExpr(exin *ast.SelectorExpr, w *[]string) (err error) {
+	ex := exin
+	for {
+		*w = append(*w, ex.Sel.Name)
+		switch v := ex.X.(type) {
+		case *ast.SelectorExpr:
+			ex = v
+		case *ast.Ident:
+			*w = append(*w, v.Name)
+			return nil
+		default:
+			return fmt.Errorf("unexpected expression: %#v", v)
+		}
 	}
 }
 
-func processSelectorExpr(ex *ast.SelectorExpr, w *[]string, err *list.List) {
-	*w = append(*w, ex.Sel.Name)
-	switch v := ex.X.(type) {
-	case *ast.SelectorExpr:
-		processSelectorExpr(v, w, err)
-	case *ast.Ident:
-		*w = append(*w, v.Name)
-	default:
-		err.PushBack(fmt.Errorf("unexpected expression: %#v", v))
-	}
-}
-
-func processFunc(fn *Function, args []ast.Expr, err *list.List) {
+func processFunc(fn *Function, args []ast.Expr) (err error) {
 	fAargs := []*Expression{}
 	for _, ee := range args {
 		aex := &Expression{}
 		fAargs = append(fAargs, aex)
-		process(ee, aex, err)
+		if err = process(ee, aex); err != nil {
+			return
+		}
 	}
 	fn.Args = fAargs
+	return nil
 }
 
 // Parse parses a given expression to ast.Expression.
-func Parse(src string) (*Expression, error) {
+func Parse(src string) (ex *Expression, err error) {
 	a, err := parser.ParseExpr(src)
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %s %s", src, err)
 	}
 	glog.V(2).Infof("\n\n%s : %#v\n", src, a)
-	ex := &Expression{}
-	errRes := list.New()
-	process(a, ex, errRes)
-	glog.V(2).Infof("\n ===> : %s %#v", ex, errRes)
-
-	if errRes.Len() > 0 {
-		glog.V(2).Infof("%#v", *errRes)
-		return nil, errRes.Front().Value.(error)
+	ex = &Expression{}
+	if err = process(a, ex); err != nil {
+		glog.Warningf("parser error: %s", ex)
+		return nil, err
 	}
-
 	return ex, nil
 }
