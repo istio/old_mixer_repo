@@ -117,6 +117,14 @@ func TestGoodEval(t *testing.T) {
 			true, "",
 		},
 		{
+			`service.name == "*.ns1.cluster" && service.user == "admin"`,
+			map[string]interface{}{
+				"service.name": "svc1.ns1.cluster",
+				"service.user": "admin",
+			},
+			true, "",
+		},
+		{
 			`(x/y) == 30`,
 			map[string]interface{}{
 				"x": int64(20),
