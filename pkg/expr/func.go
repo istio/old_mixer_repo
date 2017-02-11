@@ -116,12 +116,12 @@ func matchWithWildcards(s0 string, s1 string) bool {
 	return s0 == s1
 }
 
-type lAnd struct {
+type lAndFunc struct {
 	*baseFunc
 }
 
 func newLANDFunc() Func {
-	return &lAnd{
+	return &lAndFunc{
 		&baseFunc{
 			name:     "LAND",
 			retType:  config.BOOL,
@@ -132,16 +132,16 @@ func newLANDFunc() Func {
 }
 
 // Call should return thru if at least one element is true
-func (f *lAnd) Call(args []interface{}) interface{} {
+func (f *lAndFunc) Call(args []interface{}) interface{} {
 	return args[0].(bool) && args[1].(bool)
 }
 
-type lOr struct {
+type lOrFunc struct {
 	*baseFunc
 }
 
 func newLORFunc() Func {
-	return &lOr{
+	return &lOrFunc{
 		&baseFunc{
 			name:     "LOR",
 			retType:  config.BOOL,
@@ -152,18 +152,18 @@ func newLORFunc() Func {
 }
 
 // Call should return thru if at least one element is true
-func (f *lOr) Call(args []interface{}) interface{} {
+func (f *lOrFunc) Call(args []interface{}) interface{} {
 	return args[0].(bool) || args[1].(bool)
 }
 
 // applies to non bools.
-type or struct {
+type orFunc struct {
 	*baseFunc
 }
 
 // selects first non empty string.
 func newORFunc() Func {
-	return &or{
+	return &orFunc{
 		baseFunc: &baseFunc{
 			name:     "OR",
 			retType:  config.VALUE_TYPE_UNSPECIFIED,
@@ -174,7 +174,7 @@ func newORFunc() Func {
 }
 
 // Call selects first non empty string
-func (f *or) Call(args []interface{}) interface{} {
+func (f *orFunc) Call(args []interface{}) interface{} {
 	if args[0] == nil {
 		return args[1]
 	}
@@ -186,13 +186,13 @@ func (f *or) Call(args []interface{}) interface{} {
 }
 
 // func (Value) MapIndex
-type indexF struct {
+type indexFunc struct {
 	*baseFunc
 }
 
 // selects first non empty string.
 func newIndexFunc() Func {
-	return &indexF{
+	return &indexFunc{
 		baseFunc: &baseFunc{
 			name:     "INDEX",
 			retType:  config.VALUE_TYPE_UNSPECIFIED,
@@ -203,7 +203,7 @@ func newIndexFunc() Func {
 }
 
 // Call returns map[key]
-func (f *indexF) Call(args []interface{}) interface{} {
+func (f *indexFunc) Call(args []interface{}) interface{} {
 	m := reflect.ValueOf(args[0])
 	k := reflect.ValueOf(args[1])
 	if v := m.MapIndex(k); v.IsValid() {
@@ -224,7 +224,8 @@ func inventory() []Func {
 	}
 }
 
-func funcMap() map[string]Func {
+// FuncMap provides inventory of available functions.
+func FuncMap() map[string]Func {
 	m := make(map[string]Func)
 	for _, fn := range inventory() {
 		m[fn.Name()] = fn

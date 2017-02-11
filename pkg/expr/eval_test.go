@@ -153,7 +153,7 @@ func TestGoodEval(t *testing.T) {
 			t.Errorf("[%d] unexpected error: %s", idx, err)
 			continue
 		}
-		res, err := exp.Eval(attrs, funcMap())
+		res, err := exp.Eval(attrs, FuncMap())
 		if err != nil {
 			if tst.err == "" {
 				t.Errorf("[%d] unexpected error: %s", idx, err)
