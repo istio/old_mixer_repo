@@ -303,13 +303,13 @@ func Parse(src string) (ex *Expression, err error) {
 }
 
 // Evaluator interface
-type cexl struct{
+type cexl struct {
 	//TODO add ast cache
 	// function Map
 	fMap map[string]Func
 }
 
-func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error){
+func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error) {
 	var ex *Expression
 	if ex, err = Parse(s); err != nil {
 		return
@@ -318,7 +318,7 @@ func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error){
 }
 
 // Eval evaluates given expression using the attribute bag to a string
-func (e *cexl) EvalString(s string, attrs attribute.Bag) (ret string, err error){
+func (e *cexl) EvalString(s string, attrs attribute.Bag) (ret string, err error) {
 	var uret interface{}
 	if uret, err = e.Eval(s, attrs); err != nil {
 		return
@@ -326,7 +326,7 @@ func (e *cexl) EvalString(s string, attrs attribute.Bag) (ret string, err error)
 	return uret.(string), nil
 }
 
-func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error){
+func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error) {
 	var uret interface{}
 	if uret, err = e.Eval(s, attrs); err != nil {
 		return
@@ -335,7 +335,7 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 }
 
 // Validate validates configuration
-func (e *cexl) Validate(s string) (err error){
+func (e *cexl) Validate(s string) (err error) {
 	var ex *Expression
 	if ex, err = Parse(s); err != nil {
 		return
@@ -344,6 +344,7 @@ func (e *cexl) Validate(s string) (err error){
 	return nil
 }
 
+// NewCexlEvaluator returns a new Evaluator of this type.
 func NewCexlEvaluator() Evaluator {
 	return &cexl{
 		fMap: FuncMap(),
