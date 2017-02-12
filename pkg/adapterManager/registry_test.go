@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
 )
 
 type testBuilder struct {
@@ -44,7 +43,7 @@ func TestRegisterDenyChecker(t *testing.T) {
 
 	reg.RegisterDenialsBuilder(builder)
 
-	impl, ok := reg.FindBuilder(aspect.DenialsKind, builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -55,6 +54,7 @@ func TestRegisterDenyChecker(t *testing.T) {
 }
 
 type listBuilder struct{ testBuilder }
+type listBuilder2 struct{ listBuilder }
 
 func (listBuilder) NewListsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
@@ -66,7 +66,7 @@ func TestRegisterListChecker(t *testing.T) {
 
 	reg.RegisterListsBuilder(builder)
 
-	impl, ok := reg.FindBuilder(aspect.ListsKind, builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -88,7 +88,7 @@ func TestRegisterLogger(t *testing.T) {
 
 	reg.RegisterApplicationLogsBuilder(builder)
 
-	impl, ok := reg.FindBuilder(aspect.ApplicationLogsKind, builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -110,7 +110,7 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 
 	reg.RegisterAccessLogsBuilder(builder)
 
-	impl, ok := reg.FindBuilder(aspect.AccessLogsKind, builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -131,7 +131,7 @@ func TestRegisterQuota(t *testing.T) {
 	builder := quotaBuilder{testBuilder{name: "foo"}}
 
 	reg.RegisterQuotasBuilder(builder)
-	impl, ok := reg.FindBuilder(aspect.QuotasKind, builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -148,7 +148,7 @@ func TestCollision(t *testing.T) {
 	a1 := listBuilder{testBuilder{name}}
 	reg.RegisterListsBuilder(a1)
 
-	if a, ok := reg.FindBuilder(aspect.ListsKind, name); !ok || a != a1 {
+	if a, ok := reg.FindBuilder(name); !ok || a != a1 {
 		t.Errorf("Failed to get first adapter by impl name; expected: '%v', actual: '%v'", a1, a)
 	}
 
@@ -158,7 +158,7 @@ func TestCollision(t *testing.T) {
 		}
 	}()
 
-	a2 := listBuilder{testBuilder{name}}
+	a2 := listBuilder2{listBuilder{testBuilder{name}}}
 	reg.RegisterListsBuilder(a2)
 	t.Error("Should not reach this statement due to panic.")
 }
