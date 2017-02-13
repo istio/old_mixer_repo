@@ -16,9 +16,8 @@ package adapterManager
 
 import (
 	"fmt"
-	"testing"
-
 	"reflect"
+	"testing"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
