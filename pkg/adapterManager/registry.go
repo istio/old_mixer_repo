@@ -54,8 +54,7 @@ func newRegistry(builders []adapter.RegisterFn) *registry {
 
 // BuilderMap returns the known builders, indexed by kind.
 func BuilderMap(builders []adapter.RegisterFn) BuildersByName {
-	r := newRegistry(builders)
-	return r.builders
+	return newRegistry(builders).builders
 }
 
 // FindBuilder finds builder by name.
