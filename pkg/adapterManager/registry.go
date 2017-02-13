@@ -107,8 +107,13 @@ func (r *registry) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
 
 func (r *registry) insert(k aspect.Kind, b adapter.Builder) {
 	kind := k.String()
+	ok := true
 	if glog.V(1) {
-		defer glog.Infof("Registered %s / %s", kind, b.Name())
+		defer func() {
+			if ok {
+				glog.Infof("Registered %s / %s", kind, b.Name())
+			}
+		}()
 	}
 
 	bi := r.builders[b.Name()]
@@ -120,6 +125,7 @@ func (r *registry) insert(k aspect.Kind, b adapter.Builder) {
 	// panic only if 2 different builder objects are trying to identify by the
 	// same Name.  2nd registration is ok so long as old and the new are same
 	if bi.Builder != b {
+		ok = false
 		panic(fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", b.Name(), bi.Builder, b))
 	}
 

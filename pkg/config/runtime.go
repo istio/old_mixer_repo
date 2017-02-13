@@ -17,9 +17,6 @@ package config
 import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-
-	"bytes"
-
 	"istio.io/mixer/pkg/attribute"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
@@ -44,17 +41,14 @@ type (
 	AspectSet map[string]bool
 )
 
-func (c *Combined) String() string {
-	var b bytes.Buffer
+func (c *Combined) String() (ret string) {
 	if c.Builder != nil {
-		b.WriteString("builder: ")
-		b.WriteString(c.Builder.String())
+		ret += "builder: " + c.Builder.String() + " "
 	}
 	if c.Aspect != nil {
-		b.WriteString("aspect: ")
-		b.WriteString(c.Aspect.String())
+		ret += "aspect: " + c.Aspect.String()
 	}
-	return b.String()
+	return
 }
 
 // NewRuntime returns a Runtime object given a validated config and a predicate eval.
