@@ -44,7 +44,7 @@ func TestIndexFunc(t *testing.T) {
 	}
 
 	check(t, "ReturnType", fn.ReturnType(), config.VALUE_TYPE_UNSPECIFIED)
-	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.STRING})
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING_MAP, config.STRING})
 }
 
 func check(t *testing.T, msg string, got interface{}, want interface{}) {
