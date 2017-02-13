@@ -22,15 +22,13 @@ import (
 	"istio.io/mixer/pkg/attribute"
 )
 
-type evalTest struct {
-	src    string
-	tmap   map[string]interface{}
-	result interface{}
-	err    string
-}
-
 func TestGoodEval(t *testing.T) {
-	tests := []evalTest{
+	tests := []struct {
+		src    string
+		tmap   map[string]interface{}
+		result interface{}
+		err    string
+	}{
 		{
 			"a == 2",
 			map[string]interface{}{
@@ -167,6 +165,136 @@ func TestGoodEval(t *testing.T) {
 		}
 	}
 
+}
+
+func TestCexlEval(t *testing.T) {
+	success := "_SUCCESS_"
+	type mtype int
+	const (
+		anyType mtype = iota
+		boolType
+		stringType
+	)
+	tests := []struct {
+		src    string
+		tmap   map[string]interface{}
+		result interface{}
+		err    string
+		fn     mtype
+	}{
+		{
+			"a = 2",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			true, "parse error", anyType,
+		},
+		{
+			"a == 2",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			true, success, anyType,
+		},
+		{
+			"a == 3",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			false, success, anyType,
+		},
+		{
+			"a == 2",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			true, success, boolType,
+		},
+		{
+			"a",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			true, "typeError", boolType,
+		},
+		{
+			"a == 2",
+			map[string]interface{}{},
+			true, "unresolved attribute", boolType,
+		},
+		{
+			`request.user | "user1"`,
+			map[string]interface{}{},
+			"user1", success, stringType,
+		},
+		{
+			"a",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			true, "typeError", stringType,
+		},
+		{
+			"a == 2",
+			map[string]interface{}{},
+			true, "unresolved attribute", stringType,
+		},
+	}
+	ev := NewCexlEvaluator()
+	var ret interface{}
+	var err error
+	for idx, tt := range tests {
+		attrs := &bag{attrs: tt.tmap}
+		switch tt.fn {
+		case anyType:
+			ret, err = ev.Eval(tt.src, attrs)
+		case boolType:
+			ret, err = ev.EvalPredicate(tt.src, attrs)
+		case stringType:
+			ret, err = ev.EvalString(tt.src, attrs)
+		}
+		if (err == nil) != (tt.err == success) {
+			t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
+			continue
+		}
+		// check if error is of the correct type
+		if err != nil {
+			if !strings.Contains(err.Error(), tt.err) {
+				t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
+			}
+			continue
+		}
+		// check result
+		if ret != tt.result {
+			t.Errorf("[%d] got %s, want %s", idx, ret, tt.result)
+		}
+	}
+
+}
+
+func TestCexlValidate(t *testing.T) {
+	success := "_SUCCESS_"
+	tests := []struct {
+		s   string
+		err string
+	}{
+		{"a", success},
+		{"a=b", "parse error"},
+	}
+
+	ev := NewCexlEvaluator()
+
+	for idx, tt := range tests {
+		err := ev.Validate(tt.s)
+		if (err == nil) != (tt.err == success) {
+			t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
+			continue
+		}
+		// check if error is of the correct type
+		if err != nil && !strings.Contains(err.Error(), tt.err) {
+			t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
+		}
+	}
 }
 
 // fake bag
