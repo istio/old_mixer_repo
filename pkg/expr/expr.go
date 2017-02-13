@@ -25,6 +25,8 @@ import (
 
 	"github.com/golang/glog"
 
+	"reflect"
+
 	config "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
 )
@@ -321,6 +323,7 @@ type cexl struct {
 
 func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error) {
 	var ex *Expression
+	// TODO check ast cache
 	if ex, err = Parse(s); err != nil {
 		return
 	}
@@ -330,23 +333,31 @@ func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error) 
 // Eval evaluates given expression using the attribute bag to a string
 func (e *cexl) EvalString(s string, attrs attribute.Bag) (ret string, err error) {
 	var uret interface{}
+	var ok bool
 	if uret, err = e.Eval(s, attrs); err != nil {
 		return
 	}
-	return uret.(string), nil
+	if ret, ok = uret.(string); ok {
+		return
+	}
+	return "", fmt.Errorf("typeError: got %s, expected string", reflect.TypeOf(uret).String())
 }
 
 func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error) {
 	var uret interface{}
+	var ok bool
 	if uret, err = e.Eval(s, attrs); err != nil {
 		return
 	}
-	return uret.(bool), nil
+	if ret, ok = uret.(bool); ok {
+		return
+	}
+	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
 }
 
 // Validate validates expression for syntactic correctness.
 // TODO check if all functions and attributes in the expression are defined.
-// at present this violates the contract with Func.Call tha ensures
+// at present this violates the contract with Func.Call that ensures
 // arity and arg types. It is upto the policy author to write correct policies.
 func (e *cexl) Validate(s string) (err error) {
 	var ex *Expression
