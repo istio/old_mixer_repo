@@ -60,7 +60,7 @@ type eqFunc struct {
 
 // newEQFunc returns dynamically typed equality fn.
 // treats strings specially with prefix and suffix '*' matches
-func newEQFunc() Func {
+func newEQ() Func {
 	return &eqFunc{
 		baseFunc: &baseFunc{
 			name:     "EQ",
@@ -71,7 +71,7 @@ func newEQFunc() Func {
 }
 
 // newNEQFunc returns inverse of newEQFunc fn.
-func newNEQFunc() Func {
+func newNEQ() Func {
 	return &eqFunc{
 		baseFunc: &baseFunc{
 			name:     "NEQ",
@@ -96,7 +96,7 @@ func (f *eqFunc) call(args []interface{}) bool {
 	var ok bool
 
 	if s0, ok = args[0].(string); !ok {
-		return args[0] == args[1]
+		return reflect.DeepEqual(args[0], args[1])
 	}
 	if s1, ok = args[1].(string); !ok {
 		// s0 is string and s1 is not
@@ -123,7 +123,7 @@ type lAndFunc struct {
 }
 
 // newLANDFunc returns a binary logical AND fn.
-func newLANDFunc() Func {
+func newLAND() Func {
 	return &lAndFunc{
 		&baseFunc{
 			name:     "LAND",
@@ -145,7 +145,7 @@ type lOrFunc struct {
 }
 
 // newLORFunc returns logical OR fn.
-func newLORFunc() Func {
+func newLOR() Func {
 	return &lOrFunc{
 		&baseFunc{
 			name:     "LOR",
@@ -168,7 +168,7 @@ type orFunc struct {
 
 // newORFunc returns an OR fn that selects first non empty argument.
 // types can be anything, but all args must be of the same type.
-func newORFunc() Func {
+func newOR() Func {
 	return &orFunc{
 		baseFunc: &baseFunc{
 			name:     "OR",
@@ -198,7 +198,7 @@ type indexFunc struct {
 }
 
 // newIndexFunc returns a map accessor fn.
-func newIndexFunc() Func {
+func newIndex() Func {
 	return &indexFunc{
 		baseFunc: &baseFunc{
 			name:     "INDEX",
@@ -223,12 +223,12 @@ func (f *indexFunc) Call(args []interface{}) interface{} {
 
 func inventory() []Func {
 	return []Func{
-		newEQFunc(),
-		newNEQFunc(),
-		newORFunc(),
-		newLORFunc(),
-		newLANDFunc(),
-		newIndexFunc(),
+		newEQ(),
+		newNEQ(),
+		newOR(),
+		newLOR(),
+		newLAND(),
+		newIndex(),
 	}
 }
 

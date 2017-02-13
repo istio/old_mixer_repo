@@ -75,8 +75,8 @@ func TestNewConstant(t *testing.T) {
 			continue
 		}
 
-		if c.TypedValue != tt.typedVal {
-			t.Errorf("[%d] got %#v, want %s", idx, c.TypedValue, tt.typedVal)
+		if c.Value != tt.typedVal {
+			t.Errorf("[%d] got %#v, want %s", idx, c.Value, tt.typedVal)
 		}
 	}
 }

@@ -22,7 +22,7 @@ import (
 )
 
 func TestIndexFunc(t *testing.T) {
-	fn := newIndexFunc()
+	fn := newIndex()
 	mp := map[string]interface{}{
 		"X-FORWARDED-HOST": "aaa",
 		"X-request-size":   2000,
@@ -54,7 +54,7 @@ func check(t *testing.T, msg string, got interface{}, want interface{}) {
 }
 
 func TestEQFunc(t *testing.T) {
-	fn := newEQFunc()
+	fn := newEQ()
 	tbl := []struct {
 		val   interface{}
 		match interface{}
