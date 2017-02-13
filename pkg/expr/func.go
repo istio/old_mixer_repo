@@ -58,6 +58,8 @@ type eqFunc struct {
 	invert bool
 }
 
+// newEQFunc returns dynamically typed equality fn.
+// treats strings specially with prefix and suffix '*' matches
 func newEQFunc() Func {
 	return &eqFunc{
 		baseFunc: &baseFunc{
@@ -68,6 +70,7 @@ func newEQFunc() Func {
 	}
 }
 
+// newNEQFunc returns inverse of newEQFunc fn.
 func newNEQFunc() Func {
 	return &eqFunc{
 		baseFunc: &baseFunc{
@@ -87,7 +90,6 @@ func (f *eqFunc) Call(args []interface{}) interface{} {
 	return res
 }
 
-// Call
 func (f *eqFunc) call(args []interface{}) bool {
 	var s0 string
 	var s1 string
@@ -105,11 +107,11 @@ func (f *eqFunc) call(args []interface{}) bool {
 
 // matchWithWildcards     s0 == ns1.*   --> ns1 should be a prefix of s0
 // s0 == *.ns1 --> ns1 should be a suffix of s0
+// TODO allow escaping *
 func matchWithWildcards(s0 string, s1 string) bool {
 	if strings.HasSuffix(s1, "*") {
 		return strings.HasPrefix(s0, s1[:len(s1)-1])
 	}
-
 	if strings.HasPrefix(s1, "*") {
 		return strings.HasSuffix(s0, s1[1:])
 	}
@@ -120,6 +122,7 @@ type lAndFunc struct {
 	*baseFunc
 }
 
+// newLANDFunc returns a binary logical AND fn.
 func newLANDFunc() Func {
 	return &lAndFunc{
 		&baseFunc{
@@ -131,7 +134,8 @@ func newLANDFunc() Func {
 	}
 }
 
-// Call should return thru if at least one element is true
+// Call returns true if both elements true
+// may panic
 func (f *lAndFunc) Call(args []interface{}) interface{} {
 	return args[0].(bool) && args[1].(bool)
 }
@@ -140,6 +144,7 @@ type lOrFunc struct {
 	*baseFunc
 }
 
+// newLORFunc returns logical OR fn.
 func newLORFunc() Func {
 	return &lOrFunc{
 		&baseFunc{
@@ -161,7 +166,8 @@ type orFunc struct {
 	*baseFunc
 }
 
-// selects first non empty string.
+// newORFunc returns an OR fn that selects first non empty argument.
+// types can be anything, but all args must be of the same type.
 func newORFunc() Func {
 	return &orFunc{
 		baseFunc: &baseFunc{
@@ -173,7 +179,8 @@ func newORFunc() Func {
 	}
 }
 
-// Call selects first non empty string
+// Call selects first non empty argument
+// may return nil
 func (f *orFunc) Call(args []interface{}) interface{} {
 	if args[0] == nil {
 		return args[1]
@@ -190,7 +197,7 @@ type indexFunc struct {
 	*baseFunc
 }
 
-// selects first non empty string.
+// newIndexFunc returns a map accessor fn.
 func newIndexFunc() Func {
 	return &indexFunc{
 		baseFunc: &baseFunc{
@@ -203,6 +210,7 @@ func newIndexFunc() Func {
 }
 
 // Call returns map[key]
+// panics if arg[0] is not a map
 func (f *indexFunc) Call(args []interface{}) interface{} {
 	m := reflect.ValueOf(args[0])
 	k := reflect.ValueOf(args[1])
