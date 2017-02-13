@@ -88,7 +88,7 @@ type Expression struct {
 // Eval evaluates the expression given an attribute bag and a function map.
 func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{}, error) {
 	if e.Const != nil {
-		return e.Const.TypedValue, nil
+		return e.Const.Value, nil
 	}
 	if e.Var != nil {
 		v, ok := attribute.Value(attrs, e.Var.Name)
@@ -134,18 +134,18 @@ func newConstant(v string, vType config.ValueType) (*Constant, error) {
 			return nil, err
 		}
 	}
-	return &Constant{Value: v, Kind: vType, TypedValue: typedVal}, nil
+	return &Constant{StrValue: v, Type: vType, Value: typedVal}, nil
 }
 
 // Constant models a typed constant.
 type Constant struct {
-	Value      string
-	TypedValue interface{}
-	Kind       config.ValueType
+	StrValue string
+	Value    interface{}
+	Type     config.ValueType
 }
 
 func (c *Constant) String() string {
-	return c.Value
+	return c.StrValue
 }
 
 // Variable models a variable.
@@ -183,7 +183,7 @@ func (f *Function) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{},
 	if fn == nil {
 		return nil, fmt.Errorf("unknown function: %s", f.Name)
 	}
-	// can throw NPE if config is not consistent.
+	// may panic if config is not consistent with Func.ArgTypes().
 	args := []interface{}{}
 	for _, earg := range f.Args {
 		arg, err := earg.Eval(attrs, fMap)
@@ -235,7 +235,7 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			if lv == "false" {
 				typedVal = false
 			}
-			tgt.Const = &Constant{Value: lv, Kind: config.BOOL, TypedValue: typedVal}
+			tgt.Const = &Constant{StrValue: lv, Type: config.BOOL, Value: typedVal}
 		} else {
 			tgt.Var = &Variable{Name: v.Name}
 		}
@@ -305,10 +305,9 @@ func Parse(src string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %s %s", src, err)
 	}
-	glog.V(2).Infof("\n\n%s : %#v\n", src, a)
+	glog.V(2).Infof("%s : %s", src, a)
 	ex = &Expression{}
 	if err = process(a, ex); err != nil {
-		glog.Warningf("parser error: %s", ex)
 		return nil, err
 	}
 	return ex, nil
