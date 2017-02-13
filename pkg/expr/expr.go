@@ -29,6 +29,8 @@ import (
 	"istio.io/mixer/pkg/attribute"
 )
 
+// This private variable is an extract from go/token
+// it maps expression related token to its names
 var tMap = map[token.Token]string{
 	token.ILLEGAL: "ILLEGAL",
 
@@ -81,7 +83,7 @@ type Expression struct {
 	Fn    *Function
 }
 
-// Eval evaluates the expression given an attribute bag.
+// Eval evaluates the expression given an attribute bag and a function map.
 func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{}, error) {
 	if e.Const != nil {
 		return e.Const.TypedValue, nil
@@ -141,7 +143,7 @@ type Constant struct {
 }
 
 func (c *Constant) String() string {
-	return fmt.Sprintf("%s", c.Value)
+	return c.Value
 }
 
 // Variable models a variable.
@@ -150,10 +152,11 @@ type Variable struct {
 }
 
 func (v *Variable) String() string {
-	return fmt.Sprintf("$%s", v.Name)
+	return "$" + v.Name
 }
 
 // Function models a function with multiple parameters
+// 1st arg can be thought of as the receiver.
 type Function struct {
 	Name string
 	Args []*Expression
@@ -235,6 +238,11 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			tgt.Var = &Variable{Name: v.Name}
 		}
 	case *ast.SelectorExpr:
+		// a.b.c.d is a selector expression
+		// normally one walks down a chain of objects
+		// we have chosen an internally flat namespace, therefore
+		// a.b.c.d if an identifer. converts
+		// a.b.c.d --> $a.b.c.d
 		// for selectorExpr length is guaranteed to be at least 2.
 		var w []string
 		if err = processSelectorExpr(v, &w); err != nil {
@@ -247,6 +255,8 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 		}
 		tgt.Var = &Variable{Name: ww.String()}
 	case *ast.IndexExpr:
+		// accessing a map
+		// request.header["abc"]
 		tgt.Fn = &Function{Name: tMap[token.LBRACK]}
 		if err = processFunc(tgt.Fn, []ast.Expr{v.X, v.Index}); err != nil {
 			return
@@ -334,7 +344,10 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 	return uret.(bool), nil
 }
 
-// Validate validates configuration
+// Validate validates expression for syntactic correctness.
+// TODO check if all functions and attributes in the expression are defined.
+// at present this violates the contract with Func.Call tha ensures
+// arity and arg types. It is upto the policy author to write correct policies.
 func (e *cexl) Validate(s string) (err error) {
 	var ex *Expression
 	if ex, err = Parse(s); err != nil {
