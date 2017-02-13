@@ -134,7 +134,7 @@ func serverOpts(sa *serverArgs, handlers api.Handler) (*api.GRPCServerOptions, e
 
 func runServer(sa *serverArgs) error {
 	// get aspect registry with proper aspect --> api mappings
-	eval := expr.NewIdentityEvaluator()
+	eval := expr.NewCexlEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
