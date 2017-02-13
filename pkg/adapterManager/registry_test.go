@@ -18,7 +18,10 @@ import (
 	"fmt"
 	"testing"
 
+	"reflect"
+
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/aspect"
 )
 
 type testBuilder struct {
@@ -126,6 +129,11 @@ func (quotaBuilder) NewQuotasAspect(env adapter.Env, cfg adapter.AspectConfig, d
 	return nil, fmt.Errorf("not implemented")
 }
 
+// enables multiple aspects for testing.
+func (quotaBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func TestRegisterQuota(t *testing.T) {
 	reg := newRegistry(nil)
 	builder := quotaBuilder{testBuilder{name: "foo"}}
@@ -138,6 +146,23 @@ func TestRegisterQuota(t *testing.T) {
 
 	if deny, ok := impl.(quotaBuilder); !ok || deny != builder {
 		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
+	}
+}
+
+type metricsBuilder struct{ testBuilder }
+
+func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.AspectConfig, []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func TestRegisterMetrics(t *testing.T) {
+	reg := newRegistry(nil)
+	builder := metricsBuilder{testBuilder{name: "foo"}}
+
+	reg.RegisterMetricsBuilder(builder)
+	impl, _ := reg.FindBuilder(builder.Name())
+	if impl != builder {
+		t.Errorf("Got :%#v, want: %#v", impl, builder)
 	}
 }
 
@@ -161,4 +186,65 @@ func TestCollision(t *testing.T) {
 	a2 := listBuilder2{listBuilder{testBuilder{name}}}
 	reg.RegisterListsBuilder(a2)
 	t.Error("Should not reach this statement due to panic.")
+}
+
+func TestMultiKinds(t *testing.T) {
+	builder := quotaBuilder{testBuilder{name: "foo"}}
+	reg := newRegistry([]adapter.RegisterFn{
+		func(r adapter.Registrar) {
+			r.RegisterQuotasBuilder(builder)
+		},
+	})
+
+	impl, ok := reg.FindBuilder(builder.Name())
+	if !ok {
+		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
+	}
+	var deny quotaBuilder
+	if deny, ok = impl.(quotaBuilder); !ok || deny != builder {
+		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
+	}
+
+	// register as accessLog
+
+	kinds := []string{aspect.QuotasKind.String(), aspect.AccessLogsKind.String()}
+
+	reg.RegisterAccessLogsBuilder(builder)
+	if !reflect.DeepEqual(reg.SupportedKinds(builder.Name()), kinds) {
+		t.Errorf("SupportedKinds: got %s\nwant %s", reg.SupportedKinds(builder.Name()), kinds)
+	}
+
+	// register again and should be no change
+
+	reg.RegisterAccessLogsBuilder(builder)
+	if !reflect.DeepEqual(reg.SupportedKinds(builder.Name()), kinds) {
+		t.Errorf("SupportedKinds: got %s\nwant %s", reg.SupportedKinds(builder.Name()), kinds)
+	}
+
+	if _, ok = reg.FindBuilder("DOES_NOT_EXIST"); ok {
+		t.Errorf("Unexpectedly found builder: DOES_NOT_EXIST")
+	}
+
+	if len(reg.SupportedKinds("DOES_NOT_EXIST")) != 0 {
+		t.Errorf("Unexpectedly found kinds for builder: DOES_NOT_EXIST")
+	}
+
+}
+
+func TestBuilderMap(t *testing.T) {
+	mp := BuilderMap([]adapter.RegisterFn{
+		func(r adapter.Registrar) {
+			r.RegisterQuotasBuilder(quotaBuilder{testBuilder{name: "quotaB"}})
+		},
+		func(r adapter.Registrar) {
+			r.RegisterListsBuilder(listBuilder{testBuilder{name: "listB"}})
+		},
+	})
+
+	if _, found := mp["listB"]; !found {
+		t.Error("got nil, want listB")
+	}
+	if _, found := mp["quotaB"]; !found {
+		t.Error("got nil, want quotaB")
+	}
 }
