@@ -21,13 +21,12 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 type (
@@ -66,16 +65,7 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 				{Name: "source", ValueType: dpb.STRING},
 				{Name: "target", ValueType: dpb.STRING},
 				{Name: "service", ValueType: dpb.STRING},
-			},
-		},
-		{
-			Name:  "error_count",
-			Kind:  dpb.COUNTER,
-			Value: dpb.INT64,
-			Labels: []*dpb.LabelDescriptor{
-				{Name: "source", ValueType: dpb.STRING},
-				{Name: "target", ValueType: dpb.STRING},
-				{Name: "service", ValueType: dpb.STRING},
+				{Name: "response_code", ValueType: dpb.INT64},
 			},
 		},
 		{
