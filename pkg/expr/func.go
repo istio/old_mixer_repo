@@ -33,7 +33,7 @@ type Func interface {
 	ArgTypes() []config.ValueType
 
 	// NullArgs specifies if the function accepts null args
-	NullArgs() bool
+	AcceptsNulls() bool
 
 	// Call performs the function call. It is guaranteed
 	// that call will be made with correct types and arity.
@@ -42,23 +42,23 @@ type Func interface {
 }
 
 type baseFunc struct {
-	name     string
-	argTypes []config.ValueType
-	retType  config.ValueType
-	nullArgs bool
+	name         string
+	argTypes     []config.ValueType
+	retType      config.ValueType
+	acceptsNulls bool
 }
 
 func (f *baseFunc) Name() string                 { return f.name }
 func (f *baseFunc) ReturnType() config.ValueType { return f.retType }
 func (f *baseFunc) ArgTypes() []config.ValueType { return f.argTypes }
-func (f *baseFunc) NullArgs() bool               { return f.nullArgs }
+func (f *baseFunc) AcceptsNulls() bool           { return f.acceptsNulls }
 
 type eqFunc struct {
 	*baseFunc
 	invert bool
 }
 
-// newEQFunc returns dynamically typed equality fn.
+// newEQ returns dynamically typed equality fn.
 // treats strings specially with prefix and suffix '*' matches
 func newEQ() Func {
 	return &eqFunc{
@@ -70,7 +70,7 @@ func newEQ() Func {
 	}
 }
 
-// newNEQFunc returns inverse of newEQFunc fn.
+// newNEQ returns inverse of newEQFunc fn.
 func newNEQ() Func {
 	return &eqFunc{
 		baseFunc: &baseFunc{
@@ -122,14 +122,13 @@ type lAndFunc struct {
 	*baseFunc
 }
 
-// newLANDFunc returns a binary logical AND fn.
+// newLAND returns a binary logical AND fn.
 func newLAND() Func {
 	return &lAndFunc{
 		&baseFunc{
 			name:     "LAND",
 			retType:  config.BOOL,
 			argTypes: []config.ValueType{config.BOOL, config.BOOL},
-			nullArgs: false,
 		},
 	}
 }
@@ -144,19 +143,18 @@ type lOrFunc struct {
 	*baseFunc
 }
 
-// newLORFunc returns logical OR fn.
+// newLOR returns logical OR fn.
 func newLOR() Func {
 	return &lOrFunc{
 		&baseFunc{
 			name:     "LOR",
 			retType:  config.BOOL,
 			argTypes: []config.ValueType{config.BOOL, config.BOOL},
-			nullArgs: false,
 		},
 	}
 }
 
-// Call should return thru if at least one element is true
+// Call should return true if at least one element is true
 func (f *lOrFunc) Call(args []interface{}) interface{} {
 	return args[0].(bool) || args[1].(bool)
 }
@@ -166,15 +164,15 @@ type orFunc struct {
 	*baseFunc
 }
 
-// newORFunc returns an OR fn that selects first non empty argument.
+// newOR returns an OR fn that selects first non empty argument.
 // types can be anything, but all args must be of the same type.
 func newOR() Func {
 	return &orFunc{
 		baseFunc: &baseFunc{
-			name:     "OR",
-			retType:  config.VALUE_TYPE_UNSPECIFIED,
-			argTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
-			nullArgs: true,
+			name:         "OR",
+			retType:      config.VALUE_TYPE_UNSPECIFIED,
+			argTypes:     []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+			acceptsNulls: true,
 		},
 	}
 }
@@ -197,14 +195,13 @@ type indexFunc struct {
 	*baseFunc
 }
 
-// newIndexFunc returns a map accessor fn.
+// newIndex returns a map accessor fn.
 func newIndex() Func {
 	return &indexFunc{
 		baseFunc: &baseFunc{
 			name:     "INDEX",
 			retType:  config.VALUE_TYPE_UNSPECIFIED,
 			argTypes: []config.ValueType{config.STRING_MAP, config.STRING},
-			nullArgs: false,
 		},
 	}
 }

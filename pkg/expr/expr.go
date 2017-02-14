@@ -201,7 +201,7 @@ func (f *Function) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{},
 	args := []interface{}{}
 	for _, earg := range f.Args {
 		arg, err := earg.Eval(attrs, fMap)
-		if err != nil && !fn.NullArgs() {
+		if err != nil && !fn.AcceptsNulls() {
 			return nil, err
 		}
 		args = append(args, arg)
@@ -422,8 +422,10 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 func (e *cexl) Validate(s string) (err error) {
 	var ex *Expression
 	if ex, err = Parse(s); err != nil {
-		return
+		return err
 	}
+	// TODO call ex.TypeCheck() when vocabulary is available
+
 	glog.V(2).Infof("%s --> %s", s, ex)
 	return nil
 }
