@@ -15,13 +15,15 @@
 package expr
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
-func TestGoodParse(t *testing.T) {
+func TestGoodParse(tst *testing.T) {
 	tests := []struct {
 		src     string
 		postfix string
@@ -40,19 +42,21 @@ func TestGoodParse(t *testing.T) {
 		{`a/b`, `QUO($a, $b)`},
 		{`request.header["X-FORWARDED-HOST"] == "aaa"`, `EQ(INDEX($request.header, "X-FORWARDED-HOST"), "aaa")`},
 	}
-	for _, tt := range tests {
-		ex, err := Parse(tt.src)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-		if tt.postfix != ex.String() {
-			t.Errorf("got %s\nwant: %s", ex.String(), tt.postfix)
-		}
+	for idx, tt := range tests {
+		tst.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
+			ex, err := Parse(tt.src)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if tt.postfix != ex.String() {
+				t.Errorf("got %s\nwant: %s", ex.String(), tt.postfix)
+			}
+		})
 	}
 }
 
-func TestNewConstant(t *testing.T) {
+func TestNewConstant(tst *testing.T) {
 	tests := []struct {
 		v        string
 		vType    config.ValueType
@@ -67,21 +71,22 @@ func TestNewConstant(t *testing.T) {
 		{`'aaa'`, config.STRING, "aaa", "invalid syntax"},
 	}
 	for idx, tt := range tests {
-		c, err := newConstant(tt.v, tt.vType)
-		if err != nil {
-			if !strings.Contains(err.Error(), tt.err) {
-				t.Errorf("[%d] got %#v, want %s", idx, err.Error(), tt.err)
+		tst.Run(fmt.Sprintf("[%d] %s", idx, tt.v), func(t *testing.T) {
+			c, err := newConstant(tt.v, tt.vType)
+			if err != nil {
+				if !strings.Contains(err.Error(), tt.err) {
+					t.Errorf("[%d] got %#v, want %s", idx, err.Error(), tt.err)
+				}
+				return
 			}
-			continue
-		}
-
-		if c.Value != tt.typedVal {
-			t.Errorf("[%d] got %#v, want %s", idx, c.Value, tt.typedVal)
-		}
+			if c.Value != tt.typedVal {
+				t.Errorf("[%d] got %#v, want %s", idx, c.Value, tt.typedVal)
+			}
+		})
 	}
 }
 
-func TestBadParse(t *testing.T) {
+func TestBadParse(tst *testing.T) {
 	tests := []struct {
 		src string
 		err string
@@ -99,20 +104,92 @@ func TestBadParse(t *testing.T) {
 		{`atr == 'aaa'`, "parse error"},
 	}
 	for idx, tt := range tests {
-		_, err := Parse(tt.src)
-		if err == nil {
-			t.Errorf("[%d] got: <nil>\nwant: %s", idx, tt.err)
-			continue
-		}
+		tst.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
+			_, err := Parse(tt.src)
+			if err == nil {
+				t.Errorf("[%d] got: <nil>\nwant: %s", idx, tt.err)
+				return
+			}
 
-		if !strings.Contains(err.Error(), tt.err) {
-			t.Errorf("[%d] got: %s\nwant: %s", idx, err.Error(), tt.err)
-		}
+			if !strings.Contains(err.Error(), tt.err) {
+				t.Errorf("[%d] got: %s\nwant: %s", idx, err.Error(), tt.err)
+			}
+		})
 	}
 
 	// nil test
 	tex := &Expression{}
 	if tex.String() != "<nil>" {
-		t.Errorf("got: %s\nwant: <nil>", tex.String())
+		tst.Errorf("got: %s\nwant: <nil>", tex.String())
 	}
+}
+
+type ad struct {
+	name string
+	v    config.ValueType
+}
+type af struct {
+	v map[string]*dpb.AttributeDescriptor
+}
+
+func (a *af) FindAttribute(name string) *dpb.AttributeDescriptor { return a.v[name] }
+
+func newAF(ds []*ad) *af {
+	m := make(map[string]*dpb.AttributeDescriptor)
+	for _, aa := range ds {
+		m[aa.name] = &dpb.AttributeDescriptor{Name: aa.name, ValueType: aa.v}
+	}
+	return &af{m}
+}
+
+func TestTypeCheck(tt *testing.T) {
+	success := "__SUCCESS__"
+	tests := []struct {
+		s       string
+		retType config.ValueType
+		ds      []*ad
+		err     string
+	}{
+		{"a == 2", config.BOOL, []*ad{{"a", config.INT64}}, success},
+		{"a == 2", config.BOOL, []*ad{{"a", config.BOOL}}, "typeError"},
+		{"a == 2 || a == 5", config.BOOL, []*ad{{"a", config.INT64}}, success},
+		{"a | b | 5", config.INT64, []*ad{{"a", config.INT64}, {"b", config.INT64}}, success},
+		{`a | b | "5"`, config.INT64, []*ad{{"a", config.INT64}, {"b", config.INT64}}, "typeError"},
+		{`a["5"] == "abc"`, config.BOOL, []*ad{{"a", config.STRING_MAP}, {"b", config.INT64}}, success},
+		{`a["5"] == "abc"`, config.BOOL, []*ad{{"a", config.STRING}, {"b", config.INT64}}, "typeError"},
+		{`a | b | "abc"`, config.STRING, []*ad{{"a", config.STRING}, {"b", config.STRING}}, success},
+		{`x | y | "abc"`, config.STRING, []*ad{{"a", config.STRING}, {"b", config.STRING}}, "unresolved attribute"},
+		{`EQ("abc")`, config.BOOL, []*ad{{"a", config.STRING}, {"b", config.STRING}}, "arity mismatch"},
+		{`a % 5`, config.BOOL, []*ad{{"a", config.INT64}}, "unknown function"},
+	}
+	fMap := FuncMap()
+	for idx, c := range tests {
+		tt.Run(fmt.Sprintf("[%d] %s", idx, c.s), func(t *testing.T) {
+			var ex *Expression
+			var err error
+			var retType config.ValueType
+			if ex, err = Parse(c.s); err != nil {
+				t.Errorf("unexpected error %s", err)
+			}
+
+			retType, err = ex.TypeCheck(newAF(c.ds), fMap)
+			if err != nil {
+				if !strings.Contains(err.Error(), c.err) {
+					t.Errorf("unexpected error got %s want %s", err.Error(), c.err)
+				}
+				return
+			}
+
+			if c.err != success {
+				t.Errorf("got err==nil want %s", c.err)
+				return
+			}
+
+			if retType != c.retType {
+				t.Errorf("incorrect return type got %s want %s", retType, c.retType)
+			}
+
+		})
+	}
+
 }
