@@ -88,7 +88,7 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 	var lerr error
 
 	for _, rule := range rules {
-		if glog.V(2) {
+		if glog.V(3) {
 			glog.Infof("resolveRules (%v) ==> %v ", rule, path)
 		}
 		sel := rule.GetSelector()
@@ -102,11 +102,11 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 		path = path + "/" + sel
 		for _, aa := range rule.GetAspects() {
 			if !aspectSet[aa.Kind] {
-				glog.V(3).Infof("Aspect rejected: %v not in set [%v]", aa.Kind, aspectSet)
+				glog.V(3).Infof("Aspect %s not selected [%v]", aa.Kind, aspectSet)
 				continue
 			}
 			adp := r.adapterByName[adapterKey{aa.Kind, aa.Adapter}]
-			glog.V(3).Infof("selected aspect %v -> ", aa.Kind, adp)
+			glog.V(2).Infof("selected aspect %s -> %s", aa.Kind, adp)
 			*dlist = append(*dlist, &Combined{adp, aa})
 		}
 		rs := rule.GetRules()

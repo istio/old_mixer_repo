@@ -2,7 +2,8 @@ subject: namespace:ns
 revision: "2022"
 rules:
         #- selector: service.name == “*”
-- selector: service.name == "myservice"
+        #- selector: service.name == "myservice"
+- selector: true
   aspects:
   - kind: quotas
     params:
