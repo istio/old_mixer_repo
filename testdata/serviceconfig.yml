@@ -2,7 +2,7 @@ subject: namespace:ns
 revision: "2022"
 rules:
         #- selector: service.name == “*”
-- selector:
+- selector: service.name == "myservice"
   aspects:
   - kind: quotas
     params:
@@ -14,3 +14,6 @@ rules:
     params:
       logName: "mixer_log"
       logEntryDescriptorNames: ["default"]
+- selector: client.id == "bad_client"
+  aspects:
+  - kind: denials
