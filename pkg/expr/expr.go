@@ -84,6 +84,21 @@ type Expression struct {
 	Fn    *Function
 }
 
+// TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
+func (e *Expression) TypeCheck(attrs attribute.DefinitionFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+	if e.Const != nil {
+		return e.Const.Type, nil
+	}
+	if e.Var != nil {
+		ad := attrs.FindAttribute(e.Var.Name)
+		if ad == nil {
+			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
+		}
+		return ad.ValueType, nil
+	}
+	return e.Fn.TypeCheck(attrs, fMap)
+}
+
 // Eval evaluates the expression given an attribute bag and a function map.
 func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{}, error) {
 	if e.Const != nil {
@@ -193,6 +208,53 @@ func (f *Function) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{},
 	}
 	glog.V(2).Infof("calling %#v %#v", fn, args)
 	return fn.Call(args), nil
+}
+
+// TypeCheck Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
+func (f *Function) TypeCheck(attrs attribute.DefinitionFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+	fn := fMap[f.Name]
+	if fn == nil {
+		return valueType, fmt.Errorf("unknown function: %s", f.Name)
+	}
+
+	var idx int
+	argTypes := fn.ArgTypes()
+
+	if len(f.Args) < len(argTypes) {
+		return valueType, fmt.Errorf("%s arity mismatch. Got %d arg(s), expected %d arg(s)", f, len(f.Args), len(argTypes))
+	}
+
+	var argType config.ValueType
+	tmplType := config.VALUE_TYPE_UNSPECIFIED
+	// check arg types with fn args
+	for idx = 0; idx < len(f.Args) && idx < len(argTypes); idx++ {
+		argType, err = f.Args[idx].TypeCheck(attrs, fMap)
+		if err != nil {
+			return valueType, err
+		}
+		expectedType := argTypes[idx]
+		if expectedType == config.VALUE_TYPE_UNSPECIFIED {
+			if tmplType == config.VALUE_TYPE_UNSPECIFIED {
+				// all future args must be of this type.
+				tmplType = argType
+				continue
+			}
+			expectedType = tmplType
+		}
+		if argType != expectedType {
+			return valueType, fmt.Errorf("%s arg %d (%s) typeError got %s, expected %s", f, idx+1, f.Args[idx], argType, expectedType)
+		}
+	}
+
+	// TODO check if we have excess args, only works when Fn is Variadic
+
+	retType := fn.ReturnType()
+	if retType == config.VALUE_TYPE_UNSPECIFIED {
+		// if return type is unspecified, you the discovered type
+		retType = tmplType
+	}
+
+	return retType, nil
 }
 
 func process(ex ast.Expr, tgt *Expression) (err error) {
