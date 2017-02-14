@@ -34,6 +34,9 @@ var requests = prometheus.NewCounterVec(
 	[]string{"source", "target", "service", "response_code"},
 )
 
+// List of response codes from which to randomly draw.
+// OK appears most frequently, because we want most of the response codes
+// to be non-error cases for this demo system.
 var responseCodes = []int{
 	http.StatusOK,
 	http.StatusOK,
