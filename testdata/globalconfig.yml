@@ -15,3 +15,5 @@ adapters:
     impl: stdioLogger
     params:
       logStream: 0 # STDERR
+  - name: default
+    impl: denyChecker
