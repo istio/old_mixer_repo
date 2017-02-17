@@ -32,7 +32,7 @@ type Func interface {
 	// ArgTypes specifies the argument types in order expected by the function.
 	ArgTypes() []config.ValueType
 
-	// NullArgs specifies if the function accepts null args
+	// AcceptsNulls specifies if the function accepts null args
 	AcceptsNulls() bool
 
 	// Call performs the function call. It is guaranteed
