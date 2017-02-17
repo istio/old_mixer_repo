@@ -15,6 +15,7 @@
 package expr
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 )
 
-func TestGoodEval(t *testing.T) {
+func TestGoodEval(tt *testing.T) {
 	tests := []struct {
 		src    string
 		tmap   map[string]interface{}
@@ -145,29 +146,31 @@ func TestGoodEval(t *testing.T) {
 	}
 
 	for idx, tst := range tests {
-		attrs := &bag{attrs: tst.tmap}
-		exp, err := Parse(tst.src)
-		if err != nil {
-			t.Errorf("[%d] unexpected error: %s", idx, err)
-			continue
-		}
-		res, err := exp.Eval(attrs, FuncMap())
-		if err != nil {
-			if tst.err == "" {
+		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.src), func(t *testing.T) {
+			attrs := &bag{attrs: tst.tmap}
+			exp, err := Parse(tst.src)
+			if err != nil {
 				t.Errorf("[%d] unexpected error: %s", idx, err)
-			} else if !strings.Contains(err.Error(), tst.err) {
-				t.Errorf("[%d] got %s\nwant %s", idx, err, tst.err)
+				return
 			}
-			continue
-		}
-		if res != tst.result {
-			t.Errorf("[%d] got %s\nwant %s", idx, res, tst.result)
-		}
+			res, err := exp.Eval(attrs, FuncMap())
+			if err != nil {
+				if tst.err == "" {
+					t.Errorf("[%d] unexpected error: %s", idx, err)
+				} else if !strings.Contains(err.Error(), tst.err) {
+					t.Errorf("[%d] got %s\nwant %s", idx, err, tst.err)
+				}
+				return
+			}
+			if res != tst.result {
+				t.Errorf("[%d] got %s\nwant %s", idx, res, tst.result)
+			}
+		})
 	}
 
 }
 
-func TestCexlEval(t *testing.T) {
+func TestCEXLEval(tt *testing.T) {
 	success := "_SUCCESS_"
 	type mtype int
 	const (
@@ -240,39 +243,41 @@ func TestCexlEval(t *testing.T) {
 			true, "unresolved attribute", stringType,
 		},
 	}
-	ev := NewCexlEvaluator()
+	ev := NewCEXLEvaluator()
 	var ret interface{}
 	var err error
-	for idx, tt := range tests {
-		attrs := &bag{attrs: tt.tmap}
-		switch tt.fn {
-		case anyType:
-			ret, err = ev.Eval(tt.src, attrs)
-		case boolType:
-			ret, err = ev.EvalPredicate(tt.src, attrs)
-		case stringType:
-			ret, err = ev.EvalString(tt.src, attrs)
-		}
-		if (err == nil) != (tt.err == success) {
-			t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
-			continue
-		}
-		// check if error is of the correct type
-		if err != nil {
-			if !strings.Contains(err.Error(), tt.err) {
-				t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
+	for idx, tst := range tests {
+		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.src), func(t *testing.T) {
+			attrs := &bag{attrs: tst.tmap}
+			switch tst.fn {
+			case anyType:
+				ret, err = ev.Eval(tst.src, attrs)
+			case boolType:
+				ret, err = ev.EvalPredicate(tst.src, attrs)
+			case stringType:
+				ret, err = ev.EvalString(tst.src, attrs)
 			}
-			continue
-		}
-		// check result
-		if ret != tt.result {
-			t.Errorf("[%d] got %s, want %s", idx, ret, tt.result)
-		}
+			if (err == nil) != (tst.err == success) {
+				t.Errorf("[%d] got %s, want %s", idx, err, tst.err)
+				return
+			}
+			// check if error is of the correct type
+			if err != nil {
+				if !strings.Contains(err.Error(), tst.err) {
+					t.Errorf("[%d] got %s, want %s", idx, err, tst.err)
+				}
+				return
+			}
+			// check result
+			if ret != tst.result {
+				t.Errorf("[%d] got %s, want %s", idx, ret, tst.result)
+			}
+		})
 	}
 
 }
 
-func TestCexlValidate(t *testing.T) {
+func TestCexlValidate(tt *testing.T) {
 	success := "_SUCCESS_"
 	tests := []struct {
 		s   string
@@ -282,18 +287,20 @@ func TestCexlValidate(t *testing.T) {
 		{"a=b", "parse error"},
 	}
 
-	ev := NewCexlEvaluator()
+	ev := NewCEXLEvaluator()
 
-	for idx, tt := range tests {
-		err := ev.Validate(tt.s)
-		if (err == nil) != (tt.err == success) {
-			t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
-			continue
-		}
-		// check if error is of the correct type
-		if err != nil && !strings.Contains(err.Error(), tt.err) {
-			t.Errorf("[%d] got %s, want %s", idx, err, tt.err)
-		}
+	for idx, tst := range tests {
+		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.s), func(t *testing.T) {
+			err := ev.Validate(tst.s)
+			if (err == nil) != (tst.err == success) {
+				t.Errorf("[%d] got %s, want %s", idx, err, tst.err)
+				return
+			}
+			// check if error is of the correct type
+			if err != nil && !strings.Contains(err.Error(), tst.err) {
+				t.Errorf("[%d] got %s, want %s", idx, err, tst.err)
+			}
+		})
 	}
 }
 

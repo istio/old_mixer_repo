@@ -85,12 +85,12 @@ type Expression struct {
 }
 
 // TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) TypeCheck(attrs attribute.DefinitionFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+func (e *Expression) TypeCheck(attrs attribute.DescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
 	if e.Var != nil {
-		ad := attrs.FindAttribute(e.Var.Name)
+		ad := attrs.FindDescriptor(e.Var.Name)
 		if ad == nil {
 			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
 		}
@@ -211,7 +211,7 @@ func (f *Function) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{},
 }
 
 // TypeCheck Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) TypeCheck(attrs attribute.DefinitionFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+func (f *Function) TypeCheck(attrs attribute.DescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
 	fn := fMap[f.Name]
 	if fn == nil {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
@@ -374,7 +374,7 @@ func Parse(src string) (ex *Expression, err error) {
 	return ex, nil
 }
 
-// Evaluator interface
+// Evaluator for a c-like expression language.
 type cexl struct {
 	//TODO add ast cache
 	// function Map
@@ -430,8 +430,8 @@ func (e *cexl) Validate(s string) (err error) {
 	return nil
 }
 
-// NewCexlEvaluator returns a new Evaluator of this type.
-func NewCexlEvaluator() Evaluator {
+// NewCEXLEvaluator returns a new Evaluator of this type.
+func NewCEXLEvaluator() Evaluator {
 	return &cexl{
 		fMap: FuncMap(),
 	}

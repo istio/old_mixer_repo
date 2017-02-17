@@ -15,13 +15,14 @@
 package expr
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
 )
 
-func TestIndexFunc(t *testing.T) {
+func TestIndexFunc(tt *testing.T) {
 	fn := newIndex()
 	mp := map[string]interface{}{
 		"X-FORWARDED-HOST": "aaa",
@@ -36,15 +37,17 @@ func TestIndexFunc(t *testing.T) {
 		{"X-request-size", 2000},
 	}
 
-	for idx, tt := range tbl {
-		rv := fn.Call([]interface{}{mp, tt.key})
-		if rv != tt.want {
-			t.Errorf("[%d] got %#v\nwant %#v", idx, rv, tt.want)
-		}
+	for idx, tst := range tbl {
+		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.key), func(t *testing.T) {
+			rv := fn.Call([]interface{}{mp, tst.key})
+			if rv != tst.want {
+				t.Errorf("[%d] got %#v\nwant %#v", idx, rv, tst.want)
+			}
+		})
 	}
 
-	check(t, "ReturnType", fn.ReturnType(), config.VALUE_TYPE_UNSPECIFIED)
-	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING_MAP, config.STRING})
+	check(tt, "ReturnType", fn.ReturnType(), config.VALUE_TYPE_UNSPECIFIED)
+	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING_MAP, config.STRING})
 }
 
 func check(t *testing.T, msg string, got interface{}, want interface{}) {
@@ -53,7 +56,7 @@ func check(t *testing.T, msg string, got interface{}, want interface{}) {
 	}
 }
 
-func TestEQFunc(t *testing.T) {
+func TestEQFunc(tt *testing.T) {
 	fn := newEQ()
 	tbl := []struct {
 		val   interface{}
@@ -68,13 +71,16 @@ func TestEQFunc(t *testing.T) {
 		{"svc1.ns1.cluster", "*.ns1.cluster", true},
 		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
 	}
-	for idx, tt := range tbl {
-		rv := fn.Call([]interface{}{tt.val, tt.match})
-		if rv != tt.equal {
-			t.Errorf("[%d] %v ?= %v -- got %#v\nwant %#v", idx, tt.val, tt.match, rv, tt.equal)
-		}
+	for idx, tst := range tbl {
+		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.val), func(t *testing.T) {
+			rv := fn.Call([]interface{}{tst.val, tst.match})
+			if rv != tst.equal {
+				tt.Errorf("[%d] %v ?= %v -- got %#v\nwant %#v", idx, tst.val, tst.match, rv, tst.equal)
+			}
 
+		})
 	}
-	check(t, "ReturnType", fn.ReturnType(), config.BOOL)
-	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED})
+
+	check(tt, "ReturnType", fn.ReturnType(), config.BOOL)
+	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED})
 }

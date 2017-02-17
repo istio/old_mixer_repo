@@ -18,8 +18,8 @@ import (
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
-// DefinitionFinder finds attribute definitions.
-type DefinitionFinder interface {
-	// FindAttribute finds attribute descriptor in vocabulary. returns nil if not found.
-	FindAttribute(name string) *dpb.AttributeDescriptor
+// DescriptorFinder finds attribute definitions.
+type DescriptorFinder interface {
+	// FindDescriptor finds attribute descriptor in the vocabulary. returns nil if not found.
+	FindDescriptor(name string) *dpb.AttributeDescriptor
 }

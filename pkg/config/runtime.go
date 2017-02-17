@@ -70,8 +70,7 @@ func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) (dlist []*Comb
 		defer func() { glog.Infof("resolved (err=%v): %s", err, dlist) }()
 	}
 	dlist = make([]*Combined, 0, r.numAspects)
-	err = r.resolveRules(bag, aspectSet, r.serviceConfig.GetRules(), "/", &dlist)
-	return dlist, err
+	return r.resolveRules(bag, aspectSet, r.serviceConfig.GetRules(), "/", dlist)
 }
 
 func (r *Runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error) {
@@ -83,14 +82,14 @@ func (r *Runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 }
 
 // resolveRules recurses through the config struct and returns a list of combined aspects
-func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
+func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist []*Combined) ([]*Combined, error) {
 	var selected bool
 	var lerr error
+	var err error
 
 	for _, rule := range rules {
-		if glog.V(3) {
-			glog.Infof("resolveRules (%v) ==> %v ", rule, path)
-		}
+		glog.V(3).Infof("resolveRules (%v) ==> %v ", rule, path)
+
 		sel := rule.GetSelector()
 		if selected, lerr = r.evalPredicate(sel, bag); lerr != nil {
 			err = multierror.Append(err, lerr)
@@ -107,15 +106,15 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 			}
 			adp := r.adapterByName[adapterKey{aa.Kind, aa.Adapter}]
 			glog.V(2).Infof("selected aspect %s -> %s", aa.Kind, adp)
-			*dlist = append(*dlist, &Combined{adp, aa})
+			dlist = append(dlist, &Combined{adp, aa})
 		}
 		rs := rule.GetRules()
 		if len(rs) == 0 {
 			continue
 		}
-		if lerr = r.resolveRules(bag, aspectSet, rs, path, dlist); lerr != nil {
+		if dlist, lerr = r.resolveRules(bag, aspectSet, rs, path, dlist); lerr != nil {
 			err = multierror.Append(err, lerr)
 		}
 	}
-	return err
+	return dlist, err
 }

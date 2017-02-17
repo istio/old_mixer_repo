@@ -21,7 +21,7 @@ import (
 	config "istio.io/api/mixer/v1/config/descriptor"
 )
 
-// Func every expression function provider should have this interface.
+// Func defines the interface that every expression function provider must implement.
 type Func interface {
 	// Name uniquely identified the function.
 	Name() string
