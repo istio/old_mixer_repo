@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 The Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,22 +16,26 @@ package adapter
 
 import (
 	"errors"
+	"fmt"
 	"time"
+
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 // Metric kinds supported by mixer.
 const (
-	Gauge   Kind = iota // records instantaneous (non-cumulative) measurements
-	Counter             // records increasing cumulative values
+	Gauge   MetricKind = iota // records instantaneous (non-cumulative) measurements
+	Counter                   // records increasing cumulative values
 )
 
 // Label kinds supported by mixer.
 const (
-	String LabelKind = iota
+	String LabelType = iota
 	Int64
 	Float64
 	Bool
 	Time
+	Duration
 	IPAddress
 	EmailAddress
 	URI
@@ -56,7 +60,7 @@ type (
 		// value is being reported.
 		Name string
 		// Kind provides type information on the metric itself
-		Kind Kind // TODO: will this be needed? Will adapters get descriptors ahead of time?
+		Kind MetricKind
 		// Labels provide metadata about the metric value. They are
 		// generated from the set of attributes provided by Report().
 		Labels map[string]interface{}
@@ -73,9 +77,9 @@ type (
 		MetricValue interface{}
 	}
 
-	// Kind defines the set of known metrics types that can be generated
+	// MetricKind defines the set of known metrics types that can be generated
 	// by the mixer.
-	Kind int
+	MetricKind int
 
 	// MetricsBuilder builds instances of the Metrics aspect.
 	MetricsBuilder interface {
@@ -90,16 +94,18 @@ type (
 	MetricDefinition struct {
 		// Name is the canonical name of the metric.
 		Name string
+		// Description provides information about this metric.
+		Description string
 		// Kind provides type information about the metric.
-		Kind Kind
+		Kind MetricKind
 		// Labels are the names of keys for dimensional data that will
 		// be generated at runtime and passed along with metric values.
-		Labels map[string]LabelKind
+		Labels map[string]LabelType
 	}
 
-	// LabelKind defines the set of known label types that can be generated
+	// LabelType defines the set of known label types that can be generated
 	// by the mixer.
-	LabelKind int
+	LabelType int
 )
 
 // String returns the string-valued metric value for a metrics.Value.
@@ -132,4 +138,44 @@ func (v Value) Float64() (float64, error) {
 		return v, nil
 	}
 	return 0, errors.New("metric value is not a float64")
+}
+
+// MetricKindFromProto translates from MetricDescriptor_MetricKind to Metric Kind.
+func MetricKindFromProto(pbk dpb.MetricDescriptor_MetricKind) (MetricKind, error) {
+	switch pbk {
+	case dpb.GAUGE:
+		return Gauge, nil
+	case dpb.COUNTER:
+		return Counter, nil
+	default:
+		return 0, fmt.Errorf("invalid proto MetricKind %v", pbk)
+	}
+}
+
+// LabelTypeFromProto translates from ValueType to LabelType.
+func LabelTypeFromProto(pbt dpb.ValueType) (LabelType, error) {
+	switch pbt {
+	case dpb.STRING:
+		return String, nil
+	case dpb.BOOL:
+		return Bool, nil
+	case dpb.INT64:
+		return Int64, nil
+	case dpb.DOUBLE:
+		return Float64, nil
+	case dpb.TIMESTAMP:
+		return Time, nil
+	case dpb.DNS_NAME:
+		return DNSName, nil
+	case dpb.DURATION:
+		return Duration, nil
+	case dpb.EMAIL_ADDRESS:
+		return EmailAddress, nil
+	case dpb.IP_ADDRESS:
+		return IPAddress, nil
+	case dpb.URI:
+		return URI, nil
+	default:
+		return 0, fmt.Errorf("invalid proto ValueType %v", pbt)
+	}
 }

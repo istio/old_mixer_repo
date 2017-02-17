@@ -19,11 +19,11 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
+
 	"istio.io/mixer/adapter"
 	pkgadapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
-
-	"gopkg.in/yaml.v2"
 	"istio.io/mixer/pkg/aspect"
 )
 
@@ -63,45 +63,34 @@ func listAspects() error {
 
 	keys := []string{}
 	for kind := range aspectMap {
-		keys = append(keys, kind)
+		keys = append(keys, kind.String())
 	}
 
 	sort.Strings(keys)
 
 	for _, kind := range keys {
 		fmt.Printf("aspect %s\n", kind)
-		printConfigValidator(aspectMap[kind])
+		k, _ := aspect.ParseKind(kind)
+		printConfigValidator(aspectMap[k])
 	}
 	return nil
 }
 
 func listBuilders() error {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
-	kinds := []string{}
+	keys := []string{}
 	for k := range builderMap {
-		kinds = append(kinds, k)
+		keys = append(keys, k)
 	}
 
-	sort.Strings(kinds)
+	sort.Strings(keys)
+	for _, impl := range keys {
+		b := builderMap[impl].Builder
 
-	for _, kind := range kinds {
-		m := builderMap[kind]
+		fmt.Printf("adapter %s: %s\n", impl, b.Description())
+		printConfigValidator(b)
 
-		keys := []string{}
-		for impl := range m {
-			keys = append(keys, impl)
-		}
-
-		sort.Strings(keys)
-
-		for _, impl := range keys {
-			b := m[impl]
-			fmt.Printf("adapter %s/%s: %s\n", kind, impl, b.Description())
-			printConfigValidator(b)
-
-		}
 	}
-
 	return nil
 }
 

@@ -15,12 +15,11 @@
 package config
 
 import (
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/expr"
-
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/mixer/pkg/attribute"
 	pb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/expr"
 )
 
 type (
@@ -38,10 +37,19 @@ type (
 		Aspect  *pb.Aspect
 	}
 
-	// AspectSet is a set of aspects. ex: Check call will result in {"listChecker", "iam"}
-	// Runtime should only return aspects matching a certain type.
+	// AspectSet is a set of aspects by name.
 	AspectSet map[string]bool
 )
+
+func (c *Combined) String() (ret string) {
+	if c.Builder != nil {
+		ret += "builder: " + c.Builder.String() + " "
+	}
+	if c.Aspect != nil {
+		ret += "aspect: " + c.Aspect.String()
+	}
+	return
+}
 
 // NewRuntime returns a Runtime object given a validated config and a predicate eval.
 func NewRuntime(v *Validated, evaluator expr.PredicateEvaluator) *Runtime {
@@ -55,9 +63,13 @@ func NewRuntime(v *Validated, evaluator expr.PredicateEvaluator) *Runtime {
 // It will only return config from the requested set of aspects.
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
-func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error) {
-	dlist := make([]*Combined, 0, r.numAspects)
-	err := r.resolveRules(bag, aspectSet, r.serviceConfig.GetRules(), "/", &dlist)
+func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) (dlist []*Combined, err error) {
+	if glog.V(2) {
+		glog.Infof("resolving for: %s", aspectSet)
+		defer func() { glog.Infof("resolved (err=%v): %s", err, dlist) }()
+	}
+	dlist = make([]*Combined, 0, r.numAspects)
+	err = r.resolveRules(bag, aspectSet, r.serviceConfig.GetRules(), "/", &dlist)
 	return dlist, err
 }
 
@@ -69,7 +81,7 @@ func (r *Runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 	return r.eval.EvalPredicate(selector, bag)
 }
 
-// resolveRules recurses thru the config struct and returns a list of combined aspects
+// resolveRules recurses through the config struct and returns a list of combined aspects
 func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
 	var selected bool
 	var lerr error
@@ -88,9 +100,13 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 		}
 		path = path + "/" + sel
 		for _, aa := range rule.GetAspects() {
-			if cs := r.combined(aa, aspectSet); cs != nil {
-				*dlist = append(*dlist, cs)
+			if !aspectSet[aa.Kind] {
+				glog.V(3).Infof("Aspect rejected: %v not in set [%v]", aa.Kind, aspectSet)
+				continue
 			}
+			adp := r.adapterByName[adapterKey{aa.Kind, aa.Adapter}]
+			glog.V(3).Infof("selected aspect %v -> ", aa.Kind, adp)
+			*dlist = append(*dlist, &Combined{adp, aa})
 		}
 		rs := rule.GetRules()
 		if len(rs) == 0 {
@@ -101,23 +117,4 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 		}
 	}
 	return err
-}
-
-// combined returns a Combined config given an aspect config
-func (r *Runtime) combined(aa *pb.Aspect, aspectSet AspectSet) *Combined {
-	if !aspectSet[aa.GetKind()] {
-		glog.V(3).Infof("Aspect Rejected %v not is set (%v)", aa.GetKind(), aspectSet)
-		return nil
-	}
-
-	var adp *pb.Adapter
-	// find matching adapter
-	// assume that config references are correct
-	if aa.GetAdapter() != "" {
-		adp = r.adapterByName[aa.GetAdapter()]
-	} else {
-		adp = r.adapterByKind[aa.GetKind()][0]
-	}
-
-	return &Combined{adp, aa}
 }

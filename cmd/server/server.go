@@ -137,17 +137,18 @@ func runServer(sa *serverArgs) error {
 	eval := expr.NewIdentityEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
+		adapterMgr.AdapterToAspectMapperFunc(),
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
 	var handler api.Handler
 	if sa.workerPoolSize == 0 {
-		handler = api.NewHandler(adapterMgr, adapterMgr.AspectMap())
+		handler = api.NewHandler(adapterMgr, adapterMgr.MethodMap())
 	} else {
 		poolsize := int(sa.workerPoolSize)
 		if poolsize < 0 {
 			return fmt.Errorf("worker pool size must be less than int max value, got pool size %d", poolsize)
 		}
-		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr, poolsize), adapterMgr.AspectMap())
+		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr, poolsize), adapterMgr.MethodMap())
 	}
 
 	grpcServerOptions, err := serverOpts(sa, handler)

@@ -61,17 +61,18 @@ func TestConfigManager(t *testing.T) {
 		{sGlobalConfig, "globalconfig", "", "", nil, "no such file or directory"},
 		{sGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, "failed validation"},
 		{sGlobalConfigValid, "globalconfig", sSvcConfig2, "serviceconfig", map[string]adapter.ConfigValidator{
-			"istio/denychecker": &lc{},
-			"metrics":           &lc{},
-			"listchecker":       &lc{},
+			"denyChecker": &lc{},
+			"metrics":     &lc{},
+			"listchecker": &lc{},
 		}, ""},
 	}
 	for idx, mt := range mlist {
 		loopDelay := time.Millisecond * 50
-		vf := &fakeVFinder{v: mt.v}
+		vf := newVfinder(mt.v)
 		ma := &managerArgs{
-			aspectFinder:  vf,
-			builderFinder: vf,
+			aspectFinder:  vf.FindValidator,
+			builderFinder: vf.FindValidator,
+			findKinds:     vf.AdapterToAspectMapperFunc,
 			eval:          evaluator,
 			loopDelay:     loopDelay,
 		}
@@ -95,13 +96,14 @@ func TestConfigManager(t *testing.T) {
 }
 
 func newmanager(args *managerArgs) *Manager {
-	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.globalConfig, args.serviceConfig, args.loopDelay)
+	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.findKinds, args.globalConfig, args.serviceConfig, args.loopDelay)
 }
 
 type managerArgs struct {
 	eval          expr.Evaluator
-	aspectFinder  ValidatorFinder
-	builderFinder ValidatorFinder
+	aspectFinder  ValidatorFinderFunc
+	builderFinder ValidatorFinderFunc
+	findKinds     AdapterToAspectMapperFunc
 	loopDelay     time.Duration
 	globalConfig  string
 	serviceConfig string

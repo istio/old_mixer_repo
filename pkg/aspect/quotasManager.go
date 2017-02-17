@@ -81,15 +81,15 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 	}, nil
 }
 
-func (*quotasManager) Kind() string                                                   { return QuotaKind }
+func (*quotasManager) Kind() Kind                                                     { return QuotasKind }
 func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
 func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
 func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})
-	for attr, expr := range w.inputs {
-		if val, err := mapper.Eval(expr, attrs); err == nil {
+	for attr, e := range w.inputs {
+		if val, err := mapper.Eval(e, attrs); err == nil {
 			labels[attr] = val
 		}
 	}

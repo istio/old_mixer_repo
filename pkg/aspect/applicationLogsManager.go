@@ -20,13 +20,13 @@ import (
 	"time"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
+
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 type (
@@ -96,7 +96,7 @@ func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, e
 	}, nil
 }
 
-func (applicationLogsManager) Kind() string { return LogKind }
+func (applicationLogsManager) Kind() Kind { return ApplicationLogsKind }
 func (applicationLogsManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
@@ -114,8 +114,8 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})
-	for attr, expr := range e.inputs {
-		if val, err := mapper.Eval(expr, attrs); err == nil {
+	for attr, exp := range e.inputs {
+		if val, err := mapper.Eval(exp, attrs); err == nil {
 			labels[attr] = val
 		}
 	}

@@ -44,8 +44,9 @@ type ChangeListener interface {
 // api.Handler listens for config changes.
 type Manager struct {
 	eval          expr.Evaluator
-	aspectFinder  ValidatorFinder
-	builderFinder ValidatorFinder
+	aspectFinder  ValidatorFinderFunc
+	builderFinder ValidatorFinderFunc
+	findAspects   AdapterToAspectMapperFunc
 	loopDelay     time.Duration
 	globalConfig  string
 	serviceConfig string
@@ -70,12 +71,13 @@ type Manager struct {
 // as command line input parameters.
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
-func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinder, builderFinder ValidatorFinder,
-	globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
+func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinderFunc, builderFinder ValidatorFinderFunc,
+	findAspects AdapterToAspectMapperFunc, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,
 		aspectFinder:  aspectFinder,
 		builderFinder: builderFinder,
+		findAspects:   findAspects,
 		loopDelay:     loopDelay,
 		globalConfig:  globalConfig,
 		serviceConfig: serviceConfig,
@@ -117,7 +119,7 @@ func (c *Manager) fetch() (*Runtime, error) {
 		return nil, nil
 	}
 
-	v := NewValidator(c.aspectFinder, c.builderFinder, true, c.eval)
+	v := NewValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
 	if vd, cerr = v.Validate(sc, gc); cerr != nil {
 		return nil, cerr
 	}
