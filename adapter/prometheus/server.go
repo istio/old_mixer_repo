@@ -61,10 +61,9 @@ func (s *serverInst) Start(logger adapter.Logger) error {
 	}
 
 	http.Handle(metricsPath, promhttp.Handler())
-
 	go func() {
-		err := srv.Serve(listener.(*net.TCPListener))
-		if err != nil {
+		logger.Infof("serving prometheus metrics on %s", s.addr)
+		if err := srv.Serve(listener.(*net.TCPListener)); err != nil {
 			_ = logger.Errorf("prometheus HTTP server error: %v", err)
 		}
 	}()

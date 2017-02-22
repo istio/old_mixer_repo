@@ -136,6 +136,9 @@ func (p *prom) Record(vals []adapter.Value) error {
 func (*prom) Close() error { return nil }
 
 func newCounterVec(name, desc string, labels map[string]adapter.LabelType) *prometheus.CounterVec {
+	if desc == "" {
+		desc = name
+	}
 	c := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: safeName(name),
@@ -147,6 +150,9 @@ func newCounterVec(name, desc string, labels map[string]adapter.LabelType) *prom
 }
 
 func newGaugeVec(name, desc string, labels map[string]adapter.LabelType) *prometheus.GaugeVec {
+	if desc == "" {
+		desc = name
+	}
 	c := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: safeName(name),

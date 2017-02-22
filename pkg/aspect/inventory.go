@@ -98,12 +98,14 @@ func Inventory() ManagerInventory {
 		CheckMethod: {
 			NewDenialsManager(),
 			NewListsManager(),
+			NewMetricsManager(),
 			NewQuotasManager(),
 		},
 
 		ReportMethod: {
 			NewApplicationLogsManager(),
 			NewAccessLogsManager(),
+			NewMetricsManager(),
 		},
 
 		QuotaMethod: {},
