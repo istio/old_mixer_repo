@@ -4,13 +4,14 @@ Intended for our demo, these configurations stand up an instance of the mixer, a
 the mixer exposes, and a Grafana instance to render those metrics. The easiest way to stand up these deployments is to
 run (from the Istio mixer root directory):
 
+    $ kubectl create configmap testdata-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml --from-file=testdata/prometheus.yaml
     $ kubectl apply -f ./deploy/kube/
     
 If you're using something like [minikube](https://github.com/kubernetes/minikube) to test locally, you can call the
 mixer server with our test client (`mixc`), providing some attribute values:
 
-    $ MIXS=$(minikube service mixer --url)    
-    $ bazel run //cmd/client/mixc -- check -m $MIXS -a source.name=source,target.name=target,api.name=myapi,response.code=200,response.latency=100,client.id=$USER
+    $ MIXS=$(minikube service mixer --url --format "{{.IP}}:{{.Port}}")
+    $ bazel run //cmd/client:mixc -- check -m $MIXS -a source.name=source,target.name=target,api.name=myapi,response.code=200,response.latency=100,client.id=$USER
 
 ## mixer.yaml
 `mixer.yaml` describes a deployment and service for the mixer server binary. The deployment annotates the pods it
@@ -24,7 +25,7 @@ to provide these configurations. Usually this configmap is created from the `//t
 
 <a name="configmap_command"></a>
 
-    $ kubectl create configmap testdata-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml --from-file=testdata/prometheusconfig.yaml
+    $ kubectl create configmap testdata-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml --from-file=testdata/prometheus.yaml
 
 A file can be created to capture this configmap by running:
 
@@ -37,6 +38,14 @@ We do not check in this file since we consider the yaml files in `//testdata` th
 The Grafana UI is exposed on port `3000`. This configuration stores Grafana's data in the `/data/grafana` dir, which we
 configure to be an ephemeral directory. To persist your Grafana configuration for longer than the lifetime of the `grafana`
 pod, map this directory to a real volume.
+
+If you're using minikube to test these deployments locally, get to the UI by running:
+
+    $ minikube service grafana
+    
+We also need to add our Prometheus installation data source, which is at `http://prometheus:9090/` (no auth required,
+access via proxy).
+
 
 ## <a name="prometheus"></a> prometheus.yaml
 `prometheus.yaml` describes a deployment and service for a Prometheus collection server. Prometheus expects its config to
