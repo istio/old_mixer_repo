@@ -146,12 +146,6 @@ new_go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-new_go_repository(
-    name = "com_github_mitchellh_mapstructure",
-    commit = "db1efb556f84b25a0a13a04aad883943538ad2e0", # Jan 24, 2017 (no releases)
-    importpath = "github.com/mitchellh/mapstructure",
-)
-
 load("//:repositories.bzl", "new_git_or_local_repository")
 
 new_git_or_local_repository(
