@@ -11,14 +11,14 @@ rules:
     adapter: "prometheus"
     params:
       metrics:
-      - descriptor_: "request_count"
+      - descriptor: "request_count"
         value: "1"
         labels:
           source: "source.name"
           target: "target.name"
           service: "api.name"
           response_code: "response.code"
-      - descriptor_:  "request_latency"
+      - descriptor:  "request_latency"
         value: "response.latency"
         labels:
           source: "source.name"
