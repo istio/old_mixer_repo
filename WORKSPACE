@@ -33,6 +33,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_ghodss_yaml",
+    commit = "04f313413ffd65ce25f2541bfd2b2ceec5c0908c", # Dec 6, 2016 (no releases)
+    importpath = "github.com/ghodss/yaml",
+)
+
+new_go_repository(
     name = "in_gopkg_yaml_v2",
     commit = "14227de293ca979cf205cd88769fe71ed96a97e2", # Jan 24, 2017 (no releases)
     importpath = "gopkg.in/yaml.v2",

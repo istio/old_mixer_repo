@@ -195,18 +195,18 @@ func TestConfigParseError(t *testing.T) {
 	p := NewValidator(mgr.FindValidator, mgr.FindValidator, mgr.AdapterToAspectMapperFunc, false, evaluator)
 	ce := p.validateServiceConfig("<config>  </config>", false)
 
-	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
+	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
 	}
 
 	ce = p.validateGlobalConfig("<config>  </config>")
 
-	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
+	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
 	}
 
 	_, ce = p.Validate("<config>  </config>", "<config>  </config>")
-	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
+	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
 	}
 }

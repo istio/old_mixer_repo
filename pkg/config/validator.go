@@ -29,8 +29,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
-	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
@@ -96,6 +96,7 @@ func (a adapterKey) String() string {
 func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) {
 	var err error
 	m := &pb.GlobalConfig{}
+
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
 		ce = ce.Append("AdapterConfig", err)
 		return
@@ -224,30 +225,11 @@ func ConvertParams(find ValidatorFinderFunc, name string, params interface{}, st
 	return acfg, nil
 }
 
-// convert map[interface{}] interface{} --> map[string] interface{}
-func convert(i interface{}) interface{} {
-	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
-		for k, v := range x {
-			m2[k.(string)] = convert(v)
-		}
-		return m2
-	case []interface{}:
-		for i, v := range x {
-			x[i] = convert(v)
-		}
-	}
-	return i
-}
-
 // Decode interprets src interface{} as the specified proto message.
 // if strict is true returns error on unknown fields.
 func Decode(src interface{}, dst adapter.AspectConfig, strict bool) (err error) {
 	var ba []byte
-	// src is potentially map[interface{}] interface{}
-	// unmarshaled by yaml. json expects map[string] interface{}
-	ba, err = json.Marshal(convert(src))
+	ba, err = json.Marshal(src)
 	if err != nil {
 		return err
 	}
