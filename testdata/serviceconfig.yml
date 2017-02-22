@@ -7,6 +7,23 @@ rules:
   aspects:
   - kind: quotas
     params:
+  - kind: metrics
+    adapter: "prometheus"
+    params:
+      metrics:
+      - descriptor_: "request_count"
+        value: "1"
+        labels:
+          source: "source.name"
+          target: "target.name"
+          service: "api.name"
+          response_code: "response.code"
+      - descriptor_:  "request_latency"
+        value: "response.latency"
+        labels:
+          source: "source.name"
+          target: "target.name"
+          service: "api.name"
   - kind: access-logs
     params:
       logName: "access_log"

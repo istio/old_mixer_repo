@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mixer
+      annotations:
+        prometheus_port: "42422"
+    spec:
+      containers:
+      - name: mixer
+        image: gcr.io/istio-testing/mixer:latest
+        ports:
+          - containerPort: 42422 # prometheus http endpoint
+        volumeMounts:
+        - mountPath: /etc/opt/mixer
+          name: config
+        args: [
+          "-v=4",
+        ]
+      volumes:
+      - name: config
+        configMap:
+          name: testdata-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixer
+spec:
+  type: NodePort
+  ports:
+  - name: "api"
+    port: 9091
+    targetPort: 9091
+  selector:
+    app: mixer
