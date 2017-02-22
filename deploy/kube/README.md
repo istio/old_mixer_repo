@@ -1,8 +1,8 @@
 # Istio Mixer K8s Configuration
 
-Intended for our demo, these configurations stand up an instance of the mixer, a Prometheus instance that scapes metrics
-the mixer exposes, and a Grafana instance to render those metrics. The easiest way to stand up these deployments is to
-run (from the Istio mixer root directory):
+These configurations stand up an instance of the mixer, a Prometheus instance that scapes metrics the mixer exposes, and
+a Grafana instance to render those metrics. These are intended for a demo, not a real production setup. The easiest way
+to stand up these deployments is to run (from the Istio mixer root directory):
 
     $ kubectl create configmap testdata-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml --from-file=testdata/prometheus.yaml
     $ kubectl apply -f ./deploy/kube/
