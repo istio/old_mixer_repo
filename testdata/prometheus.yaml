@@ -1,0 +1,22 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+
+    static_configs:
+    # tell it to use http://mixer; we use relabeling to assign the port
+    - targets: ["mixer"]
+
+    kubernetes_sd_configs:
+    - role: pod
+
+    relabel_configs:
+    # we read the pod annotations "prometheus_port" from kubernetes, and concat it with the address
+    - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_port]
+      action: replace
+      regex: ([^:]+)(?::\d+)?;(\d+)
+      replacement: $1:$2
+      target_label: __address__
