@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -179,7 +179,7 @@ func TestLoggerManager_Execute(t *testing.T) {
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
 	}{
-		{"no descriptors", noDescriptorExec, &test.Bag{}, test.NewIDEval(), nil},
+		{"no descriptors", noDescriptorExec, test.NewBag(), test.NewIDEval(), nil},
 		{"no payload", noPayloadExec, &test.Bag{Strs: map[string]string{"key": "value"}}, test.NewIDEval(), []adapter.LogEntry{defaultEntry}},
 		{"severity", noPayloadExec, &test.Bag{Strs: map[string]string{"key": "value", "severity": "info"}}, test.NewIDEval(), []adapter.LogEntry{infoEntry}},
 		{"bad severity", noPayloadExec, &test.Bag{Strs: map[string]string{"key": "value", "severity": "500"}}, test.NewIDEval(), []adapter.LogEntry{defaultEntry}},
