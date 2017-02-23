@@ -3,7 +3,7 @@
 These configurations stand up an instance of the mixer, a Prometheus instance that scrapes metrics the mixer exposes, and
 a Grafana instance to render those metrics. These are intended for development and local testing, not a real production
 deployment. The easiest way to stand up these deployments is to run (from the Istio mixer root directory):
-```bash
+```shell
 $ kubectl create configmap prometheus-config --from-file=testdata/prometheus.yaml
 $ kubectl create configmap mixer-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml
 $ kubectl apply -f ./deploy/kube/
@@ -12,7 +12,7 @@ $ kubectl apply -f ./deploy/kube/
 If you're using something like [minikube](https://github.com/kubernetes/minikube) to test locally, you can call the
 mixer server with our test client (`mixc`), providing some attribute values:
 
-```bash
+```shell
 $ MIXS=$(minikube service mixer --url --format "{{.IP}}:{{.Port}}" | head -n 1)
 $ bazel run //cmd/client:mixc -- check -m $MIXS -a source.name=source,target.name=target,api.name=myapi,response.code=200,response.latency=100,client.id=$USER
 ```
@@ -30,12 +30,12 @@ configurations are expected to be mounted in two files at `/etc/opt/mixer/`. We 
 provide these configurations. Usually this configmap is created from the `//testdata/` directory by:
 
 <a name="configmap_command"></a>
-```bash
+```shell
 $ kubectl create configmap mixer-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml
 ```
 A file can be created to capture this configmap by running:
 
-```bash
+```shell
 $ kubectl get configmap mixer-config -o yaml > ./mixer-config.yaml
 ```
 We do not check in this file because we consider the yaml files in `//testdata` the source of truth for this config.
@@ -49,7 +49,7 @@ TODO: create a sample grafana config and link it here
 
 If you're using minikube to test these deployments locally, get to the UI by running:
 
-```bash
+```shell
 $ minikube service grafana
 ```
 
@@ -61,7 +61,7 @@ source is at `http://prometheus:9090/` (no auth required, access via proxy).
 works with these deployments is stored in `//testdata/`. Prometheus expects its config to be mounted at
 `/etc/opt/mixer/prometheus.yaml`. We use a configmap named `prometheus-config` to provide these configurations. Usually
 this configmap is created from the `//testdata` directory by:
-```bash
+```shell
 $ kubectl create configmap prometheus-config --from-file=testdata/prometheus.yaml
 ```
 
@@ -108,20 +108,20 @@ the mixer server by allowing a developer to push docker images locally rather th
 registry (`kubectl apply -f ./deploy/kube/localregistry.yaml`), and update `mixer.yaml` to use the image
 `localhost:5000/mixer`. After the registry server is running, expose it locally by executing:
 
-```bash
+```shell
 $ kubectl port-forward --namespace kube-system $POD 5000:5000
 ```
 
 If you're testing locally with minikube, `$POD` can be set with:
 
-```bash
+```shell
 $ POD=$(kubectl get pods --namespace kube-system -l k8s-app=kube-registry \
   -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
   | grep Running | head -1 | cut -f1 -d' ')
 ```
 
 Then you can build the mixer, create a docker image, and push it to the local registry, by running:
-```bash
+```shell
 $ bazel build ...:all
 $ bazel run //docker:mixer localhost:5000/mixer
 $ docker push localhost:5000/mixer
