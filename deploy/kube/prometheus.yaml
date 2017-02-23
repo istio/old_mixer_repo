@@ -19,15 +19,14 @@ spec:
             name: config
         ports:
           - containerPort: 9090
-        args: [
-          "-config.file=/etc/opt/mixer/prometheus.yaml"
-        ]
+        args:
+          - -config.file=/etc/opt/mixer/prometheus.yaml
       volumes:
       - name: data-prom
         emptyDir: {}
       - name: config
         configMap:
-          name: testdata-config
+          name: prometheus-config
 ---
 apiVersion: v1
 kind: Service
@@ -36,8 +35,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - name: "prometheus"
+  - name: http
     port: 9090
-    targetPort: 9090
   selector:
     app: prometheus

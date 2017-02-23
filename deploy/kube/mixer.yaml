@@ -8,24 +8,24 @@ spec:
     metadata:
       labels:
         app: mixer
-      annotations:
-        prometheus_port: "42422"
     spec:
       containers:
       - name: mixer
         image: gcr.io/istio-testing/mixer:latest
         ports:
-          - containerPort: 42422 # prometheus http endpoint
+          - containerPort: 9091
+          - containerPort: 42422
         volumeMounts:
         - mountPath: /etc/opt/mixer
           name: config
-        args: [
-          "-v=4",
-        ]
+        args:
+          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
+          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - -v=4
       volumes:
       - name: config
         configMap:
-          name: testdata-config
+          name: mixer-config
 ---
 apiVersion: v1
 kind: Service
@@ -34,8 +34,9 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - name: "api"
+  - name: grpc
     port: 9091
-    targetPort: 9091
+  - name: prometheus
+    port: 42422
   selector:
     app: mixer

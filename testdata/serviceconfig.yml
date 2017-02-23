@@ -12,7 +12,7 @@ rules:
     params:
       metrics:
       - descriptor: "request_count"
-        value: "1"
+        value: "1" # we want to increment the request_count counter by 1 each time
         labels:
           source: "source.name"
           target: "target.name"
