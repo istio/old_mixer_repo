@@ -8,24 +8,25 @@ rules:
   - kind: quotas
     params:
   - kind: metrics
-    adapter: "prometheus"
+    adapter: prometheus
     params:
       metrics:
-      - descriptor: "request_count"
-        value: "1" # we want to increment the request_count counter by 1 each time
+      - descriptor: request_count
+        # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
+        value: "1"
         labels:
-          source: "source.name"
-          target: "target.name"
-          service: "api.name"
-          method: "api.method"
-          response_code: "response.http.code"
-      - descriptor:  "request_latency"
-        value: "response.latency"
+          source: source.name
+          target: target.name
+          service: api.name | "unknown"
+          method: api.method | "unknown"
+          response_code: response.http.code
+      - descriptor:  request_latency
+        value: response.latency
         labels:
-          source: "source.name"
-          target: "target.name"
-          service: "api.name"
-          method: "api.method"
+          source: source.name
+          target: target.name
+          service: api.name | "unknown"
+          method: api.method | "unknown"
   - kind: access-logs
     params:
       logName: "access_log"
