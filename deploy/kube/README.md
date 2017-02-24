@@ -84,22 +84,24 @@ Then the metrics aspect must be configured so that the adapter can populate metr
 ```yaml
 aspects:
   - kind: metrics
-    adapter: "prometheus"
+    adapter: prometheus
     params:
       metrics:
-      - descriptor: "request_count"
+      - descriptor: request_count
         value: "1" # we want to increment this counter by 1 for each unique (source, target, service, response_code) tuple
         labels:
-          source: "source.name"
-          target: "target.name"
-          service: "api.name"
-          response_code: "response.code"
-      - descriptor:  "request_latency"
-        value: "response.latency"
+          source: source.name
+          target: target.name
+          service: api.name | "unknown"
+          method: api.method | "unknown"
+          response_code: response.http.code
+      - descriptor:  request_latency
+        value: response.latency
         labels:
-          source: "source.name"
-          target: "target.name"
-          service: "api.name"
+          source: source.name
+          target: target.name
+          service: api.name | "unknown"
+          method: api.method | "unknown"
 ```
 
 ## OPTIONAL: Running a local registry for development
