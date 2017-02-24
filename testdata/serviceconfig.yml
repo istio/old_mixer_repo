@@ -17,13 +17,15 @@ rules:
           source: "source.name"
           target: "target.name"
           service: "api.name"
-          response_code: "response.code"
+          method: "api.method"
+          response_code: "response.http.code"
       - descriptor:  "request_latency"
         value: "response.latency"
         labels:
           source: "source.name"
           target: "target.name"
           service: "api.name"
+          method: "api.method"
   - kind: access-logs
     params:
       logName: "access_log"
