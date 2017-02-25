@@ -55,6 +55,9 @@ type rootArgs struct {
 
 	// enableTracing controls whether client-side traces are generated for calls to the mixer.
 	enableTracing bool
+
+	// # times to repeat the operation
+	repeat int
 }
 
 // A function used for error output.
@@ -105,6 +108,9 @@ func withArgs(args []string, errorf errorFn) {
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	rootCmd.PersistentFlags().BoolVarP(&rootArgs.enableTracing, "trace", "", false,
 		"Whether to trace rpc executions")
+
+	rootCmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "", 1,
+		"Sends the specified number of requests in quick succession")
 
 	rootCmd.AddCommand(checkCmd(rootArgs, errorf))
 	rootCmd.AddCommand(reportCmd(rootArgs, errorf))
