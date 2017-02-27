@@ -45,7 +45,7 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Code Coverage') {
       sh('bin/codecov.sh')
-      utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
+      utils.publishCodeCoverage('MIXER_CODECOV_TOKEN')
     }
   }
 }
@@ -55,7 +55,7 @@ def postsubmit(gitUtils, bazel, utils) {
     stage('Docker Push') {
       bazel.updateBazelRc()
       def images = 'mixer,mixer_debug,'
-      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y%m%d%H%M%S),latest"
+      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
       utils.publishDockerImages(images, tags)
     }
   }
