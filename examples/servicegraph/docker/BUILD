@@ -21,7 +21,7 @@ mixer_docker_build(
     ],
     entrypoint = [
         "/usr/local/bin/servicegraph",
-        "--js-dir=/examples/servicegraph",
+        "--assetDir=/examples/servicegraph",
     ],
     ports = [
         "8088",
