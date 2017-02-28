@@ -31,13 +31,10 @@ are used as a relatively simple resource management tool to
 provide some fairness between service consumers when contending
 for limited service resources.
 
-To learn more...
+Please see the main Istio [README](https://raw.githubusercontent.com/istio/istio/master/README.md)
+file to learn about the overall Istio project and how to get in touch with us. To learn how you can
+contribute to any of the Istio components, including the mixer, please 
+see the Istio [contribution guidelines](https://raw.githubusercontent.com/istio/istio/master/CONTRIBUTING.md).
 
-- [Mixer user guide](doc/userGuide/README.md)
-- [Using the mixer API](doc/api.md)
-- [Contributing to the project](./CONTRIBUTING.md)
-
-### Filing issues
-
-If you have a question about the Istio mixer or have a problem using it, please
-[file an issue](https://github.com/istio/mixer/issues/new).
+The Istio mixer's [developer's guide](doc/dev/development.md) presents everything
+you need to know to create, build, and test code for the mixer.
