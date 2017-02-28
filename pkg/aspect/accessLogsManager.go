@@ -15,7 +15,9 @@
 package aspect
 
 import (
+	"bytes"
 	"fmt"
+	"sync"
 	"text/template"
 
 	"istio.io/mixer/pkg/adapter"
@@ -23,7 +25,6 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
 )
 
@@ -31,11 +32,10 @@ type (
 	accessLogsManager struct{}
 
 	accessLogsWrapper struct {
-		name          string
-		aspect        adapter.AccessLogsAspect
-		labels        map[string]string // label name -> expression
-		template      *template.Template
-		templateExprs map[string]string // template variable -> expression
+		name     string
+		aspect   adapter.AccessLogsAspect
+		labels   map[string]string // label name -> expression
+		template *template.Template
 	}
 )
 
@@ -48,42 +48,81 @@ const (
 	combinedLogFormat = commonLogFormat + ` "{{or (.referer) "-"}}" "{{or (.user_agent) "-"}}"`
 )
 
+var (
+	commonLogLabels = map[string]string{
+		"originIp":     "origin.ip",
+		"source_user":  "origin.user",
+		"timestamp":    "request.time",
+		"method":       `request.method | ""`,
+		"url":          "request.path",
+		"protocol":     "request.scheme",
+		"responseCode": "response.code",
+		"responseSize": "response.size",
+	}
+
+	// TODO: revisit when well-known attributes are defined
+	combinedLogLabels = map[string]string{
+		"originIp":     "origin.ip",
+		"source_user":  "origin.user",
+		"timestamp":    "request.time",
+		"method":       `request.method | ""`,
+		"url":          "request.path",
+		"protocol":     "request.scheme",
+		"responseCode": "response.code",
+		"responseSize": "response.size",
+		"referer":      "request.referer",
+		"user_agent":   "request.user-agent",
+	}
+
+	bufferPool = sync.Pool{
+		New: func() interface{} {
+			return new(bytes.Buffer)
+		},
+	}
+)
+
 // newAccessLogsManager returns a manager for the access logs aspect.
 func newAccessLogsManager() Manager {
 	return accessLogsManager{}
 }
 
 func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
+	logCfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
+	var labels map[string]string
 	var templateStr string
-	switch cfg.Log.LogFormat {
+	switch logCfg.Log.LogFormat {
 	case aconfig.COMMON:
 		templateStr = commonLogFormat
+		labels = commonLogLabels
 	case aconfig.COMBINED:
 		templateStr = combinedLogFormat
+		labels = combinedLogLabels
+	case aconfig.CUSTOM:
+		fallthrough
 	default:
-		// TODO: we should never fall into this case because of validation; should we panic?
-		templateStr = ""
+		// Hack because user's can't give us descriptors yet. For now custom template can be created by
+		// defining a "template" input. This is not documented anywhere but here.
+		templateStr = c.Aspect.Inputs["template"]
+		labels = logCfg.Log.Labels
 	}
 
 	// TODO: when users can provide us with descriptors, this error can be removed due to validation
 	tmpl, err := template.New("accessLogsTemplate").Parse(templateStr)
 	if err != nil {
-		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", cfg.LogName, templateStr, err)
+		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", logCfg.LogName, templateStr, err)
 	}
 
 	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", cfg.LogName, err)
+		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", logCfg.LogName, err)
 	}
 
 	return &accessLogsWrapper{
-		name:          cfg.LogName,
-		aspect:        asp,
-		labels:        cfg.Log.Labels,
-		template:      tmpl,
-		templateExprs: cfg.Log.TemplateExpressions,
+		logCfg.LogName,
+		asp,
+		labels,
+		tmpl,
 	}, nil
 }
 
@@ -100,16 +139,15 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
-		ce = ce.Appendf("Log", "an AccessLog entry must be provided")
-		// We can't do any more validation without a Log
+		ce = ce.Appendf("Log", "An AccessLog entry must be provided.")
 		return
 	}
-	if cfg.Log.LogFormat == aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED {
-		ce = ce.Appendf("Log.LogFormat", "a log format must be provided")
+	if cfg.Log.LogFormat != aconfig.CUSTOM {
+		// If it's not custom we're using our own configs, so we're fine.
+		return nil
 	}
-
 	// TODO: validate custom templates when users can provide us with descriptors
-	return
+	return nil
 }
 
 func (e *accessLogsWrapper) Close() error {
@@ -122,18 +160,19 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		return Output{Status: status.WithError(fmt.Errorf("failed to eval labels for log %s with err: %s", e.name, err))}
 	}
 
-	templateVals, err := evalAll(e.templateExprs, attrs, mapper)
-	if err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to eval template expressions for log %s with err: %s", e.name, err))}
+	// TODO: better way to ensure timestamp is available if not supplied
+	// in Report() requests.
+	if _, found := labels["timestamp"]; !found {
+		labels["timestamp"] = time.Now()
 	}
 
-	buf := pool.GetBuffer()
-	if err := e.template.Execute(buf, templateVals); err != nil {
-		pool.PutBuffer(buf)
-		return Output{Status: status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))}
+	buf := bufferPool.Get().(*bytes.Buffer)
+	if err := e.template.Execute(buf, labels); err != nil {
+		return Output{Status: status.WithError(err)}
 	}
 	payload := buf.String()
-	pool.PutBuffer(buf)
+	buf.Reset()
+	bufferPool.Put(buf)
 
 	entry := adapter.LogEntry{
 		LogName:     e.name,
@@ -141,7 +180,7 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		TextPayload: payload,
 	}
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))}
+		return Output{Status: status.WithError(fmt.Errorf("failed to log %s with err: %s", e.name, err))}
 	}
 	return Output{Status: status.OK}
 }

@@ -23,27 +23,15 @@ option go_package="config";
 // Example usage:
 //     kind: access-logs
 //     params:
-//       logName: "access_log"
-//       log:
-//         logFormat: COMMON
-//         templateExpressions:
-//            originIp: origin.ip
-//            source_user: origin.user
-//            timestamp: request.time
-//            method: request.method | ""
-//            url: request.path
-//            protocol: request.scheme
-//            responseCode: response.code
-//            responseSize: response.size
-//         labels:
-//            originIp: origin.ip
-//            source_user: origin.user
-//            timestamp: request.time
-//            method: request.method | ""
-//            url: request.path
-//            protocol: request.scheme
-//            responseCode: response.code
-//            responseSize: response.size
+//        log_name: "logs/access_log"
+//        log:
+//            log_format: CUSTOM
+//            descriptor_name: "MyCustomDescriptor"
+//            labels:
+//                time: response.time
+//                user_agent: request.user-agent | "Mozilla/5.0"
+//      inputs:
+//          template: "{{.time}} {{.user_agent}}"
 message AccessLogsParams {
     // Identifies a collection of related log entries.
     string log_name = 1;
@@ -52,6 +40,10 @@ message AccessLogsParams {
     message AccessLog {
         // AccessLogFormat specifies the format to use for generating textual log
         // entries for the accessLogger aspect of the mixer.
+
+        //
+        // Default value: COMMON.
+
         enum AccessLogFormat {
             // Invalid default value.
             ACCESS_LOG_FORMAT_UNSPECIFIED = 0;
@@ -66,9 +58,8 @@ message AccessLogsParams {
             // `127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"`
             COMBINED = 2;
 
-            // TODO: add back CUSTOM logging formats after plumbing descriptors through config.
-            // // Used to enable operator-specified formats.
-            // CUSTOM = 99;
+            // Used to enable operator-specified formats.
+            CUSTOM = 99;
         }
         AccessLogFormat log_format = 1;
 
@@ -76,19 +67,15 @@ message AccessLogsParams {
         // that describes the log's template.
         string descriptor_name = 2;
 
-        // Map of template variable name to expression for the descriptor's log_template. At
-        // run time each expression will be evaluated, and together they will provide values
-        // for the log's template string. Labels and template expressions do not mix: if the
-        // result of some expression is needed for both constructing the payload and for
-        // dimensioning the log entry, it must be included both in these expressions and in
-        // the `labels` expressions.
-        map<string, string> template_expressions = 3;
-
         // Map of LogEntryDescriptor label name to attribute expression. At run time each
         // expression will be evaluated to determine the value that will be used to fill
         // in the log template. The result of evaluating the expression must match the
         // ValueType of the label in the LogEntryDescriptor.
-        map<string, string> labels = 4;
+        //
+        // TODO: decide on the best way to make labels optional when log_format is a well
+        // known type. So long as the caller is using the standard istio attribute vocab we
+        // know how to populate the log template.
+        map<string, string> labels = 3;
     }
     // The log that will be constructed and handed to the aspect at runtime.
     AccessLog log = 2;
