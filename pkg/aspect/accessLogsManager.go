@@ -15,6 +15,9 @@
 package aspect
 
 import (
+	"bytes"
+	"fmt"
+	"sync"
 	"text/template"
 	"time"
 
@@ -23,7 +26,6 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
 )
 
@@ -31,28 +33,53 @@ type (
 	accessLogsManager struct{}
 
 	accessLogsWrapper struct {
-		logName   string
-		inputs    map[string]string // map from param to expr
-		aspect    adapter.AccessLogsAspect
-		attrNames []string
-		template  *template.Template
+		name     string
+		aspect   adapter.AccessLogsAspect
+		labels   map[string]string // label name -> expression
+		template *template.Template
 	}
 )
 
 const (
 	// TODO: revisit when well-known attributes are defined.
 	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.source_user) "-"}} ` +
-		`[{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.apiMethod) "-"}} ` +
+		`[{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} ` +
 		`{{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
 	// TODO: revisit when well-known attributes are defined.
 	combinedLogFormat = commonLogFormat + ` "{{or (.referer) "-"}}" "{{or (.user_agent) "-"}}"`
 )
 
 var (
+	commonLogLabels = map[string]string{
+		"originIp":     "origin.ip",
+		"source_user":  "origin.user",
+		"timestamp":    "request.time",
+		"method":       `request.method | ""`,
+		"url":          "request.path",
+		"protocol":     "request.scheme",
+		"responseCode": "response.code",
+		"responseSize": "response.size",
+	}
+
 	// TODO: revisit when well-known attributes are defined
-	commonLogAttributes = []string{"originIp", "source_user", "timestamp", "apiMethod", "url", "protocol", "responseCode", "responseSize"}
-	// TODO: revisit when well-known attributes are defined
-	combinedLogAttributes = append(commonLogAttributes, "referer", "user_agent")
+	combinedLogLabels = map[string]string{
+		"originIp":     "origin.ip",
+		"source_user":  "origin.user",
+		"timestamp":    "request.time",
+		"method":       `request.method | ""`,
+		"url":          "request.path",
+		"protocol":     "request.scheme",
+		"responseCode": "response.code",
+		"responseSize": "response.size",
+		"referer":      "request.referer",
+		"user_agent":   "request.user-agent",
+	}
+
+	bufferPool = sync.Pool{
+		New: func() interface{} {
+			return new(bytes.Buffer)
+		},
+	}
 )
 
 // newAccessLogsManager returns a manager for the access logs aspect.
@@ -61,43 +88,41 @@ func newAccessLogsManager() Manager {
 }
 
 func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	var aspect adapter.AccessLogsAspect
-	var err error
-	var tmpl *template.Template
-
 	logCfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
-	logName := logCfg.LogName
-	logFormat := logCfg.LogFormat
-	var attrNames []string
+
+	var labels map[string]string
 	var templateStr string
-	switch logFormat {
+	switch logCfg.Log.LogFormat {
 	case aconfig.COMMON:
-		attrNames = commonLogAttributes
 		templateStr = commonLogFormat
+		labels = commonLogLabels
 	case aconfig.COMBINED:
-		attrNames = combinedLogAttributes
 		templateStr = combinedLogFormat
+		labels = combinedLogLabels
 	case aconfig.CUSTOM:
 		fallthrough
 	default:
-		templateStr = logCfg.CustomLogTemplate
-		attrNames = logCfg.Attributes
+		// Hack because user's can't give us descriptors yet. For now custom template can be created by
+		// defining a "template" input. This is not documented anywhere but here.
+		templateStr = c.Aspect.Inputs["template"]
+		labels = logCfg.Log.Labels
 	}
 
-	// should never result in error, as this should fail ValidateConfig()
-	if tmpl, err = template.New("accessLogsTemplate").Parse(templateStr); err != nil {
-		return nil, err
+	// TODO: when users can provide us with descriptors, this error can be removed due to validation
+	tmpl, err := template.New("accessLogsTemplate").Parse(templateStr)
+	if err != nil {
+		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", logCfg.LogName, templateStr, err)
 	}
 
-	if aspect, err = a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig)); err != nil {
-		return nil, err
+	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", logCfg.LogName, err)
 	}
 
 	return &accessLogsWrapper{
-		logName,
-		c.Aspect.GetInputs(),
-		aspect,
-		attrNames,
+		logCfg.LogName,
+		asp,
+		labels,
 		tmpl,
 	}, nil
 }
@@ -105,24 +130,24 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 func (accessLogsManager) Kind() Kind { return AccessLogsKind }
 func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.AccessLogsParams{
-		LogName:   "access_log",
-		LogFormat: aconfig.COMMON,
-		// WARNING: we cannot set default attributes here, based on
-		// the params -> proto merge logic. These will override
-		// all other values. This should be mitigated by the move
-		// away from structpb-based config merging.
+		LogName: "access_log",
+		Log: &aconfig.AccessLogsParams_AccessLog{
+			LogFormat: aconfig.COMMON,
+		},
 	}
 }
 
 func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
-	if cfg.LogFormat != aconfig.CUSTOM {
+	if cfg.Log == nil {
+		ce = ce.Appendf("Log", "An AccessLog entry must be provided.")
+		return
+	}
+	if cfg.Log.LogFormat != aconfig.CUSTOM {
+		// If it's not custom we're using our own configs, so we're fine.
 		return nil
 	}
-	tmplStr := cfg.CustomLogTemplate
-	if _, err := template.New("test").Parse(tmplStr); err != nil {
-		return ce.Appendf("CustomLogTemplate", "could not parse template string: %v", err)
-	}
+	// TODO: validate custom templates when users can provide us with descriptors
 	return nil
 }
 
@@ -131,14 +156,9 @@ func (e *accessLogsWrapper) Close() error {
 }
 
 func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
-	// labels holds the generated attributes from mapper
-	labels := make(map[string]interface{})
-	for attr, e := range e.inputs {
-		if val, err := mapper.Eval(e, attrs); err == nil {
-			labels[attr] = val
-		}
-		// TODO: throw error on failed mapping?
+	labels, err := evalAll(e.labels, attrs, mapper)
+	if err != nil {
+		return Output{Status: status.WithError(fmt.Errorf("failed to eval labels for log %s with err: %s", e.name, err))}
 	}
 
 	// TODO: better way to ensure timestamp is available if not supplied
@@ -147,37 +167,21 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		labels["timestamp"] = time.Now()
 	}
 
+	buf := bufferPool.Get().(*bytes.Buffer)
+	if err := e.template.Execute(buf, labels); err != nil {
+		return Output{Status: status.WithError(err)}
+	}
+	payload := buf.String()
+	buf.Reset()
+	bufferPool.Put(buf)
+
 	entry := adapter.LogEntry{
-		LogName: e.logName,
-		Labels:  make(map[string]interface{}),
+		LogName:     e.name,
+		Labels:      labels,
+		TextPayload: payload,
 	}
-
-	for _, a := range e.attrNames {
-		if val, ok := labels[a]; ok {
-			entry.Labels[a] = val
-			continue
-		}
-		if val, found := attribute.Value(attrs, a); found {
-			entry.Labels[a] = val
-		}
-
-		// TODO: do we want to error for attributes that cannot
-		// be found?
-	}
-
-	if len(entry.Labels) == 0 {
-		// don't write empty access logs
-		return Output{Status: status.OK}
-	}
-
-	buf := pool.GetBuffer()
-	if err := e.template.Execute(buf, entry.Labels); err != nil {
-		return Output{Status: status.WithError(err)}
-	}
-	entry.TextPayload = buf.String()
-	pool.PutBuffer(buf)
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
-		return Output{Status: status.WithError(err)}
+		return Output{Status: status.WithError(fmt.Errorf("failed to log %s with err: %s", e.name, err))}
 	}
 	return Output{Status: status.OK}
 }
