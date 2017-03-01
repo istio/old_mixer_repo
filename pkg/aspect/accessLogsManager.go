@@ -32,10 +32,11 @@ type (
 	accessLogsManager struct{}
 
 	accessLogsWrapper struct {
-		name     string
-		aspect   adapter.AccessLogsAspect
-		labels   map[string]string // label name -> expression
-		template *template.Template
+		name          string
+		aspect        adapter.AccessLogsAspect
+		labels        map[string]string // label name -> expression
+		template      *template.Template
+		templateExprs map[string]string // template variable -> expression
 	}
 )
 
@@ -49,7 +50,7 @@ const (
 )
 
 var (
-	commonLogLabels = map[string]string{
+	commonLogTemplateExpressions = map[string]string{
 		"originIp":     "origin.ip",
 		"source_user":  "origin.user",
 		"timestamp":    "request.time",
@@ -61,7 +62,7 @@ var (
 	}
 
 	// TODO: revisit when well-known attributes are defined
-	combinedLogLabels = map[string]string{
+	combinedLogTemplateExpressions = map[string]string{
 		"originIp":     "origin.ip",
 		"source_user":  "origin.user",
 		"timestamp":    "request.time",
@@ -87,42 +88,43 @@ func newAccessLogsManager() Manager {
 }
 
 func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	logCfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
+	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
-	var labels map[string]string
+	var templateExprs map[string]string
 	var templateStr string
-	switch logCfg.Log.LogFormat {
+	switch cfg.Log.LogFormat {
 	case aconfig.COMMON:
 		templateStr = commonLogFormat
-		labels = commonLogLabels
+		templateExprs = commonLogTemplateExpressions
 	case aconfig.COMBINED:
 		templateStr = combinedLogFormat
-		labels = combinedLogLabels
+		templateExprs = combinedLogTemplateExpressions
 	case aconfig.CUSTOM:
 		fallthrough
 	default:
-		// Hack because user's can't give us descriptors yet. For now custom template can be created by
+		// Hack because user's can't give us descriptors yet. For now custom templates can be created by
 		// defining a "template" input. This is not documented anywhere but here.
 		templateStr = c.Aspect.Inputs["template"]
-		labels = logCfg.Log.Labels
+		templateExprs = cfg.Log.TemplateExpressions
 	}
 
 	// TODO: when users can provide us with descriptors, this error can be removed due to validation
 	tmpl, err := template.New("accessLogsTemplate").Parse(templateStr)
 	if err != nil {
-		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", logCfg.LogName, templateStr, err)
+		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", cfg.LogName, templateStr, err)
 	}
 
 	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", logCfg.LogName, err)
+		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", cfg.LogName, err)
 	}
 
 	return &accessLogsWrapper{
-		logCfg.LogName,
-		asp,
-		labels,
-		tmpl,
+		name:          cfg.LogName,
+		aspect:        asp,
+		labels:        cfg.Log.Labels,
+		template:      tmpl,
+		templateExprs: templateExprs,
 	}, nil
 }
 
@@ -160,15 +162,14 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		return Output{Status: status.WithError(fmt.Errorf("failed to eval labels for log %s with err: %s", e.name, err))}
 	}
 
-	// TODO: better way to ensure timestamp is available if not supplied
-	// in Report() requests.
-	if _, found := labels["timestamp"]; !found {
-		labels["timestamp"] = time.Now()
+	templateVals, err := evalAll(e.templateExprs, attrs, mapper)
+	if err != nil {
+		return Output{Status: status.WithError(fmt.Errorf("failed to eval template expressions for log %s with err: %s", e.name, err))}
 	}
 
 	buf := bufferPool.Get().(*bytes.Buffer)
-	if err := e.template.Execute(buf, labels); err != nil {
-		return Output{Status: status.WithError(err)}
+	if err := e.template.Execute(buf, templateVals); err != nil {
+		return Output{Status: status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))}
 	}
 	payload := buf.String()
 	buf.Reset()

@@ -67,15 +67,18 @@ message AccessLogsParams {
         // that describes the log's template.
         string descriptor_name = 2;
 
+        // Map of template variable name to expression for the descriptor's log_template. At
+        // run time each expression will be evaluated, and together they will provide values
+        // for the log's template string.
+        //
+        // When a well known log format is used (i.e. COMMON or COMBINED) this mapping is not required.
+        map<string, string> template_expressions = 3;
+
         // Map of LogEntryDescriptor label name to attribute expression. At run time each
         // expression will be evaluated to determine the value that will be used to fill
         // in the log template. The result of evaluating the expression must match the
         // ValueType of the label in the LogEntryDescriptor.
-        //
-        // TODO: decide on the best way to make labels optional when log_format is a well
-        // known type. So long as the caller is using the standard istio attribute vocab we
-        // know how to populate the log template.
-        map<string, string> labels = 3;
+        map<string, string> labels = 4;
     }
     // The log that will be constructed and handed to the aspect at runtime.
     AccessLog log = 2;

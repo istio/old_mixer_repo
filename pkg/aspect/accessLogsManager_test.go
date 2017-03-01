@@ -43,15 +43,15 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	dc := accessLogsManager{}.DefaultConfig()
 	commonExec := &accessLogsWrapper{
-		name:   "access_log",
-		aspect: tl,
-		labels: commonLogLabels,
+		name:          "access_log",
+		aspect:        tl,
+		templateExprs: commonLogTemplateExpressions,
 	}
 
 	combinedExec := &accessLogsWrapper{
-		name:   "combined_access_log",
-		aspect: tl,
-		labels: combinedLogLabels,
+		name:          "combined_access_log",
+		aspect:        tl,
+		templateExprs: combinedLogTemplateExpressions,
 	}
 
 	customExec := &accessLogsWrapper{
@@ -209,7 +209,7 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 	}
 
 	emptyEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{}}
-	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "foo", Labels: map[string]interface{}{"test": "foo"}}
+	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"test": "foo"}}
 
 	tests := []struct {
 		name        string
@@ -254,7 +254,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 
 	executeErr := &accessLogsWrapper{
 		name: "access_log",
-		labels: map[string]string{
+		templateExprs: map[string]string{
 			"timestamp": "foo",
 		},
 		template: timeTmpl,
