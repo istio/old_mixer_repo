@@ -68,8 +68,6 @@ message AccessLogsParams {
         // Map of template variable name to expression for the descriptor's log_template. At
         // run time each expression will be evaluated, and together they will provide values
         // for the log's template string.
-        //
-        // When a well known log format is used (i.e. COMMON or COMBINED) this mapping is not required.
         map<string, string> template_expressions = 3;
 
         // Map of LogEntryDescriptor label name to attribute expression. At run time each
