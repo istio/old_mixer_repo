@@ -30,7 +30,17 @@ rules:
   - kind: access-logs
     params:
       logName: "access_log"
-      logFormat: 0 # Common Log Format
+      log:
+        log_format: 1 # apache common log format
+        template_expressions:
+           originIp: origin.ip
+           source_user: origin.user
+           timestamp: request.time
+           method: request.method | ""
+           url: request.path
+           protocol: request.scheme
+           responseCode: response.code
+           responseSize: response.size
   - kind: application-logs
     params:
       logName: "mixer_log"
