@@ -43,15 +43,13 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	dc := accessLogsManager{}.DefaultConfig()
 	commonExec := &accessLogsWrapper{
-		name:          "access_log",
-		aspect:        tl,
-		templateExprs: commonLogTemplateExpressions,
+		name:   "access_log",
+		aspect: tl,
 	}
 
 	combinedExec := &accessLogsWrapper{
-		name:          "combined_access_log",
-		aspect:        tl,
-		templateExprs: combinedLogTemplateExpressions,
+		name:   "combined_access_log",
+		aspect: tl,
 	}
 
 	customExec := &accessLogsWrapper{

@@ -32,22 +32,11 @@ rules:
     params:
       logName: "access_log"
       log:
-        logFormat: COMMON
-        templateExpressions:
+        log_format: 1 # apache common log format
+        template_expressions:
            originIp: origin.ip
            source_user: origin.user
            timestamp: request.time
-           # TODO: remove this OR when the proxy has implemented support for the request.method attribute
-           method: request.method | ""
-           url: request.path
-           protocol: request.scheme
-           responseCode: response.code
-           responseSize: response.size
-        labels:
-           originIp: origin.ip
-           source_user: origin.user
-           timestamp: request.time
-           # TODO: remove this OR when the proxy has implemented support for the request.method attribute
            method: request.method | ""
            url: request.path
            protocol: request.scheme
