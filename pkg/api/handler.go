@@ -73,7 +73,7 @@ func NewHandler(aspectExecutor Executor, methodMap map[aspect.APIMethod]config.A
 	}
 }
 
-// execute performs common function shared across the api surface.
+// execute performs common functions shared across the api surface.
 func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes,
 	method aspect.APIMethod, ma aspect.APIMethodArgs) *rpc.Status {
 	ab, err := tracker.StartRequest(attrs)
@@ -122,7 +122,7 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 // Check performs 'check' function corresponding to the mixer api.
 func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	if glog.V(2) {
-		glog.Infof("Check [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
+		glog.Infof("Check [%x]", request.RequestIndex)
 		defer func() { glog.Infof("Check [%x] <-- %s", request.RequestIndex, response) }()
 	}
 	response.RequestIndex = request.RequestIndex
@@ -132,7 +132,7 @@ func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, req
 // Report performs 'report' function corresponding to the mixer api.
 func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	if glog.V(2) {
-		glog.Infof("Report [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
+		glog.Infof("Report [%x]", request.RequestIndex)
 		defer func() { glog.Infof("Report [%x] <-- %s", request.RequestIndex, response) }()
 	}
 	response.RequestIndex = request.RequestIndex
@@ -141,6 +141,11 @@ func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, re
 
 // Quota performs 'quota' function corresponding to the mixer api.
 func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+	if glog.V(2) {
+		glog.Infof("Quota [%x]", request.RequestIndex)
+		defer func() { glog.Infof("Quota [%x] <-- %s", request.RequestIndex, response) }()
+	}
+
 	response.RequestIndex = request.RequestIndex
 	status := h.execute(ctx, tracker, request.AttributeUpdate, aspect.QuotaMethod,
 		&aspect.QuotaMethodArgs{

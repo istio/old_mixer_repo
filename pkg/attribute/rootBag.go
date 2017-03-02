@@ -17,9 +17,11 @@ package attribute
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ptypes "github.com/gogo/protobuf/types"
+	"github.com/golang/glog"
 	me "github.com/hashicorp/go-multierror"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -37,8 +39,10 @@ type rootBag struct {
 	durations  map[string]time.Duration
 	bytes      map[string][]uint8
 	stringMaps map[string]map[string]string
+	id         int64 // strictly for use in diagnostic messages
 }
 
+var id int64
 var rootBags = sync.Pool{
 	New: func() interface{} {
 		return &rootBag{
@@ -50,6 +54,7 @@ var rootBags = sync.Pool{
 			durations:  make(map[string]time.Duration),
 			bytes:      make(map[string][]uint8),
 			stringMaps: make(map[string]map[string]string),
+			id:         atomic.AddInt64(&id, 1),
 		}
 	},
 }
@@ -304,52 +309,89 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 		return err
 	}
 
+	log := glog.V(2)
+	if log {
+		glog.Infof("RB(%d): updating attribute bag", rb.id)
+	}
+
 	if attrs.ResetContext {
+		if log {
+			glog.Infof("RB(%d): resetting bag to empty state", rb.id)
+		}
 		rb.reset()
 	}
 
 	// apply all attributes
 	for k, v := range attrs.StringAttributes {
+		if log {
+			glog.Infof("RB(%d): updating string attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.strings[dictionary[k]], v)
+		}
 		rb.strings[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.Int64Attributes {
+		if log {
+			glog.Infof("RB(%d): updating int64 attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.int64s[dictionary[k]], v)
+		}
 		rb.int64s[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.DoubleAttributes {
+		if log {
+			glog.Infof("RB(%d): updating double attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.float64s[dictionary[k]], v)
+		}
 		rb.float64s[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.BoolAttributes {
+		if log {
+			glog.Infof("RB(%d): updating bool attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.bools[dictionary[k]], v)
+		}
 		rb.bools[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.TimestampAttributes {
+		if log {
+			glog.Infof("RB(%d): updating time attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.times[dictionary[k]], v)
+		}
 		rb.times[dictionary[k]], _ = ptypes.TimestampFromProto(v)
 	}
 
 	for k, v := range attrs.DurationAttributes {
+		if log {
+			glog.Infof("RB(%d): updating duration attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.durations[dictionary[k]], v)
+		}
 		rb.durations[dictionary[k]], _ = ptypes.DurationFromProto(v)
 	}
 
 	for k, v := range attrs.BytesAttributes {
+		if log {
+			glog.Infof("RB(%d): updating bytes attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.bytes[dictionary[k]], v)
+		}
 		rb.bytes[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.StringMapAttributes {
 		m := make(map[string]string)
-		rb.stringMaps[dictionary[k]] = m
 		if v != nil {
 			for k2, v2 := range v.Map {
 				m[dictionary[k2]] = v2
 			}
 		}
+
+		if log {
+			glog.Infof("RB(%d): updating stringmap attribute %s from '%v' to '%v'", rb.id, dictionary[k], rb.stringMaps[dictionary[k]], v)
+		}
+		rb.stringMaps[dictionary[k]] = m
 	}
 
 	// delete requested attributes
 	for _, d := range attrs.DeletedAttributes {
 		if name, present := dictionary[d]; present {
+			if log {
+				glog.Infof("RB(%d): attempting to delete attribute %s", rb.id, name)
+			}
+
 			delete(rb.strings, name)
 			delete(rb.int64s, name)
 			delete(rb.float64s, name)
@@ -359,6 +401,10 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 			delete(rb.bytes, name)
 			delete(rb.stringMaps, name)
 		}
+	}
+
+	if log {
+		glog.Infof("RB(%d): done updating attribute bag", rb.id)
 	}
 
 	return nil
