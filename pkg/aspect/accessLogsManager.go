@@ -49,38 +49,11 @@ const (
 	combinedLogFormat = commonLogFormat + ` "{{or (.referer) "-"}}" "{{or (.user_agent) "-"}}"`
 )
 
-var (
-	commonLogTemplateExpressions = map[string]string{
-		"originIp":     "origin.ip",
-		"source_user":  "origin.user",
-		"timestamp":    "request.time",
-		"method":       `request.method | ""`,
-		"url":          "request.path",
-		"protocol":     "request.scheme",
-		"responseCode": "response.code",
-		"responseSize": "response.size",
-	}
-
-	// TODO: revisit when well-known attributes are defined
-	combinedLogTemplateExpressions = map[string]string{
-		"originIp":     "origin.ip",
-		"source_user":  "origin.user",
-		"timestamp":    "request.time",
-		"method":       `request.method | ""`,
-		"url":          "request.path",
-		"protocol":     "request.scheme",
-		"responseCode": "response.code",
-		"responseSize": "response.size",
-		"referer":      "request.referer",
-		"user_agent":   "request.user-agent",
-	}
-
-	bufferPool = sync.Pool{
-		New: func() interface{} {
-			return new(bytes.Buffer)
-		},
-	}
-)
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
 
 // newAccessLogsManager returns a manager for the access logs aspect.
 func newAccessLogsManager() Manager {
@@ -90,22 +63,18 @@ func newAccessLogsManager() Manager {
 func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
-	var templateExprs map[string]string
 	var templateStr string
 	switch cfg.Log.LogFormat {
 	case aconfig.COMMON:
 		templateStr = commonLogFormat
-		templateExprs = commonLogTemplateExpressions
 	case aconfig.COMBINED:
 		templateStr = combinedLogFormat
-		templateExprs = combinedLogTemplateExpressions
 	case aconfig.CUSTOM:
 		fallthrough
 	default:
 		// Hack because user's can't give us descriptors yet. For now custom templates can be created by
 		// defining a "template" input. This is not documented anywhere but here.
 		templateStr = c.Aspect.Inputs["template"]
-		templateExprs = cfg.Log.TemplateExpressions
 	}
 
 	// TODO: when users can provide us with descriptors, this error can be removed due to validation
@@ -124,7 +93,7 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 		aspect:        asp,
 		labels:        cfg.Log.Labels,
 		template:      tmpl,
-		templateExprs: templateExprs,
+		templateExprs: cfg.Log.TemplateExpressions,
 	}, nil
 }
 
@@ -141,7 +110,7 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
-		ce = ce.Appendf("Log", "An AccessLog entry must be provided.")
+		ce = ce.Appendf("Log", "an AccessLog entry must be provided.")
 		return
 	}
 	if cfg.Log.LogFormat != aconfig.CUSTOM {
@@ -169,6 +138,8 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 
 	buf := bufferPool.Get().(*bytes.Buffer)
 	if err := e.template.Execute(buf, templateVals); err != nil {
+		buf.Reset()
+		bufferPool.Put(buf)
 		return Output{Status: status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))}
 	}
 	payload := buf.String()
