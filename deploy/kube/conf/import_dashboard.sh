@@ -9,6 +9,11 @@ AddDataSource() {
     '{"name":"Prometheus","type":"prometheus","url":"http://prometheus:9090","access":"proxy","isDefault":true}'
 }
 
+
+# dashboard exported thru grafana UI contains datasource variable
+# in the __input section 
+# DS_PROMETHEUS is replaced by "Prometheus" datasource 
+# that was created by AddDataSource().
 ImportDashboard() {
   if [[ ! -z ${DASHBOARD_URL} ]];then
     curl ${DASHBOARD_URL} -o  /grafana-dashboard.json
