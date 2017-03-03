@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -82,6 +82,7 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 				{Name: "target", ValueType: dpb.STRING},
 				{Name: "service", ValueType: dpb.STRING},
 				{Name: "method", ValueType: dpb.STRING},
+				{Name: "response_code", ValueType: dpb.INT64},
 			},
 		},
 	}
@@ -167,7 +168,7 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma 
 	// return an OK alongside our errors (since presumably we're able to record at least a few).
 	var out *Output
 	if len(values) > 0 {
-		out = &Output{Code: code.Code_OK}
+		out = &Output{Code: rpc.OK}
 	}
 	if glog.V(4) {
 		glog.V(4).Infof("completed execution of metric adapter '%s' for %d values", w.name, len(values))
