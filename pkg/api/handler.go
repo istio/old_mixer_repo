@@ -23,7 +23,6 @@ import (
 
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/aspect"
@@ -74,14 +73,14 @@ func NewHandler(aspectExecutor Executor, methodMap map[aspect.APIMethod]config.A
 	}
 }
 
-// execute performs common function shared across the api surface.
+// execute performs common functions shared across the api surface.
 func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes,
 	method aspect.APIMethod, ma aspect.APIMethodArgs) *rpc.Status {
 	ab, err := tracker.StartRequest(attrs)
 	if err != nil {
 		msg := fmt.Sprintf("Unable to process attribute update: %v", err)
 		glog.Error(msg)
-		return newStatusWithMessage(code.Code_INVALID_ARGUMENT, msg)
+		return newStatusWithMessage(rpc.INVALID_ARGUMENT, msg)
 	}
 	defer tracker.EndRequest()
 
@@ -93,14 +92,14 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 		// config has NOT been loaded yet
 		const msg = "Configuration is not available"
 		glog.Error(msg)
-		return newStatusWithMessage(code.Code_INTERNAL, msg)
+		return newStatusWithMessage(rpc.INTERNAL, msg)
 	}
 	cfg := untypedCfg.(config.Resolver)
 	cfgs, err := cfg.Resolve(ab, h.methodMap[method])
 	if err != nil {
 		msg := fmt.Sprintf("unable to resolve config: %v", err)
 		glog.Error(msg)
-		return newStatusWithMessage(code.Code_INTERNAL, msg)
+		return newStatusWithMessage(rpc.INTERNAL, msg)
 	}
 
 	if glog.V(2) {
@@ -109,39 +108,51 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 
 	outs, err := h.aspectExecutor.Execute(ctx, cfgs, ab, ma)
 	if err != nil {
-		return newStatusWithMessage(code.Code_INTERNAL, err.Error())
+		return newStatusWithMessage(rpc.INTERNAL, err.Error())
 	}
 
 	for _, out := range outs {
-		if out.Code != code.Code_OK {
+		if out.Code != rpc.OK {
 			return newStatus(out.Code)
 		}
 	}
-	return newStatus(code.Code_OK)
+	return newStatus(rpc.OK)
 }
 
 // Check performs 'check' function corresponding to the mixer api.
 func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	if glog.V(2) {
-		glog.Infof("Check [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
-		defer func() { glog.Infof("Check [%x] <-- %s", request.RequestIndex, response) }()
+		glog.Infof("Check [%x]", request.RequestIndex)
 	}
+
 	response.RequestIndex = request.RequestIndex
 	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.CheckMethod, &aspect.CheckMethodArgs{})
+
+	if glog.V(2) {
+		glog.Infof("Check [%x] <-- %s", request.RequestIndex, response)
+	}
 }
 
 // Report performs 'report' function corresponding to the mixer api.
 func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	if glog.V(2) {
-		glog.Infof("Report [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
-		defer func() { glog.Infof("Report [%x] <-- %s", request.RequestIndex, response) }()
+		glog.Infof("Report [%x]", request.RequestIndex)
 	}
+
 	response.RequestIndex = request.RequestIndex
 	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.ReportMethod, &aspect.ReportMethodArgs{})
+
+	if glog.V(2) {
+		glog.Infof("Report [%x] <-- %s", request.RequestIndex, response)
+	}
 }
 
 // Quota performs 'quota' function corresponding to the mixer api.
 func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+	if glog.V(2) {
+		glog.Infof("Quota [%x]", request.RequestIndex)
+	}
+
 	response.RequestIndex = request.RequestIndex
 	status := h.execute(ctx, tracker, request.AttributeUpdate, aspect.QuotaMethod,
 		&aspect.QuotaMethodArgs{
@@ -151,16 +162,20 @@ func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, req
 			BestEffort:      request.BestEffort,
 		})
 
-	if status.Code == int32(code.Code_OK) {
+	if status.Code == int32(rpc.OK) {
 		response.Amount = 1
+	}
+
+	if glog.V(2) {
+		glog.Infof("Quota [%x] <-- %s", request.RequestIndex, response)
 	}
 }
 
-func newStatus(c code.Code) *rpc.Status {
+func newStatus(c rpc.Code) *rpc.Status {
 	return &rpc.Status{Code: int32(c)}
 }
 
-func newStatusWithMessage(c code.Code, message string) *rpc.Status {
+func newStatusWithMessage(c rpc.Code, message string) *rpc.Status {
 	return &rpc.Status{Code: int32(c), Message: message}
 }
 
