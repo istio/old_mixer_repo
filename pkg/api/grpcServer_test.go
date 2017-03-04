@@ -25,6 +25,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/status"
 )
 
 const (
@@ -103,17 +104,21 @@ func (ts *testState) cleanupTestState() {
 }
 
 func (ts *testState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+	s := status.New(rpc.UNIMPLEMENTED)
 	response.RequestIndex = request.RequestIndex
-	response.Result = newStatus(rpc.UNIMPLEMENTED)
+	response.Result = &s
 }
 
 func (ts *testState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+	s := status.New(rpc.UNIMPLEMENTED)
 	response.RequestIndex = request.RequestIndex
-	response.Result = newStatus(rpc.UNIMPLEMENTED)
+	response.Result = &s
 }
 
 func (ts *testState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+	s := status.New(rpc.UNIMPLEMENTED)
 	response.RequestIndex = request.RequestIndex
+	response.Result = &s
 	response.Amount = 0
 }
 
