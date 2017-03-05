@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ type (
 	// expression language. It uses attribute.Bag as variable bindings.
 	Evaluator interface {
 		// Eval evaluates given expression using the attribute bag
-		Eval(expression string, attrs attribute.Bag) (interface{}, error)
+		Eval(expr string, attrs attribute.Bag) (interface{}, error)
 
 		// Eval evaluates given expression using the attribute bag to a string
 		EvalString(expr string, attrs attribute.Bag) (string, error)

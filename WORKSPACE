@@ -33,6 +33,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_ghodss_yaml",
+    commit = "04f313413ffd65ce25f2541bfd2b2ceec5c0908c", # Dec 6, 2016 (no releases)
+    importpath = "github.com/ghodss/yaml",
+)
+
+new_go_repository(
     name = "in_gopkg_yaml_v2",
     commit = "14227de293ca979cf205cd88769fe71ed96a97e2", # Jan 24, 2017 (no releases)
     importpath = "gopkg.in/yaml.v2",
@@ -56,6 +62,7 @@ gogoslick_proto_library(
     name = "google/rpc",
     protos = [
         "google/rpc/status.proto",
+        "google/rpc/code.proto",
     ],
     importmap = {
         "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
@@ -89,6 +96,11 @@ filegroup(
     name = "status_proto",
     srcs = [ "google/rpc/status.proto" ],
 )
+
+filegroup(
+    name = "code_proto",
+    srcs = [ "google/rpc/code.proto" ],
+)
 """
 
 new_git_repository(
@@ -96,12 +108,6 @@ new_git_repository(
     build_file_content = GOOGLEAPIS_BUILD_FILE,
     commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15", # Oct 21, 2016 (only release pre-dates sha)
     remote = "https://github.com/googleapis/googleapis.git",
-)
-
-new_go_repository(
-    name = "com_github_google_go_genproto",
-    commit = "b3e7c2fb04031add52c4817f53f43757ccbf9c18", # Dec 15, 2016 (no releases)
-    importpath = "google.golang.org/genproto",
 )
 
 new_go_repository(
@@ -146,19 +152,13 @@ new_go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-new_go_repository(
-    name = "com_github_mitchellh_mapstructure",
-    commit = "db1efb556f84b25a0a13a04aad883943538ad2e0", # Jan 24, 2017 (no releases)
-    importpath = "github.com/mitchellh/mapstructure",
-)
-
 load("//:repositories.bzl", "new_git_or_local_repository")
 
 new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
     path = "../api",
-    commit = "1e35dbf66e107666caf557dd2607ccc7ac2ffe91", # Feb 9, 2017 (no releases)
+    commit = "36787dfa214fb9ba24ce2bfaa54d07ab887141f0", # Feb 27, 2017 (no releases)
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
     use_local = False,
@@ -170,6 +170,16 @@ new_http_archive(
     sha256 = "2c63dd81d714b825acd1cb3629c57d6ee733645479d0fcdf645203c2c35924c5",
     type = "zip",
     url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
+)
+
+DEBUG_BASE_IMAGE_SHA="3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622"
+
+# See github.com/istio/manager/blob/master/docker/debug/build-and-publish-debug-image.sh
+# for instructions on how to re-build and publish this base image layer.
+http_file(
+    name = "ubuntu_xenial_debug",
+    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug-" + DEBUG_BASE_IMAGE_SHA + ".tar.gz",
+    sha256 = DEBUG_BASE_IMAGE_SHA,
 )
 
 new_go_repository(

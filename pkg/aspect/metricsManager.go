@@ -1,4 +1,4 @@
-// Copyright 2017 The Istio Authors.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -34,12 +35,13 @@ type (
 	}
 
 	metricInfo struct {
-		metricKind adapter.MetricKind
+		definition *adapter.MetricDefinition
 		value      string
 		labels     map[string]string
 	}
 
 	metricsWrapper struct {
+		name     string
 		aspect   adapter.MetricsAspect
 		metadata map[string]*metricInfo // metric name -> info
 	}
@@ -58,58 +60,63 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 	// TODO: sync these schemas with the new standardized metric schemas.
 	desc := []*dpb.MetricDescriptor{
 		{
-			Name:  "request_count",
-			Kind:  dpb.COUNTER,
-			Value: dpb.INT64,
+			Name:        "request_count",
+			Kind:        dpb.COUNTER,
+			Value:       dpb.INT64,
+			Description: "request count by source, target, service, and code",
 			Labels: []*dpb.LabelDescriptor{
 				{Name: "source", ValueType: dpb.STRING},
 				{Name: "target", ValueType: dpb.STRING},
 				{Name: "service", ValueType: dpb.STRING},
+				{Name: "method", ValueType: dpb.STRING},
 				{Name: "response_code", ValueType: dpb.INT64},
 			},
 		},
 		{
-			Name:  "request_latency",
-			Kind:  dpb.COUNTER, // TODO: nail this down; as is we'll have to do post-processing
-			Value: dpb.DURATION,
+			Name:        "request_latency",
+			Kind:        dpb.COUNTER, // TODO: nail this down; as is we'll have to do post-processing
+			Value:       dpb.DURATION,
+			Description: "request latency by source, target, and service",
 			Labels: []*dpb.LabelDescriptor{
 				{Name: "source", ValueType: dpb.STRING},
 				{Name: "target", ValueType: dpb.STRING},
 				{Name: "service", ValueType: dpb.STRING},
+				{Name: "method", ValueType: dpb.STRING},
+				{Name: "response_code", ValueType: dpb.INT64},
 			},
 		},
 	}
 
 	metadata := make(map[string]*metricInfo)
-	defs := make([]adapter.MetricDefinition, len(desc))
-	for i, d := range desc {
+	defs := make(map[string]*adapter.MetricDefinition, len(desc))
+	for _, d := range desc {
+		metric, found := findMetric(params.Metrics, d.Name)
+		if !found {
+			env.Logger().Warningf("No metric found for descriptor %s, skipping it", d.Name)
+			continue
+		}
+
 		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
 		// if it cannot be converted into a MetricDefinition, so we should never have to handle the error case.
-		def, err := definitionFromProto(d)
+		def, err := metricDefinitionFromProto(d)
 		if err != nil {
 			_ = env.Logger().Errorf("Failed to convert metric descriptor '%s' to definition with err: %s; skipping it.", d.Name, err)
 			continue
 		}
 
-		metric, found := find(params.Metrics, def.Name)
-		if !found {
-			env.Logger().Warningf("No metric found for descriptor %s, skipping it", def.Name)
-			continue
-		}
-
-		defs[i] = *def
+		defs[def.Name] = def
 		metadata[def.Name] = &metricInfo{
-			metricKind: def.Kind,
+			definition: def,
 			value:      metric.Value,
 			labels:     metric.Labels,
 		}
 	}
-
-	asp, err := a.(adapter.MetricsBuilder).NewMetricsAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	b := a.(adapter.MetricsBuilder)
+	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v' and err: %s", c, err)
 	}
-	return &metricsWrapper{asp, metadata}, nil
+	return &metricsWrapper{b.Name(), asp, metadata}, nil
 }
 
 func (*metricsManager) Kind() Kind                          { return MetricsKind }
@@ -125,7 +132,7 @@ func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigE
 	return
 }
 
-func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
 	result := &multierror.Error{}
 	var values []adapter.Value
 
@@ -144,9 +151,8 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*O
 		// TODO: investigate either pooling these, or keeping a set around that has only its field's values updated.
 		// we could keep a map[metric name]value, iterate over the it updating only the fields in each value
 		values = append(values, adapter.Value{
-			Name:   name,
-			Kind:   md.metricKind,
-			Labels: labels,
+			Definition: md.definition,
+			Labels:     labels,
 			// TODO: extract standard timestamp attributes for start/end once we det'm what they are
 			StartTime:   time.Now(),
 			EndTime:     time.Now(),
@@ -162,8 +168,12 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*O
 	// return an OK alongside our errors (since presumably we're able to record at least a few).
 	var out *Output
 	if len(values) > 0 {
-		out = &Output{Code: code.Code_OK}
+		out = &Output{Code: rpc.OK}
 	}
+	if glog.V(4) {
+		glog.V(4).Infof("completed execution of metric adapter '%s' for %d values", w.name, len(values))
+	}
+
 	return out, result.ErrorOrNil()
 }
 
@@ -185,31 +195,33 @@ func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 	return labels, result.ErrorOrNil()
 }
 
-func definitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
+func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
 	for _, label := range desc.Labels {
-		l, err := adapter.LabelTypeFromProto(label.ValueType)
+		l, err := valueTypeToLabelType(label.ValueType)
 		if err != nil {
 			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
 				desc.Name, label.Name, label.ValueType, err)
 		}
 		labels[label.Name] = l
 	}
-	kind, err := adapter.MetricKindFromProto(desc.Kind)
+	kind, err := metricKindFromProto(desc.Kind)
 	if err != nil {
 		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto with err: %s",
 			desc.Name, desc.Kind, err)
 	}
 	return &adapter.MetricDefinition{
-		Name:   desc.Name,
-		Kind:   kind,
-		Labels: labels,
+		Name:        desc.Name,
+		DisplayName: desc.DisplayName,
+		Description: desc.Description,
+		Kind:        kind,
+		Labels:      labels,
 	}, nil
 }
 
-func find(defs []*aconfig.MetricsParams_Metric, name string) (*aconfig.MetricsParams_Metric, bool) {
+func findMetric(defs []*aconfig.MetricsParams_Metric, name string) (*aconfig.MetricsParams_Metric, bool) {
 	for _, def := range defs {
-		if def.Descriptor_ == name {
+		if def.DescriptorName == name {
 			return def, true
 		}
 	}

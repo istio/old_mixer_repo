@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package adapterManager
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
@@ -29,6 +28,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
 )
 
 // Manager manages all aspects - provides uniform interface to
@@ -70,9 +70,9 @@ func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 	}
 
 	//TODO pre-compute shas and store with params
-	var b bytes.Buffer
+	b := pool.GetBuffer()
 	// use gob encoding so that we don't rely on proto marshal
-	enc := gob.NewEncoder(&b)
+	enc := gob.NewEncoder(b)
 
 	if cfg.Builder.GetParams() != nil {
 		if err := enc.Encode(cfg.Builder.GetParams()); err != nil {
@@ -88,6 +88,7 @@ func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 
 		ret.aspectParamsSHA = sha1.Sum(b.Bytes())
 	}
+	pool.PutBuffer(b)
 
 	return &ret, nil
 }
@@ -111,11 +112,11 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
 // It returns the first error it encounters or the output of every combined config execution.
-func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
 	// TODO: pool these arrays, we'll be making many and len(cfg) is constant for the life of the configuration.
 	outputs := make([]*aspect.Output, len(cfgs))
 	for i, cfg := range cfgs {
-		out, err := m.execute(ctx, cfg, attrs)
+		out, err := m.execute(ctx, cfg, attrs, ma)
 		if err != nil {
 			return nil, err // we could return outputs (the results so far) too.
 		}
@@ -125,7 +126,7 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag) (out *aspect.Output, err error) {
+func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) (out *aspect.Output, err error) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -160,7 +161,7 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 	// TODO: plumb  ctx through asp.Execute
 	_ = ctx
 	// TODO: act on asp.Output
-	return asp.Execute(attrs, m.mapper)
+	return asp.Execute(attrs, m.mapper, ma)
 }
 
 // cacheGet gets an aspect wrapper from the cache, use adapter.Manager to construct an object in case of a cache miss

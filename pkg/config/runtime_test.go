@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,12 @@
 package config
 
 import (
+	"flag"
 	"fmt"
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	pb "istio.io/mixer/pkg/config/proto"
@@ -129,4 +131,9 @@ func TestRuntime(t *testing.T) {
 			t.Errorf("%d Expected %d resolve got %d", idx, tt.nlen, len(al))
 		}
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

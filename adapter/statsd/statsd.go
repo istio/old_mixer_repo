@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,8 @@
 package statsd
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"sync"
 	"text/template"
 	"time"
 
@@ -28,6 +26,7 @@ import (
 
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/pool"
 )
 
 const (
@@ -58,12 +57,6 @@ var (
 		MetricNameTemplateStrings: make(map[string]string),
 	}
 )
-
-var bufferPool = sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
-}
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
@@ -97,7 +90,7 @@ func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErro
 	return
 }
 
-func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	params := cfg.(*config.Params)
 
 	flushBytes := int(params.FlushBytes)
@@ -112,7 +105,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metr
 
 	templates := make(map[string]*template.Template)
 	for metricName, s := range params.MetricNameTemplateStrings {
-		def, found := findMetric(metrics, metricName)
+		def, found := metrics[metricName]
 		if !found {
 			env.Logger().Infof("template registered for nonexistent metric '%s'", metricName)
 			continue // we don't have a metric that corresponds to this template, skip processing it
@@ -141,9 +134,9 @@ func (a *aspect) Record(values []adapter.Value) error {
 }
 
 func (a *aspect) record(value adapter.Value) error {
-	mname := value.Name
-	if t, found := a.templates[value.Name]; found {
-		buf := bufferPool.Get().(*bytes.Buffer)
+	mname := value.Definition.Name
+	if t, found := a.templates[mname]; found {
+		buf := pool.GetBuffer()
 
 		// We don't check the error here because Execute should only fail when the template is invalid; since
 		// we check that the templates are parsable in ValidateConfig and further check that they can be executed
@@ -152,33 +145,27 @@ func (a *aspect) record(value adapter.Value) error {
 		mname = buf.String()
 
 		buf.Reset()
-		bufferPool.Put(buf)
+		pool.PutBuffer(buf)
 	}
-	switch value.Kind {
+
+	var result error
+	switch value.Definition.Kind {
 	case adapter.Gauge:
 		v, err := value.Int64()
 		if err != nil {
 			return fmt.Errorf("could not record gauge '%s' with err: %s", mname, err)
 		}
-		return a.client.Gauge(mname, v, a.rate)
+		result = a.client.Gauge(mname, v, a.rate)
+
 	case adapter.Counter:
 		v, err := value.Int64()
 		if err != nil {
 			return fmt.Errorf("could not record counter '%s' with err: %s", mname, err)
 		}
-		return a.client.Inc(mname, v, a.rate)
-	default:
-		return fmt.Errorf("unknown metric kind '%v'", value.Kind)
+		result = a.client.Inc(mname, v, a.rate)
 	}
+
+	return result
 }
 
 func (a *aspect) Close() error { return a.client.Close() }
-
-func findMetric(metrics []adapter.MetricDefinition, name string) (adapter.MetricDefinition, bool) {
-	for _, m := range metrics {
-		if m.Name == name {
-			return m, true
-		}
-	}
-	return adapter.MetricDefinition{}, false
-}

@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -60,10 +61,9 @@ func (s *serverInst) Start(logger adapter.Logger) error {
 	}
 
 	http.Handle(metricsPath, promhttp.Handler())
-
 	go func() {
-		err := srv.Serve(listener.(*net.TCPListener))
-		if err != nil {
+		logger.Infof("serving prometheus metrics on %s", s.addr)
+		if err := srv.Serve(listener.(*net.TCPListener)); err != nil {
 			_ = logger.Errorf("prometheus HTTP server error: %v", err)
 		}
 	}()

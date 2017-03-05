@@ -6,12 +6,12 @@ adapters:
     impl: memQuota
     params:
   - name: default
-    kind: access-logs
     impl: stdioLogger
     params:
       logStream: 0 # STDERR
+  - name: prometheus
+    kind: metrics
+    impl: prometheus
+    params:
   - name: default
-    kind: application-logs
-    impl: stdioLogger
-    params:
-      logStream: 0 # STDERR
+    impl: denyChecker

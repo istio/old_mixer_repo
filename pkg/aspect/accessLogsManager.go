@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,17 +15,17 @@
 package aspect
 
 import (
-	"bytes"
 	"text/template"
 	"time"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
 )
 
 type (
@@ -131,7 +131,7 @@ func (e *accessLogsWrapper) Close() error {
 	return e.aspect.Close()
 }
 
-func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})
@@ -168,16 +168,17 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) 
 
 	if len(entry.Labels) == 0 {
 		// don't write empty access logs
-		return &Output{Code: code.Code_OK}, nil
+		return &Output{Code: rpc.OK}, nil
 	}
 
-	buf := new(bytes.Buffer)
+	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, entry.Labels); err != nil {
 		return nil, err
 	}
 	entry.TextPayload = buf.String()
+	pool.PutBuffer(buf)
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
 		return nil, err
 	}
-	return &Output{Code: code.Code_OK}, nil
+	return &Output{Code: rpc.OK}, nil
 }

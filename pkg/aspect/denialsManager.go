@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 package aspect
 
 import (
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
@@ -56,9 +56,9 @@ func (denialsManager) Kind() Kind                                               
 func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenialsParams{} }
 func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
 	status := a.aspect.Deny()
-	return &Output{Code: code.Code(status.Code)}, nil
+	return &Output{Code: rpc.Code(status.Code)}, nil
 }
 
 func (a *denialsWrapper) Close() error { return a.aspect.Close() }

@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package adapterManager
 
 import (
+	"flag"
 	"fmt"
 	"reflect"
 	"testing"
@@ -150,7 +151,7 @@ func TestRegisterQuota(t *testing.T) {
 
 type metricsBuilder struct{ testBuilder }
 
-func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.AspectConfig, []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.AspectConfig, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -246,4 +247,9 @@ func TestBuilderMap(t *testing.T) {
 	if _, found := mp["quotaB"]; !found {
 		t.Error("got nil, want quotaB")
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

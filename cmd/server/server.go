@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -134,7 +134,7 @@ func serverOpts(sa *serverArgs, handlers api.Handler) (*api.GRPCServerOptions, e
 
 func runServer(sa *serverArgs) error {
 	// get aspect registry with proper aspect --> api mappings
-	eval := expr.NewIdentityEvaluator()
+	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
 		adapterMgr.AdapterToAspectMapperFunc(),

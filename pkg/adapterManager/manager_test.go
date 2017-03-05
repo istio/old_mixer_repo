@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
@@ -75,7 +74,7 @@ type (
 
 func (f *fakeadp) Name() string { return f.name }
 
-func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (output *aspect.Output, err error) {
+func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (output *aspect.Output, err error) {
 	f.called++
 	return
 }
@@ -106,10 +105,10 @@ func (m testManager) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (ad
 }
 
 func (testAspect) Close() error { return nil }
-func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (*aspect.Output, error) {
 	return t.body()
 }
-func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(code.Code_INTERNAL)} }
+func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(rpc.INTERNAL)} }
 
 func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	m.called++
@@ -186,7 +185,7 @@ func TestManager(t *testing.T) {
 		}
 		m := newManager(r, mgr, mapper, nil)
 		errStr := ""
-		if _, err := m.Execute(context.Background(), tt.cfg, attrs); err != nil {
+		if _, err := m.Execute(context.Background(), tt.cfg, attrs, nil); err != nil {
 			errStr = err.Error()
 		}
 		if !strings.Contains(errStr, tt.errString) {
@@ -208,7 +207,7 @@ func TestManager(t *testing.T) {
 
 		// call again
 		// check for cache
-		_, _ = m.Execute(context.Background(), tt.cfg, attrs)
+		_, _ = m.Execute(context.Background(), tt.cfg, attrs, nil)
 		if tt.wrapper.called != 2 {
 			t.Errorf("[%d] Expected 2nd wrapper call", idx)
 		}
@@ -255,7 +254,7 @@ func TestManager_BulkExecute(t *testing.T) {
 		m := newManager(r, mgr, mapper, nil)
 
 		errStr := ""
-		if _, err := m.Execute(context.Background(), c.cfgs, attrs); err != nil {
+		if _, err := m.Execute(context.Background(), c.cfgs, attrs, nil); err != nil {
 			errStr = err.Error()
 		}
 		if !strings.Contains(errStr, c.errString) {
@@ -300,7 +299,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 		},
 	}
 
-	_, err := m.Execute(context.Background(), cfg, nil)
+	_, err := m.Execute(context.Background(), cfg, nil, nil)
 	if err == nil {
 		t.Error("Aspect threw, but got no err from manager.Execute")
 	}

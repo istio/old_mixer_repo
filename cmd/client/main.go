@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,11 +47,17 @@ type rootArgs struct {
 	// bytesAttributes is the list of name/value pairs of bytes attributes that will be sent with requests.
 	bytesAttributes string
 
+	// stringMapAttributes is the list of string maps that will be sent with requests
+	stringMapAttributes string
+
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
 
 	// enableTracing controls whether client-side traces are generated for calls to the mixer.
 	enableTracing bool
+
+	// # times to repeat the operation
+	repeat int
 }
 
 // A function used for error output.
@@ -81,6 +87,9 @@ func withArgs(args []string, errorf errorFn) {
 
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
 		"Address and port of running instance of the mixer")
+	rootCmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
+		"Sends the specified number of requests in quick succession")
+
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
 		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "",
@@ -93,8 +102,12 @@ func withArgs(args []string, errorf errorFn) {
 		"List of name/value bool attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.timestampAttributes, "timestamp_attributes", "t", "",
 		"List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.durationAttributes, "duration_attributes", "", "",
+		"List of name/value duration attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "",
 		"List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringMapAttributes, "stringmap_attributes", "", "",
+		"List of name/value string map attributes specified as name1=k1:v1;k2:v2,name2=k3:v3...")
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	rootCmd.PersistentFlags().BoolVarP(&rootArgs.enableTracing, "trace", "", false,
 		"Whether to trace rpc executions")

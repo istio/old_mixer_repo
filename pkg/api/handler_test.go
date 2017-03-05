@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@ package api
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"testing"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/aspect"
@@ -41,7 +42,7 @@ type fakeExecutor struct {
 }
 
 // BulkExecute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
 	o, err := f.body()
 	if err != nil {
 		return nil, err
@@ -56,8 +57,13 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	h := &handlerState{aspectExecutor: f, methodMap: map[aspect.APIMethod]config.AspectSet{}}
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
-	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod)
-	if s.Code != int32(code.Code_INTERNAL) {
-		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
+	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
+	if s.Code != int32(rpc.INTERNAL) {
+		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, rpc.INTERNAL)
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

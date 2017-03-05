@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,14 @@ type Bag struct {
 
 	Strs  map[string]string
 	Times map[string]time.Time
+}
+
+// NewBag creates a new bag for testing.
+func NewBag() *Bag {
+	return &Bag{
+		Strs:  make(map[string]string),
+		Times: make(map[string]time.Time),
+	}
 }
 
 // String returns the named attribute if it exists.
@@ -63,4 +71,9 @@ func (t *Bag) Duration(name string) (time.Duration, bool) {
 // Bytes returns the named attribute if it exists.
 func (t *Bag) Bytes(name string) ([]uint8, bool) {
 	return []uint8{}, false
+}
+
+// StringMap returns the named attribute if it exists.
+func (t *Bag) StringMap(name string) (map[string]string, bool) {
+	return nil, false
 }

@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ package aspect
 import (
 	"io"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
@@ -33,7 +33,7 @@ type (
 	// Output captures the output from invoking an aspect.
 	Output struct {
 		// status code
-		Code code.Code
+		Code rpc.Code
 		//TODO attribute mutator
 		//If any attributes should change in the context for the next call
 		//context remains immutable during the call
@@ -54,7 +54,8 @@ type (
 	// Wrapper encapsulates a single aspect and allows it to be invoked.
 	Wrapper interface {
 		io.Closer
+
 		// Execute dispatches to the adapter.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
+		Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error)
 	}
 )
