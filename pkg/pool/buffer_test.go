@@ -12,10 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+package pool
 
-import "testing"
+import (
+	"testing"
+)
 
-func TestListCheckerManager(t *testing.T) {
-	_ = newListsManager()
+func TestBuffer(t *testing.T) {
+	b1 := GetBuffer()
+	b2 := GetBuffer()
+	b3 := GetBuffer()
+
+	if b1 == nil || b2 == nil || b3 == nil {
+		t.Errorf("One of the buffers is nil: %v %v %v", b1, b2, b3)
+	}
+
+	if b1 == b2 || b1 == b3 || b2 == b3 {
+		t.Errorf("Some of the buffers are equivalent: %v %v %v", b1, b2, b3)
+	}
+
+	PutBuffer(b1)
+	PutBuffer(b2)
+	PutBuffer(b3)
 }
