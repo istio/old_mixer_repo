@@ -22,10 +22,10 @@ type (
 		Aspect
 
 		// Alloc allocates the specified amount or fails when not available.
-		Alloc(QuotaArgs) (int64, error)
+		Alloc(QuotaArgs) (int64, time.Duration, error)
 
 		// AllocBestEffort allocates from 0 to the specified amount, based on availability.
-		AllocBestEffort(QuotaArgs) (int64, error)
+		AllocBestEffort(QuotaArgs) (int64, time.Duration, error)
 
 		// ReleaseBestEffort releases from 0 to the specified amount, based on current usage.
 		ReleaseBestEffort(QuotaArgs) (int64, error)

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	ptypes "github.com/gogo/protobuf/types"
 
@@ -146,11 +147,12 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 	}
 
 	var amount int64
+	var exp time.Duration
 
 	if qma.BestEffort {
-		amount, err = w.aspect.AllocBestEffort(qa)
+		amount, exp, err = w.aspect.AllocBestEffort(qa)
 	} else {
-		amount, err = w.aspect.Alloc(qa)
+		amount, exp, err = w.aspect.Alloc(qa)
 	}
 
 	if err != nil {
@@ -161,9 +163,12 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 		return Output{Status: status.WithResourceExhausted(fmt.Sprintf("Unable to allocate %v units from quota %s", amount, info.definition.Name))}
 	}
 
-	// TODO: need to return the allocated amount somehow in the Quota API's QuotaResponse message
-
-	return Output{Status: status.OK}
+	return Output{
+		Status: status.OK,
+		Response: QuotaMethodResp{
+			Amount:     amount,
+			Expiration: exp,
+		}}
 }
 
 func (w *quotasWrapper) Close() error {
