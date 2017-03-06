@@ -15,17 +15,16 @@
 package aspect
 
 import (
-	"bytes"
 	"text/template"
 	"time"
-
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -56,8 +55,8 @@ var (
 	combinedLogAttributes = append(commonLogAttributes, "referer", "user_agent")
 )
 
-// NewAccessLogsManager returns a manager for the access logs aspect.
-func NewAccessLogsManager() Manager {
+// newAccessLogsManager returns a manager for the access logs aspect.
+func newAccessLogsManager() Manager {
 	return accessLogsManager{}
 }
 
@@ -131,7 +130,7 @@ func (e *accessLogsWrapper) Close() error {
 	return e.aspect.Close()
 }
 
-func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
+func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})
@@ -168,16 +167,17 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 
 	if len(entry.Labels) == 0 {
 		// don't write empty access logs
-		return &Output{Code: code.Code_OK}, nil
+		return Output{Status: status.OK}
 	}
 
-	buf := new(bytes.Buffer)
+	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, entry.Labels); err != nil {
-		return nil, err
+		return Output{Status: status.WithError(err)}
 	}
 	entry.TextPayload = buf.String()
+	pool.PutBuffer(buf)
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
-		return nil, err
+		return Output{Status: status.WithError(err)}
 	}
-	return &Output{Code: code.Code_OK}, nil
+	return Output{Status: status.OK}
 }
