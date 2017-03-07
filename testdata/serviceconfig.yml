@@ -37,6 +37,7 @@ rules:
            originIp: origin.ip
            source_user: origin.user
            timestamp: request.time
+           # TODO: remove this OR when the proxy has implemented support for the request.method attribute
            method: request.method | ""
            url: request.path
            protocol: request.scheme
