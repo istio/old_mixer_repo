@@ -253,7 +253,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 			if l.EntryCount != len(tt.wantEntries) {
 				t.Fatalf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(tt.wantEntries), tt.name)
 			}
-			if !reflect.DeepEqual(l.Logs, tt.wantEntries) {
+			if !deepEqualIgnoreOrder(l.Logs, tt.wantEntries) {
 				t.Fatalf("Execute(): got %v, wanted %v for %s", l.Logs, tt.wantEntries, tt.name)
 			}
 		})
@@ -378,4 +378,20 @@ func TestPayloadFormatFromProto(t *testing.T) {
 			}
 		})
 	}
+}
+
+// We can't actually nail down which entries correspond to each other as there's no unique identifier per entry.
+// We'll do the n^2 compare-everything-to-everything method. Keep actual and expected small!
+func deepEqualIgnoreOrder(actual, expected []adapter.LogEntry) bool {
+	for _, e := range expected {
+		result := false
+		for _, a := range actual {
+			result = result || reflect.DeepEqual(e, a)
+		}
+		// bail early: we found no match for this e
+		if !result {
+			return false
+		}
+	}
+	return true
 }
