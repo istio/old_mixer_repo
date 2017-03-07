@@ -15,9 +15,7 @@
 package aspect
 
 import (
-	"bytes"
 	"fmt"
-	"sync"
 	"text/template"
 
 	"istio.io/mixer/pkg/adapter"
@@ -25,6 +23,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
 )
 
@@ -49,12 +48,6 @@ const (
 	combinedLogFormat = commonLogFormat + ` "{{or (.referer) "-"}}" "{{or (.user_agent) "-"}}"`
 )
 
-var bufferPool = sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
-}
-
 // newAccessLogsManager returns a manager for the access logs aspect.
 func newAccessLogsManager() Manager {
 	return accessLogsManager{}
@@ -69,12 +62,9 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 		templateStr = commonLogFormat
 	case aconfig.COMBINED:
 		templateStr = combinedLogFormat
-	case aconfig.CUSTOM:
-		fallthrough
 	default:
-		// Hack because user's can't give us descriptors yet. For now custom templates can be created by
-		// defining a "template" input. This is not documented anywhere but here.
-		templateStr = c.Aspect.Inputs["template"]
+		// TODO: we should never fall into this case because of validation; should we panic?
+		templateStr = ""
 	}
 
 	// TODO: when users can provide us with descriptors, this error can be removed due to validation
@@ -110,15 +100,16 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
-		ce = ce.Appendf("Log", "an AccessLog entry must be provided.")
+		ce = ce.Appendf("Log", "an AccessLog entry must be provided")
+		// We can't do any more validation without a Log
 		return
 	}
-	if cfg.Log.LogFormat != aconfig.CUSTOM {
-		// If it's not custom we're using our own configs, so we're fine.
-		return nil
+	if cfg.Log.LogFormat == aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED {
+		ce = ce.Appendf("Log.LogFormat", "a log format must be provided")
 	}
+
 	// TODO: validate custom templates when users can provide us with descriptors
-	return nil
+	return
 }
 
 func (e *accessLogsWrapper) Close() error {
@@ -136,15 +127,13 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		return Output{Status: status.WithError(fmt.Errorf("failed to eval template expressions for log %s with err: %s", e.name, err))}
 	}
 
-	buf := bufferPool.Get().(*bytes.Buffer)
+	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, templateVals); err != nil {
-		buf.Reset()
-		bufferPool.Put(buf)
+		pool.PutBuffer(buf)
 		return Output{Status: status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))}
 	}
 	payload := buf.String()
-	buf.Reset()
-	bufferPool.Put(buf)
+	pool.PutBuffer(buf)
 
 	entry := adapter.LogEntry{
 		LogName:     e.name,
