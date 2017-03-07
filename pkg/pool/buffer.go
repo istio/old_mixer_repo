@@ -12,10 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+// Package pool provides access to a mixer-global pool of buffers and a string interning table.
+package pool
 
-import "testing"
+import (
+	"bytes"
+	"sync"
+)
 
-func TestListCheckerManager(t *testing.T) {
-	_ = newListsManager()
+var bufferPool = sync.Pool{New: func() interface{} { return &bytes.Buffer{} }}
+
+// GetBuffer returns a buffer from the buffer pool.
+func GetBuffer() *bytes.Buffer {
+	return bufferPool.Get().(*bytes.Buffer)
+}
+
+// PutBuffer returns a buffer to the buffer pool. You shouldn't reference this buffer
+// after it has been returned to the pool, otherwise bad things will happen.
+func PutBuffer(b *bytes.Buffer) {
+	b.Reset()
+	bufferPool.Put(b)
 }

@@ -20,20 +20,21 @@ package aspect
 import (
 	"io"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
-
 	// Output captures the output from invoking an aspect.
 	Output struct {
 		// status code
-		Code code.Code
+		Status rpc.Status
+
 		//TODO attribute mutator
 		//If any attributes should change in the context for the next call
 		//context remains immutable during the call
@@ -56,6 +57,16 @@ type (
 		io.Closer
 
 		// Execute dispatches to the adapter.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error)
+		Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output
 	}
 )
+
+// IsOK returns whether the Output represents success or failure
+func (o Output) IsOK() bool {
+	return status.IsOK(o.Status)
+}
+
+// Message returns te the message string of the Output's embedded Status struct
+func (o Output) Message() string {
+	return o.Status.Message
+}
