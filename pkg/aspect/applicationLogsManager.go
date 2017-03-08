@@ -57,7 +57,7 @@ type (
 )
 
 const (
-	// TEXT describes a log entry whose TextPayload should be set.
+	// Text describes a log entry whose TextPayload should be set.
 	Text PayloadFormat = iota
 	// JSON describes a log entry whose StructPayload should be set.
 	JSON
