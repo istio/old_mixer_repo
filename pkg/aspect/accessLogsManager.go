@@ -141,7 +141,7 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		TextPayload: payload,
 	}
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to log %s with err: %s", e.name, err))}
+		return Output{Status: status.WithError(fmt.Errorf("failed to report to %s with err: %s", e.name, err))}
 	}
 	return Output{Status: status.OK}
 }
