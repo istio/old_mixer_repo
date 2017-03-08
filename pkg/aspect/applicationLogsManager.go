@@ -40,12 +40,13 @@ type (
 	applicationLogsManager struct{}
 
 	logInfo struct {
-		format    PayloadFormat
-		severity  string
-		timestamp string
-		tmpl      *template.Template
-		tmplExprs map[string]string
-		labels    map[string]string
+		format     PayloadFormat
+		severity   string
+		timestamp  string
+		timeFormat string
+		tmpl       *template.Template
+		tmplExprs  map[string]string
+		labels     map[string]string
 	}
 
 	applicationLogsWrapper struct {
@@ -57,7 +58,7 @@ type (
 
 const (
 	// TEXT describes a log entry whose TextPayload should be set.
-	TEXT = iota
+	Text PayloadFormat = iota
 	// JSON describes a log entry whose StructPayload should be set.
 	JSON
 )
@@ -94,12 +95,13 @@ func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, e
 		}
 
 		metadata[d.Name] = &logInfo{
-			format:    payloadFormatFromProto(d.PayloadFormat),
-			severity:  l.Severity,
-			timestamp: l.Timestamp,
-			tmpl:      t,
-			tmplExprs: l.TemplateExpressions,
-			labels:    l.Labels,
+			format:     payloadFormatFromProto(d.PayloadFormat),
+			severity:   l.Severity,
+			timestamp:  l.Timestamp,
+			timeFormat: l.TimeFormat,
+			tmpl:       t,
+			tmplExprs:  l.TemplateExpressions,
+			labels:     l.Labels,
 		}
 	}
 
@@ -173,12 +175,12 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 		entry := adapter.LogEntry{
 			LogName:   e.name,
 			Labels:    labels,
-			Timestamp: t.String(),
+			Timestamp: t.Format(md.timeFormat),
 			Severity:  severity,
 		}
 
 		switch md.format {
-		case TEXT:
+		case Text:
 			entry.TextPayload = buf.String()
 		case JSON:
 			if err := json.Unmarshal(buf.Bytes(), &entry.StructPayload); err != nil {
@@ -222,6 +224,6 @@ func payloadFormatFromProto(format dpb.LogEntryDescriptor_PayloadFormat) Payload
 	case dpb.TEXT:
 		fallthrough
 	default:
-		return TEXT
+		return Text
 	}
 }

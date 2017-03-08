@@ -32,7 +32,8 @@ message ApplicationLogsParams {
 
         // The expression to evaluate to determine this log's timestamp.
         string timestamp = 3;
-        // The golang time layout string to use to parse the timestamp
+
+        // The golang time layout format string used to print the timestamp
         string time_format = 4;
 
         // Map of template variable name to expression for the descriptor's log_template. At

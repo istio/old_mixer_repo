@@ -65,7 +65,9 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		name:   "istio_log",
 		aspect: tl,
 		metadata: map[string]*logInfo{
-			"default": {},
+			"default": {
+				timeFormat: time.RFC3339,
+			},
 		},
 	}
 
@@ -73,7 +75,9 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		name:   "istio_log",
 		aspect: tl,
 		metadata: map[string]*logInfo{
-			"default": {},
+			"default": {
+				timeFormat: "2006-Jan-02",
+			},
 		},
 	}
 
@@ -106,7 +110,6 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
 				{
 					DescriptorName: "no descriptor with this name",
-					TimeFormat:     time.RFC3339,
 				},
 			}}, emptyExec},
 	}
@@ -177,16 +180,26 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 }
 
 func TestLogWrapper_Execute(t *testing.T) {
+	timeAttrName := "timestamp"
+	knownTime := time.Now()
+	idEvalWithTime := test.NewFakeEval(func(s string, _ attribute.Bag) (interface{}, error) {
+		if s == timeAttrName {
+			return knownTime, nil
+		}
+		return s, nil
+	})
+
 	tmpl, _ := template.New("test").Parse("{{.test}}")
 	jsontmpl, _ := template.New("test").Parse(`{"value": "{{.test}}"}`)
 
 	textLogInfo := logInfo{
-		format:    TEXT,
-		severity:  "DEFAULT",
-		timestamp: "timestamp",
-		tmpl:      tmpl,
-		tmplExprs: map[string]string{"test": "value"},
-		labels:    map[string]string{"label1": "label1val"},
+		format:     Text,
+		severity:   "DEFAULT",
+		timestamp:  "timestamp",
+		timeFormat: time.RFC822Z,
+		tmpl:       tmpl,
+		tmplExprs:  map[string]string{"test": "value"},
+		labels:     map[string]string{"label1": "label1val"},
 	}
 
 	noDescriptors := &applicationLogsWrapper{
@@ -204,7 +217,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 		LogName:     "name",
 		Labels:      map[string]interface{}{"label1": "label1val"},
 		TextPayload: "value",
-		Timestamp:   time.Time{}.String(),
+		Timestamp:   knownTime.Format(time.RFC822Z),
 		Severity:    adapter.Default,
 	}
 
@@ -237,10 +250,10 @@ func TestLogWrapper_Execute(t *testing.T) {
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
 	}{
-		{"no descriptors", noDescriptors, test.NewBag(), test.NewIDEval(), nil},
-		{"text payload", textPayload, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{textPayloadEntry}},
-		{"json payload", jsonPayload, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{jsonPayloadEntry}},
-		{"multiple logs", multipleLogs, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{jsonPayloadEntry, textPayloadEntry}},
+		{"no descriptors", noDescriptors, test.NewBag(), idEvalWithTime, nil},
+		{"text payload", textPayload, test.NewBag(), idEvalWithTime, []adapter.LogEntry{textPayloadEntry}},
+		{"json payload", jsonPayload, test.NewBag(), idEvalWithTime, []adapter.LogEntry{jsonPayloadEntry}},
+		{"multiple logs", multipleLogs, test.NewBag(), idEvalWithTime, []adapter.LogEntry{jsonPayloadEntry, textPayloadEntry}},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
@@ -264,7 +277,7 @@ func TestLogWrapper_ExecuteFailures(t *testing.T) {
 	tmpl, _ := template.New("test").Parse("{{.test}}")
 
 	textLogInfo := logInfo{
-		format:    TEXT,
+		format:    Text,
 		severity:  "DEFAULT",
 		timestamp: "timestamp",
 		tmpl:      tmpl,
@@ -368,7 +381,7 @@ func TestPayloadFormatFromProto(t *testing.T) {
 		out  PayloadFormat
 	}{
 		{"json", dpb.JSON, JSON},
-		{"text", dpb.TEXT, TEXT},
+		{"text", dpb.TEXT, Text},
 	}
 
 	for idx, tt := range tests {
