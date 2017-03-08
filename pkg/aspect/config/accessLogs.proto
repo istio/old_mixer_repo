@@ -23,13 +23,27 @@ option go_package="config";
 // Example usage:
 //     kind: access-logs
 //     params:
-//        log_name: "logs/access_log"
-//        log:
-//            log_format: CUSTOM
-//            descriptor_name: "MyCustomDescriptor"
-//            labels:
-//                time: response.time
-//                user_agent: request.user-agent | "Mozilla/5.0"
+//       logName: "access_log"
+//       log:
+//         logFormat: COMMON
+//         templateExpressions:
+//            originIp: origin.ip
+//            source_user: origin.user
+//            timestamp: request.time
+//            method: request.method | ""
+//            url: request.path
+//            protocol: request.scheme
+//            responseCode: response.code
+//            responseSize: response.size
+//         labels:
+//            originIp: origin.ip
+//            source_user: origin.user
+//            timestamp: request.time
+//            method: request.method | ""
+//            url: request.path
+//            protocol: request.scheme
+//            responseCode: response.code
+//            responseSize: response.size
 message AccessLogsParams {
     // Identifies a collection of related log entries.
     string log_name = 1;
@@ -38,8 +52,6 @@ message AccessLogsParams {
     message AccessLog {
         // AccessLogFormat specifies the format to use for generating textual log
         // entries for the accessLogger aspect of the mixer.
-        //
-        // Default value: COMMON.
         enum AccessLogFormat {
             // Invalid default value.
             ACCESS_LOG_FORMAT_UNSPECIFIED = 0;
