@@ -15,6 +15,7 @@
 package config
 
 import (
+	"flag"
 	"fmt"
 	"testing"
 
@@ -68,8 +69,8 @@ func TestRuntime(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: map[adapterKey]*pb.Adapter{
-			adapterKey{LC, "a1"}: a1,
-			adapterKey{LC, "a2"}: a2,
+			{LC, "a1"}: a1,
+			{LC, "a2"}: a2,
 		},
 		serviceConfig: &pb.ServiceConfig{
 			Rules: []*pb.AspectRule{
@@ -130,4 +131,9 @@ func TestRuntime(t *testing.T) {
 			t.Errorf("%d Expected %d resolve got %d", idx, tt.nlen, len(al))
 		}
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

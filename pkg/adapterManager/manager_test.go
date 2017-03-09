@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
@@ -29,6 +28,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -60,7 +60,7 @@ type (
 	}
 
 	testAspect struct {
-		body func() (*aspect.Output, error)
+		body func() aspect.Output
 	}
 
 	fakewrapper struct {
@@ -75,7 +75,7 @@ type (
 
 func (f *fakeadp) Name() string { return f.name }
 
-func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (output *aspect.Output, err error) {
+func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (output aspect.Output) {
 	f.called++
 	return
 }
@@ -85,7 +85,7 @@ func (m *fakemgr) Kind() aspect.Kind {
 	return m.kind
 }
 
-func newTestManager(name string, throwOnNewAspect bool, body func() (*aspect.Output, error)) testManager {
+func newTestManager(name string, throwOnNewAspect bool, body func() aspect.Output) testManager {
 	return testManager{name, throwOnNewAspect, testAspect{body}}
 }
 func (testManager) Close() error                                                { return nil }
@@ -106,10 +106,10 @@ func (m testManager) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (ad
 }
 
 func (testAspect) Close() error { return nil }
-func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (*aspect.Output, error) {
+func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) aspect.Output {
 	return t.body()
 }
-func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(code.Code_INTERNAL)} }
+func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(rpc.INTERNAL)} }
 
 func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	m.called++
@@ -185,10 +185,8 @@ func TestManager(t *testing.T) {
 			mgr = newFakeMgrReg(tt.wrapper)
 		}
 		m := newManager(r, mgr, mapper, nil)
-		errStr := ""
-		if _, err := m.Execute(context.Background(), tt.cfg, attrs, nil); err != nil {
-			errStr = err.Error()
-		}
+		out := m.Execute(context.Background(), tt.cfg, attrs, nil)
+		errStr := out.Message()
 		if !strings.Contains(errStr, tt.errString) {
 			t.Errorf("[%d] expected: '%s' \ngot: '%s'", idx, tt.errString, errStr)
 		}
@@ -208,7 +206,7 @@ func TestManager(t *testing.T) {
 
 		// call again
 		// check for cache
-		_, _ = m.Execute(context.Background(), tt.cfg, attrs, nil)
+		_ = m.Execute(context.Background(), tt.cfg, attrs, nil)
 		if tt.wrapper.called != 2 {
 			t.Errorf("[%d] Expected 2nd wrapper call", idx)
 		}
@@ -254,10 +252,8 @@ func TestManager_BulkExecute(t *testing.T) {
 		mgr := newFakeMgrReg(&fakewrapper{})
 		m := newManager(r, mgr, mapper, nil)
 
-		errStr := ""
-		if _, err := m.Execute(context.Background(), c.cfgs, attrs, nil); err != nil {
-			errStr = err.Error()
-		}
+		out := m.Execute(context.Background(), c.cfgs, attrs, nil)
+		errStr := out.Message()
 		if !strings.Contains(errStr, c.errString) {
 			t.Errorf("[%d] got: '%s' want: '%s'", idx, c.errString, errStr)
 		}
@@ -276,12 +272,12 @@ func TestRecovery_AspectExecute(t *testing.T) {
 func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
 	var cacheThrow testManager
 	if throwOnExecute {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() (*aspect.Output, error) {
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() aspect.Output {
 			panic("panic")
 		})
 	} else {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() (*aspect.Output, error) {
-			return nil, fmt.Errorf("empty")
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() aspect.Output {
+			return aspect.Output{Status: status.WithError(fmt.Errorf("empty"))}
 		})
 	}
 	mreg := map[aspect.Kind]aspect.Manager{
@@ -300,12 +296,12 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 		},
 	}
 
-	_, err := m.Execute(context.Background(), cfg, nil, nil)
-	if err == nil {
-		t.Error("Aspect threw, but got no err from manager.Execute")
+	out := m.Execute(context.Background(), cfg, nil, nil)
+	if out.IsOK() {
+		t.Error("Aspect panicked, but got no error from manager.Execute")
 	}
 
-	if !strings.Contains(err.Error(), want) {
-		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, err)
+	if !strings.Contains(out.Message(), want) {
+		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, out.Message())
 	}
 }
