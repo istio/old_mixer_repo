@@ -20,27 +20,28 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/status"
 )
 
 func TestExecute(t *testing.T) {
 	cases := []struct {
 		name     string
-		inCode   code.Code
+		inCode   rpc.Code
 		inErr    error
-		wantCode code.Code
+		wantCode rpc.Code
 	}{
-		{aspect.DenialsKindName, code.Code_OK, nil, code.Code_OK},
-		{"error", code.Code_UNKNOWN, fmt.Errorf("expected"), code.Code_UNKNOWN},
+		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK},
+		{"error", rpc.UNKNOWN, fmt.Errorf("expected"), rpc.UNKNOWN},
 	}
 
 	for _, c := range cases {
-		mngr := newTestManager(c.name, false, func() (*aspect.Output, error) {
-			return &aspect.Output{Code: c.inCode}, c.inErr
+		mngr := newTestManager(c.name, false, func() aspect.Output {
+			return aspect.Output{Status: status.New(c.inCode)}
 		})
 		mreg := map[aspect.Kind]aspect.Manager{
 			aspect.DenialsKind: mngr,
@@ -55,12 +56,12 @@ func TestExecute(t *testing.T) {
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
 
-		o, err := m.Execute(context.Background(), cfg, nil, nil)
-		if c.inErr != nil && err == nil {
-			t.Errorf("m.Execute(...) = %v; want err: %v", err, c.inErr)
+		o := m.Execute(context.Background(), cfg, nil, nil)
+		if c.inErr != nil && o.IsOK() {
+			t.Errorf("m.Execute(...) want err: %v", c.inErr)
 		}
-		if c.inErr == nil && !(len(o) > 0 && o[0].Code == code.Code_OK) {
-			t.Errorf("m.Execute(...) = %v; wanted len(o) == 1 && o[0].Code == code.Code_OK", o)
+		if c.inErr == nil && !o.IsOK() {
+			t.Errorf("m.Execute(...) = %v; wanted o.Status.Code == rpc.OK", o)
 		}
 	}
 }
@@ -74,7 +75,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	cfg := []*config.Combined{
 		{&configpb.Adapter{Name: ""}, &configpb.Aspect{Kind: ""}},
 	}
-	if _, err := handler.Execute(ctx, cfg, &fakebag{}, nil); err == nil {
+	if out := handler.Execute(ctx, cfg, &fakebag{}, nil); out.IsOK() {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
@@ -85,9 +86,9 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	blockChan := make(chan struct{})
 
 	name := "blocked"
-	mngr := newTestManager(name, false, func() (*aspect.Output, error) {
+	mngr := newTestManager(name, false, func() aspect.Output {
 		<-blockChan
-		return &aspect.Output{Code: code.Code_OK}, nil
+		return aspect.Output{Status: status.OK}
 	})
 	mreg := map[aspect.Kind]aspect.Manager{
 		aspect.DenialsKind: mngr,
@@ -107,7 +108,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}}
-	if _, err := m.Execute(ctx, cfg, &fakebag{}, nil); err == nil {
+	if out := m.Execute(ctx, cfg, &fakebag{}, nil); out.IsOK() {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)

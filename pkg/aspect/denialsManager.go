@@ -15,8 +15,6 @@
 package aspect
 
 import (
-	"google.golang.org/genproto/googleapis/rpc/code"
-
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -32,8 +30,8 @@ type (
 	}
 )
 
-// NewDenialsManager returns a manager for the denials aspect.
-func NewDenialsManager() Manager {
+// newDenialsManager returns a manager for the denials aspect.
+func newDenialsManager() Manager {
 	return denialsManager{}
 }
 
@@ -56,9 +54,8 @@ func (denialsManager) Kind() Kind                                               
 func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenialsParams{} }
 func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
-	status := a.aspect.Deny()
-	return &Output{Code: code.Code(status.Code)}, nil
+func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
+	return Output{Status: a.aspect.Deny()}
 }
 
 func (a *denialsWrapper) Close() error { return a.aspect.Close() }
