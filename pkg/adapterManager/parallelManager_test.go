@@ -50,7 +50,7 @@ func TestExecute(t *testing.T) {
 			adp:   mngr,
 			found: true,
 		}
-		m := NewParallelManager(newManager(breg, mreg, nil, nil), 1)
+		m := NewParallelManager(newManager(breg, mreg, nil, nil))
 
 		cfg := []*config.Combined{
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
@@ -69,7 +69,7 @@ func TestExecute(t *testing.T) {
 func TestExecute_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration should've matter when we have a canceled ctx
-	handler := NewParallelManager(&Manager{}, 1)
+	handler := NewParallelManager(&Manager{})
 	cancel()
 
 	cfg := []*config.Combined{
@@ -97,7 +97,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		adp:   mngr,
 		found: true,
 	}
-	m := NewParallelManager(newManager(breg, mreg, nil, nil), 1)
+	m := NewParallelManager(newManager(breg, mreg, nil, nil))
 
 	go func() {
 		time.Sleep(1 * time.Millisecond)
@@ -117,7 +117,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 func TestShutdown(t *testing.T) {
 	fail := make(chan struct{})
 	succeed := make(chan struct{})
-	p := NewParallelManager(&Manager{}, 1)
+	p := NewParallelManager(&Manager{})
 
 	go func() {
 		time.Sleep(1 * time.Second)

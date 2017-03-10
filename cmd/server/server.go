@@ -36,6 +36,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/tracing"
 )
 
@@ -109,7 +110,8 @@ func runServer(sa *serverArgs) error {
 		if poolsize < 0 {
 			return fmt.Errorf("worker pool size must be less than int max value, got pool size %d", poolsize)
 		}
-		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr, poolsize), adapterMgr.MethodMap())
+		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr), adapterMgr.MethodMap())
+		pool.AddWorkers(poolsize)
 	}
 
 	var serverCert *tls.Certificate

@@ -12,25 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package pool provides access to a mixer-global pool of buffers, a pool of goroutines, and
-// a string interning table.
 package pool
 
 import (
-	"bytes"
 	"sync"
+	"testing"
 )
 
-var bufferPool = sync.Pool{New: func() interface{} { return &bytes.Buffer{} }}
+func TestWorkerPool(t *testing.T) {
+	const numWorkers = 123
+	const numWorkItems = 456
 
-// GetBuffer returns a buffer from the buffer pool.
-func GetBuffer() *bytes.Buffer {
-	return bufferPool.Get().(*bytes.Buffer)
-}
+	AddWorkers(numWorkers)
 
-// PutBuffer returns a buffer to the buffer pool. You shouldn't reference this buffer
-// after it has been returned to the pool, otherwise bad things will happen.
-func PutBuffer(b *bytes.Buffer) {
-	b.Reset()
-	bufferPool.Put(b)
+	wg := &sync.WaitGroup{}
+	wg.Add(numWorkItems)
+
+	for i := 0; i < numWorkItems; i++ {
+		ScheduleWork(func() {
+			wg.Done()
+		})
+	}
+
+	// wait for all the functions to have run
+	wg.Wait()
+
+	// make sure the pool can be shutdown cleanly
+	globalGoroutinePool.Close()
 }
