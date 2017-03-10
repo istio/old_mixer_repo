@@ -74,10 +74,7 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
-	// TODO: define a sensible size for our worker pool; we probably want (max outstanding requests allowed)*(number of adapters executed per request)
-	serverCmd.PersistentFlags().UintVarP(&sa.workerPoolSize, "workerPoolSize", "", 100,
-		"Number of workers used to execute adapters in the entire server; this should be roughly (max outstanding requests)*(number of adapters per request)."+
-			"If workerPoolSize is exactly zero all adapters are executed serially on their request go routine.")
+	serverCmd.PersistentFlags().UintVarP(&sa.workerPoolSize, "workerPoolSize", "", 1024, "Number of goroutines in the global worker pool")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
@@ -95,24 +92,21 @@ func serverCmd(errorf errorFn) *cobra.Command {
 }
 
 func runServer(sa *serverArgs) error {
+	poolSize := int(sa.workerPoolSize)
+	if poolSize <= 0 {
+		return fmt.Errorf("worker pool size must be >= 0 and <= 2^31-1, got pool size %d", poolSize)
+	}
+	pool.AddWorkers(poolSize)
+
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
-	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval)
+	sequential := poolSize == 1
+	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, sequential)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
 		adapterMgr.AdapterToAspectMapperFunc(),
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
-	var handler api.Handler
-	if sa.workerPoolSize == 0 {
-		handler = api.NewHandler(adapterMgr, adapterMgr.MethodMap())
-	} else {
-		poolsize := int(sa.workerPoolSize)
-		if poolsize < 0 {
-			return fmt.Errorf("worker pool size must be less than int max value, got pool size %d", poolsize)
-		}
-		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr), adapterMgr.MethodMap())
-		pool.AddWorkers(poolsize)
-	}
+	handler := api.NewHandler(adapterMgr, adapterMgr.MethodMap())
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
