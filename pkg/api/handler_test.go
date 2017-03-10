@@ -16,15 +16,17 @@ package api
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"testing"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/status"
 )
 
 type fakeresolver struct {
@@ -37,27 +39,28 @@ func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([
 }
 
 type fakeExecutor struct {
-	body func() (*aspect.Output, error)
+	body func() aspect.Output
 }
 
-// BulkExecute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
-	o, err := f.body()
-	if err != nil {
-		return nil, err
-	}
-	return []*aspect.Output{o}, nil
+// Execute takes a set of configurations and Executes all of them.
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
+	return f.body()
 }
 
 func TestAspectManagerErrorsPropagated(t *testing.T) {
-	f := &fakeExecutor{func() (*aspect.Output, error) {
-		return nil, fmt.Errorf("expected")
+	f := &fakeExecutor{func() aspect.Output {
+		return aspect.Output{Status: status.WithError(fmt.Errorf("expected"))}
 	}}
 	h := &handlerState{aspectExecutor: f, methodMap: map[aspect.APIMethod]config.AspectSet{}}
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
-	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
-	if s.Code != int32(code.Code_INTERNAL) {
-		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
+	o := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
+	if o.Status.Code != int32(rpc.INTERNAL) {
+		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", o.Status, rpc.INTERNAL)
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

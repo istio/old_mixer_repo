@@ -20,15 +20,16 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
+	ptypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/status"
 )
 
 // Handler holds pointers to the functions that implement
@@ -53,7 +54,7 @@ type Handler interface {
 // Executor executes any aspect as described by config.Combined.
 type Executor interface {
 	// Execute takes a set of configurations and Executes all of them.
-	Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error)
+	Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output
 }
 
 // handlerState holds state and configuration for the handler.
@@ -74,76 +75,85 @@ func NewHandler(aspectExecutor Executor, methodMap map[aspect.APIMethod]config.A
 	}
 }
 
-// execute performs common function shared across the api surface.
+// execute performs common functions shared across the api surface.
 func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes,
-	method aspect.APIMethod, ma aspect.APIMethodArgs) *rpc.Status {
+	method aspect.APIMethod, ma aspect.APIMethodArgs) aspect.Output {
 	ab, err := tracker.StartRequest(attrs)
 	if err != nil {
 		msg := fmt.Sprintf("Unable to process attribute update: %v", err)
 		glog.Error(msg)
-		return newStatusWithMessage(code.Code_INVALID_ARGUMENT, msg)
+		return aspect.Output{Status: status.WithInvalidArgument(msg)}
 	}
 	defer tracker.EndRequest()
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
 
-	untypedCfg := h.cfg.Load()
-	if untypedCfg == nil {
-		// config has NOT been loaded yet
-		const msg = "Configuration is not available"
+	cfg, _ := h.cfg.Load().(config.Resolver)
+	if cfg == nil {
+		// config has not been loaded yet
+		const msg = "Configuration is not yet available"
 		glog.Error(msg)
-		return newStatusWithMessage(code.Code_INTERNAL, msg)
+		return aspect.Output{Status: status.WithInternal(msg)}
 	}
-	cfg := untypedCfg.(config.Resolver)
+
 	cfgs, err := cfg.Resolve(ab, h.methodMap[method])
 	if err != nil {
 		msg := fmt.Sprintf("unable to resolve config: %v", err)
 		glog.Error(msg)
-		return newStatusWithMessage(code.Code_INTERNAL, msg)
+		return aspect.Output{Status: status.WithInternal(msg)}
 	}
 
 	if glog.V(2) {
 		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
 	}
 
-	outs, err := h.aspectExecutor.Execute(ctx, cfgs, ab, ma)
-	if err != nil {
-		return newStatusWithMessage(code.Code_INTERNAL, err.Error())
-	}
-
-	for _, out := range outs {
-		if out.Code != code.Code_OK {
-			return newStatus(out.Code)
-		}
-	}
-	return newStatus(code.Code_OK)
+	return h.aspectExecutor.Execute(ctx, cfgs, ab, ma)
 }
 
 // Check performs 'check' function corresponding to the mixer api.
 func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	if glog.V(2) {
-		glog.Infof("Check [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
-		defer func() { glog.Infof("Check [%x] <-- %s", request.RequestIndex, response) }()
+		glog.Infof("Check [%x]", request.RequestIndex)
 	}
+
+	o := h.execute(ctx, tracker, request.AttributeUpdate, aspect.CheckMethod, &aspect.CheckMethodArgs{})
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.CheckMethod, &aspect.CheckMethodArgs{})
+	response.Result = &o.Status
+
+	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
+	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
+	//       30s TTL but a whitelist check has got a 120s TTL)
+	response.Expiration = ptypes.DurationProto(time.Duration(5) * time.Second)
+
+	if glog.V(2) {
+		glog.Infof("Check [%x] <-- %s", request.RequestIndex, response)
+	}
 }
 
 // Report performs 'report' function corresponding to the mixer api.
 func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	if glog.V(2) {
-		glog.Infof("Report [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
-		defer func() { glog.Infof("Report [%x] <-- %s", request.RequestIndex, response) }()
+		glog.Infof("Report [%x]", request.RequestIndex)
 	}
+
+	o := h.execute(ctx, tracker, request.AttributeUpdate, aspect.ReportMethod, &aspect.ReportMethodArgs{})
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.ReportMethod, &aspect.ReportMethodArgs{})
+	response.Result = &o.Status
+
+	if glog.V(2) {
+		glog.Infof("Report [%x] <-- %s", request.RequestIndex, response)
+	}
 }
 
 // Quota performs 'quota' function corresponding to the mixer api.
 func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+	if glog.V(2) {
+		glog.Infof("Quota [%x]", request.RequestIndex)
+	}
+
 	response.RequestIndex = request.RequestIndex
-	status := h.execute(ctx, tracker, request.AttributeUpdate, aspect.QuotaMethod,
+	o := h.execute(ctx, tracker, request.AttributeUpdate, aspect.QuotaMethod,
 		&aspect.QuotaMethodArgs{
 			Quota:           request.Quota,
 			Amount:          request.Amount,
@@ -151,17 +161,16 @@ func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, req
 			BestEffort:      request.BestEffort,
 		})
 
-	if status.Code == int32(code.Code_OK) {
-		response.Amount = 1
+	response.Result = &o.Status
+	if o.IsOK() {
+		resp := o.Response.(*aspect.QuotaMethodResp)
+		response.Amount = resp.Amount
+		response.Expiration = ptypes.DurationProto(resp.Expiration)
 	}
-}
 
-func newStatus(c code.Code) *rpc.Status {
-	return &rpc.Status{Code: int32(c)}
-}
-
-func newStatusWithMessage(c code.Code, message string) *rpc.Status {
-	return &rpc.Status{Code: int32(c), Message: message}
+	if glog.V(2) {
+		glog.Infof("Quota [%x] <-- %s", request.RequestIndex, response)
+	}
 }
 
 // ConfigChange listens for config change notifications.
