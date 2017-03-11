@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strings"
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -51,12 +52,95 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	f := &fakeExecutor{func() aspect.Output {
 		return aspect.Output{Status: status.WithError(fmt.Errorf("expected"))}
 	}}
-	h := &handlerState{aspectExecutor: f, methodMap: map[aspect.APIMethod]config.AspectSet{}}
+	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
-	o := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
+	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
+	o := h.execute(context.Background(), bag, aspect.CheckMethod, nil)
 	if o.Status.Code != int32(rpc.INTERNAL) {
 		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", o.Status, rpc.INTERNAL)
+	}
+}
+
+func TestHandler(t *testing.T) {
+	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
+
+	checkReq := &mixerpb.CheckRequest{}
+	checkResp := &mixerpb.CheckResponse{}
+	reportReq := &mixerpb.ReportRequest{}
+	reportResp := &mixerpb.ReportResponse{}
+	quotaReq := &mixerpb.QuotaRequest{}
+	quotaResp := &mixerpb.QuotaResponse{}
+
+	// should all fail because there is no active config
+	h := NewHandler(&fakeExecutor{}, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
+	h.Check(context.Background(), bag, checkReq, checkResp)
+	h.Report(context.Background(), bag, reportReq, reportResp)
+	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+
+	if checkResp.Result.Code != int32(rpc.INTERNAL) || reportResp.Result.Code != int32(rpc.INTERNAL) || quotaResp.Result.Code != int32(rpc.INTERNAL) {
+		t.Error("Expected rpc.INTERNAL for all responses")
+	}
+
+	r := &fakeresolver{[]*config.Combined{nil, nil}, nil}
+	r.err = fmt.Errorf("RESOLVER")
+	h.ConfigChange(r)
+
+	// Should all fail due to a resolver error
+	h.Check(context.Background(), bag, checkReq, checkResp)
+	h.Report(context.Background(), bag, reportReq, reportResp)
+	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+
+	if checkResp.Result.Code != int32(rpc.INTERNAL) || reportResp.Result.Code != int32(rpc.INTERNAL) || quotaResp.Result.Code != int32(rpc.INTERNAL) {
+		t.Error("Expected rpc.INTERNAL for all responses")
+	}
+
+	if !strings.Contains(checkResp.Result.Message, "RESOLVER") ||
+		!strings.Contains(reportResp.Result.Message, "RESOLVER") ||
+		!strings.Contains(quotaResp.Result.Message, "RESOLVER") {
+		t.Errorf("Expected RESOLVER in error messages, got %s, %s, %s", checkResp.Result.Message, reportResp.Result.Message, quotaResp.Result.Message)
+	}
+
+	f := &fakeExecutor{func() aspect.Output {
+		return aspect.Output{Status: status.WithInternal("BADASPECT")}
+	}}
+	r = &fakeresolver{[]*config.Combined{nil, nil}, nil}
+	h = NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
+	h.ConfigChange(r)
+
+	// Should all fail due to a bad aspect
+	h.Check(context.Background(), bag, checkReq, checkResp)
+	h.Report(context.Background(), bag, reportReq, reportResp)
+	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+
+	if checkResp.Result.Code != int32(rpc.INTERNAL) ||
+		reportResp.Result.Code != int32(rpc.INTERNAL) ||
+		quotaResp.Result.Code != int32(rpc.INTERNAL) {
+		t.Error("Expected rpc.INTERNAL for all responses")
+	}
+
+	if !strings.Contains(checkResp.Result.Message, "BADASPECT") ||
+		!strings.Contains(reportResp.Result.Message, "BADASPECT") ||
+		!strings.Contains(quotaResp.Result.Message, "BADASPECT") {
+		t.Errorf("Expected BADASPECT in error messages, got %s, %s, %s", checkResp.Result.Message, reportResp.Result.Message, quotaResp.Result.Message)
+	}
+
+	f = &fakeExecutor{func() aspect.Output {
+		return aspect.Output{Status: status.OK, Response: &aspect.QuotaMethodResp{Amount: 42}}
+	}}
+	r = &fakeresolver{[]*config.Combined{nil, nil}, nil}
+	h = NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
+	h.ConfigChange(r)
+
+	// Should succeed
+	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+
+	if !status.IsOK(quotaResp.Result) {
+		t.Errorf("Expected successful quota allocation, got %v", quotaResp.Result)
+	}
+
+	if quotaResp.Amount != 42 {
+		t.Errorf("Expected 42, got %v", quotaResp.Amount)
 	}
 }
 
