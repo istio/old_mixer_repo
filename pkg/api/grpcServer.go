@@ -101,8 +101,13 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			*result = status.WithInvalidArgument(msg)
 
 			sendLock.Lock()
-			_ = stream.SendMsg(response)
+			err = stream.SendMsg(response)
 			sendLock.Unlock()
+
+			if err != nil {
+				glog.Errorf("Unable to send gRPC response message: %v", err)
+			}
+
 			continue
 		}
 
@@ -116,8 +121,12 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			worker(ctx2, bag, request, response)
 
 			sendLock.Lock()
-			_ = stream.SendMsg(response)
+			err := stream.SendMsg(response)
 			sendLock.Unlock()
+
+			if err != nil {
+				glog.Errorf("Unable to send gRPC response message: %v", err)
+			}
 
 			bag.Done()
 
