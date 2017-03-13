@@ -46,6 +46,11 @@ func TestStatus(t *testing.T) {
 		t.Errorf("Got %v %v, expected rpc.INTERNAL Aborted!", s.Code, s.Message)
 	}
 
+	s = WithCancelled("Aborted!")
+	if s.Code != int32(rpc.CANCELLED) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.CANCELLED Aborted!", s.Code, s.Message)
+	}
+
 	s = WithPermissionDenied("Aborted!")
 	if s.Code != int32(rpc.PERMISSION_DENIED) || s.Message != "Aborted!" {
 		t.Errorf("Got %v %v, expected rpc.PERMISSION_DENIED Aborted!", s.Code, s.Message)

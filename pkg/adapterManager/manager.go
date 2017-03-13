@@ -139,6 +139,9 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 	for i := 0; i < numCfgs; i++ {
 		select {
 		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				return aspect.Output{Status: status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))}
+			}
 			return aspect.Output{Status: status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results with err: %v", ctx.Err()))}
 		case res := <-resultChan:
 			results[i] = res

@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
@@ -41,6 +43,7 @@ type testState struct {
 	connection *grpc.ClientConn
 	gs         *grpc.Server
 	gp         *pool.GoroutinePool
+	s          *grpcServer
 }
 
 func (ts *testState) createGRPCServer(port uint16) error {
@@ -60,8 +63,8 @@ func (ts *testState) createGRPCServer(port uint16) error {
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	s := NewGRPCServer(ts, tracing.DisabledTracer(), ts.gp)
-	mixerpb.RegisterMixerServer(ts.gs, s)
+	ts.s = NewGRPCServer(ts, tracing.DisabledTracer(), ts.gp).(*grpcServer)
+	mixerpb.RegisterMixerServer(ts.gs, ts.s)
 
 	go func() {
 		_ = ts.gs.Serve(listener)
@@ -397,6 +400,22 @@ func TestBadAttr(t *testing.T) {
 		}
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	// install a failing SendMsg to exercise the failure path
+	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
+		err := fmt.Errorf("nothing good")
+		wg.Done()
+		return err
+	}
+
+	if err := stream.Send(&request); err != nil {
+		t.Errorf("Failed to send request: %v", err)
+	}
+
+	wg.Wait()
+
 	if err := stream.CloseSend(); err != nil {
 		t.Errorf("Failed to close gRPC stream: %v", err)
 	}
@@ -427,4 +446,36 @@ func TestRudeClose(t *testing.T) {
 	} else if err != nil {
 		t.Errorf("Failed to receive a response : %v", err)
 	}
+}
+
+func TestBrokenStream(t *testing.T) {
+	ts, err := prepTestState(30000)
+	if err != nil {
+		t.Errorf("unable to prep test state %v", err)
+		return
+	}
+	defer ts.cleanupTestState()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	// install a failing SendMsg to exercise the failure path
+	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
+		err = fmt.Errorf("nothing good")
+		wg.Done()
+		return err
+	}
+
+	stream, err := ts.client.Report(context.Background())
+	if err != nil {
+		t.Errorf("Report failed %v", err)
+		return
+	}
+
+	request := mixerpb.ReportRequest{}
+	if err := stream.Send(&request); err != nil {
+		t.Errorf("Failed to send request: %v", err)
+	}
+
+	wg.Wait()
 }

@@ -50,6 +50,9 @@ type grpcServer struct {
 	attrMgr  attribute.Manager
 	tracer   tracing.Tracer
 	gp       *pool.GoroutinePool
+
+	// replaceable sendMsg so we can inject errors in tests
+	sendMsg func(grpc.Stream, proto.Message) error
 }
 
 // NewGRPCServer creates a gRPC serving stack.
@@ -59,6 +62,9 @@ func NewGRPCServer(handlers Handler, tracer tracing.Tracer, gp *pool.GoroutinePo
 		attrMgr:  attribute.NewManager(),
 		tracer:   tracer,
 		gp:       gp,
+		sendMsg: func(stream grpc.Stream, m proto.Message) error {
+			return stream.SendMsg(m)
+		},
 	}
 }
 
@@ -72,7 +78,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 	tracker := s.attrMgr.NewTracker()
 	defer tracker.Done()
 
-	// used to serialize sending on the grpc stream
+	// used to serialize sending on the grpc stream, since the grpc stream is not multithread-safe
 	sendLock := &sync.Mutex{}
 
 	root, ctx := s.tracer.StartRootSpan(stream.Context(), methodName)
@@ -101,7 +107,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			*result = status.WithInvalidArgument(msg)
 
 			sendLock.Lock()
-			err = stream.SendMsg(response)
+			err = s.sendMsg(stream, response)
 			sendLock.Unlock()
 
 			if err != nil {
@@ -121,7 +127,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			worker(ctx2, bag, request, response)
 
 			sendLock.Lock()
-			err := stream.SendMsg(response)
+			err := s.sendMsg(stream, response)
 			sendLock.Unlock()
 
 			if err != nil {
