@@ -28,7 +28,7 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
-        "descriptors_test.go",
+        "descriptor_test.go",
         "manager_test.go",
         "runtime_test.go",
         "validator_test.go",
