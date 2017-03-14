@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package descriptors
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ import (
 )
 
 type (
-	getter func(DescriptorFinder) (proto.Message, bool)
+	getter func(Finder) (proto.Message, bool)
 
 	cases []struct {
 		name string
@@ -45,7 +45,7 @@ var (
 	}
 
 	getLog = func(k string) getter {
-		return func(f DescriptorFinder) (proto.Message, bool) {
+		return func(f Finder) (proto.Message, bool) {
 			return f.GetLog(k)
 		}
 	}
@@ -56,7 +56,7 @@ var (
 	}
 
 	getMetric = func(k string) getter {
-		return func(f DescriptorFinder) (proto.Message, bool) {
+		return func(f Finder) (proto.Message, bool) {
 			return f.GetMetric(k)
 		}
 	}
@@ -67,7 +67,7 @@ var (
 	}
 
 	getMR = func(k string) getter {
-		return func(f DescriptorFinder) (proto.Message, bool) {
+		return func(f Finder) (proto.Message, bool) {
 			return f.GetMonitoredResource(k)
 		}
 	}
@@ -78,7 +78,7 @@ var (
 	}
 
 	getPrincipal = func(k string) getter {
-		return func(f DescriptorFinder) (proto.Message, bool) {
+		return func(f Finder) (proto.Message, bool) {
 			return f.GetPrincipal(k)
 		}
 	}
@@ -89,7 +89,7 @@ var (
 	}
 
 	getQuota = func(k string) getter {
-		return func(f DescriptorFinder) (proto.Message, bool) {
+		return func(f Finder) (proto.Message, bool) {
 			return f.GetQuota(k)
 		}
 	}
@@ -138,7 +138,7 @@ func TestGetQuota(t *testing.T) {
 func execute(t *testing.T, tests cases) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			f := newDescriptorFinder(tt.cfg)
+			f := NewFinder(tt.cfg)
 			d, found := tt.get(f)
 			if !found && tt.out != nil {
 				t.Fatalf("tt.fn() = _, false; expected descriptor %v", tt.out)

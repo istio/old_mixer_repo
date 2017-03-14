@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package descriptors
 
 import (
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 )
 
-// DescriptorFinder describes anything that can provide a view into the config's descriptors by name and type.
-type DescriptorFinder interface {
+// Finder describes anything that can provide a view into the config's descriptors by name and type.
+type Finder interface {
 	// GetLog retrieves the log descriptor named `name`
 	GetLog(name string) (*dpb.LogEntryDescriptor, bool)
 
@@ -37,7 +37,7 @@ type DescriptorFinder interface {
 	GetQuota(name string) (*dpb.QuotaDescriptor, bool)
 }
 
-type descriptorFinder struct {
+type finder struct {
 	logs               map[string]*dpb.LogEntryDescriptor
 	metrics            map[string]*dpb.MetricDescriptor
 	monitoredResources map[string]*dpb.MonitoredResourceDescriptor
@@ -45,7 +45,8 @@ type descriptorFinder struct {
 	quotas             map[string]*dpb.QuotaDescriptor
 }
 
-func newDescriptorFinder(cfg *pb.GlobalConfig) DescriptorFinder {
+// NewFinder constructs a new Finder for the provided global config.
+func NewFinder(cfg *pb.GlobalConfig) Finder {
 	logs := make(map[string]*dpb.LogEntryDescriptor)
 	for _, desc := range cfg.Logs {
 		logs[desc.Name] = desc
@@ -71,7 +72,7 @@ func newDescriptorFinder(cfg *pb.GlobalConfig) DescriptorFinder {
 		quotas[desc.Name] = desc
 	}
 
-	return &descriptorFinder{
+	return &finder{
 		logs:               logs,
 		metrics:            metrics,
 		monitoredResources: monitoredResources,
@@ -80,27 +81,27 @@ func newDescriptorFinder(cfg *pb.GlobalConfig) DescriptorFinder {
 	}
 }
 
-func (d descriptorFinder) GetLog(name string) (*dpb.LogEntryDescriptor, bool) {
+func (d finder) GetLog(name string) (*dpb.LogEntryDescriptor, bool) {
 	l, found := d.logs[name]
 	return l, found
 }
 
-func (d descriptorFinder) GetMetric(name string) (*dpb.MetricDescriptor, bool) {
+func (d finder) GetMetric(name string) (*dpb.MetricDescriptor, bool) {
 	m, found := d.metrics[name]
 	return m, found
 }
 
-func (d descriptorFinder) GetMonitoredResource(name string) (*dpb.MonitoredResourceDescriptor, bool) {
+func (d finder) GetMonitoredResource(name string) (*dpb.MonitoredResourceDescriptor, bool) {
 	mr, found := d.monitoredResources[name]
 	return mr, found
 }
 
-func (d descriptorFinder) GetPrincipal(name string) (*dpb.PrincipalDescriptor, bool) {
+func (d finder) GetPrincipal(name string) (*dpb.PrincipalDescriptor, bool) {
 	p, found := d.principals[name]
 	return p, found
 }
 
-func (d descriptorFinder) GetQuota(name string) (*dpb.QuotaDescriptor, bool) {
+func (d finder) GetQuota(name string) (*dpb.QuotaDescriptor, bool) {
 	q, found := d.quotas[name]
 	return q, found
 }
