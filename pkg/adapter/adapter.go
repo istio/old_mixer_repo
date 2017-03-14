@@ -85,7 +85,7 @@ type (
 		// one-shot kind of things.
 		//
 		// Adapters should not spawn 'naked' goroutines, they should
-		// use this method or ScheduleDaemon instead.
+		// use this method or ScheduleWork instead.
 		ScheduleDaemon(fn DaemonFunc)
 
 		// Possible other features for Env:

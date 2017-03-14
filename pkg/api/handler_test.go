@@ -72,64 +72,59 @@ func TestHandler(t *testing.T) {
 	quotaReq := &mixerpb.QuotaRequest{}
 	quotaResp := &mixerpb.QuotaResponse{}
 
-	// should all fail because there is no active config
-	h := NewHandler(&fakeExecutor{}, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
-	h.Check(context.Background(), bag, checkReq, checkResp)
-	h.Report(context.Background(), bag, reportReq, reportResp)
-	h.Quota(context.Background(), bag, quotaReq, quotaResp)
-
-	if checkResp.Result.Code != int32(rpc.INTERNAL) || reportResp.Result.Code != int32(rpc.INTERNAL) || quotaResp.Result.Code != int32(rpc.INTERNAL) {
-		t.Error("Expected rpc.INTERNAL for all responses")
+	cases := []struct {
+		resolver    *fakeresolver
+		resolverErr string
+		executorErr string
+		resultErr   string
+		code        rpc.Code
+	}{
+		{nil, "", "", "", rpc.INTERNAL},
+		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "RESOLVER", "", "RESOLVER", rpc.INTERNAL},
+		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "", "BADASPECT", "BADASPECT", rpc.INTERNAL},
 	}
 
-	r := &fakeresolver{[]*config.Combined{nil, nil}, nil}
-	r.err = fmt.Errorf("RESOLVER")
-	h.ConfigChange(r)
+	for _, c := range cases {
+		e := &fakeExecutor{}
+		if c.executorErr != "" {
+			e = &fakeExecutor{func() aspect.Output {
+				return aspect.Output{Status: status.WithInternal(c.executorErr)}
+			}}
+		}
 
-	// Should all fail due to a resolver error
-	h.Check(context.Background(), bag, checkReq, checkResp)
-	h.Report(context.Background(), bag, reportReq, reportResp)
-	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+		h := NewHandler(e, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
 
-	if checkResp.Result.Code != int32(rpc.INTERNAL) || reportResp.Result.Code != int32(rpc.INTERNAL) || quotaResp.Result.Code != int32(rpc.INTERNAL) {
-		t.Error("Expected rpc.INTERNAL for all responses")
-	}
+		if c.resolver != nil {
+			r := c.resolver
+			if c.resolverErr != "" {
+				r.err = fmt.Errorf(c.resolverErr)
+			}
+			h.ConfigChange(r)
+		}
 
-	if !strings.Contains(checkResp.Result.Message, "RESOLVER") ||
-		!strings.Contains(reportResp.Result.Message, "RESOLVER") ||
-		!strings.Contains(quotaResp.Result.Message, "RESOLVER") {
-		t.Errorf("Expected RESOLVER in error messages, got %s, %s, %s", checkResp.Result.Message, reportResp.Result.Message, quotaResp.Result.Message)
+		h.Check(context.Background(), bag, checkReq, checkResp)
+		h.Report(context.Background(), bag, reportReq, reportResp)
+		h.Quota(context.Background(), bag, quotaReq, quotaResp)
+
+		if checkResp.Result.Code != int32(c.code) || reportResp.Result.Code != int32(c.code) || quotaResp.Result.Code != int32(c.code) {
+			t.Errorf("Expected %v for all responses, got %v, %v, %v", c.code, checkResp.Result.Code, reportResp.Result.Code, quotaResp.Result.Code)
+		}
+
+		if c.resultErr != "" {
+			if !strings.Contains(checkResp.Result.Message, c.resultErr) ||
+				!strings.Contains(reportResp.Result.Message, c.resultErr) ||
+				!strings.Contains(quotaResp.Result.Message, c.resultErr) {
+				t.Errorf("Expecting %s in error messages, got %s, %s, %s", c.resultErr, checkResp.Result.Message, reportResp.Result.Message,
+					quotaResp.Result.Message)
+			}
+		}
 	}
 
 	f := &fakeExecutor{func() aspect.Output {
-		return aspect.Output{Status: status.WithInternal("BADASPECT")}
-	}}
-	r = &fakeresolver{[]*config.Combined{nil, nil}, nil}
-	h = NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
-	h.ConfigChange(r)
-
-	// Should all fail due to a bad aspect
-	h.Check(context.Background(), bag, checkReq, checkResp)
-	h.Report(context.Background(), bag, reportReq, reportResp)
-	h.Quota(context.Background(), bag, quotaReq, quotaResp)
-
-	if checkResp.Result.Code != int32(rpc.INTERNAL) ||
-		reportResp.Result.Code != int32(rpc.INTERNAL) ||
-		quotaResp.Result.Code != int32(rpc.INTERNAL) {
-		t.Error("Expected rpc.INTERNAL for all responses")
-	}
-
-	if !strings.Contains(checkResp.Result.Message, "BADASPECT") ||
-		!strings.Contains(reportResp.Result.Message, "BADASPECT") ||
-		!strings.Contains(quotaResp.Result.Message, "BADASPECT") {
-		t.Errorf("Expected BADASPECT in error messages, got %s, %s, %s", checkResp.Result.Message, reportResp.Result.Message, quotaResp.Result.Message)
-	}
-
-	f = &fakeExecutor{func() aspect.Output {
 		return aspect.Output{Status: status.OK, Response: &aspect.QuotaMethodResp{Amount: 42}}
 	}}
-	r = &fakeresolver{[]*config.Combined{nil, nil}, nil}
-	h = NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
+	r := &fakeresolver{[]*config.Combined{nil, nil}, nil}
+	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
 	h.ConfigChange(r)
 
 	// Should succeed

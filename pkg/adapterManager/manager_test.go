@@ -376,7 +376,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	gp.AddWorkers(32)
 
 	agp := pool.NewGoroutinePool(128, true)
-	gp.AddWorkers(32)
+	agp.AddWorkers(32)
 
 	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration shouldn't matter when we have a canceled ctx
 	handler := &Manager{gp: gp, adapterGP: agp}
