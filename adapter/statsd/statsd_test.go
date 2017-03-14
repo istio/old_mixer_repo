@@ -57,7 +57,7 @@ func TestValidateConfig(t *testing.T) {
 	for idx, c := range cases {
 		b := &builder{}
 		errString := ""
-		if err := b.ValidateConfig(c.conf); err != nil {
+		if err := b.ValidateConfig(c.conf, nil); err != nil {
 			errString = err.Error()
 		}
 		if !strings.Contains(errString, c.errString) {

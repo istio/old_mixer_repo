@@ -26,6 +26,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptors"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -122,7 +123,7 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 func (*metricsManager) Kind() Kind                          { return MetricsKind }
 func (*metricsManager) DefaultConfig() adapter.AspectConfig { return &aconfig.MetricsParams{} }
 
-func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (*metricsManager) ValidateConfig(adapter.AspectConfig, descriptors.Finder) (ce *adapter.ConfigErrors) {
 	// TODO: we need to be provided the metric descriptors in addition to the metrics themselves here, so we can do type assertions.
 	// We also need some way to assert the type of the result of evaluating an expression, but we don't have any attributes or an
 	// evaluator on hand.

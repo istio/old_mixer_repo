@@ -26,6 +26,7 @@ import (
 
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config/descriptors"
 	"istio.io/mixer/pkg/pool"
 )
 
@@ -67,7 +68,7 @@ func newBuilder() *builder {
 	return &builder{adapter.NewDefaultBuilder(name, desc, defaultConf)}
 }
 
-func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (b *builder) ValidateConfig(c adapter.AspectConfig, df descriptors.Finder) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
 	flushDuration, err := types.DurationFromProto(params.FlushDuration)
 	if err != nil {

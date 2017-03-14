@@ -14,6 +14,8 @@
 
 package adapter
 
+import "istio.io/mixer/pkg/config/descriptors"
+
 // DefaultBuilder provides default adapter builder behavior for adapters.
 // TODO: rename to DefaultFactory
 type DefaultBuilder struct {
@@ -37,7 +39,9 @@ func (b DefaultBuilder) Description() string { return b.desc }
 func (b DefaultBuilder) DefaultConfig() AspectConfig { return b.conf }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (DefaultBuilder) ValidateConfig(c AspectConfig) (ce *ConfigErrors) { return nil }
+func (DefaultBuilder) ValidateConfig(c AspectConfig, df descriptors.Finder) (ce *ConfigErrors) {
+	return nil
+}
 
 // Close provides a hook for behavior used to cleanup a builder when it is removed.
 func (DefaultBuilder) Close() error { return nil }

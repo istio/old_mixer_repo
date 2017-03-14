@@ -22,17 +22,20 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/config/descriptors"
 )
 
 type testBuilder struct {
 	name string
 }
 
-func (t testBuilder) Name() string                                              { return t.name }
-func (testBuilder) Close() error                                                { return nil }
-func (testBuilder) Description() string                                         { return "mock builder for testing" }
-func (testBuilder) DefaultConfig() adapter.AspectConfig                         { return nil }
-func (testBuilder) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
+func (t testBuilder) Name() string                      { return t.name }
+func (testBuilder) Close() error                        { return nil }
+func (testBuilder) Description() string                 { return "mock builder for testing" }
+func (testBuilder) DefaultConfig() adapter.AspectConfig { return nil }
+func (testBuilder) ValidateConfig(adapter.AspectConfig, descriptors.Finder) *adapter.ConfigErrors {
+	return nil
+}
 
 type denyBuilder struct{ testBuilder }
 

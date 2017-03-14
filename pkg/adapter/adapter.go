@@ -20,6 +20,8 @@ import (
 	"io"
 
 	"github.com/golang/protobuf/proto"
+
+	"istio.io/mixer/pkg/config/descriptors"
 )
 
 type (
@@ -53,7 +55,7 @@ type (
 		DefaultConfig() (c AspectConfig)
 
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(c AspectConfig) *ConfigErrors
+		ValidateConfig(c AspectConfig, df descriptors.Finder) *ConfigErrors
 	}
 
 	// WorkFunc represents a function to invoke.

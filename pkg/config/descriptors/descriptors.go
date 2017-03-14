@@ -19,7 +19,7 @@ import (
 	pb "istio.io/mixer/pkg/config/proto"
 )
 
-// Finder describes anything that can provide a view into the config's descriptors by name and type.
+// DescriptorFinder describes anything that can provide a view into the config's descriptors by name and type.
 type Finder interface {
 	// GetLog retrieves the log descriptor named `name`
 	GetLog(name string) (*dpb.LogEntryDescriptor, bool)
@@ -45,7 +45,6 @@ type finder struct {
 	quotas             map[string]*dpb.QuotaDescriptor
 }
 
-// NewFinder constructs a new Finder for the provided global config.
 func NewFinder(cfg *pb.GlobalConfig) Finder {
 	logs := make(map[string]*dpb.LogEntryDescriptor)
 	for _, desc := range cfg.Logs {

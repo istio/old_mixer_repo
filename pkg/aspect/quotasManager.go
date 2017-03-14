@@ -26,6 +26,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptors"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -110,9 +111,11 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 	}, nil
 }
 
-func (*quotasManager) Kind() Kind                                                     { return QuotasKind }
-func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
-func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (*quotasManager) Kind() Kind                          { return QuotasKind }
+func (*quotasManager) DefaultConfig() adapter.AspectConfig { return &aconfig.QuotasParams{} }
+func (*quotasManager) ValidateConfig(adapter.AspectConfig, descriptors.Finder) (ce *adapter.ConfigErrors) {
+	return
+}
 
 func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	qma, ok := ma.(*QuotaMethodArgs)

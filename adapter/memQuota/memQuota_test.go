@@ -233,13 +233,13 @@ func TestBadConfig(t *testing.T) {
 	c := b.DefaultConfig().(*config.Params)
 
 	c.MinDeduplicationDuration = &ptypes.Duration{}
-	if err := b.ValidateConfig(c); err == nil {
-		t.Errorf("Expecting failure, got success")
+	if err := b.ValidateConfig(c, nil); err == nil {
+		t.Error("Expecting failure, got success")
 	}
 
 	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}
-	if err := b.ValidateConfig(c); err == nil {
-		t.Errorf("Expecting failure, got success")
+	if err := b.ValidateConfig(c, nil); err == nil {
+		t.Error("Expecting failure, got success")
 	}
 }
 

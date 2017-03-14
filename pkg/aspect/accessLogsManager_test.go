@@ -163,7 +163,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range configs {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			if err := m.ValidateConfig(v); err != nil {
+			if err := m.ValidateConfig(v, nil); err != nil {
 				t.Fatalf("ValidateConfig(%v) => unexpected error: %v", v, err)
 			}
 		})
@@ -179,7 +179,7 @@ func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range configs {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			if err := m.ValidateConfig(v); err == nil {
+			if err := m.ValidateConfig(v, nil); err == nil {
 				t.Fatalf("ValidateConfig(%v) expected err", v)
 			}
 		})

@@ -238,7 +238,7 @@ func TestValidateConfig(t *testing.T) {
 
 	b := newBuilder()
 	for i, c := range cases {
-		err := b.ValidateConfig(&c.cfg).Multi.Errors[0].(adapter.ConfigError)
+		err := b.ValidateConfig(&c.cfg, nil).Multi.Errors[0].(adapter.ConfigError)
 		if err.Field != c.field {
 			t.Errorf("Case %d: got field %s, expected field %s", i, err.Field, c.field)
 		}
