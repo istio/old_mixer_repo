@@ -43,13 +43,14 @@ type ChangeListener interface {
 // It applies validated changes to the registered config change listeners.
 // api.Handler listens for config changes.
 type Manager struct {
-	eval          expr.Evaluator
-	aspectFinder  ValidatorFinderFunc
-	builderFinder ValidatorFinderFunc
-	findAspects   AdapterToAspectMapperFunc
-	loopDelay     time.Duration
-	globalConfig  string
-	serviceConfig string
+	eval             expr.Evaluator
+	aspectFinder     ValidatorFinderFunc
+	builderFinder    ValidatorFinderFunc
+	descriptorFinder DescriptorFinder
+	findAspects      AdapterToAspectMapperFunc
+	loopDelay        time.Duration
+	globalConfig     string
+	serviceConfig    string
 
 	cl      []ChangeListener
 	closing chan bool
@@ -123,6 +124,8 @@ func (c *Manager) fetch() (*Runtime, error) {
 	if vd, cerr = v.Validate(sc, gc); cerr != nil {
 		return nil, cerr
 	}
+
+	c.descriptorFinder = newDescriptorFinder(v.validated.globalConfig)
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
