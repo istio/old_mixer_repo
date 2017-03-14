@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_mixer")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "76c63b5cd0d47c1f2b47ab4953db96c574af1c1d", # Jan 16, 2017 (v0.3.3/0.4.0)
+    commit = "9496d79880a7d55b8e4a96f04688d70a374eaaf4", # Mar 3, 2017 (v0.4.1)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -12,7 +12,7 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "52c843147b50e0f6d7a7d5bb261410e5097f19d3", # Feb 06 2017 (gogo* support)
+    commit = "d42e895387c658eda90276aea018056fcdcb30e4", # Mar 07 2017 (gogo* support)
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
@@ -158,7 +158,7 @@ new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
     path = "../api",
-    commit = "313368d2bc22fb5ec3dbfc123eb2218959997cee", # Mar 7, 2017 (no releases)
+    commit = "d2038c045743b877167765313949f7160d2ebeaa", # Mar 10, 2017 (no releases)
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
     use_local = False,
