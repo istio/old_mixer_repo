@@ -96,7 +96,7 @@ func listBuilders() error {
 
 func printConfigValidator(v pkgadapter.ConfigValidator) {
 
-	fmt.Printf("Params: \n")
+	fmt.Print("Params: \n")
 	c := v.DefaultConfig()
 	if c == nil {
 		return

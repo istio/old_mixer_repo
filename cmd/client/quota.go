@@ -35,7 +35,7 @@ func quotaCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 		Use:   "quota",
 		Short: "Invokes the mixer's Quota API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			quota(rootArgs, args, errorf, name, dedup, amount, bestEffort)
+			quota(rootArgs, errorf, name, dedup, amount, bestEffort)
 		},
 	}
 
@@ -47,7 +47,7 @@ func quotaCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 	return cmd
 }
 
-func quota(rootArgs *rootArgs, args []string, errorf errorFn, name string, dedup string, amount int64, bestEffort bool) {
+func quota(rootArgs *rootArgs, errorf errorFn, name string, dedup string, amount int64, bestEffort bool) {
 	var attrs *mixerpb.Attributes
 	var err error
 

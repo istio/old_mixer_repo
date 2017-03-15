@@ -30,11 +30,11 @@ func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 		Use:   "check",
 		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(rootArgs, args, errorf)
+			check(rootArgs, errorf)
 		}}
 }
 
-func check(rootArgs *rootArgs, args []string, errorf errorFn) {
+func check(rootArgs *rootArgs, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
