@@ -52,11 +52,32 @@ func TestGoodEval(tt *testing.T) {
 			false, "unresolved attribute",
 		},
 		{
+			"2 != a",
+			map[string]interface{}{
+				"d": int64(2),
+			},
+			false, "unresolved attribute",
+		},
+		{
 			"a ",
 			map[string]interface{}{
 				"a": int64(2),
 			},
 			int64(2), "",
+		},
+		{
+			"true == a",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			false, "",
+		},
+		{
+			"3.14 == a",
+			map[string]interface{}{
+				"a": int64(2),
+			},
+			false, "",
 		},
 		{
 			"2 ",
@@ -98,7 +119,7 @@ func TestGoodEval(tt *testing.T) {
 			map[string]interface{}{
 				"request.size": int64(0),
 			},
-			int64(200), "",
+			int64(0), "",
 		},
 		{
 			`request.size| 200`,
@@ -114,6 +135,14 @@ func TestGoodEval(tt *testing.T) {
 				"y": int64(10),
 			},
 			true, "",
+		},
+		{
+			`x == 20 && y == 10`,
+			map[string]interface{}{
+				"a": int64(20),
+				"b": int64(10),
+			},
+			false, "unresolved attribute",
 		},
 		{
 			`service.name == "*.ns1.cluster" && service.user == "admin"`,
@@ -149,13 +178,44 @@ func TestGoodEval(tt *testing.T) {
 				"request.header": map[string]string{
 					"X-FORWARDED-HOST": "bbb",
 				},
-				"y": int64(10),
 			},
 			false, "",
+		},
+		{
+			`request.header["X-FORWARDED-HOST"] == "aaa"`,
+			map[string]interface{}{
+				"request.header1": map[string]string{
+					"X-FORWARDED-HOST": "bbb",
+				},
+			},
+			false, "unresolved attribute",
+		},
+		{
+			`request.header[headername] == "aaa"`,
+			map[string]interface{}{
+				"request.header": map[string]string{
+					"X-FORWARDED-HOST": "bbb",
+				},
+			},
+			false, "unresolved attribute",
+		},
+		{
+			`request.header[headername] == "aaa"`,
+			map[string]interface{}{
+				"request.header": map[string]string{
+					"X-FORWARDED-HOST": "aaa",
+				},
+				"headername": "X-FORWARDED-HOST",
+			},
+			true, "",
 		},
 	}
 
 	for idx, tst := range tests {
+		if tst.src == "(x == 20 && y == 10) || x == 3" {
+			fmt.Printf(tst.src + "\n")
+		}
+
 		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.src), func(t *testing.T) {
 			attrs := &bag{attrs: tst.tmap}
 			exp, err := Parse(tst.src)
@@ -173,7 +233,7 @@ func TestGoodEval(tt *testing.T) {
 				return
 			}
 			if res != tst.result {
-				t.Errorf("[%d] got %s\nwant %s", idx, res, tst.result)
+				t.Errorf("[%d] %s got %s\nwant %s", idx, exp.String(), res, tst.result)
 			}
 		})
 	}
