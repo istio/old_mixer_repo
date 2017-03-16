@@ -59,8 +59,7 @@ func dff(a attribute.Bag) (bool, error) {
 	if !b {
 		return false, fmt.Errorf("a not found")
 	}
-	var ss string
-	ss = s["host"]
+	ss := s["host"]
 	if ss == "abc" {
 		return true, nil
 	}
