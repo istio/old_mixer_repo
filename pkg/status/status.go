@@ -87,7 +87,7 @@ func InvalidWithDetails(msg string, pb proto.Message) rpc.Status {
 	return invalid
 }
 
-// NewBadRequest builds a google.rpc.NewBadRequest proto. NewBadRequest proto messages
+// NewBadRequest builds a google.rpc.BadRequest proto. BadRequest proto messages
 // can be used to populate the `details` field in a google.rpc.Status message.
 func NewBadRequest(field string, err error) *rpc.BadRequest {
 	fvs := make([]*rpc.BadRequest_FieldViolation, 0, 1) // alloc for at least one
