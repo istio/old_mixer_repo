@@ -31,6 +31,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
@@ -38,21 +39,38 @@ import (
 )
 
 type (
-	// ValidatorFinderFunc is used to find specific underlying validators.
+	AspectParams proto.Message
+
+	AspectValidator interface {
+		// DefaultConfig returns a default configuration struct for this
+		// adapter. This will be used by the configuration system to establish
+		// the shape of the block of configuration state passed to the NewAspect method.
+		DefaultConfig() (c AspectParams)
+
+		// ValidateConfig determines whether the given configuration meets all correctness requirements.
+		ValidateConfig(c AspectParams) *adapter.ConfigErrors
+	}
+
+	// AdapterValidatorFinder is used to find specific underlying validators.
 	// Manager registry and adapter registry should implement this interface
 	// so ConfigValidators can be uniformly accessed.
-	ValidatorFinderFunc func(name string) (adapter.ConfigValidator, bool)
+	AdapterValidatorFinder func(name string) (adapter.ConfigValidator, bool)
 
-	// AdapterToAspectMapperFunc given an pb.Adapter.Impl
+	// AdapterValidatorFinder is used to find specific underlying validators.
+	// Manager registry and adapter registry should implement this interface
+	// so ConfigValidators can be uniformly accessed.
+	AspectValidatorFinder func(name string) (AspectValidator, bool)
+
+	// AdapterToAspectMapper given an pb.Adapter.Impl
 	// This is specifically *not* querying by pb.Adapter.Name
 	// returns a list of aspects the adapter provides.
 	// For many adapter this will be exactly 1 aspect.
-	AdapterToAspectMapperFunc func(impl string) []string
+	AdapterToAspectMapper func(impl string) []string
 )
 
 // NewValidator returns a validator given component validators.
-func NewValidator(managerFinder ValidatorFinderFunc, adapterFinder ValidatorFinderFunc,
-	findAspects AdapterToAspectMapperFunc, strict bool, exprValidator expr.Validator) *Validator {
+func NewValidator(managerFinder AspectValidatorFinder, adapterFinder AdapterValidatorFinder,
+	findAspects AdapterToAspectMapper, strict bool, exprValidator expr.Validator) *Validator {
 	return &Validator{
 		managerFinder: managerFinder,
 		adapterFinder: adapterFinder,
@@ -66,9 +84,9 @@ func NewValidator(managerFinder ValidatorFinderFunc, adapterFinder ValidatorFind
 type (
 	// Validator is the Configuration validator.
 	Validator struct {
-		managerFinder ValidatorFinderFunc
-		adapterFinder ValidatorFinderFunc
-		findAspects   AdapterToAspectMapperFunc
+		managerFinder AspectValidatorFinder
+		adapterFinder AdapterValidatorFinder
+		findAspects   AdapterToAspectMapper
 		strict        bool
 		exprValidator expr.Validator
 		validated     *Validated
@@ -103,9 +121,9 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 		return
 	}
 	p.validated.adapterByName = make(map[adapterKey]*pb.Adapter)
-	var acfg adapter.AspectConfig
+	var acfg adapter.Config
 	for _, aa := range m.GetAdapters() {
-		if acfg, err = ConvertParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
+		if acfg, err = ConvertAdapterParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
 			ce = ce.Append("Adapter: "+aa.Impl, err)
 			continue
 		}
@@ -132,7 +150,7 @@ func (p *Validator) validateSelector(selector string) (err error) {
 // validateAspectRules validates the recursive configuration data structure.
 // It is primarily used by validate ServiceConfig.
 func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (ce *adapter.ConfigErrors) {
-	var acfg adapter.AspectConfig
+	var acfg adapter.Config
 	var err error
 	for _, rule := range rules {
 		if err = p.validateSelector(rule.GetSelector()); err != nil {
@@ -140,7 +158,7 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		}
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
-			if acfg, err = ConvertParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict); err != nil {
+			if acfg, err = ConvertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict); err != nil {
 				ce = ce.Append(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), err)
 				continue
 			}
@@ -209,8 +227,27 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertParams converts returns a typed proto message based on available Validator.
-func ConvertParams(find ValidatorFinderFunc, name string, params interface{}, strict bool) (adapter.AspectConfig, error) {
+func ConvertAdapterParams(find AdapterValidatorFinder, name string, params interface{}, strict bool) (adapter.Config, error) {
 	var avl adapter.ConfigValidator
+	var found bool
+
+	if avl, found = find(name); !found {
+		return nil, UnknownValidator(name)
+	}
+
+	acfg := avl.DefaultConfig()
+	if err := Decode(params, acfg, strict); err != nil {
+		return nil, err
+	}
+	if verr := avl.ValidateConfig(acfg); verr != nil {
+		return nil, verr
+	}
+	return acfg, nil
+}
+
+// ConvertParams converts returns a typed proto message based on available Validator.
+func ConvertAspectParams(find AspectValidatorFinder, name string, params interface{}, strict bool) (AspectParams, error) {
+	var avl AspectValidator
 	var found bool
 
 	if avl, found = find(name); !found {
@@ -229,7 +266,7 @@ func ConvertParams(find ValidatorFinderFunc, name string, params interface{}, st
 
 // Decode interprets src interface{} as the specified proto message.
 // if strict is true returns error on unknown fields.
-func Decode(src interface{}, dst adapter.AspectConfig, strict bool) (err error) {
+func Decode(src interface{}, dst adapter.Config, strict bool) (err error) {
 	var ba []byte
 	ba, err = json.Marshal(src)
 	if err != nil {
