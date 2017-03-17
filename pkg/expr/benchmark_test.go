@@ -15,7 +15,6 @@
 package expr
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -45,21 +44,20 @@ type exprFunc func(a attribute.Bag) (bool, error)
 // a == 20 || request.header["host"] == 50
 
 func dff(a attribute.Bag) (bool, error) {
-	var aa int64
+	var v interface{}
 	var b bool
-	var s map[string]string
-	if aa, b = a.Int64("a"); !b {
+	if v, b = a.Get("a"); !b {
 		return false, fmt.Errorf("a not found")
 	}
+	aa := v.(int64)
 	if aa == 20 {
 		return true, nil
 	}
 
-	s, b = a.StringMap("request.header")
-	if !b {
+	if v, b = a.Get("request.header"); !b {
 		return false, fmt.Errorf("a not found")
 	}
-	ss := s["host"]
+	ss := v.(map[string]string)["host"]
 	if ss == "abc" {
 		return true, nil
 	}

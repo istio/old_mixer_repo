@@ -107,7 +107,7 @@ func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]
 
 // Eval returns value of the contained variable or error
 func (v *Variable) Eval(attrs attribute.Bag) (interface{}, error) {
-	val, ok := attribute.Value(attrs, v.Name)
+	val, ok := attrs.Get(v.Name)
 	if !ok {
 		return nil, fmt.Errorf("unresolved attribute %s", v.Name)
 	}
