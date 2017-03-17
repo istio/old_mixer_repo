@@ -8,8 +8,8 @@ go_library(
         "status.go",
     ],
     deps = [
-        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
