@@ -46,7 +46,7 @@ func TestAttributeHandling(t *testing.T) {
 	tracker := attribute.NewManager().NewTracker()
 
 	var b attribute.Bag
-	if b, err = tracker.StartRequest(a); err != nil {
+	if b, err = tracker.ApplyAttributes(a); err != nil {
 		t.Errorf("Expected to start request, got failure %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestAttributeHandling(t *testing.T) {
 
 	for _, r := range results {
 		t.Run(r.name, func(t *testing.T) {
-			v, found := attribute.Value(b, r.name)
+			v, found := b.Get(r.name)
 			if !found {
 				t.Error("Got false, expecting true")
 			}
@@ -173,7 +173,7 @@ func TestDecodeStatus(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			s := decodeStatus(&c)
+			s := decodeStatus(c)
 			if s == "" {
 				t.Error("Got '', expecting a valid string")
 			}

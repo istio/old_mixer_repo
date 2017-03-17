@@ -26,7 +26,7 @@ import (
 // mixer. The instance tracks a current dictionary along with a set of
 // attribute contexts.
 type Tracker interface {
-	// StartRequest refreshes the set of attributes tracked based on an incoming proto.
+	// ApplyAttributes refreshes the set of attributes tracked based on an incoming proto.
 	//
 	// This returns a Bag that can be used to query and update the current
 	// set of attributes.
@@ -34,10 +34,7 @@ type Tracker interface {
 	// If this returns a non-nil error, it indicates there was a problem in the
 	// supplied Attributes proto. When this happens, none of the tracked attribute
 	// state will have been affected.
-	StartRequest(attrs *mixerpb.Attributes) (MutableBag, error)
-
-	// EndRequest performs post-request cleanup
-	EndRequest()
+	ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, error)
 
 	// Done indicates the tracker can be reclaimed.
 	Done()
@@ -47,19 +44,16 @@ type tracker struct {
 	dictionaries *dictionaries
 
 	// all active attribute contexts
-	contexts map[int32]*rootBag
+	contexts map[int32]*MutableBag
 
 	// the current live dictionary
 	currentDictionary dictionary
-
-	// the bag currently in use by an outstanding request
-	currentChild *mutableBag
 }
 
 var trackers = sync.Pool{
 	New: func() interface{} {
 		return &tracker{
-			contexts: make(map[int32]*rootBag),
+			contexts: make(map[int32]*MutableBag),
 		}
 	},
 }
@@ -78,41 +72,33 @@ func (at *tracker) Done() {
 
 	at.dictionaries.Release(at.currentDictionary)
 	at.currentDictionary = nil
-	at.currentChild = nil
 	at.dictionaries = nil
 
 	trackers.Put(at)
 }
 
-func (at *tracker) StartRequest(attrs *mixerpb.Attributes) (MutableBag, error) {
-	// replace the dictionary if requested
+func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, error) {
+	// find the context or create it if needed
+	mb := at.contexts[attrs.AttributeContext]
+	if mb == nil {
+		mb = getMutableBag(nil)
+		at.contexts[attrs.AttributeContext] = mb
+	}
+
+	dict := at.currentDictionary
+	if len(attrs.Dictionary) > 0 {
+		dict = attrs.Dictionary
+	}
+
+	if err := mb.update(dict, attrs); err != nil {
+		return nil, err
+	}
+
+	// remember any new dictionary for later
 	if len(attrs.Dictionary) > 0 {
 		at.dictionaries.Release(at.currentDictionary)
 		at.currentDictionary = at.dictionaries.Intern(attrs.Dictionary)
 	}
 
-	// find the context or create it if needed
-	rb := at.contexts[attrs.AttributeContext]
-	if rb == nil {
-		rb = getRootBag()
-		at.contexts[attrs.AttributeContext] = rb
-	}
-
-	if err := rb.update(at.currentDictionary, attrs); err != nil {
-		return nil, err
-	}
-
-	// to maintain the integrity of the API-level attribute protocol,
-	// we need to ensure that the rest of the mixer's processing pipeline
-	// doesn't mutate the set of protocol-level attributes. We do this
-	// by returning a child bag.
-	at.currentChild = rb.child()
-	return at.currentChild, nil
-}
-
-func (at *tracker) EndRequest() {
-	if at.currentChild != nil {
-		at.currentChild.Done()
-		at.currentChild = nil
-	}
+	return copyBag(mb), nil
 }

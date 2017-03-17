@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"reflect"
@@ -65,7 +66,7 @@ func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.AspectCon
 }
 
 func TestNewMetricsManager(t *testing.T) {
-	m := NewMetricsManager()
+	m := newMetricsManager()
 	if m.Kind() != MetricsKind {
 		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), MetricsKind)
 	}
@@ -93,7 +94,7 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
 	}}
-	if _, err := NewMetricsManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newMetricsManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -107,11 +108,11 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 	errString := "expected"
 	builder := &fakeBuilder{
 		body: func() (adapter.MetricsAspect, error) {
-			return nil, fmt.Errorf(errString)
+			return nil, errors.New(errString)
 		}}
-	_, err := NewMetricsManager().NewAspect(conf, builder, atest.NewEnv(t))
+	_, err := newMetricsManager().NewAspect(conf, builder, atest.NewEnv(t))
 	if err == nil {
-		t.Error("NewMetricsManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
+		t.Error("newMetricsManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
 	if !strings.Contains(err.Error(), errString) {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
@@ -136,14 +137,14 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 		}
 	})
 	errEval := test.NewFakeEval(func(_ string, _ attribute.Bag) (interface{}, error) {
-		return nil, fmt.Errorf("expected")
+		return nil, errors.New("expected")
 	})
 	labelErrEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
 			return 1, nil
 		default:
-			return nil, fmt.Errorf("expected")
+			return nil, errors.New("expected")
 		}
 	})
 
@@ -192,7 +193,7 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 		{goodMd, nil, errEval, make(map[string]o), "expected"},
 		{goodMd, nil, labelErrEval, make(map[string]o), "expected"},
 		{goodMd, nil, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
-		{goodMd, fmt.Errorf("record"), goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "record"},
+		{goodMd, errors.New("record"), goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "record"},
 		{badGoodMd, nil, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "default case"},
 	}
 	for idx, c := range cases {
@@ -205,14 +206,11 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 				}},
 				metadata: c.mdin,
 			}
-			_, err := wrapper.Execute(test.NewBag(), c.eval, &ReportMethodArgs{})
+			out := wrapper.Execute(test.NewBag(), c.eval, &ReportMethodArgs{})
 
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
+			errString := out.Message()
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted err containing %s", err, c.errString)
+				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message(), c.errString)
 			}
 
 			if len(receivedValues) != len(c.out) {

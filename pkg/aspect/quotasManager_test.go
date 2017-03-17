@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -38,7 +39,7 @@ import (
 type fakeQuotaAspect struct {
 	adapter.Aspect
 	closed bool
-	body   func(adapter.QuotaArgs) (int64, error)
+	body   func(adapter.QuotaArgs) (adapter.QuotaResult, error)
 }
 
 func (a *fakeQuotaAspect) Close() error {
@@ -46,11 +47,11 @@ func (a *fakeQuotaAspect) Close() error {
 	return nil
 }
 
-func (a fakeQuotaAspect) Alloc(qa adapter.QuotaArgs) (int64, error) {
+func (a fakeQuotaAspect) Alloc(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return a.body(qa)
 }
 
-func (a fakeQuotaAspect) AllocBestEffort(qa adapter.QuotaArgs) (int64, error) {
+func (a fakeQuotaAspect) AllocBestEffort(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return a.body(qa)
 }
 
@@ -75,7 +76,7 @@ func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.Aspec
 }
 
 func TestNewQuotasManager(t *testing.T) {
-	m := NewQuotasManager()
+	m := newQuotasManager()
 	if m.Kind() != QuotasKind {
 		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), QuotasKind)
 	}
@@ -108,12 +109,12 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	}}
 
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
-	if _, err := NewQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 
 	conf = newQuotaConfig("FOOBAR", map[string]string{})
-	if _, err := NewQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -127,11 +128,11 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 	errString := "expected"
 	builder := &fakeQuotaBuilder{
 		body: func() (adapter.QuotasAspect, error) {
-			return nil, fmt.Errorf(errString)
+			return nil, errors.New(errString)
 		}}
-	_, err := NewQuotasManager().NewAspect(conf, builder, atest.NewEnv(t))
+	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t))
 	if err == nil {
-		t.Error("NewQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
+		t.Error("newQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
 	if !strings.Contains(err.Error(), errString) {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
@@ -154,14 +155,14 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		}
 	})
 	errEval := test.NewFakeEval(func(_ string, _ attribute.Bag) (interface{}, error) {
-		return nil, fmt.Errorf("expected")
+		return nil, errors.New("expected")
 	})
 	labelErrEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
 			return 1, nil
 		default:
-			return nil, fmt.Errorf("expected")
+			return nil, errors.New("expected")
 		}
 	})
 
@@ -193,7 +194,8 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		{goodMd, 1, nil, false, errEval, make(map[string]o), "expected"},
 		{goodMd, 1, nil, false, labelErrEval, make(map[string]o), "expected"},
 		{goodMd, 1, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
-		{goodMd, 0, fmt.Errorf("alloc-forced-error"), false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error"},
+		{goodMd, 0, errors.New("alloc-forced-error"), false, goodEval,
+			map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error"},
 		{goodMd, 1, nil, true, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
 		{goodMd, 0, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
 	}
@@ -201,27 +203,24 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
 			var receivedArgs adapter.QuotaArgs
 			wrapper := &quotasWrapper{
-				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgs) (int64, error) {
+				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 					receivedArgs = qa
-					return c.allocAmount, c.allocErr
+					return adapter.QuotaResult{Amount: c.allocAmount, Expiration: time.Duration(0)}, c.allocErr
 				}},
 				metadata: c.mdin,
 			}
-			_, err := wrapper.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
+			out := wrapper.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
 				Quota:      "request_count",
 				Amount:     1,
 				BestEffort: c.bestEffort,
 			})
 
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
+			errString := out.Message()
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted err containing %s", err, c.errString)
+				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message(), c.errString)
 			}
 
-			if err == nil {
+			if out.IsOK() {
 				o, found := c.out[receivedArgs.Definition.Name]
 				if !found {
 					t.Errorf("Got unexpected args %v, wanted only %v", receivedArgs, c.out)

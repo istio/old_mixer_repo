@@ -33,7 +33,7 @@ type testServer struct {
 	errOnStart bool
 }
 
-func (t testServer) Start(adapter.Logger) error {
+func (t testServer) Start(adapter.Env) error {
 	if t.errOnStart {
 		return errors.New("could not start server")
 	}
@@ -264,7 +264,7 @@ func TestProm_RecordFailures(t *testing.T) {
 			}
 			err = aspect.Record(v.values)
 			if err == nil {
-				t.Errorf("Record() - expected error, got none")
+				t.Error("Record() - expected error, got none")
 			}
 		})
 	}

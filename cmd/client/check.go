@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/opentracing/opentracing-go/ext"
@@ -25,16 +24,16 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
+func checkCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
 		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(rootArgs, args, errorf)
+			check(rootArgs, outf, errorf)
 		}}
 }
 
-func check(rootArgs *rootArgs, args []string, errorf errorFn) {
+func check(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
@@ -61,7 +60,7 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 
 	for i := 0; i < rootArgs.repeat; i++ {
 		// send the request
-		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: attrs}
+		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
 
 		if err = stream.Send(&request); err != nil {
 			errorf("Failed to send Check RPC: %v", err)
@@ -78,7 +77,7 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 			break
 		}
 
-		fmt.Printf("Check RPC returned %s\n", decodeStatus(response.Result))
+		outf("Check RPC returned %s\n", decodeStatus(response.Result))
 	}
 
 	if err = stream.CloseSend(); err != nil {

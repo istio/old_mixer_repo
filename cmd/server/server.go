@@ -19,34 +19,39 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"strings"
 	"time"
 
 	bt "github.com/opentracing/basictracer-go"
-	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
+	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/tracing"
 )
 
 type serverArgs struct {
-	port                 uint
-	maxMessageSize       uint
-	maxConcurrentStreams uint
-	workerPoolSize       uint
-	compressedPayload    bool
-	enableTracing        bool
-	serverCertFile       string
-	serverKeyFile        string
-	clientCertFiles      string
+	port                  uint
+	maxMessageSize        uint
+	maxConcurrentStreams  uint
+	apiWorkerPoolSize     uint
+	adapterWorkerPoolSize uint
+	singleThreaded        bool
+	compressedPayload     bool
+	enableTracing         bool
+	serverCertFile        string
+	serverKeyFile         string
+	clientCertFiles       string
 
 	// mixer manager args
 	serviceConfigFile      string
@@ -54,13 +59,13 @@ type serverArgs struct {
 	configFetchIntervalSec uint
 }
 
-func serverCmd(errorf errorFn) *cobra.Command {
+func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
 		Short: "Starts the mixer as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Starting gRPC server on port %v\n", sa.port)
+			outf("Starting gRPC server on port %v\n", sa.port)
 
 			err := runServer(sa)
 			if err != nil {
@@ -71,10 +76,10 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
-	// TODO: define a sensible size for our worker pool; we probably want (max outstanding requests allowed)*(number of adapters executed per request)
-	serverCmd.PersistentFlags().UintVarP(&sa.workerPoolSize, "workerPoolSize", "", 100,
-		"Number of workers used to execute adapters in the entire server; this should be roughly (max outstanding requests)*(number of adapters per request)."+
-			"If workerPoolSize is exactly zero all adapters are executed serially on their request go routine.")
+	serverCmd.PersistentFlags().UintVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
+	serverCmd.PersistentFlags().UintVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
+	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run the mixer in single-threaded mode (useful "+
+		"for debugging)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
@@ -91,14 +96,41 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	return &serverCmd
 }
 
-func serverOpts(sa *serverArgs, handlers api.Handler) (*api.GRPCServerOptions, error) {
+func runServer(sa *serverArgs) error {
+	apiPoolSize := int(sa.apiWorkerPoolSize)
+	if apiPoolSize <= 0 {
+		return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", apiPoolSize)
+	}
+
+	adapterPoolSize := int(sa.adapterWorkerPoolSize)
+	if adapterPoolSize <= 0 {
+		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", adapterPoolSize)
+	}
+
+	gp := pool.NewGoroutinePool(apiPoolSize, sa.singleThreaded)
+	gp.AddWorkers(apiPoolSize)
+	defer gp.Close()
+
+	adapterGP := pool.NewGoroutinePool(adapterPoolSize, sa.singleThreaded)
+	adapterGP.AddWorkers(adapterPoolSize)
+	defer adapterGP.Close()
+
+	// get aspect registry with proper aspect --> api mappings
+	eval := expr.NewCEXLEvaluator()
+	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
+	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
+		adapterMgr.AdapterToAspectMapperFunc(),
+		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
+
+	handler := api.NewHandler(adapterMgr, adapterMgr.MethodMap())
+
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load server certificate and server key: %v", err)
+			return fmt.Errorf("failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
 	}
@@ -108,60 +140,58 @@ func serverOpts(sa *serverArgs, handlers api.Handler) (*api.GRPCServerOptions, e
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			pem, err := ioutil.ReadFile(clientCertFile)
 			if err != nil {
-				return nil, fmt.Errorf("failed to load client certificate: %v", err)
+				return fmt.Errorf("failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
 	}
 
-	var tracer ot.Tracer
-	if sa.enableTracing {
-		tracer = bt.New(tracing.IORecorder(os.Stdout))
-	}
-
-	return &api.GRPCServerOptions{
-		Port:                 uint16(sa.port),
-		MaxMessageSize:       sa.maxMessageSize,
-		MaxConcurrentStreams: sa.maxConcurrentStreams,
-		CompressedPayload:    sa.compressedPayload,
-		ServerCertificate:    serverCert,
-		ClientCertificates:   clientCerts,
-		Handler:              handlers,
-		AttributeManager:     attribute.NewManager(),
-		Tracer:               tracer,
-	}, nil
-}
-
-func runServer(sa *serverArgs) error {
-	// get aspect registry with proper aspect --> api mappings
-	eval := expr.NewCEXLEvaluator()
-	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval)
-	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
-		adapterMgr.AdapterToAspectMapperFunc(),
-		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
-
-	var handler api.Handler
-	if sa.workerPoolSize == 0 {
-		handler = api.NewHandler(adapterMgr, adapterMgr.MethodMap())
-	} else {
-		poolsize := int(sa.workerPoolSize)
-		if poolsize < 0 {
-			return fmt.Errorf("worker pool size must be less than int max value, got pool size %d", poolsize)
-		}
-		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr, poolsize), adapterMgr.MethodMap())
-	}
-
-	grpcServerOptions, err := serverOpts(sa, handler)
+	// get the network stuff setup
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", uint16(sa.port)))
 	if err != nil {
 		return err
+	}
+
+	// construct the gRPC options
+
+	var grpcOptions []grpc.ServerOption
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(sa.maxConcurrentStreams)))
+	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(sa.maxMessageSize)))
+
+	if sa.compressedPayload {
+		grpcOptions = append(grpcOptions, grpc.RPCCompressor(grpc.NewGZIPCompressor()))
+		grpcOptions = append(grpcOptions, grpc.RPCDecompressor(grpc.NewGZIPDecompressor()))
+	}
+
+	if serverCert != nil {
+		// enable TLS
+		tlsConfig := &tls.Config{}
+		tlsConfig.Certificates = []tls.Certificate{*serverCert}
+
+		if clientCerts != nil {
+			// enable TLS mutual auth
+			tlsConfig.ClientCAs = clientCerts
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		}
+		tlsConfig.BuildNameToCertificate()
+
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+
+	var tracer tracing.Tracer
+	if sa.enableTracing {
+		tracer = tracing.NewTracer(bt.New(tracing.IORecorder(os.Stdout)))
+	} else {
+		tracer = tracing.DisabledTracer()
 	}
 
 	configManager.Register(handler.(config.ChangeListener))
 	configManager.Start()
 
-	var grpcServer *api.GRPCServer
-	if grpcServer, err = api.NewGRPCServer(grpcServerOptions); err != nil {
-		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
-	}
-	return grpcServer.Start()
+	// get everything wired up
+	gs := grpc.NewServer(grpcOptions...)
+	s := api.NewGRPCServer(handler, tracer, gp)
+	mixerpb.RegisterMixerServer(gs, s)
+
+	return gs.Serve(listener)
 }

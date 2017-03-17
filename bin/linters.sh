@@ -3,6 +3,15 @@
 # Runs all requisite linters over the whole mixer code base.
 set -e
 
+PARENT_BRANCH=''
+
+while getopts :c: arg; do
+  case ${arg} in
+    c) PARENT_BRANCH="${OPTARG}";;
+    *) error_exit "Unrecognized argument ${OPTARG}";;
+  esac
+done
+
 prep_linters() {
     if ! which codecoroner > /dev/null; then
         echo "Preparing linters"
@@ -15,27 +24,31 @@ prep_linters() {
 }
 
 go_metalinter() {
+    local parent_branch="${PARENT_BRANCH}"
     if [[ ! -z ${TRAVIS_PULL_REQUEST} ]];then
         # if travis pull request only lint changed code.
         if [[ ${TRAVIS_PULL_REQUEST} != "false" ]]; then
             LAST_GOOD_GITSHA=${TRAVIS_COMMIT_RANGE}
         fi
     elif [[ ! -z ${GITHUB_PR_TARGET_BRANCH} ]]; then
-        git fetch origin-pull refs/heads/${GITHUB_PR_TARGET_BRANCH}:parent
-        LAST_GOOD_GITSHA="$(git log parent.. --pretty="%H"|tail -1)^" \
-          || LAST_GOOD_GITSHA='HEAD^'
-    else
-        # for local run, only lint the current branch
-        LAST_GOOD_GITSHA="$(git log master.. --pretty="%H"|tail -1)^" \
-          || LAST_GOOD_GITSHA='HEAD^'
+        parent_branch='parent'
+        git fetch origin-pull "refs/heads/${GITHUB_PR_TARGET_BRANCH}:${parent_branch}"
+    fi
+
+    if [[ -z ${LAST_GOOD_GITSHA} ]] && [[ -n "${parent_branch}" ]]; then
+        LAST_GOOD_GITSHA="$(git log ${parent_branch}.. --pretty="%H"|tail -1)"
+        [[ ! -z ${LAST_GOOD_GITSHA} ]] && LAST_GOOD_GITSHA="${LAST_GOOD_GITSHA}^"
     fi
 
     # default: lint everything. This runs on the main build
-    PKGS="./pkg/... ./cmd/... ./adapter/..."
+    PKGS="./pkg/... ./cmd/... ./adapter/... ./example/..."
 
     # convert LAST_GOOD_GITSHA to list of packages.
     if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
+        echo "Using ${LAST_GOOD_GITSHA} to compare files to."
         PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
+    else
+        echo 'Running linters on all files.'
     fi
 
     gometalinter\

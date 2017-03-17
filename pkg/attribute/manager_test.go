@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	mixerpb "istio.io/api/mixer/v1"
 )
 
@@ -72,7 +70,7 @@ func TestAttributeManager(t *testing.T) {
 		present bool
 	}
 
-	sm := &mixerpb.StringMap{Map: map[int32]string{9: "Nine"}}
+	sm := mixerpb.StringMap{Map: map[int32]string{9: "Nine"}}
 	m := map[string]string{"name9": "Nine"}
 
 	cases := []struct {
@@ -103,10 +101,10 @@ func TestAttributeManager(t *testing.T) {
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
-				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
-				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
+				TimestampAttributes: map[int32]time.Time{5: time.Date(1970, time.January, 1, 0, 0, 5, 5, time.UTC)},
+				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
-				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
+				StringMapAttributes: map[int32]mixerpb.StringMap{8: sm},
 				ResetContext:        false,
 				AttributeContext:    0,
 				DeletedAttributes:   nil,
@@ -114,50 +112,50 @@ func TestAttributeManager(t *testing.T) {
 			result: true,
 			getString: []getStringCase{
 				{"name1", "1", true},
-				{"name2", "", false},
-				{"name42", "", false},
+				{"xname2", "", false},
+				{"xname42", "", false},
 			},
 
 			getInt64: []getInt64Case{
 				{"name2", 2, true},
-				{"name1", 0, false},
-				{"name42", 0, false},
+				{"xname1", 0, false},
+				{"xname42", 0, false},
 			},
 
 			getFloat64: []getFloat64Case{
 				{"name3", 3.0, true},
-				{"name1", 0.0, false},
-				{"name42", 0.0, false},
+				{"xname1", 0.0, false},
+				{"xname42", 0.0, false},
 			},
 
 			getBool: []getBoolCase{
 				{"name4", true, true},
-				{"name1", false, false},
-				{"name42", false, false},
+				{"xname1", false, false},
+				{"xname42", false, false},
 			},
 
 			getTime: []getTimeCase{
 				{"name5", time.Date(1970, time.January, 1, 0, 0, 5, 5, time.UTC), true},
-				{"name1", time.Time{}, false},
-				{"name42", time.Time{}, false},
+				{"xname1", time.Time{}, false},
+				{"xname42", time.Time{}, false},
 			},
 
 			getDuration: []getDurationCase{
 				{"name7", time.Second * 42, true},
-				{"name1", time.Duration(0), false},
-				{"name42", time.Duration(0), false},
+				{"xname1", time.Duration(0), false},
+				{"xname42", time.Duration(0), false},
 			},
 
 			getBytes: []getBytesCase{
 				{"name6", []byte{6}, true},
-				{"name1", nil, false},
-				{"name42", nil, false},
+				{"xname1", nil, false},
+				{"xname42", nil, false},
 			},
 
 			getStringMap: []getStringMapCase{
 				{"name8", m, true},
-				{"name1", nil, false},
-				{"name42", nil, false},
+				{"xname1", nil, false},
+				{"xname42", nil, false},
 			},
 		},
 
@@ -169,50 +167,50 @@ func TestAttributeManager(t *testing.T) {
 			result: true,
 			getString: []getStringCase{
 				{"name1", "1", true},
-				{"name2", "", false},
-				{"name42", "", false},
+				{"xname2", "", false},
+				{"xname42", "", false},
 			},
 
 			getInt64: []getInt64Case{
 				{"name2", 2, true},
-				{"name1", 0, false},
-				{"name42", 0, false},
+				{"xname1", 0, false},
+				{"xname42", 0, false},
 			},
 
 			getFloat64: []getFloat64Case{
 				{"name3", 3.0, true},
-				{"name1", 0.0, false},
-				{"name42", 0.0, false},
+				{"xname1", 0.0, false},
+				{"xname42", 0.0, false},
 			},
 
 			getBool: []getBoolCase{
 				{"name4", true, true},
-				{"name1", false, false},
-				{"name42", false, false},
+				{"xname1", false, false},
+				{"xname42", false, false},
 			},
 
 			getTime: []getTimeCase{
 				{"name5", time.Date(1970, time.January, 1, 0, 0, 5, 5, time.UTC), true},
-				{"name1", time.Time{}, false},
-				{"name42", time.Time{}, false},
+				{"xname1", time.Time{}, false},
+				{"xname42", time.Time{}, false},
 			},
 
 			getDuration: []getDurationCase{
 				{"name7", time.Second * 42, true},
-				{"name1", time.Duration(0), false},
-				{"name42", time.Duration(0), false},
+				{"xname1", time.Duration(0), false},
+				{"xname42", time.Duration(0), false},
 			},
 
 			getBytes: []getBytesCase{
 				{"name6", []byte{6}, true},
-				{"name1", nil, false},
-				{"name42", nil, false},
+				{"xname1", nil, false},
+				{"xname42", nil, false},
 			},
 
 			getStringMap: []getStringMapCase{
 				{"name8", m, true},
-				{"name1", nil, false},
-				{"name42", nil, false},
+				{"xname1", nil, false},
+				{"xname42", nil, false},
 			},
 		},
 
@@ -240,10 +238,10 @@ func TestAttributeManager(t *testing.T) {
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
-				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
-				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
+				TimestampAttributes: map[int32]time.Time{5: time.Date(0, 0, 0, 0, 0, 5, 5, time.UTC)},
+				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
-				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
+				StringMapAttributes: map[int32]mixerpb.StringMap{8: sm},
 				ResetContext:        false,
 				AttributeContext:    0,
 				DeletedAttributes:   nil,
@@ -301,13 +299,13 @@ func TestAttributeManager(t *testing.T) {
 
 		// 11: try out bad dictionary index for timestamp
 		{
-			attrs:  mixerpb.Attributes{TimestampAttributes: map[int32]*ptypes.Timestamp{42: {}}},
+			attrs:  mixerpb.Attributes{TimestampAttributes: map[int32]time.Time{42: {}}},
 			result: false,
 		},
 
 		// 12: try out bad dictionary index for duration
 		{
-			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]*ptypes.Duration{42: {Seconds: 0}}},
+			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]time.Duration{42: time.Duration(0)}},
 			result: false,
 		},
 
@@ -319,7 +317,7 @@ func TestAttributeManager(t *testing.T) {
 
 		// 14: try out bad dictionary index for string map
 		{
-			attrs:  mixerpb.Attributes{StringMapAttributes: map[int32]*mixerpb.StringMap{42: nil}},
+			attrs:  mixerpb.Attributes{StringMapAttributes: map[int32]mixerpb.StringMap{42: {}}},
 			result: false,
 		},
 
@@ -335,18 +333,18 @@ func TestAttributeManager(t *testing.T) {
 	defer at.Done()
 
 	for i, c := range cases {
-		ab, err := at.StartRequest(&c.attrs)
+		ab, err := at.ApplyAttributes(&c.attrs)
 		if (err == nil) != c.result {
 			if c.result {
-				t.Errorf("Expected StartRequest to succeed but it returned %v for test case %d", err, i)
+				t.Errorf("Expected ApplyAttributes to succeed but it returned %v for test case %d", err, i)
 			} else {
-				t.Errorf("Expected StartRequest to fail but it succeeded for test case %d", i)
+				t.Errorf("Expected ApplyAttributes to fail but it succeeded for test case %d", i)
 			}
 		}
-		defer at.EndRequest()
 
 		for j, g := range c.getString {
-			result, present := ab.String(g.name)
+			v, present := ab.Get(g.name)
+			result, _ := v.(string)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for string test case %v:%v", g.result, result, i, j)
 			}
@@ -357,7 +355,8 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getInt64 {
-			result, present := ab.Int64(g.name)
+			v, present := ab.Get(g.name)
+			result, _ := v.(int64)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for int64 test case %v:%v", g.result, result, i, j)
 			}
@@ -368,7 +367,8 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getFloat64 {
-			result, present := ab.Float64(g.name)
+			v, present := ab.Get(g.name)
+			result, _ := v.(float64)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for float64 test case %v:%v", g.result, result, i, j)
 			}
@@ -379,7 +379,8 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getBool {
-			result, present := ab.Bool(g.name)
+			v, present := ab.Get(g.name)
+			result, _ := v.(bool)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for bool test case %v:%v", g.result, result, i, j)
 			}
@@ -390,7 +391,8 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getTime {
-			result, present := ab.Time(g.name)
+			v, present := ab.Get(g.name)
+			result, _ := v.(time.Time)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for time test case %v:%v", g.result, result, i, j)
 			}
@@ -401,7 +403,8 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getDuration {
-			result, present := ab.Duration(g.name)
+			v, present := ab.Get(g.name)
+			result, _ := v.(time.Duration)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for duration test case %v:%v", g.result, result, i, j)
 			}
@@ -412,8 +415,8 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getBytes {
-			result, present := ab.Bytes(g.name)
-
+			v, present := ab.Get(g.name)
+			result, _ := v.([]byte)
 			same := len(result) == len(g.result)
 			if same {
 				for i := range result {
@@ -434,8 +437,8 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getStringMap {
-			result, present := ab.StringMap(g.name)
-
+			v, present := ab.Get(g.name)
+			result, _ := v.(map[string]string)
 			same := len(result) == len(g.result)
 			if same {
 				for i := range result {

@@ -27,198 +27,158 @@ package api
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
-	"net"
+	"sync"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	ot "github.com/opentracing/opentracing-go"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/pkg/tracing"
 )
 
-// GRPCServerOptions controls the behavior of a gRPC server.
-type GRPCServerOptions struct {
-	// MaximumMessageSize constrains the size of incoming requests.
-	MaxMessageSize uint
-
-	// MaxConcurrentStreams limits the amount of concurrency allowed,
-	// in order to put a cap on server-side resource usage.
-	MaxConcurrentStreams uint
-
-	// Port specifies the IP port the server should listen on.
-	Port uint16
-
-	// CompressedPayload determines whether compression should be
-	// used on individual messages.
-	CompressedPayload bool
-
-	// ServerCertificate provides the server-side cert for TLS connections.
-	// If this is not supplied, only connections in the clear are supported.
-	ServerCertificate *tls.Certificate
-
-	// ClientCertificate provides the acceptable client-side certs. Only clients
-	// presenting one of these certs will be allowed to connect. If this is nil,
-	// then any clients will be allowed.
-	ClientCertificates *x509.CertPool
-
-	// Handlers holds pointers to the functions that implement request-level processing
-	// for all API methods
-	Handler Handler
-
-	// AttributeManager holds a pointer to an initialized AttributeManager to use when
-	// processing incoming attribute requests.
-	AttributeManager attribute.Manager
-
-	// Tracer is the tracer instance to use with OpenTracing. If Tracer is nil no tracing
-	// will be enabled.
-	Tracer ot.Tracer
-}
-
-// GRPCServer holds the state for the gRPC API server.
-// Use NewGRPCServer to get one of these.
-type GRPCServer struct {
-	server   *grpc.Server
-	listener net.Listener
+// grpcServer holds the state for the gRPC API server.
+type grpcServer struct {
 	handlers Handler
 	attrMgr  attribute.Manager
 	tracer   tracing.Tracer
+	gp       *pool.GoroutinePool
+
+	// replaceable sendMsg so we can inject errors in tests
+	sendMsg func(grpc.Stream, proto.Message) error
 }
 
-// NewGRPCServer creates the gRPC serving stack.
-func NewGRPCServer(options *GRPCServerOptions) (*GRPCServer, error) {
-	// get the network stuff setup
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
-	if err != nil {
-		return nil, err
+// NewGRPCServer creates a gRPC serving stack.
+func NewGRPCServer(handlers Handler, tracer tracing.Tracer, gp *pool.GoroutinePool) mixerpb.MixerServer {
+	return &grpcServer{
+		handlers: handlers,
+		attrMgr:  attribute.NewManager(),
+		tracer:   tracer,
+		gp:       gp,
+		sendMsg: func(stream grpc.Stream, m proto.Message) error {
+			return stream.SendMsg(m)
+		},
 	}
-
-	// construct the gRPC options
-
-	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(options.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(options.MaxMessageSize)))
-
-	if options.CompressedPayload {
-		grpcOptions = append(grpcOptions, grpc.RPCCompressor(grpc.NewGZIPCompressor()))
-		grpcOptions = append(grpcOptions, grpc.RPCDecompressor(grpc.NewGZIPDecompressor()))
-	}
-
-	if options.ServerCertificate != nil {
-		// enable TLS
-		tlsConfig := &tls.Config{}
-		tlsConfig.Certificates = []tls.Certificate{*options.ServerCertificate}
-
-		if options.ClientCertificates != nil {
-			// enable TLS mutual auth
-			tlsConfig.ClientCAs = options.ClientCertificates
-			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-		}
-		tlsConfig.BuildNameToCertificate()
-
-		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
-	}
-
-	var tracer tracing.Tracer
-	if options.Tracer != nil {
-		tracer = tracing.NewTracer(options.Tracer)
-	} else {
-		tracer = tracing.DisabledTracer()
-	}
-
-	// get everything wired up
-	grpcServer := grpc.NewServer(grpcOptions...)
-	s := &GRPCServer{grpcServer, listener, options.Handler, options.AttributeManager, tracer}
-	mixerpb.RegisterMixerServer(grpcServer, s)
-	return s, nil
 }
 
-// Start listening for incoming requests. Only returns
-// in catastrophic failure cases.
-func (s *GRPCServer) Start() error {
-	return s.server.Serve(s.listener)
-}
+// dispatcher does all the nitty-gritty details of handling the mixer's low-level API
+// protocol and dispatching to the right API handler.
+func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
+	getState func() (request proto.Message, response proto.Message, requestAttrs *mixerpb.Attributes, result *rpc.Status),
+	worker func(context.Context, *attribute.MutableBag, proto.Message, proto.Message)) error {
 
-// Stop undoes the effect of a previous call to Listen, basically it stops the server
-// from processing any more requests
-func (s *GRPCServer) Stop() {
-	s.server.GracefulStop()
-}
-
-type handlerFunc func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message)
-
-func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc, methodName string) error {
+	// tracks attribute state for this stream
 	tracker := s.attrMgr.NewTracker()
 	defer tracker.Done()
+
+	// used to serialize sending on the grpc stream, since the grpc stream is not multithread-safe
+	sendLock := &sync.Mutex{}
 
 	root, ctx := s.tracer.StartRootSpan(stream.Context(), methodName)
 	defer root.Finish()
 
+	// ensure pending stuff is done before leaving
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
+
 	for {
+		request, response, attrs, result := getState()
+
 		// get a single message
-		if err := stream.RecvMsg(request); err == io.EOF {
+		err := stream.RecvMsg(request)
+		if err == io.EOF {
 			return nil
 		} else if err != nil {
 			glog.Errorf("Stream error %s", err)
 			return err
 		}
 
-		var span ot.Span
-		span, ctx = s.tracer.StartSpanFromContext(ctx, methodName)
-		span.LogFields(log.Object("gRPC request", request))
+		bag, err := tracker.ApplyAttributes(attrs)
+		if err != nil {
+			msg := fmt.Sprintf("Unable to process attribute update: %v", err)
+			glog.Error(msg)
+			*result = status.WithInvalidArgument(msg)
 
-		// do the actual work for the message
-		// TODO: do we want to carry the same ctx through each loop iteration, or pull it out of the stream each time?
-		handler(ctx, tracker, request, response)
+			sendLock.Lock()
+			err = s.sendMsg(stream, response)
+			sendLock.Unlock()
 
-		// produce the response
-		if err := stream.SendMsg(response); err != nil {
-			return err
+			if err != nil {
+				glog.Errorf("Unable to send gRPC response message: %v", err)
+			}
+
+			continue
 		}
 
-		span.LogFields(log.Object("gRPC response", response))
-		span.Finish()
+		// throw the message into the work queue
+		wg.Add(1)
+		s.gp.ScheduleWork(func() {
+			span, ctx2 := s.tracer.StartSpanFromContext(ctx, "RequestProcessing")
+			span.LogFields(log.Object("gRPC request", request))
 
-		// reset everything to 0
-		request.Reset()
-		response.Reset()
+			// do the actual work for the message
+			worker(ctx2, bag, request, response)
+
+			sendLock.Lock()
+			err := s.sendMsg(stream, response)
+			sendLock.Unlock()
+
+			if err != nil {
+				glog.Errorf("Unable to send gRPC response message: %v", err)
+			}
+
+			bag.Done()
+
+			span.LogFields(log.Object("gRPC response", response))
+			span.Finish()
+
+			wg.Done()
+		})
 	}
 }
 
 // Check is the entry point for the external Check method
-func (s *GRPCServer) Check(stream mixerpb.Mixer_CheckServer) error {
-	return s.streamLoop(stream,
-		new(mixerpb.CheckRequest),
-		new(mixerpb.CheckResponse),
-		func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Check(ctx, tracker, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
-		}, "/istio.mixer.v1.Mixer/Check")
+func (s *grpcServer) Check(stream mixerpb.Mixer_CheckServer) error {
+	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Check",
+		func() (proto.Message, proto.Message, *mixerpb.Attributes, *rpc.Status) {
+			request := &mixerpb.CheckRequest{}
+			response := &mixerpb.CheckResponse{}
+			return request, response, &request.AttributeUpdate, &response.Result
+		},
+		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
+			s.handlers.Check(ctx, bag, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
+		})
 }
 
 // Report is the entry point for the external Report method
-func (s *GRPCServer) Report(stream mixerpb.Mixer_ReportServer) error {
-	return s.streamLoop(stream,
-		new(mixerpb.ReportRequest),
-		new(mixerpb.ReportResponse),
-		func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Report(ctx, tracker, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
-		}, "/istio.mixer.v1.Mixer/Report")
+func (s *grpcServer) Report(stream mixerpb.Mixer_ReportServer) error {
+	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Report",
+		func() (proto.Message, proto.Message, *mixerpb.Attributes, *rpc.Status) {
+			request := &mixerpb.ReportRequest{}
+			response := &mixerpb.ReportResponse{}
+			return request, response, &request.AttributeUpdate, &response.Result
+		},
+		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
+			s.handlers.Report(ctx, bag, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
+		})
 }
 
 // Quota is the entry point for the external Quota method
-func (s *GRPCServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
-	return s.streamLoop(stream,
-		new(mixerpb.QuotaRequest),
-		new(mixerpb.QuotaResponse),
-		func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Quota(ctx, tracker, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
-		}, "/istio.mixer.v1.Mixer/Quota")
+func (s *grpcServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
+	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Quota",
+		func() (proto.Message, proto.Message, *mixerpb.Attributes, *rpc.Status) {
+			request := &mixerpb.QuotaRequest{}
+			response := &mixerpb.QuotaResponse{}
+			return request, response, &request.AttributeUpdate, &response.Result
+		},
+		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
+			s.handlers.Quota(ctx, bag, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
+		})
 }

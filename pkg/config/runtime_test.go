@@ -15,8 +15,8 @@
 package config
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
@@ -52,9 +52,9 @@ func TestRuntime(t *testing.T) {
 	table := []*ttable{
 		{nil, 0, true, 4, []string{"listChecker"}},
 		{nil, 1, false, 2, []string{"listChecker"}},
-		{fmt.Errorf("predicate error"), 1, false, 2, []string{"listChecker"}},
+		{errors.New("predicate error"), 1, false, 2, []string{"listChecker"}},
 		{nil, 0, true, 0, []string{}},
-		{fmt.Errorf("predicate error"), 0, true, 0, []string{"listChecker"}},
+		{errors.New("predicate error"), 0, true, 0, []string{"listChecker"}},
 	}
 
 	LC := "listChecker"
@@ -69,8 +69,8 @@ func TestRuntime(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: map[adapterKey]*pb.Adapter{
-			adapterKey{LC, "a1"}: a1,
-			adapterKey{LC, "a2"}: a2,
+			{LC, "a1"}: a1,
+			{LC, "a2"}: a2,
 		},
 		serviceConfig: &pb.ServiceConfig{
 			Rules: []*pb.AspectRule{
@@ -105,7 +105,7 @@ func TestRuntime(t *testing.T) {
 		numAspects: 1,
 	}
 
-	bag, err := attribute.NewManager().NewTracker().StartRequest(&mixerpb.Attributes{})
+	bag, err := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
 	if err != nil {
 		t.Error("Unable to get attribute bag")
 	}

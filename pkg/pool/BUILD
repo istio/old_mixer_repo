@@ -6,6 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "buffer.go",
+        "goroutine.go",
         "intern.go",
     ],
 )
@@ -15,6 +16,7 @@ go_test(
     size = "small",
     srcs = [
         "buffer_test.go",
+        "goroutine_test.go",
         "intern_test.go",
     ],
     library = ":go_default_library",

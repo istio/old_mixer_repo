@@ -8,7 +8,6 @@ go_library(
         "env.go",
         "logger.go",
         "manager.go",
-        "parallelManager.go",
         "registry.go",
     ],
     deps = [
@@ -19,7 +18,9 @@ go_library(
         "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
+        "//pkg/status:go_default_library",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
 
@@ -29,7 +30,6 @@ go_test(
     srcs = [
         "env_test.go",
         "manager_test.go",
-        "parallelManager_test.go",
         "registry_test.go",
     ],
     library = ":go_default_library",
