@@ -45,7 +45,7 @@ type finder struct {
 	quotas             map[string]*dpb.QuotaDescriptor
 }
 
-// NewFinder constructs a new Finder for the provided global config.
+// NewFinder constructs a descriptors.Finder for the provided global config.
 func NewFinder(cfg *pb.GlobalConfig) Finder {
 	logs := make(map[string]*dpb.LogEntryDescriptor)
 	for _, desc := range cfg.Logs {

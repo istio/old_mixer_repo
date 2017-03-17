@@ -221,7 +221,7 @@ func ConvertParams(find ValidatorFinderFunc, name string, params interface{}, st
 	if err := Decode(params, acfg, strict); err != nil {
 		return nil, err
 	}
-	if verr := avl.ValidateConfig(acfg); verr != nil {
+	if verr := avl.ValidateConfig(acfg, nil); verr != nil {
 		return nil, verr
 	}
 	return acfg, nil

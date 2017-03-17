@@ -22,6 +22,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptors"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -97,7 +98,7 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c adapter.AspectConfig, df descriptors.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
 		ce = ce.Appendf("Log", "an AccessLog entry must be provided")

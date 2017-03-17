@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config/descriptors"
 )
 
 // Logger is a test struct that implements the application-logs and access-logs aspects.
@@ -61,7 +62,9 @@ func (t *Logger) Description() string { return "A test logger" }
 func (t *Logger) DefaultConfig() adapter.AspectConfig { return t.DefaultCfg }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (t *Logger) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (t *Logger) ValidateConfig(adapter.AspectConfig, descriptors.Finder) (ce *adapter.ConfigErrors) {
+	return nil
+}
 
 // Log simulates processing a batch of log entries.
 func (t *Logger) Log(l []adapter.LogEntry) error {

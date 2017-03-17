@@ -105,7 +105,7 @@ func testBuilder(b adapter.Builder, t *gt.T) {
 	}
 
 	c := b.DefaultConfig()
-	if err := b.ValidateConfig(c); err != nil {
+	if err := b.ValidateConfig(c, nil); err != nil {
 		t.Errorf("ValidateConfig() => builder '%s' can't validate its default configuration: %v", b.Name(), err)
 	}
 

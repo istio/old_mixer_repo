@@ -31,6 +31,7 @@ import (
 
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config/descriptors"
 )
 
 type (
@@ -77,7 +78,7 @@ func (builder) NewListsAspect(env adapter.Env, c adapter.AspectConfig) (adapter.
 	return newListChecker(env, c.(*config.Params))
 }
 
-func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (builder) ValidateConfig(cfg adapter.AspectConfig, df descriptors.Finder) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	u, err := url.Parse(c.ProviderUrl)

@@ -21,6 +21,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptors"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -66,7 +67,7 @@ func (listsManager) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (listsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (listsManager) ValidateConfig(c adapter.AspectConfig, df descriptors.Finder) (ce *adapter.ConfigErrors) {
 	lc := c.(*aconfig.ListsParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("CheckAttribute", "Missing")

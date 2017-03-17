@@ -19,6 +19,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptors"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -50,9 +51,11 @@ func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env ad
 	}, nil
 }
 
-func (denialsManager) Kind() Kind                                                       { return DenialsKind }
-func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenialsParams{} }
-func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (denialsManager) Kind() Kind                          { return DenialsKind }
+func (denialsManager) DefaultConfig() adapter.AspectConfig { return &aconfig.DenialsParams{} }
+func (denialsManager) ValidateConfig(c adapter.AspectConfig, df descriptors.Finder) (ce *adapter.ConfigErrors) {
+	return
+}
 
 func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	return Output{Status: a.aspect.Deny()}
