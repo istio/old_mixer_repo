@@ -211,10 +211,6 @@ func TestGoodEval(tt *testing.T) {
 	}
 
 	for idx, tst := range tests {
-		if tst.src == "(x == 20 && y == 10) || x == 3" {
-			fmt.Printf(tst.src + "\n")
-		}
-
 		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.src), func(t *testing.T) {
 			attrs := &bag{attrs: tst.tmap}
 			exp, err := Parse(tst.src)

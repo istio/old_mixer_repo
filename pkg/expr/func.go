@@ -110,11 +110,7 @@ func (f *eqFunc) call(args0 interface{}, args1 interface{}) bool {
 	switch s0 := args0.(type) {
 	default:
 		return reflect.DeepEqual(args0, args1)
-	case bool:
-		return args0 == args1
-	case int64:
-		return args0 == args1
-	case float64:
+	case bool, int64, float64:
 		return args0 == args1
 	case string:
 		var s1 string

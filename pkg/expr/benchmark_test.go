@@ -15,11 +15,11 @@
 package expr
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"istio.io/mixer/pkg/attribute"
-	"fmt"
 )
 
 // run micro benchmark using expression evaluator.
@@ -41,8 +41,9 @@ ok  	istio.io/mixer/pkg/expr	10.049s
 
 type exprFunc func(a attribute.Bag) (bool, error)
 
-// a == 20 || request.header["host"] == 50
-
+// dff implements `a == 20 || request.header["host"] == "abc"`
+// this is done so we can compare Expr processed expression with
+// raw direct golang performance.
 func dff(a attribute.Bag) (bool, error) {
 	var v interface{}
 	var b bool
@@ -77,7 +78,7 @@ func benchmarkExpression(b *testing.B, stype string) {
 	exprStr := `a == 20 || request.header["host"] == "abc"`
 	exf, _ := Parse(exprStr)
 
-	fmt.Printf("%s\n", exf.String())
+	b.Logf("%s\n", exf.String())
 	fm := FuncMap()
 	tests := []struct {
 		name   string
