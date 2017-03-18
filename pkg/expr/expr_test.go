@@ -19,6 +19,8 @@ import (
 	"strings"
 	"testing"
 
+	"time"
+
 	config "istio.io/api/mixer/v1/config/descriptor"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
@@ -69,6 +71,7 @@ func TestNewConstant(tst *testing.T) {
 		{"not an int64", config.INT64, int64(1001), "invalid syntax"},
 		{`"back quoted"`, config.STRING, "back quoted", "SUCCESS"},
 		{`'aaa'`, config.STRING, "aaa", "invalid syntax"},
+		{`"321ms"`, config.STRING, time.Duration(321 * time.Millisecond), "SUCCESS"},
 	}
 	for idx, tt := range tests {
 		tst.Run(fmt.Sprintf("[%d] %s", idx, tt.v), func(t *testing.T) {
