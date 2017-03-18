@@ -297,7 +297,6 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			return
 		}
 	case *ast.BasicLit:
-		fmt.Println("basicLit", v.Value, v.Kind)
 		tgt.Const, err = newConstant(v.Value, typeMap[v.Kind])
 		if err != nil {
 			return
