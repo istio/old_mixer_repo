@@ -22,4 +22,7 @@ go_test(
         "status_test.go",
     ],
     library = ":go_default_library",
+    deps = [
+        "@com_github_hashicorp_go_multierror//:go_default_library",
+    ],
 )
