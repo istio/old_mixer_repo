@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
 	"time"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
