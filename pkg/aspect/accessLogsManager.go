@@ -17,6 +17,7 @@ package aspect
 import (
 	"fmt"
 	"text/template"
+	"time"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
@@ -41,7 +42,7 @@ type (
 
 const (
 	// TODO: revisit when well-known attributes are defined.
-	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.source_user) "-"}} ` +
+	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
 		`[{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} ` +
 		`{{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
 	// TODO: revisit when well-known attributes are defined.
@@ -117,14 +118,29 @@ func (e *accessLogsWrapper) Close() error {
 }
 
 func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	labels, err := evalAll(e.labels, attrs, mapper)
-	if err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to eval labels for log %s with err: %s", e.name, err))}
+
+	labels := make(map[string]interface{}, len(e.labels))
+	for name, exp := range e.labels {
+		v, err := mapper.Eval(exp, attrs)
+		if err == nil {
+			labels[name] = v
+			continue
+		}
+		if name == "timestamp" {
+			labels[name] = time.Now()
+		}
 	}
 
-	templateVals, err := evalAll(e.templateExprs, attrs, mapper)
-	if err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to eval template expressions for log %s with err: %s", e.name, err))}
+	templateVals := make(map[string]interface{}, len(e.templateExprs))
+	for n, expr := range e.templateExprs {
+		v, err := mapper.Eval(expr, attrs)
+		if err == nil {
+			templateVals[n] = v
+			continue
+		}
+		if n == "timestamp" {
+			templateVals[n] = time.Now()
+		}
 	}
 
 	buf := pool.GetBuffer()
