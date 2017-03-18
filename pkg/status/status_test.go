@@ -70,4 +70,9 @@ func TestStatus(t *testing.T) {
 	if s.Code != int32(rpc.DEADLINE_EXCEEDED) || s.Message != "Aborted!" {
 		t.Errorf("Got %v %v, expected rpc.DEADLINE_EXCEEDED Aborted!", s.Code, s.Message)
 	}
+
+	s = InvalidWithDetails("Invalid", NewBadRequest("test", errors.New("error")))
+	if s.Code != int32(rpc.INVALID_ARGUMENT) && s.Message != "Invalid" && len(s.Details) != 1 {
+		t.Errorf("Got %v, expected status with code = rpc.INVALID_ARGUMENT and non-nil details", s)
+	}
 }
