@@ -26,31 +26,24 @@ import (
 
 func reportCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
 	return &cobra.Command{
-		Use:   "report <message>...",
+		Use:   "report",
 		Short: "Invokes the mixer's Report API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			report(rootArgs, args, outf, errorf)
+			report(rootArgs, outf, errorf)
 		}}
 }
 
-func report(rootArgs *rootArgs, args []string, outf outFn, errorf errorFn) {
+func report(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		errorf(err.Error())
-		return
-	}
-
-	if len(args) == 0 {
-		errorf("Message is missing.")
-		return
+		errorf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
 		errorf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
-		return
 	}
 	defer deleteAPIClient(cs)
 
@@ -60,7 +53,6 @@ func report(rootArgs *rootArgs, args []string, outf outFn, errorf errorFn) {
 	var stream mixerpb.Mixer_ReportClient
 	if stream, err = cs.client.Report(ctx); err != nil {
 		errorf("Report RPC failed: %v", err)
-		return
 	}
 
 	for i := 0; i < rootArgs.repeat; i++ {
@@ -69,17 +61,14 @@ func report(rootArgs *rootArgs, args []string, outf outFn, errorf errorFn) {
 
 		if err = stream.Send(&request); err != nil {
 			errorf("Failed to send Report RPC: %v", err)
-			break
 		}
 
 		var response *mixerpb.ReportResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
 			errorf("Got no response from Report RPC")
-			break
 		} else if err != nil {
 			errorf("Failed to receive a response from Report RPC: %v", err)
-			break
 		}
 
 		outf("Report RPC returned %s\n", decodeStatus(response.Result))

@@ -75,6 +75,12 @@ func withArgs(args []string, outf outFn, errorf errorFn) {
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
 		Short: "Invoke the API of a running instance of the Istio mixer",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("'%s' is an invalid argument", args[0])
+			}
+			return nil
+		},
 	}
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
@@ -120,7 +126,7 @@ func withArgs(args []string, outf outFn, errorf errorFn) {
 	rootCmd.AddCommand(quotaCmd(rootArgs, outf, errorf))
 
 	if err := rootCmd.Execute(); err != nil {
-		errorf(err.Error())
+		os.Exit(-1)
 	}
 }
 
@@ -130,7 +136,7 @@ func main() {
 			fmt.Printf(format, a...)
 		},
 		func(format string, a ...interface{}) {
-			fmt.Fprintf(os.Stderr, format, a...)
-			os.Exit(1)
+			fmt.Fprintf(os.Stderr, format+"\n", a...)
+			os.Exit(-1)
 		})
 }
