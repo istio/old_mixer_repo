@@ -66,12 +66,8 @@ type outFn func(format string, a ...interface{})
 // A function used for error output.
 type errorFn func(format string, a ...interface{})
 
-// withArgs is like main except that it is parameterized with the
-// command-line arguments to use, along with functions to call
-// in case of normal output or errors. This allows the function to
-// be invoked from test code.
-func withArgs(args []string, outf outFn, errorf errorFn) {
-	// RootCmd represents the base command when called without any subcommands
+// GetRootCmd returns the root of the cobra command-tree.
+func GetRootCmd(args []string, outf outFn, errorf errorFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
 		Short: "Invoke the API of a running instance of the Istio mixer",
@@ -125,13 +121,11 @@ func withArgs(args []string, outf outFn, errorf errorFn) {
 	rootCmd.AddCommand(reportCmd(rootArgs, outf, errorf))
 	rootCmd.AddCommand(quotaCmd(rootArgs, outf, errorf))
 
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(-1)
-	}
+	return rootCmd
 }
 
 func main() {
-	withArgs(os.Args[1:],
+	rootCmd := GetRootCmd(os.Args[1:],
 		func(format string, a ...interface{}) {
 			fmt.Printf(format, a...)
 		},
@@ -139,4 +133,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, format+"\n", a...)
 			os.Exit(-1)
 		})
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(-1)
+	}
 }

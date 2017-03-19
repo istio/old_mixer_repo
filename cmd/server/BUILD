@@ -9,7 +9,6 @@ go_library(
         "main.go",
         "server.go",
     ],
-    visibility = ["//visibility:private"],
     deps = [
         "//adapter:go_default_library",
         "//pkg/adapter:go_default_library",
