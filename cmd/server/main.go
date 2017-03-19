@@ -29,14 +29,17 @@ type outFn func(format string, a ...interface{})
 // A function used for error output.
 type errorFn func(format string, a ...interface{})
 
-// withArgs is like main except that it is parameterized with the
-// command-line arguments to use, along with functions to call
-// in case of normal output or errors. This allows the function to
-// be invoked from test code.
-func withArgs(args []string, outf outFn, errorf errorFn) {
-	rootCmd := cobra.Command{
+// GetRootCmd returns the root of the cobra command-tree.
+func GetRootCmd(args []string, outf outFn, errorf errorFn) *cobra.Command {
+	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "The Istio mixer provides control plane functionality to the Istio proxy and services",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("'%s' is an invalid argument", args[0])
+			}
+			return nil
+		},
 	}
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
@@ -48,21 +51,23 @@ func withArgs(args []string, outf outFn, errorf errorFn) {
 	_ = fs.Parse([]string{})
 	flag.CommandLine = fs
 
-	rootCmd.AddCommand(adapterCmd(outf, errorf))
+	rootCmd.AddCommand(adapterCmd(outf))
 	rootCmd.AddCommand(serverCmd(outf, errorf))
 
-	if err := rootCmd.Execute(); err != nil {
-		errorf("%v", err)
-	}
+	return rootCmd
 }
 
 func main() {
-	withArgs(os.Args[1:],
+	rootCmd := GetRootCmd(os.Args[1:],
 		func(format string, a ...interface{}) {
 			fmt.Printf(format, a...)
 		},
 		func(format string, a ...interface{}) {
-			fmt.Fprintf(os.Stderr, format, a...)
-			os.Exit(1)
+			fmt.Fprintf(os.Stderr, format+"\n", a...)
+			os.Exit(-1)
 		})
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(-1)
+	}
 }

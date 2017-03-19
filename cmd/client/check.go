@@ -38,14 +38,12 @@ func check(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		errorf(err.Error())
-		return
+		errorf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
 		errorf("Unable to establish connection to %s", rootArgs.mixerAddress)
-		return
 	}
 	defer deleteAPIClient(cs)
 
@@ -55,7 +53,6 @@ func check(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 	var stream mixerpb.Mixer_CheckClient
 	if stream, err = cs.client.Check(ctx); err != nil {
 		errorf("Check RPC failed: %v", err)
-		return
 	}
 
 	for i := 0; i < rootArgs.repeat; i++ {
@@ -64,17 +61,14 @@ func check(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 
 		if err = stream.Send(&request); err != nil {
 			errorf("Failed to send Check RPC: %v", err)
-			break
 		}
 
 		var response *mixerpb.CheckResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
 			errorf("Got no response from Check RPC")
-			break
 		} else if err != nil {
-			errorf("Failed to receive a response .from Check RPC: %v", err)
-			break
+			errorf("Failed to receive a response from Check RPC: %v", err)
 		}
 
 		outf("Check RPC returned %s\n", decodeStatus(response.Result))
