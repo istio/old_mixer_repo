@@ -242,7 +242,7 @@ make racetest
 It will occasionally be necessary to add a new dependency to the Istio Mixer, 
 either in support of a new adapter or to provide additional core functionality. 
 
-Mixer dependencies are maintained in the [WORKSPACE](https://github.com/istio/mixer/blob/master/WORKSPACE)
+Mixer dependencies are maintained in the [repositories.bzl](https://github.com/istio/mixer/blob/master/repositories.bzl)
 file. To add a new dependency, please append to the bottom on the file. A dependency
 can be added manually, or via [wtool](https://github.com/bazelbuild/rules_go/blob/master/go/tools/wtool/main.go).
 
