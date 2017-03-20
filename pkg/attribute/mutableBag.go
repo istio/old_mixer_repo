@@ -60,7 +60,7 @@ func getMutableBag(parent Bag) *MutableBag {
 	return mb
 }
 
-// Make a deep copy
+// CopyBag makes a deep copy of MutableBag.
 func CopyBag(b Bag) *MutableBag {
 	mb := getMutableBag(nil)
 	for _, k := range b.Names() {
