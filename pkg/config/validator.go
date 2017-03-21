@@ -39,8 +39,10 @@ import (
 )
 
 type (
+	// AspectParams describes configuration parameters for an aspect.
 	AspectParams proto.Message
 
+	// AspectValidator describes a type that is able to validate Aspect configuration.
 	AspectValidator interface {
 		// DefaultConfig returns a default configuration struct for this
 		// adapter. This will be used by the configuration system to establish
@@ -56,7 +58,7 @@ type (
 	// so ConfigValidators can be uniformly accessed.
 	AdapterValidatorFinder func(name string) (adapter.ConfigValidator, bool)
 
-	// AdapterValidatorFinder is used to find specific underlying validators.
+	// AspectValidatorFinder is used to find specific underlying validators.
 	// Manager registry and adapter registry should implement this interface
 	// so ConfigValidators can be uniformly accessed.
 	AspectValidatorFinder func(name string) (AspectValidator, bool)
@@ -226,7 +228,7 @@ func UnknownValidator(name string) error {
 	return fmt.Errorf("unknown type [%s]", name)
 }
 
-// ConvertParams converts returns a typed proto message based on available Validator.
+// ConvertAdapterParams converts returns a typed proto message based on available Validator.
 func ConvertAdapterParams(find AdapterValidatorFinder, name string, params interface{}, strict bool) (adapter.Config, error) {
 	var avl adapter.ConfigValidator
 	var found bool
@@ -245,7 +247,7 @@ func ConvertAdapterParams(find AdapterValidatorFinder, name string, params inter
 	return acfg, nil
 }
 
-// ConvertParams converts returns a typed proto message based on available Validator.
+// ConvertAspectParams converts returns a typed proto message based on available Validator.
 func ConvertAspectParams(find AspectValidatorFinder, name string, params interface{}, strict bool) (AspectParams, error) {
 	var avl AspectValidator
 	var found bool
