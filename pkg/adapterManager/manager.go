@@ -316,7 +316,7 @@ func (m *Manager) AspectValidatorFinder() config.AspectValidatorFinder {
 	}
 }
 
-// AdapterToAspectMapper returns AdapterToAspectMapper.
+// AdapterToAspectMapperFunc returns AdapterToAspectMapper.
 func (m *Manager) AdapterToAspectMapperFunc() config.AdapterToAspectMapper {
 	return func(impl string) (kinds []string) {
 		return m.builders.SupportedKinds(impl)
