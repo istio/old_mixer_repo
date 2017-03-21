@@ -15,7 +15,7 @@
 package expr
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 
@@ -48,7 +48,7 @@ func dff(a attribute.Bag) (bool, error) {
 	var v interface{}
 	var b bool
 	if v, b = a.Get("a"); !b {
-		return false, fmt.Errorf("a not found")
+		return false, errors.New("a not found")
 	}
 	aa := v.(int64)
 	if aa == 20 {
@@ -56,7 +56,7 @@ func dff(a attribute.Bag) (bool, error) {
 	}
 
 	if v, b = a.Get("request.header"); !b {
-		return false, fmt.Errorf("a not found")
+		return false, errors.New("a not found")
 	}
 	ss := v.(map[string]string)["host"]
 	if ss == "abc" {

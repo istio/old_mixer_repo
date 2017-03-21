@@ -24,7 +24,7 @@ import (
 
 // FuncBase defines the interface that every expression function must implement.
 type FuncBase interface {
-	// Name uniquely identified the function.
+	// Name uniquely identifies the function.
 	Name() string
 
 	// ReturnType specifies the return type of this function.
@@ -36,7 +36,6 @@ type FuncBase interface {
 
 // Func implements a function call.
 // It needs to know details about Expressions and attribute bag.
-// Func is performant.
 type Func interface {
 	FuncBase
 
