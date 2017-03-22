@@ -97,7 +97,7 @@ func (testManager) Kind() aspect.Kind   { return aspect.DenialsKind }
 func (m testManager) Name() string      { return m.name }
 func (testManager) Description() string { return "deny checker aspect manager for testing" }
 
-func (m testManager) NewAspect(cfg *configpb.Combined, adapter adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
+func (m testManager) NewAspect(cfg *configpb.Combined, adapter adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.Wrapper, error) {
 	if m.throw {
 		panic("NewAspect panic")
 	}
@@ -117,7 +117,7 @@ func (testAspect) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return 
 func (testAspect) Name() string                                        { return "" }
 func (testAspect) Description() string                                 { return "" }
 
-func (m *fakemgr) NewAspect(cfg *configpb.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
+func (m *fakemgr) NewAspect(cfg *configpb.Combined, adp adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.Wrapper, error) {
 	m.called++
 	if m.w == nil {
 		return nil, errors.New("unable to create aspect")
