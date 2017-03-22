@@ -142,7 +142,7 @@ func TestGetQuota(t *testing.T) {
 	execute(t, cases{
 		{"empty", &pb.GlobalConfig{Quotas: []*dpb.QuotaDescriptor{&quotaDesc}}, getQuota("quota"), &quotaDesc},
 		{"missing", &pb.GlobalConfig{Quotas: []*dpb.QuotaDescriptor{&quotaDesc}}, getQuota("foo"), nil},
-		{"no quotas", &pb.GlobalConfig{}, getQuota("log"), nil},
+		{"no quotas", &pb.GlobalConfig{}, getQuota("quota"), nil},
 	})
 }
 
@@ -150,7 +150,7 @@ func TestGetAttribute(t *testing.T) {
 	execute(t, cases{
 		{"empty", &pb.GlobalConfig{Attributes: []*dpb.AttributeDescriptor{&attributeDesc}}, getAttr("attr"), &attributeDesc},
 		{"missing", &pb.GlobalConfig{Attributes: []*dpb.AttributeDescriptor{&attributeDesc}}, getAttr("foo"), nil},
-		{"no quotas", &pb.GlobalConfig{}, getAttr("log"), nil},
+		{"no attributes", &pb.GlobalConfig{}, getAttr("attr"), nil},
 	})
 }
 
