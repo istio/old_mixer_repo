@@ -76,13 +76,18 @@ func NewFinder(cfg *pb.GlobalConfig) Finder {
 		quotas[desc.Name] = desc
 	}
 
+	attributes := make(map[string]*dpb.AttributeDescriptor)
+	for _, desc := range cfg.Attributes {
+		attributes[desc.Name] = desc
+	}
+
 	return &finder{
 		logs:               logs,
 		metrics:            metrics,
 		monitoredResources: monitoredResources,
 		principals:         principals,
 		quotas:             quotas,
-		attributes:         make(map[string]*dpb.AttributeDescriptor),
+		attributes:         attributes,
 	}
 }
 
