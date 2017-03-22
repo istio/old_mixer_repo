@@ -50,67 +50,6 @@ new_go_repository(
     importpath = "github.com/golang/protobuf",
 )
 
-GOOGLEAPIS_BUILD_FILE = """
-package(default_visibility = ["//visibility:public"])
-
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
-go_prefix("github.com/googleapis/googleapis")
-
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
-
-gogoslick_proto_library(
-    name = "google/rpc",
-    protos = [
-        "google/rpc/code.proto",
-        "google/rpc/error_details.proto",
-        "google/rpc/status.proto",
-    ],
-    importmap = {
-        "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
-        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
-    },
-    imports = [
-        "../../external/com_github_google_protobuf/src",
-    ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    deps = [
-        "@com_github_gogo_protobuf//types:go_default_library",
-    ],
-    verbose = 0,
-)
-
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cc_proto_library")
-
-cc_proto_library(
-    name = "cc_status_proto",
-    protos = [
-        "google/rpc/status.proto",
-    ],
-    imports = [
-        "../../external/com_github_google_protobuf/src",
-    ],
-    verbose = 0,
-)
-
-filegroup(
-    name = "status_proto",
-    srcs = [ "google/rpc/status.proto" ],
-)
-
-filegroup(
-    name = "code_proto",
-    srcs = [ "google/rpc/code.proto" ],
-)
-"""
-
-new_git_repository(
-    name = "com_github_googleapis_googleapis",
-    build_file_content = GOOGLEAPIS_BUILD_FILE,
-    commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15", # Oct 21, 2016 (only release pre-dates sha)
-    remote = "https://github.com/googleapis/googleapis.git",
-)
 
 new_go_repository(
     name = "org_golang_google_grpc",
@@ -154,17 +93,9 @@ new_go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//:repositories.bzl", "new_git_or_local_repository")
-
-new_git_or_local_repository(
-    name = "com_github_istio_api",
-    build_file = "BUILD.api",
-    path = "../api",
-    commit = "2cb09827d7f09a6e88eac2c2249dcb45c5419f09", # Mar 14, 2017 (no releases)
-    remote = "https://github.com/istio/api.git",
-    # Change this to True to use ../api directory
-    use_local = False,
-)
+load("//:repositories.bzl", "go_istio_api_repositories", "go_googleapis_repositories")
+go_istio_api_repositories()
+go_googleapis_repositories()
 
 new_http_archive(
     name = "docker_ubuntu",
