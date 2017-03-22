@@ -19,6 +19,8 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -36,12 +38,12 @@ func newDenialsManager() Manager {
 }
 
 // NewAspect creates a denyChecker aspect.
-func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (denialsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
 	aa := ga.(adapter.DenialsBuilder)
 	var asp adapter.DenialsAspect
 	var err error
 
-	if asp, err = aa.NewDenialsAspect(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
+	if asp, err = aa.NewDenialsAspect(env, cfg.Builder.Params.(config.AspectParams)); err != nil {
 		return nil, err
 	}
 
@@ -50,9 +52,11 @@ func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env ad
 	}, nil
 }
 
-func (denialsManager) Kind() Kind                                                       { return DenialsKind }
-func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenialsParams{} }
-func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (denialsManager) Kind() Kind                         { return DenialsKind }
+func (denialsManager) DefaultConfig() config.AspectParams { return &aconfig.DenialsParams{} }
+func (denialsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
+	return
+}
 
 func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	return Output{Status: a.aspect.Deny()}
