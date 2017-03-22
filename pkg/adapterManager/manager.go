@@ -277,7 +277,9 @@ func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder a
 
 	// create an aspect
 	env := newEnv(builder.Name(), m.adapterGP)
-	asp, err = mgr.NewAspect(cfg, builder, env)
+
+	// TODO: figure out how we want to plumb the descriptor finder through the API layer and into this manager.
+	asp, err = mgr.NewAspect(cfg, builder, env, nil)
 	if err != nil {
 		return nil, err
 	}
