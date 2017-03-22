@@ -120,30 +120,8 @@ func (e *accessLogsWrapper) Close() error {
 }
 
 func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-
-	labels := make(map[string]interface{}, len(e.labels))
-	for name, exp := range e.labels {
-		v, err := mapper.Eval(exp, attrs)
-		if err == nil {
-			labels[name] = v
-			continue
-		}
-		if name == "timestamp" {
-			labels[name] = time.Now()
-		}
-	}
-
-	templateVals := make(map[string]interface{}, len(e.templateExprs))
-	for n, expr := range e.templateExprs {
-		v, err := mapper.Eval(expr, attrs)
-		if err == nil {
-			templateVals[n] = v
-			continue
-		}
-		if n == "timestamp" {
-			templateVals[n] = time.Now()
-		}
-	}
+	labels := permissiveEval(e.labels, attrs, mapper)
+	templateVals := permissiveEval(e.templateExprs, attrs, mapper)
 
 	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, templateVals); err != nil {
@@ -162,4 +140,22 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		return Output{Status: status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))}
 	}
 	return Output{Status: status.OK}
+}
+
+func permissiveEval(labels map[string]string, attrs attribute.Bag, mapper expr.Evaluator) map[string]interface{} {
+	mappedVals := make(map[string]interface{}, len(labels))
+	for name, exp := range labels {
+		v, err := mapper.Eval(exp, attrs)
+		if err == nil {
+			mappedVals[name] = v
+			continue
+		}
+		// TODO: timestamp is hardcoded here to match hardcoding in
+		// templates and to get around current issues with existence of
+		// attribute descriptors and expressiveness of config language
+		if name == "timestamp" {
+			mappedVals[name] = time.Now()
+		}
+	}
+	return mappedVals
 }
