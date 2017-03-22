@@ -196,7 +196,7 @@ func TestManager(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, nil, gp, agp)
 
-		out := m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil)
+		out := m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil, nil)
 		errStr := out.Message()
 		if !strings.Contains(errStr, tt.errString) {
 			t.Errorf("[%d] expected: '%s' \ngot: '%s'", idx, tt.errString, errStr)
@@ -217,7 +217,7 @@ func TestManager(t *testing.T) {
 
 		// call again
 		// check for cache
-		_ = m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil)
+		_ = m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil, nil)
 		if tt.wrapper.called != 2 {
 			t.Errorf("[%d] Expected 2nd wrapper call", idx)
 		}
@@ -269,7 +269,7 @@ func TestManager_BulkExecute(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, nil, gp, agp)
 
-		out := m.Execute(context.Background(), c.cfgs, requestBag, responseBag, nil)
+		out := m.Execute(context.Background(), c.cfgs, requestBag, responseBag, nil, nil)
 		errStr := out.Message()
 		if !strings.Contains(errStr, c.errString) {
 			t.Errorf("[%d] got: '%s' want: '%s'", idx, c.errString, errStr)
@@ -318,7 +318,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 		},
 	}
 
-	out := m.Execute(context.Background(), cfg, nil, nil, nil)
+	out := m.Execute(context.Background(), cfg, nil, nil, nil, nil)
 	if out.IsOK() {
 		t.Error("Aspect panicked, but got no error from manager.Execute")
 	}
@@ -363,7 +363,7 @@ func TestExecute(t *testing.T) {
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
 
-		o := m.Execute(context.Background(), cfg, nil, nil, nil)
+		o := m.Execute(context.Background(), cfg, nil, nil, nil, nil)
 		if c.inErr != nil && o.IsOK() {
 			t.Errorf("m.Execute(...) want err: %v", c.inErr)
 		}
@@ -396,7 +396,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	cfg := []*configpb.Combined{
 		{&configpb.Adapter{Name: ""}, &configpb.Aspect{Kind: ""}},
 	}
-	if out := handler.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil); out.IsOK() {
+	if out := handler.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil, nil); out.IsOK() {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
@@ -438,7 +438,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}}
-	if out := m.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil); out.IsOK() {
+	if out := m.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil, nil); out.IsOK() {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)
