@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"sort"
@@ -24,9 +24,10 @@ import (
 	pkgadapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/config"
 )
 
-func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
+func adapterCmd(outf outFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
 		Short: "Inventory of available adapters and aspects in the mixer",
@@ -36,10 +37,7 @@ func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
 		Use:   "adapter",
 		Short: "List available adapter builders",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := listBuilders(outf)
-			if err != nil {
-				errorf("%v", err)
-			}
+			listBuilders(outf)
 		},
 	})
 
@@ -47,17 +45,14 @@ func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
 		Use:   "aspect",
 		Short: "List available aspects",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := listAspects(outf)
-			if err != nil {
-				errorf("%v", err)
-			}
+			listAspects(outf)
 		},
 	})
 
 	return &adapterCmd
 }
 
-func listAspects(outf outFn) error {
+func listAspects(outf outFn) {
 	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
 
 	keys := []string{}
@@ -70,12 +65,11 @@ func listAspects(outf outFn) error {
 	for _, kind := range keys {
 		outf("aspect %s\n", kind)
 		k, _ := aspect.ParseKind(kind)
-		printConfigValidator(outf, aspectMap[k])
+		printAspectConfigValidator(outf, aspectMap[k])
 	}
-	return nil
 }
 
-func listBuilders(outf outFn) error {
+func listBuilders(outf outFn) {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
 	keys := []string{}
 	for k := range builderMap {
@@ -87,14 +81,11 @@ func listBuilders(outf outFn) error {
 		b := builderMap[impl].Builder
 
 		outf("adapter %s: %s\n", impl, b.Description())
-		printConfigValidator(outf, b)
-
+		printAdapterConfigValidator(outf, b)
 	}
-	return nil
 }
 
-func printConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
-
+func printAdapterConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
 	outf("Params: \n")
 	c := v.DefaultConfig()
 	if c == nil {
@@ -104,5 +95,18 @@ func printConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
 	if err != nil {
 		outf("%s", err)
 	}
-	outf("%s", string(out[:])+"\n")
+	outf("%s\n", string(out[:]))
+}
+
+func printAspectConfigValidator(outf outFn, v config.AspectValidator) {
+	outf("Params: \n")
+	c := v.DefaultConfig()
+	if c == nil {
+		return
+	}
+	out, err := yaml.Marshal(c)
+	if err != nil {
+		outf("%s", err)
+	}
+	outf("%s\n", string(out[:]))
 }

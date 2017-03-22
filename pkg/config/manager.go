@@ -24,14 +24,15 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config/descriptors"
+	"istio.io/mixer/pkg/config/descriptor"
+	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
 // Resolver resolves configuration to a list of combined configs.
 type Resolver interface {
 	// Resolve resolves configuration to a list of combined configs.
-	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error)
+	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*pb.Combined, error)
 }
 
 // ChangeListener listens for config change notifications.
@@ -45,10 +46,10 @@ type ChangeListener interface {
 // api.Handler listens for config changes.
 type Manager struct {
 	eval             expr.Evaluator
-	aspectFinder     ValidatorFinderFunc
-	builderFinder    ValidatorFinderFunc
-	descriptorFinder descriptors.Finder
-	findAspects      AdapterToAspectMapperFunc
+	aspectFinder     AspectValidatorFinder
+	builderFinder    AdapterValidatorFinder
+	descriptorFinder descriptor.Finder
+	findAspects      AdapterToAspectMapper
 	loopDelay        time.Duration
 	globalConfig     string
 	serviceConfig    string
@@ -73,8 +74,8 @@ type Manager struct {
 // as command line input parameters.
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
-func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinderFunc, builderFinder ValidatorFinderFunc,
-	findAspects AdapterToAspectMapperFunc, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
+func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder AdapterValidatorFinder,
+	findAspects AdapterToAspectMapper, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,
 		aspectFinder:  aspectFinder,
@@ -126,7 +127,7 @@ func (c *Manager) fetch() (*Runtime, error) {
 		return nil, cerr
 	}
 
-	c.descriptorFinder = descriptors.NewFinder(v.validated.globalConfig)
+	c.descriptorFinder = descriptor.NewFinder(v.validated.globalConfig)
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
