@@ -100,7 +100,7 @@ func newBuilder() builder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
-func (builder) NewQuotasAspect(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return newAspect(env, c.(*config.Params), d)
 }
 
