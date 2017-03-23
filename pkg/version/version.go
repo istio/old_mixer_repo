@@ -45,6 +45,7 @@ func (b BuildInfo) String() string {
 	return fmt.Sprintf("version: %s (build: %s, status: %s)", b.Version, b.ID, b.Status)
 }
 
+// Info is used to export the build info values set at runtime via `-ldflags`.
 var Info BuildInfo
 
 func init() {
