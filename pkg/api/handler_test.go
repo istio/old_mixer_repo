@@ -28,16 +28,22 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/status"
 )
 
 type fakeresolver struct {
-	ret []*config.Combined
+	ret []*cpb.Combined
 	err error
 }
 
-func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*config.Combined, error) {
+func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*cpb.Combined, error) {
 	return f.ret, f.err
+}
+
+type fakeDf struct {
+	descriptor.Finder
 }
 
 type fakeExecutor struct {
@@ -45,7 +51,8 @@ type fakeExecutor struct {
 }
 
 // Execute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*cpb.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	ma aspect.APIMethodArgs, df descriptor.Finder) aspect.Output {
 	return f.body()
 }
 
@@ -54,17 +61,17 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 		return aspect.Output{Status: status.WithError(errors.New("expected"))}
 	}}
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
-	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
+	h.ConfigChange(&fakeresolver{[]*cpb.Combined{nil, nil}, nil}, &fakeDf{})
 
-	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
-	o := h.execute(context.Background(), bag, aspect.CheckMethod, nil)
+	o := h.execute(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), aspect.CheckMethod, nil)
 	if o.Status.Code != int32(rpc.INTERNAL) {
 		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", o.Status, rpc.INTERNAL)
 	}
 }
 
 func TestHandler(t *testing.T) {
-	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
+	bag := attribute.GetMutableBag(nil)
+	output := attribute.GetMutableBag(nil)
 
 	checkReq := &mixerpb.CheckRequest{}
 	checkResp := &mixerpb.CheckResponse{}
@@ -81,8 +88,8 @@ func TestHandler(t *testing.T) {
 		code        rpc.Code
 	}{
 		{nil, "", "", "", rpc.INTERNAL},
-		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "RESOLVER", "", "RESOLVER", rpc.INTERNAL},
-		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "", "BADASPECT", "BADASPECT", rpc.INTERNAL},
+		{&fakeresolver{[]*cpb.Combined{nil, nil}, nil}, "RESOLVER", "", "RESOLVER", rpc.INTERNAL},
+		{&fakeresolver{[]*cpb.Combined{nil, nil}, nil}, "", "BADASPECT", "BADASPECT", rpc.INTERNAL},
 	}
 
 	for _, c := range cases {
@@ -100,12 +107,12 @@ func TestHandler(t *testing.T) {
 			if c.resolverErr != "" {
 				r.err = fmt.Errorf(c.resolverErr)
 			}
-			h.ConfigChange(r)
+			h.ConfigChange(r, &fakeDf{})
 		}
 
-		h.Check(context.Background(), bag, checkReq, checkResp)
-		h.Report(context.Background(), bag, reportReq, reportResp)
-		h.Quota(context.Background(), bag, quotaReq, quotaResp)
+		h.Check(context.Background(), bag, output, checkReq, checkResp)
+		h.Report(context.Background(), bag, output, reportReq, reportResp)
+		h.Quota(context.Background(), bag, output, quotaReq, quotaResp)
 
 		if checkResp.Result.Code != int32(c.code) || reportResp.Result.Code != int32(c.code) || quotaResp.Result.Code != int32(c.code) {
 			t.Errorf("Expected %v for all responses, got %v, %v, %v", c.code, checkResp.Result.Code, reportResp.Result.Code, quotaResp.Result.Code)
@@ -124,12 +131,12 @@ func TestHandler(t *testing.T) {
 	f := &fakeExecutor{func() aspect.Output {
 		return aspect.Output{Status: status.OK, Response: &aspect.QuotaMethodResp{Amount: 42}}
 	}}
-	r := &fakeresolver{[]*config.Combined{nil, nil}, nil}
+	r := &fakeresolver{[]*cpb.Combined{nil, nil}, nil}
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
-	h.ConfigChange(r)
+	h.ConfigChange(r, &fakeDf{})
 
 	// Should succeed
-	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+	h.Quota(context.Background(), bag, output, quotaReq, quotaResp)
 
 	if !status.IsOK(quotaResp.Result) {
 		t.Errorf("Expected successful quota allocation, got %v", quotaResp.Result)

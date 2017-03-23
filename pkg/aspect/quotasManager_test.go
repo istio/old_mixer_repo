@@ -31,8 +31,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config"
-	pb "istio.io/mixer/pkg/config/proto"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -70,7 +69,7 @@ func (b *fakeQuotaBuilder) Name() string {
 	return b.name
 }
 
-func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.AspectConfig,
+func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.Config,
 	quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return b.body()
 }
@@ -80,14 +79,14 @@ func TestNewQuotasManager(t *testing.T) {
 	if m.Kind() != QuotasKind {
 		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), QuotasKind)
 	}
-	if err := m.ValidateConfig(m.DefaultConfig()); err != nil {
+	if err := m.ValidateConfig(m.DefaultConfig(), nil, nil); err != nil {
 		t.Errorf("m.ValidateConfig(m.DefaultConfig()) = %v; wanted no err", err)
 	}
 }
 
-func newQuotaConfig(desc string, labels map[string]string) *config.Combined {
-	return &config.Combined{
-		Aspect: &pb.Aspect{
+func newQuotaConfig(desc string, labels map[string]string) *cpb.Combined {
+	return &cpb.Combined{
+		Aspect: &cpb.Aspect{
 			Params: &aconfig.QuotasParams{
 				Quotas: []*aconfig.QuotasParams_Quota{
 					{
@@ -99,7 +98,7 @@ func newQuotaConfig(desc string, labels map[string]string) *config.Combined {
 		},
 
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &pb.Adapter{Params: &aconfig.QuotasParams{}},
+		Builder: &cpb.Adapter{Params: &aconfig.QuotasParams{}},
 	}
 }
 
@@ -109,28 +108,28 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	}}
 
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 
 	conf = newQuotaConfig("FOOBAR", map[string]string{})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
 
 func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
-	conf := &config.Combined{
-		Aspect: &pb.Aspect{Params: &aconfig.QuotasParams{}},
+	conf := &cpb.Combined{
+		Aspect: &cpb.Aspect{Params: &aconfig.QuotasParams{}},
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &pb.Adapter{Params: &aconfig.QuotasParams{}},
+		Builder: &cpb.Adapter{Params: &aconfig.QuotasParams{}},
 	}
 	errString := "expected"
 	builder := &fakeQuotaBuilder{
 		body: func() (adapter.QuotasAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t))
+	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil)
 	if err == nil {
 		t.Error("newQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
@@ -189,15 +188,16 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		eval        expr.Evaluator
 		out         map[string]o
 		errString   string
+		resp        QuotaMethodResp
 	}{
-		{make(map[string]*quotaInfo), 1, nil, false, test.NewIDEval(), make(map[string]o), ""},
-		{goodMd, 1, nil, false, errEval, make(map[string]o), "expected"},
-		{goodMd, 1, nil, false, labelErrEval, make(map[string]o), "expected"},
-		{goodMd, 1, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
+		{make(map[string]*quotaInfo), 1, nil, false, test.NewIDEval(), make(map[string]o), "", QuotaMethodResp{}},
+		{goodMd, 1, nil, false, errEval, make(map[string]o), "expected", QuotaMethodResp{}},
+		{goodMd, 1, nil, false, labelErrEval, make(map[string]o), "expected", QuotaMethodResp{}},
+		{goodMd, 1, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "", QuotaMethodResp{Amount: 1}},
 		{goodMd, 0, errors.New("alloc-forced-error"), false, goodEval,
-			map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error"},
-		{goodMd, 1, nil, true, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
-		{goodMd, 0, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
+			map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error", QuotaMethodResp{}},
+		{goodMd, 1, nil, true, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "", QuotaMethodResp{Amount: 1}},
+		{goodMd, 0, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "", QuotaMethodResp{}},
 	}
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
@@ -232,6 +232,19 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 					if _, found := receivedArgs.Labels[l]; !found {
 						t.Errorf("value.Labels = %v; wanted label named %s", receivedArgs.Labels, l)
 					}
+				}
+
+				resp := out.Response.(*QuotaMethodResp)
+				if resp.Amount != c.resp.Amount {
+					t.Errorf("Got amount %d, expecting %d", resp.Amount, c.resp.Amount)
+				}
+
+				if resp.Expiration != c.resp.Expiration {
+					t.Errorf("Got expiration %d, expecting %d", resp.Expiration, c.resp.Expiration)
+				}
+			} else {
+				if out.Response != nil {
+					t.Errorf("Got response %v, expecting nil", out.Response)
 				}
 			}
 		})

@@ -102,7 +102,7 @@ func newBuilder() builder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
-func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	dedupWindow, err := ptypes.DurationFromProto(c.MinDeduplicationDuration)
@@ -116,7 +116,7 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 	return
 }
 
-func (builder) NewQuotasAspect(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return newAspect(env, c.(*config.Params))
 }
 
@@ -304,6 +304,8 @@ func (mq *memQuota) reapDedup() {
 	t := mq.oldDedup
 	mq.oldDedup = mq.recentDedup
 	mq.recentDedup = t
+
+	mq.logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
 
 	// TODO: why isn't there a O(1) way to clear a map to the empty state?!
 	for k := range t {

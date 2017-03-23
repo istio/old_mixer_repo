@@ -29,6 +29,8 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -68,7 +70,7 @@ type cacheKey struct {
 	aspectParamsSHA  [sha1.Size]byte
 }
 
-func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
+func newCacheKey(kind aspect.Kind, cfg *configpb.Combined) (*cacheKey, error) {
 	ret := cacheKey{
 		kind: kind,
 		impl: cfg.Builder.GetImpl(),
@@ -120,8 +122,13 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 }
 
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
-func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
+func (m *Manager) Execute(ctx context.Context, cfgs []*configpb.Combined,
+	requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, ma aspect.APIMethodArgs, df descriptor.Finder) aspect.Output {
 	numCfgs := len(cfgs)
+
+	// TODO: consider implementing a fast path when there is only a single config.
+	//       we don't need to schedule goroutines, we could use the incoming attribute
+	//       bags without needing children & merging, etc.
 
 	// TODO: look into pooling both result array and channel, they're created per-request and are constant size for cfg lifetime.
 	results := make([]result, numCfgs)
@@ -131,8 +138,13 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 	for _, cfg := range cfgs {
 		c := cfg // ensure proper capture in the worker func below
 		m.gp.ScheduleWork(func() {
-			out := m.execute(ctx, c, attrs, ma)
-			resultChan <- result{c, out}
+			childRequestBag := requestBag.Child()
+			childResponseBag := responseBag.Child()
+
+			out := m.execute(ctx, c, childRequestBag, childResponseBag, ma, df)
+			resultChan <- result{c, out, childResponseBag}
+
+			childRequestBag.Done()
 		})
 	}
 
@@ -147,6 +159,21 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 		case res := <-resultChan:
 			results[i] = res
 		}
+	}
+
+	// TODO: look into having a pool of these to avoid frequent allocs
+	bags := make([]*attribute.MutableBag, numCfgs)
+	for i, r := range results {
+		bags[i] = r.responseBag
+	}
+
+	if err := responseBag.Merge(bags); err != nil {
+		glog.Errorf("Unable to merge response attributes: %v", err)
+		return aspect.Output{Status: status.WithError(err)}
+	}
+
+	for _, b := range bags {
+		b.Done()
 	}
 
 	return combineResults(results)
@@ -176,17 +203,29 @@ func combineResults(results []result) aspect.Output {
 		pool.PutBuffer(buf)
 	}
 
-	return aspect.Output{Status: s}
+	// Note that we don't try to merge multiple responses together and just
+	// take the response from the first result.
+	var resp aspect.APIMethodResp
+	if len(results) > 0 {
+		resp = results[0].out.Response
+
+		if len(results) > 1 {
+			glog.Infof("Ignoring potential responses for %d aspects", len(results)-1)
+		}
+	}
+	return aspect.Output{Status: s, Response: resp}
 }
 
 // result holds the values returned by the execution of an adapter
 type result struct {
-	cfg *config.Combined
-	out aspect.Output
+	cfg         *configpb.Combined
+	out         aspect.Output
+	responseBag *attribute.MutableBag
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) (out aspect.Output) {
+func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
+	ma aspect.APIMethodArgs, df descriptor.Finder) (out aspect.Output) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -212,7 +251,7 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 		}
 	}()
 
-	asp, err := m.cacheGet(cfg, mgr, adp)
+	asp, err := m.cacheGet(cfg, mgr, adp, df)
 	if err != nil {
 		return aspect.Output{Status: status.WithError(err)}
 	}
@@ -220,11 +259,11 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 	// TODO: plumb  ctx through asp.Execute
 	_ = ctx
 	// TODO: act on asp.Output
-	return asp.Execute(attrs, m.mapper, ma)
+	return asp.Execute(requestBag, m.mapper, ma)
 }
 
 // cacheGet gets an aspect wrapper from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder adapter.Builder) (asp aspect.Wrapper, err error) {
+func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder adapter.Builder, df descriptor.Finder) (asp aspect.Wrapper, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err
@@ -239,7 +278,8 @@ func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder ada
 
 	// create an aspect
 	env := newEnv(builder.Name(), m.adapterGP)
-	asp, err = mgr.NewAspect(cfg, builder, env)
+
+	asp, err = mgr.NewAspect(cfg, builder, env, df)
 	if err != nil {
 		return nil, err
 	}
@@ -266,9 +306,9 @@ func closeWrapper(asp aspect.Wrapper) {
 	}
 }
 
-// AspectValidatorFinder returns a ValidatorFinderFunc for aspects.
-func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
-	return func(kind string) (adapter.ConfigValidator, bool) {
+// AspectValidatorFinder returns a AdapterValidatorFinder for aspects.
+func (m *Manager) AspectValidatorFinder() config.AspectValidatorFinder {
+	return func(kind string) (config.AspectValidator, bool) {
 		k, found := aspect.ParseKind(kind)
 		if !found {
 			return nil, false
@@ -278,15 +318,15 @@ func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
 	}
 }
 
-// AdapterToAspectMapperFunc returns AdapterToAspectMapperFunc.
-func (m *Manager) AdapterToAspectMapperFunc() config.AdapterToAspectMapperFunc {
+// AdapterToAspectMapperFunc returns AdapterToAspectMapper.
+func (m *Manager) AdapterToAspectMapperFunc() config.AdapterToAspectMapper {
 	return func(impl string) (kinds []string) {
 		return m.builders.SupportedKinds(impl)
 	}
 }
 
-// BuilderValidatorFinder returns a ValidatorFinderFunc for builders.
-func (m *Manager) BuilderValidatorFinder() config.ValidatorFinderFunc {
+// BuilderValidatorFinder returns a AdapterValidatorFinder for builders.
+func (m *Manager) BuilderValidatorFinder() config.AdapterValidatorFinder {
 	return func(name string) (adapter.ConfigValidator, bool) {
 		return m.builders.FindBuilder(name)
 	}

@@ -15,6 +15,7 @@ go_library(
         "//pkg/aspect:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config:go_default_library",
+        "//pkg/config/descriptor:go_default_library",
         "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
@@ -34,6 +35,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
+        "//pkg/config/descriptor:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_istio_api//:mixer/v1/config",
         "@com_github_istio_api//:mixer/v1/config/descriptor",

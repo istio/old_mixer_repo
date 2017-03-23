@@ -86,17 +86,17 @@ type Expression struct {
 
 // AttributeDescriptorFinder finds attribute descriptors.
 type AttributeDescriptorFinder interface {
-	// FindAttributeDescriptor finds attribute descriptor in the vocabulary. returns nil if not found.
-	FindAttributeDescriptor(name string) *config.AttributeDescriptor
+	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
+	GetAttribute(name string) *config.AttributeDescriptor
 }
 
 // TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType config.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
 	if e.Var != nil {
-		ad := attrs.FindAttributeDescriptor(e.Var.Name)
+		ad := attrs.GetAttribute(e.Var.Name)
 		if ad == nil {
 			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
 		}
@@ -105,20 +105,29 @@ func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]
 	return e.Fn.TypeCheck(attrs, fMap)
 }
 
+// Eval returns value of the contained variable or error
+func (v *Variable) Eval(attrs attribute.Bag) (interface{}, error) {
+	if val, ok := attrs.Get(v.Name); ok {
+		return val, nil
+	}
+	return nil, fmt.Errorf("unresolved attribute %s", v.Name)
+}
+
 // Eval evaluates the expression given an attribute bag and a function map.
-func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{}, error) {
+func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]FuncBase) (interface{}, error) {
 	if e.Const != nil {
 		return e.Const.Value, nil
 	}
 	if e.Var != nil {
-		v, ok := attrs.Get(e.Var.Name)
-		if !ok {
-			return nil, fmt.Errorf("unresolved attribute %s", e.Var.Name)
-		}
-		return v, nil
+		return e.Var.Eval(attrs)
+	}
+
+	fn := fMap[e.Fn.Name]
+	if fn == nil {
+		return nil, fmt.Errorf("unknown function: %s", e.Fn.Name)
 	}
 	// may panic
-	return e.Fn.Eval(attrs, fMap)
+	return fn.(Func).Call(attrs, e.Fn.Args, fMap)
 }
 
 // String produces postfix version with all operators converted to function names
@@ -199,27 +208,8 @@ func (f *Function) String() string {
 	return s
 }
 
-// Eval evaluate function.
-func (f *Function) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{}, error) {
-	fn := fMap[f.Name]
-	if fn == nil {
-		return nil, fmt.Errorf("unknown function: %s", f.Name)
-	}
-	// may panic if config is not consistent with Func.ArgTypes().
-	args := []interface{}{}
-	for _, earg := range f.Args {
-		arg, err := earg.Eval(attrs, fMap)
-		if err != nil && !fn.AcceptsNulls() {
-			return nil, err
-		}
-		args = append(args, arg)
-	}
-	glog.V(2).Infof("calling %#v %#v", fn, args)
-	return fn.Call(args), nil
-}
-
 // TypeCheck Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType config.ValueType, err error) {
 	fn := fMap[f.Name]
 	if fn == nil {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
@@ -387,7 +377,7 @@ func Parse(src string) (ex *Expression, err error) {
 type cexl struct {
 	//TODO add ast cache
 	// function Map
-	fMap map[string]Func
+	fMap map[string]FuncBase
 }
 
 func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error) {
@@ -422,6 +412,14 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 		return
 	}
 	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
+}
+
+func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (config.ValueType, error) {
+	v, err := Parse(expr)
+	if err != nil {
+		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s' with err: %v", expr, err)
+	}
+	return v.TypeCheck(attrFinder, e.fMap)
 }
 
 // Validate validates expression for syntactic correctness.

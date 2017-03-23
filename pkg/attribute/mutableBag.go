@@ -49,7 +49,13 @@ var mutableBags = sync.Pool{
 	},
 }
 
-func getMutableBag(parent Bag) *MutableBag {
+// GetMutableBag returns an initialized bag.
+//
+// Bags can be chained in a parent/child relationship. You can pass nil if the
+// bag has no parent.
+//
+// When you are done using the mutable bag, call the Done method to recycle it.
+func GetMutableBag(parent Bag) *MutableBag {
 	mb := mutableBags.Get().(*MutableBag)
 
 	mb.parent = parent
@@ -60,8 +66,9 @@ func getMutableBag(parent Bag) *MutableBag {
 	return mb
 }
 
-func copyBag(b Bag) *MutableBag {
-	mb := getMutableBag(nil)
+// CopyBag makes a deep copy of MutableBag.
+func CopyBag(b Bag) *MutableBag {
+	mb := GetMutableBag(nil)
 	for _, k := range b.Names() {
 		v, _ := b.Get(k)
 		mb.Set(k, copyValue(v))
@@ -161,7 +168,7 @@ func (mb *MutableBag) Merge(bags []*MutableBag) error {
 //
 // Mutating a child doesn't affect the parent's state, all mutations are deltas.
 func (mb *MutableBag) Child() *MutableBag {
-	return getMutableBag(mb)
+	return GetMutableBag(mb)
 }
 
 // Ensure that all dictionary indices are valid and that all values

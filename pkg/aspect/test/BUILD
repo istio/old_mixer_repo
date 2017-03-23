@@ -10,11 +10,11 @@ go_library(
         "env.go",
         "evaluator.go",
         "logger.go",
-        "structutil.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
+        "//pkg/config:go_default_library",
         "//pkg/expr:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
     ],
