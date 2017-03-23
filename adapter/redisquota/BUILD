@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "driver.go",
-        "driver_impl.go",
         "redisquota.go",
     ],
     deps = [
@@ -18,4 +17,14 @@ go_library(
         "@com_github_redis_client//pool:go_default_library",
         "@com_github_redis_client//redis:go_default_library",
     ],
+)
+
+go_test(
+    name = "small_tests",
+    size = "small",
+    srcs = [
+        "driver_test.go",
+    ],
+    library = ":go_default_library",
+    deps = ["//pkg/adapter/test:go_default_library"],
 )

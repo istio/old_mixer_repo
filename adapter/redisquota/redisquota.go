@@ -42,7 +42,7 @@ type redisQuota struct {
 	cells map[string]int64
 
 	// connection pool with redis
-	redisPool ConnPool
+	redisPool *connPool
 
 	// two ping-ponging maps of active dedup ids
 	recentDedup map[string]dedupState
@@ -72,7 +72,7 @@ var keyWorkspacePool = sync.Pool{New: func() interface{} { return &keyWorkspace{
 
 var (
 	name = "redisQuota"
-	desc = "redis based quotas."
+	desc = "Redis-based quotas."
 	conf = &config.Params{
 		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
 		Url:        "localhost:6379",
@@ -82,7 +82,8 @@ var (
 )
 
 const (
-	// See the rollingWindow comment for a description of what this is for.
+	// Time is abstracted in terms of ticks, provided by the caller, decoupling the
+	// implementation from real-time, enabling much easier testing and more flexibility.
 	ticksPerSecond = 10
 
 	// ns/tick
@@ -112,7 +113,7 @@ func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapte
 
 // newAspectWithDedup returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	connPool, _ := NewConnPool(c.SocketType, c.Url, c.PoolSize)
+	connPool, _ := newConnPool(c.SocketType, c.Url, c.PoolSize)
 	rq := &redisQuota{
 		definitions: definitions,
 		cells:       make(map[string]int64),
@@ -137,20 +138,22 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 	amount, exp, err := rq.commonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
-		conn, err := rq.redisPool.Get()
+		conn, err := rq.redisPool.get()
 		if err != nil {
+			rq.logger.Infof("Could not get connection to redis")
 			return 0, time.Time{}, 0
 		}
-		defer rq.redisPool.Put(conn)
+		defer rq.redisPool.put(conn)
 
 		// increase the value of this key by the amount of result
-		conn.PipeAppend("INCRBY", key, result)
-		resp, err := conn.PipeResponse()
+		conn.pipeAppend("INCRBY", key, result)
+		resp, err := conn.pipeResponse()
 
 		if err != nil {
+			rq.logger.Infof("Could not get response from redis")
 			return 0, time.Time{}, 0
 		}
-		ret := resp.Int()
+		ret := resp.int()
 
 		if ret > d.MaxAmount {
 			if !bestEffort {
@@ -174,25 +177,25 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 	amount, _, err := rq.commonWrapper(args,
 		func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration) {
 			result := args.QuotaAmount
-			conn, err := rq.redisPool.Get()
+			conn, err := rq.redisPool.get()
 			if err != nil {
 				return 0, time.Time{}, 0
 			}
-			defer rq.redisPool.Put(conn)
+			defer rq.redisPool.put(conn)
 
 			// decrease the value of this key by the amount of result
-			conn.PipeAppend("DECRBY", key, result)
-			resp, err := conn.PipeResponse()
+			conn.pipeAppend("DECRBY", key, result)
+			resp, err := conn.pipeResponse()
 			if err != nil {
 				return 0, time.Time{}, 0
 			}
-			ret := resp.Int()
+			ret := resp.int()
 
 			if ret <= 0 {
 				// delete the key since it contains no useful state
-				conn.PipeAppend("DEL", key)
+				conn.pipeAppend("DEL", key)
 				// consume the output of previous command
-				resp, _ = conn.PipeResponse()
+				resp, _ = conn.pipeResponse()
 			}
 
 			return result, time.Time{}, 0
@@ -202,6 +205,7 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 }
 
 func (rq *redisQuota) Close() error {
+	rq.redisPool.empty()
 	return nil
 }
 
