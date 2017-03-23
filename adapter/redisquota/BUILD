@@ -7,13 +7,14 @@ go_library(
     srcs = [
         "driver.go",
         "driver_impl.go",
-        "redisQuota.go",
+        "redisquota.go",
     ],
     deps = [
-        "//adapter/redisQuota/config:go_default_library",
+        "//adapter/redisquota/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/pool:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_redis_client//pool:go_default_library",
         "@com_github_redis_client//redis:go_default_library",
     ],
