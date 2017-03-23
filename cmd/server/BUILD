@@ -6,9 +6,8 @@ go_binary(
     name = "mixs",
     srcs = [
         "main.go",
-        "version.go",
     ],
-    linkstamp = "main",
+    linkstamp = "istio.io/mixer/pkg/version",
     visibility = ["//visibility:public"],
     deps = [
         "//cmd/server/cmd:go_default_library",
