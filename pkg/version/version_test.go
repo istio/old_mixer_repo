@@ -1,4 +1,4 @@
-// Copyright 2016 Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package version
 
-import (
-	"fmt"
-	"os"
+import "testing"
 
-	"istio.io/mixer/cmd/server/cmd"
-)
+func TestBuildInfo_String(t *testing.T) {
+	cases := []struct {
+		name string
+		in   BuildInfo
+		want string
+	}{
+		{"all specified", BuildInfo{"0.0.1", "2017-03-23-as4323f", "Clean"}, "version: 0.0.1 (build: 2017-03-23-as4323f, status: Clean)"},
+		{"init", Info, "version: unknown (build: unknown, status: unknown)"},
+	}
 
-func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:],
-		func(format string, a ...interface{}) {
-			fmt.Printf(format, a...)
-		},
-		func(format string, a ...interface{}) {
-			fmt.Fprintf(os.Stderr, format+"\n", a...)
-			os.Exit(-1)
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			if v.in.String() != v.want {
+				t.Errorf("got %s; want %s", v.in.String(), v.want)
+			}
 		})
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(-1)
 	}
 }
