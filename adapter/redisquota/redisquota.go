@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package redisQuota provides a quota implementation with redis as backend.
+// Package redisquota provides a quota implementation with redis as backend.
 // The prerequisite is to have a redis server running.
-
-package redisQuota
+package redisquota
 
 import (
 	"fmt"
@@ -26,7 +25,7 @@ import (
 
 	ptypes "github.com/gogo/protobuf/types"
 
-	"istio.io/mixer/adapter/redisQuota/config"
+	"istio.io/mixer/adapter/redisquota/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/pool"
 )
@@ -43,7 +42,7 @@ type redisQuota struct {
 	cells map[string]int64
 
 	// connection pool with redis
-	redisPool connPool
+	redisPool ConnPool
 
 	// two ping-ponging maps of active dedup ids
 	recentDedup map[string]dedupState
@@ -76,9 +75,9 @@ var (
 	desc = "redis based quotas."
 	conf = &config.Params{
 		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
-		RedisUrl:                 "localhost:6379",
-		RedisSocketType:          "tcp",
-		RedisPoolSize:            10,
+		Url:        "localhost:6379",
+		SocketType: "tcp",
+		PoolSize:   10,
 	}
 )
 
@@ -113,7 +112,7 @@ func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapte
 
 // newAspectWithDedup returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	connPool, _ := NewconnPoolImpl(c.RedisSocketType, c.RedisUrl, c.RedisPoolSize)
+	connPool, _ := NewConnPool(c.SocketType, c.Url, c.PoolSize)
 	rq := &redisQuota{
 		definitions: definitions,
 		cells:       make(map[string]int64),
@@ -151,7 +150,7 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 		if err != nil {
 			return 0, time.Time{}, 0
 		}
-		ret := int64(resp.Int())
+		ret := resp.Int()
 
 		if ret > d.MaxAmount {
 			if !bestEffort {
@@ -187,13 +186,13 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 			if err != nil {
 				return 0, time.Time{}, 0
 			}
-			ret := int64(resp.Int())
+			ret := resp.Int()
 
 			if ret <= 0 {
 				// delete the key since it contains no useful state
 				conn.PipeAppend("DEL", key)
 				// consume the output of previous command
-				conn.PipeResponse()
+				resp, _ = conn.PipeResponse()
 			}
 
 			return result, time.Time{}, 0
@@ -313,14 +312,4 @@ func makeKey(name string, labels map[string]interface{}) string {
 	keyWorkspacePool.Put(ws)
 
 	return result
-}
-func (rq *redisQuota) reapDedup() {
-	t := rq.oldDedup
-	rq.oldDedup = rq.recentDedup
-	rq.recentDedup = t
-
-	// TODO: why isn't there a O(1) way to clear a map to the empty state?!
-	for k := range t {
-		delete(t, k)
-	}
 }

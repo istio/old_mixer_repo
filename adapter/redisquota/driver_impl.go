@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package redisQuota
+package redisquota
 
 import (
+	"github.com/golang/glog"
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
 )
 
-type connPoolImpl struct {
+// ConnPoolImpl stores the info for redis connection pool.
+type ConnPoolImpl struct {
 	// TODO: add number of connections here
 	pool *pool.Pool
 }
@@ -33,13 +35,15 @@ type responseImpl struct {
 	response *redis.Resp
 }
 
-func (cp *connPoolImpl) Get() (connection, error) {
+// Get is to get a connection from the connection pool.
+func (cp *ConnPoolImpl) Get() (Connection, error) {
 	client, err := cp.pool.Get()
 
 	return &connectionImpl{client, 0}, err
 }
 
-func (cp *connPoolImpl) Put(c connection) {
+// Put is to put a connection c back to the pool.
+func (cp *ConnPoolImpl) Put(c Connection) {
 	impl := c.(*connectionImpl)
 
 	if impl.pending == 0 {
@@ -48,15 +52,17 @@ func (cp *connPoolImpl) Put(c connection) {
 		// radix does not appear to track if we attempt to put a connection back with pipelined
 		// responses that have not been flushed. If we are in this state, just kill the connection
 		// and don't put it back in the pool.
-		impl.client.Close()
+		err := impl.client.Close()
+		if err != nil {
+			glog.Errorf("Unable to close connection with redis: %v", err)
+		}
 	}
 }
 
-func NewconnPoolImpl(redisUrl string, redisSocketType string, redisPoolSize int64) (connPool, error) {
-	// set env variable REDIS_SOCKET_TYPE=tcp, REDIS_URL=localhost:6379
-	// default pool size 10
-	pool, err := pool.New(redisSocketType, redisUrl, int(redisPoolSize))
-	return &connPoolImpl{pool}, err
+// NewConnPool creates a new connection to redis in the pool.
+func NewConnPool(redisURL string, redisSocketType string, redisPoolSize int64) (ConnPool, error) {
+	pool, err := pool.New(redisSocketType, redisURL, int(redisPoolSize))
+	return &ConnPoolImpl{pool}, err
 }
 
 func (ci *connectionImpl) PipeAppend(cmd string, args ...interface{}) {
