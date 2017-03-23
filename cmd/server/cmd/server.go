@@ -127,7 +127,7 @@ func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
 		adapterMgr.AdapterToAspectMapperFunc(),
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
-	handler := api.NewHandler(adapterMgr, adapterMgr.MethodMap())
+	handler := api.NewHandler(adapterMgr)
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
@@ -190,7 +190,7 @@ func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
 		tracer = tracing.DisabledTracer()
 	}
 
-	configManager.Register(handler.(config.ChangeListener))
+	configManager.Register(adapterMgr)
 	configManager.Start()
 
 	// get everything wired up

@@ -19,6 +19,8 @@ import (
 	"text/template"
 	"time"
 
+	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -52,11 +54,11 @@ const (
 )
 
 // newAccessLogsManager returns a manager for the access logs aspect.
-func newAccessLogsManager() Manager {
+func newAccessLogsManager() ReportManager {
 	return accessLogsManager{}
 }
 
-func (m accessLogsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
+func (m accessLogsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportWrapper, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
 	var templateStr string
@@ -119,14 +121,14 @@ func (e *accessLogsWrapper) Close() error {
 	return e.aspect.Close()
 }
 
-func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
+func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	labels := permissiveEval(e.labels, attrs, mapper)
 	templateVals := permissiveEval(e.templateExprs, attrs, mapper)
 
 	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, templateVals); err != nil {
 		pool.PutBuffer(buf)
-		return Output{Status: status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))}
+		return status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))
 	}
 	payload := buf.String()
 	pool.PutBuffer(buf)
@@ -137,9 +139,9 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		TextPayload: payload,
 	}
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))}
+		return status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))
 	}
-	return Output{Status: status.OK}
+	return status.OK
 }
 
 func permissiveEval(labels map[string]string, attrs attribute.Bag, mapper expr.Evaluator) map[string]interface{} {

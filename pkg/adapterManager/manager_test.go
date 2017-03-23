@@ -22,7 +22,6 @@ import (
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
-
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -60,7 +59,7 @@ type (
 
 	// implements adapter.Builder too.
 	testAspect struct {
-		body func() aspect.Output
+		body func() rpc.Status
 	}
 
 	fakewrapper struct {
@@ -71,11 +70,20 @@ type (
 		name string
 		adapter.Builder
 	}
+
+	fakeResolver struct {
+		ret []*configpb.Combined
+		err error
+	}
 )
+
+func (f *fakeResolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*configpb.Combined, error) {
+	return f.ret, f.err
+}
 
 func (f *fakeadp) Name() string { return f.name }
 
-func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (output aspect.Output) {
+func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (output rpc.Status) {
 	f.called++
 	return
 }
@@ -85,7 +93,7 @@ func (m *fakemgr) Kind() aspect.Kind {
 	return m.kind
 }
 
-func newTestManager(name string, throwOnNewAspect bool, body func() aspect.Output) testManager {
+func newTestManager(name string, throwOnNewAspect bool, body func() rpc.Status) testManager {
 	return testManager{name, throwOnNewAspect, testAspect{body}}
 }
 func (testManager) Close() error                       { return nil }
@@ -97,9 +105,9 @@ func (testManager) Kind() aspect.Kind   { return aspect.DenialsKind }
 func (m testManager) Name() string      { return m.name }
 func (testManager) Description() string { return "deny checker aspect manager for testing" }
 
-func (m testManager) NewAspect(cfg *configpb.Combined, adapter adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.Wrapper, error) {
+func (m testManager) NewCheckWrapper(cfg *configpb.Combined, adapter adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.CheckWrapper, error) {
 	if m.throw {
-		panic("NewAspect panic")
+		panic("NewCheckWrapper panic")
 	}
 	return m.instance, nil
 }
@@ -108,7 +116,7 @@ func (m testManager) NewDenyChecker(env adapter.Env, c adapter.Config) (adapter.
 }
 
 func (testAspect) Close() error { return nil }
-func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) aspect.Output {
+func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	return t.body()
 }
 func (testAspect) Deny() rpc.Status                                    { return rpc.Status{Code: int32(rpc.INTERNAL)} }
@@ -117,7 +125,7 @@ func (testAspect) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return 
 func (testAspect) Name() string                                        { return "" }
 func (testAspect) Description() string                                 { return "" }
 
-func (m *fakemgr) NewAspect(cfg *configpb.Combined, adp adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.Wrapper, error) {
+func (m *fakemgr) NewCheckWrapper(cfg *configpb.Combined, adp adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.CheckWrapper, error) {
 	m.called++
 	if m.w == nil {
 		return nil, errors.New("unable to create aspect")
@@ -196,8 +204,10 @@ func TestManager(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, nil, gp, agp)
 
-		out := m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil, nil)
-		errStr := out.Message()
+		m.cfg.Store(&fakeResolver{tt.cfg, nil})
+
+		out := m.Check(context.Background(), requestBag, responseBag)
+		errStr := out.Message
 		if !strings.Contains(errStr, tt.errString) {
 			t.Errorf("[%d] expected: '%s' \ngot: '%s'", idx, tt.errString, errStr)
 		}
@@ -209,21 +219,21 @@ func TestManager(t *testing.T) {
 		if tt.wrapper.called != 1 {
 			t.Errorf("[%d] Expected wrapper call", idx)
 		}
-		mgr1 := mgr[aspect.DenialsKind]
+		mgr1 := mgr[aspect.DenialsKind].(aspect.CheckManager)
 		fmgr := mgr1.(*fakemgr)
 		if fmgr.called != 1 {
-			t.Errorf("[%d] Expected mgr.NewAspect call", idx)
+			t.Errorf("[%d] Expected mgr.NewWrapper call", idx)
 		}
 
 		// call again
 		// check for cache
-		_ = m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil, nil)
+		_ = m.Check(context.Background(), requestBag, responseBag)
 		if tt.wrapper.called != 2 {
 			t.Errorf("[%d] Expected 2nd wrapper call", idx)
 		}
 
 		if fmgr.called != 1 {
-			t.Errorf("[%d] Unexpected mgr.NewAspect call %d", idx, fmgr.called)
+			t.Errorf("[%d] Unexpected mgr.NewWrapper call %d", idx, fmgr.called)
 		}
 
 		gp.Close()
@@ -236,7 +246,6 @@ func TestManager_BulkExecute(t *testing.T) {
 		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
-
 	badcfg1 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
@@ -247,6 +256,7 @@ func TestManager_BulkExecute(t *testing.T) {
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
 	}
+
 	cases := []struct {
 		errString string
 		cfgs      []*configpb.Combined
@@ -269,10 +279,12 @@ func TestManager_BulkExecute(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, nil, gp, agp)
 
-		out := m.Execute(context.Background(), c.cfgs, requestBag, responseBag, nil, nil)
-		errStr := out.Message()
+		m.cfg.Store(&fakeResolver{c.cfgs, nil})
+
+		out := m.Check(context.Background(), requestBag, responseBag)
+		errStr := out.Message
 		if !strings.Contains(errStr, c.errString) {
-			t.Errorf("[%d] got: '%s' want: '%s'", idx, c.errString, errStr)
+			t.Errorf("[%d] got: '%s' want: '%s'", idx, errStr, c.errString)
 		}
 
 		gp.Close()
@@ -281,7 +293,7 @@ func TestManager_BulkExecute(t *testing.T) {
 }
 
 func TestRecovery_NewAspect(t *testing.T) {
-	testRecovery(t, "NewAspect Throws", true, false, "NewAspect")
+	testRecovery(t, "NewWrapper Throws", true, false, "NewWrapper")
 }
 
 func TestRecovery_AspectExecute(t *testing.T) {
@@ -291,12 +303,12 @@ func TestRecovery_AspectExecute(t *testing.T) {
 func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
 	var cacheThrow testManager
 	if throwOnExecute {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() aspect.Output {
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() rpc.Status {
 			panic("panic")
 		})
 	} else {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() aspect.Output {
-			return aspect.Output{Status: status.WithError(errors.New("empty"))}
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() rpc.Status {
+			return status.WithError(errors.New("empty"))
 		})
 	}
 	mreg := map[aspect.Kind]aspect.Manager{
@@ -317,14 +329,15 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 			Aspect:  &configpb.Aspect{Kind: name},
 		},
 	}
+	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	out := m.Execute(context.Background(), cfg, nil, nil, nil, nil)
-	if out.IsOK() {
+	out := m.Check(context.Background(), nil, nil)
+	if status.IsOK(out) {
 		t.Error("Aspect panicked, but got no error from manager.Execute")
 	}
 
-	if !strings.Contains(out.Message(), want) {
-		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, out.Message())
+	if !strings.Contains(out.Message, want) {
+		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, out.Message)
 	}
 
 	gp.Close()
@@ -337,15 +350,14 @@ func TestExecute(t *testing.T) {
 		inCode   rpc.Code
 		inErr    error
 		wantCode rpc.Code
-		resp     aspect.APIMethodResp
 	}{
-		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK, "RESPONSE"},
-		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN, nil},
+		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK},
+		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN},
 	}
 
-	for _, c := range cases {
-		mngr := newTestManager(c.name, false, func() aspect.Output {
-			return aspect.Output{Status: status.New(c.inCode), Response: c.resp}
+	for i, c := range cases {
+		mngr := newTestManager(c.name, false, func() rpc.Status {
+			return status.New(c.inCode)
 		})
 		mreg := map[aspect.Kind]aspect.Manager{
 			aspect.DenialsKind: mngr,
@@ -362,17 +374,17 @@ func TestExecute(t *testing.T) {
 		cfg := []*configpb.Combined{
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
+		m.cfg.Store(&fakeResolver{cfg, nil})
 
-		o := m.Execute(context.Background(), cfg, nil, nil, nil, nil)
-		if c.inErr != nil && o.IsOK() {
+		o := m.dispatch(context.Background(), nil, nil, checkMethod,
+			func(wrapper aspect.Wrapper, evaluator expr.Evaluator) rpc.Status {
+				return status.OK
+			})
+		if c.inErr != nil && status.IsOK(o) {
 			t.Errorf("m.Execute(...) want err: %v", c.inErr)
 		}
-		if c.inErr == nil && !o.IsOK() {
-			t.Errorf("m.Execute(...) = %v; wanted o.Status.Code == rpc.OK", o)
-		}
-
-		if c.resp != o.Response {
-			t.Errorf("m.Execute(...) got response %v, expected %v", o.Response, c.resp)
+		if c.inErr == nil && !status.IsOK(o) {
+			t.Errorf("m.Execute(...) = %v; wanted o.Code == rpc.OK, case %d", o, i)
 		}
 
 		gp.Close()
@@ -396,7 +408,9 @@ func TestExecute_Cancellation(t *testing.T) {
 	cfg := []*configpb.Combined{
 		{&configpb.Adapter{Name: ""}, &configpb.Aspect{Kind: ""}},
 	}
-	if out := handler.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil, nil); out.IsOK() {
+	handler.cfg.Store(&fakeResolver{cfg, nil})
+
+	if out := handler.dispatch(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), checkMethod, nil); status.IsOK(out) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
@@ -409,9 +423,9 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	blockChan := make(chan struct{})
 
 	name := "blocked"
-	mngr := newTestManager(name, false, func() aspect.Output {
+	mngr := newTestManager(name, false, func() rpc.Status {
 		<-blockChan
-		return aspect.Output{Status: status.OK}
+		return status.OK
 	})
 	mreg := map[aspect.Kind]aspect.Manager{
 		aspect.DenialsKind: mngr,
@@ -438,7 +452,9 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}}
-	if out := m.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil, nil); out.IsOK() {
+	m.cfg.Store(&fakeResolver{cfg, nil})
+
+	if out := m.Check(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil)); status.IsOK(out) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)
