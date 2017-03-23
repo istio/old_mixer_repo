@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package adapter.redisQuota.config;
+package adapter.redisquota.config;
 
 import "google/protobuf/duration.proto";
 
@@ -25,11 +25,11 @@ message Params {
     google.protobuf.Duration min_deduplication_duration = 1;
 
     // Redis network address
-    string redis_url = 2;
+    string url = 2;
 
     // Socket type for talking to redis
-    string redis_socket_type = 3;
+    string socket_type = 3;
 
     // Maximum number of idle connections to redis
-    int64 redis_pool_size = 4;
+    int64 pool_size = 4;
 }

@@ -12,26 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package redisQuota
+package redisquota
 
-// Errors that may be raised during config parsing.
-type redisError string
-
-func (e redisError) Error() string {
-	return string(e)
-}
-
-// Interface for a redis connection pool.
-type connPool interface {
+// ConnPool interface for a redis connection pool.
+type ConnPool interface {
 	// Get a connection from the pool. Call Put() on the connection when done.
-	Get() (connection, error)
+	Get() (Connection, error)
 
 	// Put a connection back into the pool.
-	Put(c connection)
+	Put(c Connection)
 }
 
-// Interface for a redis connection.
-type connection interface {
+// Connection interface for a redis connection.
+type Connection interface {
 	// Append a command onto the pipeline queue.
 	PipeAppend(command string, args ...interface{})
 
