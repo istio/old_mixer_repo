@@ -33,6 +33,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type fakeQuotaAspect struct {
@@ -108,13 +109,13 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	}}
 
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	if _, err := newQuotasManager().NewQuotaWrapper(conf, builder, atest.NewEnv(t), nil); err != nil {
+		t.Errorf("NewWrapper(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 
 	conf = newQuotaConfig("FOOBAR", map[string]string{})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	if _, err := newQuotasManager().NewQuotaWrapper(conf, builder, atest.NewEnv(t), nil); err != nil {
+		t.Errorf("NewQuotaWrapper(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
 
@@ -129,12 +130,12 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.QuotasAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil)
+	_, err := newQuotasManager().NewQuotaWrapper(conf, builder, atest.NewEnv(t), nil)
 	if err == nil {
-		t.Error("newQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
+		t.Error("newQuotasManager().NewWrapper(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
 	if !strings.Contains(err.Error(), errString) {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
+		t.Errorf("NewWrapper(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
 	}
 }
 
@@ -209,18 +210,18 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 				}},
 				metadata: c.mdin,
 			}
-			out := wrapper.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
+			out, resp := wrapper.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
 				Quota:      "request_count",
 				Amount:     1,
 				BestEffort: c.bestEffort,
 			})
 
-			errString := out.Message()
+			errString := out.Message
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message(), c.errString)
+				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message, c.errString)
 			}
 
-			if out.IsOK() {
+			if status.IsOK(out) {
 				o, found := c.out[receivedArgs.Definition.Name]
 				if !found {
 					t.Errorf("Got unexpected args %v, wanted only %v", receivedArgs, c.out)
@@ -234,7 +235,6 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 					}
 				}
 
-				resp := out.Response.(*QuotaMethodResp)
 				if resp.Amount != c.resp.Amount {
 					t.Errorf("Got amount %d, expecting %d", resp.Amount, c.resp.Amount)
 				}
@@ -243,8 +243,8 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 					t.Errorf("Got expiration %d, expecting %d", resp.Expiration, c.resp.Expiration)
 				}
 			} else {
-				if out.Response != nil {
-					t.Errorf("Got response %v, expecting nil", out.Response)
+				if resp != nil {
+					t.Errorf("Got response %v, expecting nil", resp)
 				}
 			}
 		})

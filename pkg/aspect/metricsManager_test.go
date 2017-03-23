@@ -93,8 +93,8 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
 	}}
-	if _, err := newMetricsManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	if _, err := newMetricsManager().NewReportWrapper(conf, builder, atest.NewEnv(t), nil); err != nil {
+		t.Errorf("NewWrapper(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
 
@@ -109,12 +109,12 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.MetricsAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newMetricsManager().NewAspect(conf, builder, atest.NewEnv(t), nil)
+	_, err := newMetricsManager().NewReportWrapper(conf, builder, atest.NewEnv(t), nil)
 	if err == nil {
-		t.Error("newMetricsManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
+		t.Error("newMetricsManager().NewReportWrapper(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
 	if !strings.Contains(err.Error(), errString) {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
+		t.Errorf("NewWrapper(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
 	}
 }
 
@@ -205,11 +205,11 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 				}},
 				metadata: c.mdin,
 			}
-			out := wrapper.Execute(test.NewBag(), c.eval, &ReportMethodArgs{})
+			out := wrapper.Execute(test.NewBag(), c.eval)
 
-			errString := out.Message()
+			errString := out.Message
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message(), c.errString)
+				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message, c.errString)
 			}
 
 			if len(receivedValues) != len(c.out) {

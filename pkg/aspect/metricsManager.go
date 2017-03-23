@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -33,8 +34,7 @@ import (
 )
 
 type (
-	metricsManager struct {
-	}
+	metricsManager struct{}
 
 	metricInfo struct {
 		definition *adapter.MetricDefinition
@@ -50,12 +50,11 @@ type (
 )
 
 // newMetricsManager returns a manager for the metric aspect.
-func newMetricsManager() Manager {
+func newMetricsManager() ReportManager {
 	return &metricsManager{}
 }
 
-// NewAspect creates a metric aspect.
-func (m *metricsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
+func (m *metricsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportWrapper, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	// TODO: get descriptors from config
@@ -134,7 +133,7 @@ func (*metricsManager) ValidateConfig(config.AspectParams, expr.Validator, descr
 	return
 }
 
-func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
+func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	result := &multierror.Error{}
 	var values []adapter.Value
 
@@ -172,10 +171,10 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma 
 
 	err := result.ErrorOrNil()
 	if err != nil {
-		return Output{Status: status.WithError(err)}
+		return status.WithError(err)
 	}
 
-	return Output{Status: status.OK}
+	return status.OK
 }
 
 func (w *metricsWrapper) Close() error {

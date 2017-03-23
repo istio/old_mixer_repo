@@ -30,6 +30,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 func TestNewAccessLoggerManager(t *testing.T) {
@@ -93,14 +94,14 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{"template": "{{.test}}"}},
 			}
-			asp, err := m.NewAspect(c, tl, test.Env{}, nil)
+			asp, err := m.NewReportWrapper(c, tl, test.Env{}, nil)
 			if err != nil {
-				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+				t.Fatalf("NewWrapper(): should not have received error for %s (%v)", v.name, err)
 			}
 			got := asp.(*accessLogsWrapper)
 			got.template = nil // ignore template values in equality comp
 			if !reflect.DeepEqual(got, v.want) {
-				t.Fatalf("NewAspect() => [%s]\ngot: %v (%T)\nwant: %v (%T)", v.name, got, got, v.want, v.want)
+				t.Fatalf("NewWrapper() => [%s]\ngot: %v (%T)\nwant: %v (%T)", v.name, got, got, v.want, v.want)
 			}
 		})
 	}
@@ -142,8 +143,8 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range failureCases {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}, nil); err == nil {
-				t.Fatalf("NewAspect()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
+			if _, err := m.NewReportWrapper(v.cfg, v.adptr, test.Env{}, nil); err == nil {
+				t.Fatalf("NewWrapper()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
 			}
 		})
 	}
@@ -241,8 +242,8 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 			l := &test.Logger{}
 			v.exec.aspect = l
 
-			if status := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); !status.IsOK() {
-				t.Fatalf("Execute(): should not have received error for %s (%v)", v.name, status)
+			if out := v.exec.Execute(v.bag, v.mapper); !status.IsOK(out) {
+				t.Fatalf("Execute(): should not have received error for %s (%v)", v.name, out)
 			}
 			if l.EntryCount != len(v.wantEntries) {
 				t.Fatalf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
@@ -290,7 +291,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 
 	for idx, v := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if status := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); status.IsOK() {
+			if out := v.exec.Execute(v.bag, v.mapper); status.IsOK(out) {
 				t.Fatalf("Execute(): expected error for %s", v.name)
 			}
 		})

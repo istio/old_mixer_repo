@@ -33,6 +33,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -122,9 +123,9 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 			}
-			asp, err := m.NewAspect(&c, tl, atest.NewEnv(t), nil)
+			asp, err := m.NewReportWrapper(&c, tl, atest.NewEnv(t), nil)
 			if err != nil {
-				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+				t.Fatalf("NewWrapper(): should not have received error for %s (%v)", v.name, err)
 			}
 			got := asp.(*applicationLogsWrapper)
 			// We ignore templates because reflect.DeepEqual doesn't seem to work with them.
@@ -132,7 +133,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 				got.metadata[key].tmpl = nil
 			}
 			if !reflect.DeepEqual(got, v.want) {
-				t.Errorf("NewAspect() = %#+v, wanted %#+v", got, v.want)
+				t.Errorf("NewWrapper() = %#+v, wanted %#+v", got, v.want)
 			}
 		})
 	}
@@ -172,8 +173,8 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 				},
 			}
 
-			if _, err := m.NewAspect(cfg, v.adptr, atest.NewEnv(t), nil); err == nil {
-				t.Fatalf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
+			if _, err := m.NewReportWrapper(cfg, v.adptr, atest.NewEnv(t), nil); err == nil {
+				t.Fatalf("NewWrapper(): expected error for bad adapter (%T)", v.adptr)
 			}
 		})
 	}
@@ -260,7 +261,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 			l := &test.Logger{}
 			tt.exec.aspect = l
 
-			if out := tt.exec.Execute(tt.bag, tt.mapper, &ReportMethodArgs{}); !out.IsOK() {
+			if out := tt.exec.Execute(tt.bag, tt.mapper); !status.IsOK(out) {
 				t.Fatalf("Execute(): should not have received error for %s (%v)", tt.name, out)
 			}
 			if l.EntryCount != len(tt.wantEntries) {
@@ -336,7 +337,7 @@ func TestLogWrapper_ExecuteFailures(t *testing.T) {
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if out := tt.exec.Execute(tt.bag, tt.mapper, &ReportMethodArgs{}); out.IsOK() {
+			if out := tt.exec.Execute(tt.bag, tt.mapper); status.IsOK(out) {
 				t.Fatalf("Execute(): should have received error for %s", tt.name)
 			}
 		})

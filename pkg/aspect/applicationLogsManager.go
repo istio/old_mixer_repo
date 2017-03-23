@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -66,11 +67,11 @@ const (
 )
 
 // newApplicationLogsManager returns a manager for the application logs aspect.
-func newApplicationLogsManager() Manager {
+func newApplicationLogsManager() ReportManager {
 	return applicationLogsManager{}
 }
 
-func (applicationLogsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
+func (applicationLogsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportWrapper, error) {
 	// TODO: look up actual descriptors by name and build an array
 	cfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
 
@@ -131,7 +132,7 @@ func (applicationLogsManager) ValidateConfig(config.AspectParams, expr.Validator
 
 func (e *applicationLogsWrapper) Close() error { return e.aspect.Close() }
 
-func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
+func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	result := &multierror.Error{}
 	var entries []adapter.LogEntry
 
@@ -196,7 +197,7 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 	}
 	if len(entries) > 0 {
 		if err := e.aspect.Log(entries); err != nil {
-			return Output{Status: status.WithError(err)}
+			return status.WithError(err)
 		}
 	}
 
@@ -205,9 +206,9 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 		glog.Infof("completed execution of application logging adapter '%s' for %d entries with errs: %v", e.name, len(entries), err)
 	}
 	if err != nil {
-		return Output{Status: status.WithError(err)}
+		return status.WithError(err)
 	}
-	return Output{Status: status.OK}
+	return status.OK
 }
 
 func findLog(defs []*aconfig.ApplicationLogsParams_ApplicationLog, name string) (*aconfig.ApplicationLogsParams_ApplicationLog, bool) {
