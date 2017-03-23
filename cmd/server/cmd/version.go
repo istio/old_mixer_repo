@@ -1,4 +1,4 @@
-// Copyright 2016 Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
-	"fmt"
-	"os"
+	"github.com/spf13/cobra"
 
-	"istio.io/mixer/cmd/server/cmd"
+	"istio.io/mixer/pkg/version"
 )
 
-func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:],
-		func(format string, a ...interface{}) {
-			fmt.Printf(format, a...)
+func versionCmd(outf outFn) *cobra.Command {
+	versionCmd := cobra.Command{
+		Use:   "version",
+		Short: "Prints out build version information for Mixer",
+		Run: func(cmd *cobra.Command, args []string) {
+			outf("%s\n", version.Info)
 		},
-		func(format string, a ...interface{}) {
-			fmt.Fprintf(os.Stderr, format+"\n", a...)
-			os.Exit(-1)
-		})
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(-1)
 	}
+	return &versionCmd
 }

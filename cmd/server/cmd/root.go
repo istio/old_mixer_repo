@@ -53,6 +53,7 @@ func GetRootCmd(args []string, outf outFn, errorf errorFn) *cobra.Command {
 
 	rootCmd.AddCommand(adapterCmd(outf))
 	rootCmd.AddCommand(serverCmd(outf, errorf))
+	rootCmd.AddCommand(versionCmd(outf))
 
 	return rootCmd
 }
