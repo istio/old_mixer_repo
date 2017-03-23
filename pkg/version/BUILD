@@ -7,3 +7,12 @@ go_library(
     ],
     visibility = ["//visibility:public"],
 )
+
+go_test(
+    name = "small_tests",
+    size = "small",
+    srcs = [
+        "version_test.go",
+    ],
+    library = ":go_default_library",
+)
