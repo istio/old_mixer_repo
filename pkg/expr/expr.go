@@ -25,6 +25,8 @@ import (
 
 	"github.com/golang/glog"
 
+	"time"
+
 	config "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
@@ -159,9 +161,14 @@ func newConstant(v string, vType config.ValueType) (*Constant, error) {
 			return nil, err
 		}
 	default: // string
-		if typedVal, err = strconv.Unquote(v); err != nil {
+		var unquoted string
+		if unquoted, err = strconv.Unquote(v); err != nil {
 			return nil, err
 		}
+		if typedVal, err = time.ParseDuration(unquoted); err == nil {
+			break
+		}
+		typedVal = unquoted
 	}
 	return &Constant{StrValue: v, Type: vType, Value: typedVal}, nil
 }
@@ -281,6 +288,7 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			return
 		}
 	case *ast.BasicLit:
+		fmt.Println("basicLit", v.Value, v.Kind)
 		tgt.Const, err = newConstant(v.Value, typeMap[v.Kind])
 		if err != nil {
 			return
