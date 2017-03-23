@@ -14,25 +14,72 @@
 
 package redisquota
 
-// ConnPool interface for a redis connection pool.
-type ConnPool interface {
-	// Get a connection from the pool. Call Put() on the connection when done.
-	Get() (Connection, error)
+import (
+	"github.com/mediocregopher/radix.v2/pool"
+	"github.com/mediocregopher/radix.v2/redis"
+)
 
-	// Put a connection back into the pool.
-	Put(c Connection)
+// ConnPool stores the info for redis connection pool.
+type connPool struct {
+	// TODO: add number of connections here
+	pool *pool.Pool
 }
 
-// Connection interface for a redis connection.
-type Connection interface {
-	// Append a command onto the pipeline queue.
-	PipeAppend(command string, args ...interface{})
-
-	// Execute the pipeline queue and wait for a response.
-	PipeResponse() (response, error)
+type connection struct {
+	client  *redis.Client
+	pending uint
 }
 
-// Interface for a redis response.
-type response interface {
-	Int() int64
+type response struct {
+	response *redis.Resp
+}
+
+// Get is to get a connection from the connection pool.
+func (cp *connPool) get() (*connection, error) {
+	client, err := cp.pool.Get()
+
+	return &connection{client, 0}, err
+}
+
+// Put is to put a connection c back to the pool.
+func (cp *connPool) put(c *connection) {
+	// TODO: radix does not appear to track if we attempt to put a connection back with pipelined
+	// responses that have not been flushed. If we are in this state, just kill the connection
+	// and don't put it back in the pool.
+	cp.pool.Put(c.client)
+}
+
+// NewConnPool creates a new connection to redis in the pool.
+func newConnPool(redisURL string, redisSocketType string, redisPoolSize int64) (*connPool, error) {
+	pool, err := pool.New(redisSocketType, redisURL, int(redisPoolSize))
+	if err != nil {
+		return nil, err
+	}
+	return &connPool{pool}, err
+}
+
+func (cp *connPool) empty() {
+	// clean up all the connections in the pool.
+	cp.pool.Empty()
+}
+
+func (c *connection) pipeAppend(cmd string, args ...interface{}) {
+	c.client.PipeAppend(cmd, args...)
+	c.pending++
+}
+
+func (c *connection) pipeResponse() (*response, error) {
+	c.pending--
+
+	resp := c.client.PipeResp()
+	return &response{resp}, resp.Err
+}
+
+func (r *response) int() int64 {
+	i, err := r.response.Int64()
+
+	if err != nil {
+		return 0
+	}
+	return i
 }
