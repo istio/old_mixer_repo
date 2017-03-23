@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/mixer/adapter/prometheus/config"
