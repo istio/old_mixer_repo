@@ -24,19 +24,20 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config/descriptors"
+	"istio.io/mixer/pkg/config/descriptor"
+	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
 // Resolver resolves configuration to a list of combined configs.
 type Resolver interface {
 	// Resolve resolves configuration to a list of combined configs.
-	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, error)
+	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*pb.Combined, error)
 }
 
 // ChangeListener listens for config change notifications.
 type ChangeListener interface {
-	ConfigChange(cfg Resolver)
+	ConfigChange(cfg Resolver, df descriptor.Finder)
 }
 
 // Manager represents the config Manager.
@@ -45,10 +46,10 @@ type ChangeListener interface {
 // api.Handler listens for config changes.
 type Manager struct {
 	eval             expr.Evaluator
-	aspectFinder     ValidatorFinderFunc
-	builderFinder    ValidatorFinderFunc
-	descriptorFinder descriptors.Finder
-	findAspects      AdapterToAspectMapperFunc
+	aspectFinder     AspectValidatorFinder
+	builderFinder    AdapterValidatorFinder
+	descriptorFinder descriptor.Finder
+	findAspects      AdapterToAspectMapper
 	loopDelay        time.Duration
 	globalConfig     string
 	serviceConfig    string
@@ -73,8 +74,8 @@ type Manager struct {
 // as command line input parameters.
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
-func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinderFunc, builderFinder ValidatorFinderFunc,
-	findAspects AdapterToAspectMapperFunc, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
+func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder AdapterValidatorFinder,
+	findAspects AdapterToAspectMapper, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,
 		aspectFinder:  aspectFinder,
@@ -103,39 +104,39 @@ func read(fname string) ([sha1.Size]byte, string, error) {
 }
 
 // fetch config and return runtime if a new one is available.
-func (c *Manager) fetch() (*Runtime, error) {
+func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
 	gcSHA, gc, err2 := read(c.globalConfig)
 	if err2 != nil {
-		return nil, err2
+		return nil, nil, err2
 	}
 
 	scSHA, sc, err1 := read(c.serviceConfig)
 	if err1 != nil {
-		return nil, err1
+		return nil, nil, err1
 	}
 
 	if gcSHA == c.gcSHA && scSHA == c.scSHA {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	v := NewValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
 	if vd, cerr = v.Validate(sc, gc); cerr != nil {
-		return nil, cerr
+		return nil, nil, cerr
 	}
 
-	c.descriptorFinder = descriptors.NewFinder(v.validated.globalConfig)
+	c.descriptorFinder = descriptor.NewFinder(v.validated.globalConfig)
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
-	return NewRuntime(vd, c.eval), nil
+	return NewRuntime(vd, c.eval), c.descriptorFinder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed
 func (c *Manager) fetchAndNotify() error {
-	rt, err := c.fetch()
+	rt, df, err := c.fetch()
 	if err != nil {
 		c.Lock()
 		c.lastError = err
@@ -148,7 +149,7 @@ func (c *Manager) fetchAndNotify() error {
 
 	glog.Infof("Installing new config from %s sha=%x ", c.serviceConfig, c.scSHA)
 	for _, cl := range c.cl {
-		cl.ConfigChange(rt)
+		cl.ConfigChange(rt, df)
 	}
 	return nil
 }
