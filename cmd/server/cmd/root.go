@@ -19,14 +19,13 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	// need to pull this in
 	_ "google.golang.org/grpc/grpclog/glogger"
 
 	"istio.io/mixer/cmd/shared"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
+func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "The Istio mixer provides control plane functionality to the Istio proxy and services",
@@ -47,9 +46,9 @@ func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.
 	_ = fs.Parse([]string{})
 	flag.CommandLine = fs
 
-	rootCmd.AddCommand(adapterCmd(outf))
-	rootCmd.AddCommand(serverCmd(outf, errorf))
-	rootCmd.AddCommand(shared.VersionCmd(outf))
+	rootCmd.AddCommand(adapterCmd(printf))
+	rootCmd.AddCommand(serverCmd(printf, fatalf))
+	rootCmd.AddCommand(shared.VersionCmd(printf))
 
 	return rootCmd
 }

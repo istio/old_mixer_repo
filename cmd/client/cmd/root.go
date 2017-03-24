@@ -62,7 +62,7 @@ type rootArgs struct {
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
+func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
 		Short: "Invoke the API of a running instance of the Istio mixer",
@@ -112,10 +112,10 @@ func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.
 	rootCmd.PersistentFlags().BoolVarP(&rootArgs.enableTracing, "trace", "", false,
 		"Whether to trace rpc executions")
 
-	rootCmd.AddCommand(checkCmd(rootArgs, outf, errorf))
-	rootCmd.AddCommand(reportCmd(rootArgs, outf, errorf))
-	rootCmd.AddCommand(quotaCmd(rootArgs, outf, errorf))
-	rootCmd.AddCommand(shared.VersionCmd(outf))
+	rootCmd.AddCommand(checkCmd(rootArgs, printf, fatalf))
+	rootCmd.AddCommand(reportCmd(rootArgs, printf, fatalf))
+	rootCmd.AddCommand(quotaCmd(rootArgs, printf, fatalf))
+	rootCmd.AddCommand(shared.VersionCmd(printf))
 
 	return rootCmd
 }

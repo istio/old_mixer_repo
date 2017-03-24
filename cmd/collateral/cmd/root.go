@@ -31,7 +31,7 @@ import (
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
+func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	outputDir := ""
 
 	rootCmd := &cobra.Command{
@@ -44,7 +44,7 @@ func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			work(outf, errorf, outputDir)
+			work(printf, fatalf, outputDir)
 		},
 	}
 	rootCmd.Flags().StringVarP(&outputDir, "outputDir", "o", ".", "Directory where to generate the CLI collateral files")
@@ -52,13 +52,13 @@ func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.
 	return rootCmd
 }
 
-func work(outf shared.OutFn, errorf shared.ErrorFn, outputDir string) {
+func work(printf, fatalf shared.FormatFn, outputDir string) {
 	roots := []*cobra.Command{
 		mixc.GetRootCmd(nil, nil, nil),
 		mixs.GetRootCmd(nil, nil, nil),
 	}
 
-	outf("Outputting Mixer CLI collateral files to %s\n", outputDir)
+	printf("Outputting Mixer CLI collateral files to %s\n", outputDir)
 	for _, r := range roots {
 		hdr := doc.GenManHeader{
 			Title:   "Istio Mixer",
@@ -67,19 +67,19 @@ func work(outf shared.OutFn, errorf shared.ErrorFn, outputDir string) {
 		}
 
 		if err := doc.GenManTree(r, &hdr, outputDir); err != nil {
-			errorf("Unable to output manpage tree: %v", err)
+			fatalf("Unable to output manpage tree: %v", err)
 		}
 
 		if err := doc.GenMarkdownTree(r, outputDir); err != nil {
-			errorf("Unable to output markdown tree: %v", err)
+			fatalf("Unable to output markdown tree: %v", err)
 		}
 
 		if err := doc.GenYamlTree(r, outputDir); err != nil {
-			errorf("Unable to output YAML tree: %v", err)
+			fatalf("Unable to output YAML tree: %v", err)
 		}
 
 		if err := r.GenBashCompletionFile(outputDir + "/" + r.Name() + ".bash"); err != nil {
-			errorf("Unable to output bash completion file: %v", err)
+			fatalf("Unable to output bash completion file: %v", err)
 		}
 	}
 }

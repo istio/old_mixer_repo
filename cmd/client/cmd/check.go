@@ -25,26 +25,26 @@ import (
 	"istio.io/mixer/cmd/shared"
 )
 
-func checkCmd(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
+func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
 		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(rootArgs, outf, errorf)
+			check(rootArgs, printf, fatalf)
 		}}
 }
 
-func check(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn) {
+func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		errorf("%v", err)
+		fatalf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
-		errorf("Unable to establish connection to %s", rootArgs.mixerAddress)
+		fatalf("Unable to establish connection to %s", rootArgs.mixerAddress)
 	}
 	defer deleteAPIClient(cs)
 
@@ -53,7 +53,7 @@ func check(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn) {
 
 	var stream mixerpb.Mixer_CheckClient
 	if stream, err = cs.client.Check(ctx); err != nil {
-		errorf("Check RPC failed: %v", err)
+		fatalf("Check RPC failed: %v", err)
 	}
 
 	for i := 0; i < rootArgs.repeat; i++ {
@@ -61,22 +61,22 @@ func check(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn) {
 		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
 
 		if err = stream.Send(&request); err != nil {
-			errorf("Failed to send Check RPC: %v", err)
+			fatalf("Failed to send Check RPC: %v", err)
 		}
 
 		var response *mixerpb.CheckResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
-			errorf("Got no response from Check RPC")
+			fatalf("Got no response from Check RPC")
 		} else if err != nil {
-			errorf("Failed to receive a response from Check RPC: %v", err)
+			fatalf("Failed to receive a response from Check RPC: %v", err)
 		}
 
-		outf("Check RPC returned %s\n", decodeStatus(response.Result))
+		printf("Check RPC returned %s\n", decodeStatus(response.Result))
 	}
 
 	if err = stream.CloseSend(); err != nil {
-		errorf("Failed to close gRPC stream: %v", err)
+		fatalf("Failed to close gRPC stream: %v", err)
 	}
 
 	span.Finish()

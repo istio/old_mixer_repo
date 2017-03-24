@@ -28,7 +28,7 @@ import (
 	"istio.io/mixer/pkg/config"
 )
 
-func adapterCmd(outf shared.OutFn) *cobra.Command {
+func adapterCmd(printf shared.FormatFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
 		Short: "Inventory of available adapters and aspects in the mixer",
@@ -38,7 +38,7 @@ func adapterCmd(outf shared.OutFn) *cobra.Command {
 		Use:   "adapter",
 		Short: "List available adapter builders",
 		Run: func(cmd *cobra.Command, args []string) {
-			listBuilders(outf)
+			listBuilders(printf)
 		},
 	})
 
@@ -46,14 +46,14 @@ func adapterCmd(outf shared.OutFn) *cobra.Command {
 		Use:   "aspect",
 		Short: "List available aspects",
 		Run: func(cmd *cobra.Command, args []string) {
-			listAspects(outf)
+			listAspects(printf)
 		},
 	})
 
 	return &adapterCmd
 }
 
-func listAspects(outf shared.OutFn) {
+func listAspects(printf shared.FormatFn) {
 	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
 
 	keys := []string{}
@@ -64,13 +64,13 @@ func listAspects(outf shared.OutFn) {
 	sort.Strings(keys)
 
 	for _, kind := range keys {
-		outf("aspect %s\n", kind)
+		printf("aspect %s", kind)
 		k, _ := aspect.ParseKind(kind)
-		printAspectConfigValidator(outf, aspectMap[k])
+		printAspectConfigValidator(printf, aspectMap[k])
 	}
 }
 
-func listBuilders(outf shared.OutFn) {
+func listBuilders(printf shared.FormatFn) {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
 	keys := []string{}
 	for k := range builderMap {
@@ -81,33 +81,33 @@ func listBuilders(outf shared.OutFn) {
 	for _, impl := range keys {
 		b := builderMap[impl].Builder
 
-		outf("adapter %s: %s\n", impl, b.Description())
-		printAdapterConfigValidator(outf, b)
+		printf("adapter %s: %s", impl, b.Description())
+		printAdapterConfigValidator(printf, b)
 	}
 }
 
-func printAdapterConfigValidator(outf shared.OutFn, v pkgadapter.ConfigValidator) {
-	outf("Params: \n")
+func printAdapterConfigValidator(printf shared.FormatFn, v pkgadapter.ConfigValidator) {
+	printf("Params:")
 	c := v.DefaultConfig()
 	if c == nil {
 		return
 	}
 	out, err := yaml.Marshal(c)
 	if err != nil {
-		outf("%s", err)
+		printf("%s", err)
 	}
-	outf("%s\n", string(out[:]))
+	printf("%s", string(out[:]))
 }
 
-func printAspectConfigValidator(outf shared.OutFn, v config.AspectValidator) {
-	outf("Params: \n")
+func printAspectConfigValidator(printf shared.FormatFn, v config.AspectValidator) {
+	printf("Params:")
 	c := v.DefaultConfig()
 	if c == nil {
 		return
 	}
 	out, err := yaml.Marshal(c)
 	if err != nil {
-		outf("%s", err)
+		printf("%s", err)
 	}
-	outf("%s\n", string(out[:]))
+	printf("%s", string(out[:]))
 }

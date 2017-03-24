@@ -17,24 +17,37 @@
 package shared
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/pkg/version"
 )
 
-// OutFn is a function used for normal output.
-type OutFn func(format string, a ...interface{})
+// FormatFn formats the supplied arguments according to the format string
+// provided and executes some set of operations with the result.
+type FormatFn func(format string, args ...interface{})
 
-// ErrorFn is a function used for error output.
-type ErrorFn func(format string, a ...interface{})
+// Fatalf is a FormatFn that prints the formatted string to os.Stderr and then
+// calls os.Exit().
+var Fatalf = func(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	os.Exit(-1)
+}
+
+// Printf is a FormatFn that prints the formatted string to os.Stdout.
+var Printf = func(format string, args ...interface{}) {
+	fmt.Printf(format+"\n", args...)
+}
 
 // VersionCmd is a command used to print version information.
-func VersionCmd(outf OutFn) *cobra.Command {
+func VersionCmd(printf FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Prints out build version information for the mixer",
+		Short: "Prints out build version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			outf("%s\n", version.Info)
+			printf("%s", version.Info)
 		},
 	}
 }
