@@ -52,7 +52,7 @@ type (
 		labels     map[string]string
 	}
 
-	applicationLogsWrapper struct {
+	applicationLogsExecutor struct {
 		name     string
 		aspect   adapter.ApplicationLogsAspect
 		metadata map[string]*logInfo // descriptor_name -> info
@@ -71,7 +71,7 @@ func newApplicationLogsManager() ReportManager {
 	return applicationLogsManager{}
 }
 
-func (applicationLogsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportWrapper, error) {
+func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	// TODO: look up actual descriptors by name and build an array
 	cfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
 
@@ -113,7 +113,7 @@ func (applicationLogsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builde
 		return nil, err
 	}
 
-	return &applicationLogsWrapper{
+	return &applicationLogsExecutor{
 		name:     cfg.LogName,
 		aspect:   asp,
 		metadata: metadata,
@@ -130,9 +130,9 @@ func (applicationLogsManager) ValidateConfig(config.AspectParams, expr.Validator
 	return nil
 }
 
-func (e *applicationLogsWrapper) Close() error { return e.aspect.Close() }
+func (e *applicationLogsExecutor) Close() error { return e.aspect.Close() }
 
-func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	result := &multierror.Error{}
 	var entries []adapter.LogEntry
 

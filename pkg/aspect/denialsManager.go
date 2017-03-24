@@ -29,7 +29,7 @@ import (
 type (
 	denialsManager struct{}
 
-	denialsWrapper struct {
+	denialsExecutor struct {
 		aspect adapter.DenialsAspect
 	}
 )
@@ -39,8 +39,8 @@ func newDenialsManager() CheckManager {
 	return denialsManager{}
 }
 
-// NewCheckWrapper creates a denyChecker aspect.
-func (denialsManager) NewCheckWrapper(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckWrapper, error) {
+// NewCheckExecutor creates a denyChecker aspect.
+func (denialsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
 	aa := ga.(adapter.DenialsBuilder)
 	var asp adapter.DenialsAspect
 	var err error
@@ -49,7 +49,7 @@ func (denialsManager) NewCheckWrapper(cfg *cpb.Combined, ga adapter.Builder, env
 		return nil, err
 	}
 
-	return &denialsWrapper{
+	return &denialsExecutor{
 		aspect: asp,
 	}, nil
 }
@@ -60,8 +60,8 @@ func (denialsManager) ValidateConfig(config.AspectParams, expr.Validator, descri
 	return
 }
 
-func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+func (a *denialsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	return a.aspect.Deny()
 }
 
-func (a *denialsWrapper) Close() error { return a.aspect.Close() }
+func (a *denialsExecutor) Close() error { return a.aspect.Close() }

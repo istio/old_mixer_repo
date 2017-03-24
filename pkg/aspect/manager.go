@@ -45,50 +45,50 @@ type (
 	CheckManager interface {
 		Manager
 
-		// NewCheckWrapper creates a new aspect wrapper given configuration.
-		NewCheckWrapper(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckWrapper, error)
+		// NewCheckExecutor creates a new aspect executor given configuration.
+		NewCheckExecutor(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error)
 	}
 
 	// ReportManager take care of aspects used to implement the Report API method
 	ReportManager interface {
 		Manager
 
-		// NewReportWrapper creates a new aspect wrapper given configuration.
-		NewReportWrapper(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportWrapper, error)
+		// NewReportExecutor creates a new aspect executor given configuration.
+		NewReportExecutor(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error)
 	}
 
 	// QuotaManager take care of aspects used to implement the Quota API method
 	QuotaManager interface {
 		Manager
 
-		// NewQuotaWrapper creates a new aspect wrapper given configuration.
-		NewQuotaWrapper(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaWrapper, error)
+		// NewQuotaExecutor creates a new aspect executor given configuration.
+		NewQuotaExecutor(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error)
 	}
 
-	// Wrapper encapsulates a single aspect and allows it to be invoked.
-	Wrapper interface {
+	// Executor encapsulates a single aspect and allows it to be invoked.
+	Executor interface {
 		io.Closer
 	}
 
-	// CheckWrapper encapsulates a single CheckManager aspect and allows it to be invoked.
-	CheckWrapper interface {
-		Wrapper
+	// CheckExecutor encapsulates a single CheckManager aspect and allows it to be invoked.
+	CheckExecutor interface {
+		Executor
 
 		// Execute dispatches to the aspect manager.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
 	}
 
-	// ReportWrapper encapsulates a single ReportManager aspect and allows it to be invoked.
-	ReportWrapper interface {
-		Wrapper
+	// ReportExecutor encapsulates a single ReportManager aspect and allows it to be invoked.
+	ReportExecutor interface {
+		Executor
 
 		// Execute dispatches to the aspect manager.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
 	}
 
-	// QuotaWrapper encapsulates a single QuotaManager aspect and allows it to be invoked.
-	QuotaWrapper interface {
-		Wrapper
+	// QuotaExecutor encapsulates a single QuotaManager aspect and allows it to be invoked.
+	QuotaExecutor interface {
+		Executor
 
 		// Execute dispatches to the aspect manager.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp)

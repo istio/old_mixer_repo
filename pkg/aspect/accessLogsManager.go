@@ -35,7 +35,7 @@ import (
 type (
 	accessLogsManager struct{}
 
-	accessLogsWrapper struct {
+	accessLogsExecutor struct {
 		name          string
 		aspect        adapter.AccessLogsAspect
 		labels        map[string]string // label name -> expression
@@ -58,7 +58,7 @@ func newAccessLogsManager() ReportManager {
 	return accessLogsManager{}
 }
 
-func (m accessLogsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportWrapper, error) {
+func (m accessLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
 	var templateStr string
@@ -83,7 +83,7 @@ func (m accessLogsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, 
 		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", cfg.LogName, err)
 	}
 
-	return &accessLogsWrapper{
+	return &accessLogsExecutor{
 		name:          cfg.LogName,
 		aspect:        asp,
 		labels:        cfg.Log.Labels,
@@ -117,11 +117,11 @@ func (accessLogsManager) ValidateConfig(c config.AspectParams, _ expr.Validator,
 	return
 }
 
-func (e *accessLogsWrapper) Close() error {
+func (e *accessLogsExecutor) Close() error {
 	return e.aspect.Close()
 }
 
-func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+func (e *accessLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	labels := permissiveEval(e.labels, attrs, mapper)
 	templateVals := permissiveEval(e.templateExprs, attrs, mapper)
 

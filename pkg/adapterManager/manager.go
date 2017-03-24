@@ -37,8 +37,8 @@ import (
 	"istio.io/mixer/pkg/status"
 )
 
-// AspectExecutor executes aspects associated with individual API methods
-type AspectExecutor interface {
+// AspectDispatcher executes aspects associated with individual API methods
+type AspectDispatcher interface {
 	// Check dispatches to the set of aspects associated with the Check API method
 	Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
 
@@ -65,8 +65,8 @@ type Manager struct {
 	df  atomic.Value
 
 	// protects cache
-	lock        sync.RWMutex
-	aspectCache map[cacheKey]aspect.Wrapper
+	lock          sync.RWMutex
+	executorCache map[cacheKey]aspect.Executor
 }
 
 // builderFinder finds a builder by name.
@@ -90,21 +90,21 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 	am map[apiMethod]config.AspectSet, gp *pool.GoroutinePool, adapterGP *pool.GoroutinePool) *Manager {
 
 	return &Manager{
-		builders:    r,
-		managers:    m,
-		mapper:      exp,
-		methodMap:   am,
-		aspectCache: make(map[cacheKey]aspect.Wrapper),
-		gp:          gp,
-		adapterGP:   adapterGP,
+		builders:      r,
+		managers:      m,
+		mapper:        exp,
+		methodMap:     am,
+		executorCache: make(map[cacheKey]aspect.Executor),
+		gp:            gp,
+		adapterGP:     adapterGP,
 	}
 }
 
 // Check dispatches to the set of aspects associated with the Check API method
 func (m *Manager) Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, checkMethod,
-		func(wrapper aspect.Wrapper, evaluator expr.Evaluator) rpc.Status {
-			cw := wrapper.(aspect.CheckWrapper)
+		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+			cw := executor.(aspect.CheckExecutor)
 			return cw.Execute(requestBag, evaluator)
 		})
 }
@@ -112,8 +112,8 @@ func (m *Manager) Check(ctx context.Context, requestBag *attribute.MutableBag, r
 // Report dispatches to the set of aspects associated with the Report API method
 func (m *Manager) Report(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, reportMethod,
-		func(wrapper aspect.Wrapper, evaluator expr.Evaluator) rpc.Status {
-			rw := wrapper.(aspect.CheckWrapper)
+		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
 		})
 }
@@ -124,8 +124,8 @@ func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag, r
 
 	var qmr *aspect.QuotaMethodResp
 	o := m.dispatch(ctx, requestBag, responseBag, quotaMethod,
-		func(wrapper aspect.Wrapper, evaluator expr.Evaluator) rpc.Status {
-			qw := wrapper.(aspect.QuotaWrapper)
+		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
 			o, qmr = qw.Execute(requestBag, evaluator, qma)
 			return o
@@ -134,11 +134,11 @@ func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag, r
 	return o, qmr
 }
 
-type invokeWrapperFunc func(wrapper aspect.Wrapper, evaluator expr.Evaluator) rpc.Status
+type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status
 
 // Execute resolves config and invokes the specific set of aspects necessary to service the current request
 func (m *Manager) dispatch(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
-	method apiMethod, invokeFunc invokeWrapperFunc) rpc.Status {
+	method apiMethod, invokeFunc invokeExecutorFunc) rpc.Status {
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, requestBag)
 
@@ -253,7 +253,7 @@ type result struct {
 
 // execute performs action described in the combined config using the attribute bag
 func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
-	df descriptor.Finder, invokeFunc invokeWrapperFunc) (out rpc.Status) {
+	df descriptor.Finder, invokeFunc invokeExecutorFunc) (out rpc.Status) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -279,7 +279,7 @@ func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBa
 		}
 	}()
 
-	wrapper, err := m.cacheGet(cfg, mgr, builder, df)
+	executor, err := m.cacheGet(cfg, mgr, builder, df)
 	if err != nil {
 		return status.WithError(err)
 	}
@@ -287,7 +287,7 @@ func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBa
 	// TODO: plumb ctx through asp.Execute
 	_ = ctx
 
-	return invokeFunc(wrapper, m.mapper)
+	return invokeFunc(executor, m.mapper)
 }
 
 // cacheKey is used to cache fully constructed aspects
@@ -329,18 +329,20 @@ func newCacheKey(kind aspect.Kind, cfg *configpb.Combined) (*cacheKey, error) {
 	return &ret, nil
 }
 
-// cacheGet gets an aspect wrapper from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder adapter.Builder, df descriptor.Finder) (wrapper aspect.Wrapper, err error) {
+// cacheGet gets an aspect executor from the cache, use adapter.Manager to construct an object in case of a cache miss
+func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder adapter.Builder, df descriptor.Finder) (executor aspect.Executor, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err
 	}
+
 	// try fast path with read lock
 	m.lock.RLock()
-	wrapper, found := m.aspectCache[*key]
+	executor, found := m.executorCache[*key]
 	m.lock.RUnlock()
+
 	if found {
-		return wrapper, nil
+		return executor, nil
 	}
 
 	// create an aspect
@@ -348,11 +350,11 @@ func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder a
 
 	switch m := mgr.(type) {
 	case aspect.CheckManager:
-		wrapper, err = m.NewCheckWrapper(cfg, builder, env, df)
+		executor, err = m.NewCheckExecutor(cfg, builder, env, df)
 	case aspect.ReportManager:
-		wrapper, err = m.NewReportWrapper(cfg, builder, env, df)
+		executor, err = m.NewReportExecutor(cfg, builder, env, df)
 	case aspect.QuotaManager:
-		wrapper, err = m.NewQuotaWrapper(cfg, builder, env, df)
+		executor, err = m.NewQuotaExecutor(cfg, builder, env, df)
 	}
 
 	if err != nil {
@@ -361,23 +363,24 @@ func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder a
 
 	// obtain write lock
 	m.lock.Lock()
-	// see if someone else beat you to it
-	if other, found := m.aspectCache[*key]; found {
-		defer closeWrapper(wrapper)
-		wrapper = other
+
+	// see if someone else beat us to it
+	if other, found := m.executorCache[*key]; found {
+		defer closeExecutor(executor)
+		executor = other
 	} else {
-		// you are the first one, save your wrapper
-		m.aspectCache[*key] = wrapper
+		// we are the first one so save the executor
+		m.executorCache[*key] = executor
 	}
 
 	m.lock.Unlock()
 
-	return wrapper, nil
+	return executor, nil
 }
 
-func closeWrapper(wrapper aspect.Wrapper) {
-	if err := wrapper.Close(); err != nil {
-		glog.Warningf("Error closing wrapper: %v: %v", wrapper, err)
+func closeExecutor(executor aspect.Executor) {
+	if err := executor.Close(); err != nil {
+		glog.Warningf("Error closing executor: %v: %v", executor, err)
 	}
 }
 
@@ -407,8 +410,8 @@ func (m *Manager) BuilderValidatorFinder() config.AdapterValidatorFinder {
 	}
 }
 
-// GetAspects returns a fully constructed manager map.
-func GetAspects(inventory aspect.ManagerInventory) map[aspect.Kind]aspect.Manager {
+// Aspects returns a fully constructed manager map.
+func Aspects(inventory aspect.ManagerInventory) map[aspect.Kind]aspect.Manager {
 	a, _ := processBindings(inventory)
 	return a
 }

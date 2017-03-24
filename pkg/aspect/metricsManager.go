@@ -42,7 +42,7 @@ type (
 		labels     map[string]string
 	}
 
-	metricsWrapper struct {
+	metricsExecutor struct {
 		name     string
 		aspect   adapter.MetricsAspect
 		metadata map[string]*metricInfo // metric name -> info
@@ -54,7 +54,7 @@ func newMetricsManager() ReportManager {
 	return &metricsManager{}
 }
 
-func (m *metricsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportWrapper, error) {
+func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	// TODO: get descriptors from config
@@ -117,7 +117,7 @@ func (m *metricsManager) NewReportWrapper(c *cpb.Combined, a adapter.Builder, en
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v' and err: %s", c, err)
 	}
-	return &metricsWrapper{b.Name(), asp, metadata}, nil
+	return &metricsExecutor{b.Name(), asp, metadata}, nil
 }
 
 func (*metricsManager) Kind() Kind                         { return MetricsKind }
@@ -133,7 +133,7 @@ func (*metricsManager) ValidateConfig(config.AspectParams, expr.Validator, descr
 	return
 }
 
-func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+func (w *metricsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	result := &multierror.Error{}
 	var values []adapter.Value
 
@@ -177,7 +177,7 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc
 	return status.OK
 }
 
-func (w *metricsWrapper) Close() error {
+func (w *metricsExecutor) Close() error {
 	return w.aspect.Close()
 }
 

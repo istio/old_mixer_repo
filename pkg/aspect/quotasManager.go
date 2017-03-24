@@ -40,7 +40,7 @@ type (
 		labels     map[string]string
 	}
 
-	quotasWrapper struct {
+	quotasExecutor struct {
 		manager  *quotasManager
 		aspect   adapter.QuotasAspect
 		metadata map[string]*quotaInfo
@@ -53,7 +53,7 @@ func newQuotasManager() QuotaManager {
 	return &quotasManager{}
 }
 
-func (m *quotasManager) NewQuotaWrapper(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaWrapper, error) {
+func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
 	// TODO: get this from config
@@ -103,7 +103,7 @@ func (m *quotasManager) NewQuotaWrapper(c *cpb.Combined, a adapter.Builder, env 
 		return nil, err
 	}
 
-	return &quotasWrapper{
+	return &quotasExecutor{
 		manager:  m,
 		metadata: metadata,
 		aspect:   asp,
@@ -117,7 +117,7 @@ func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descri
 	return
 }
 
-func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp) {
+func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp) {
 	info, ok := w.metadata[qma.Quota]
 	if !ok {
 		msg := fmt.Sprintf("Unknown quota '%s' requested", qma.Quota)
@@ -170,7 +170,7 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma 
 	return status.OK, &qmr
 }
 
-func (w *quotasWrapper) Close() error {
+func (w *quotasExecutor) Close() error {
 	return w.aspect.Close()
 }
 

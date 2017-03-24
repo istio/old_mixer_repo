@@ -45,13 +45,13 @@ type Handler interface {
 }
 
 type handlerState struct {
-	aspectExecutor adapterManager.AspectExecutor
+	aspectDispatcher adapterManager.AspectDispatcher
 }
 
 // NewHandler returns a canonical Handler that implements all of the mixer's API surface
-func NewHandler(aspectExecutor adapterManager.AspectExecutor) Handler {
+func NewHandler(aspectDispatcher adapterManager.AspectDispatcher) Handler {
 	return &handlerState{
-		aspectExecutor: aspectExecutor,
+		aspectDispatcher: aspectDispatcher,
 	}
 }
 
@@ -63,7 +63,7 @@ func (m *handlerState) Check(ctx context.Context, requestBag *attribute.MutableB
 	}
 
 	response.RequestIndex = request.RequestIndex
-	response.Result = m.aspectExecutor.Check(ctx, requestBag, responseBag)
+	response.Result = m.aspectDispatcher.Check(ctx, requestBag, responseBag)
 	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
 	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
 	//       30s TTL but a whitelist check has got a 120s TTL)
@@ -82,7 +82,7 @@ func (m *handlerState) Report(ctx context.Context, requestBag *attribute.Mutable
 	}
 
 	response.RequestIndex = request.RequestIndex
-	response.Result = m.aspectExecutor.Report(ctx, requestBag, responseBag)
+	response.Result = m.aspectDispatcher.Report(ctx, requestBag, responseBag)
 
 	if glog.V(2) {
 		glog.Infof("Report [%x] <-- %s", request.RequestIndex, response)
@@ -105,7 +105,7 @@ func (m *handlerState) Quota(ctx context.Context, requestBag *attribute.MutableB
 	var qmr *aspect.QuotaMethodResp
 
 	response.RequestIndex = request.RequestIndex
-	response.Result, qmr = m.aspectExecutor.Quota(ctx, requestBag, responseBag, qma)
+	response.Result, qmr = m.aspectDispatcher.Quota(ctx, requestBag, responseBag, qma)
 
 	if qmr != nil {
 		response.Amount = qmr.Amount
