@@ -22,9 +22,10 @@ import (
 	"github.com/spf13/cobra"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/cmd/shared"
 )
 
-func quotaCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
+func quotaCmd(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
 	name := ""
 	dedup := ""
 	amount := int64(1)
@@ -46,7 +47,7 @@ func quotaCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
 	return cmd
 }
 
-func quota(rootArgs *rootArgs, outf outFn, errorf errorFn, name string, dedup string, amount int64, bestEffort bool) {
+func quota(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn, name string, dedup string, amount int64, bestEffort bool) {
 	var attrs *mixerpb.Attributes
 	var err error
 

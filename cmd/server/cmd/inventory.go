@@ -21,13 +21,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/adapter"
+	"istio.io/mixer/cmd/shared"
 	pkgadapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 )
 
-func adapterCmd(outf outFn) *cobra.Command {
+func adapterCmd(outf shared.OutFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
 		Short: "Inventory of available adapters and aspects in the mixer",
@@ -52,7 +53,7 @@ func adapterCmd(outf outFn) *cobra.Command {
 	return &adapterCmd
 }
 
-func listAspects(outf outFn) {
+func listAspects(outf shared.OutFn) {
 	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
 
 	keys := []string{}
@@ -69,7 +70,7 @@ func listAspects(outf outFn) {
 	}
 }
 
-func listBuilders(outf outFn) {
+func listBuilders(outf shared.OutFn) {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
 	keys := []string{}
 	for k := range builderMap {
@@ -85,7 +86,7 @@ func listBuilders(outf outFn) {
 	}
 }
 
-func printAdapterConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
+func printAdapterConfigValidator(outf shared.OutFn, v pkgadapter.ConfigValidator) {
 	outf("Params: \n")
 	c := v.DefaultConfig()
 	if c == nil {
@@ -98,7 +99,7 @@ func printAdapterConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
 	outf("%s\n", string(out[:]))
 }
 
-func printAspectConfigValidator(outf outFn, v config.AspectValidator) {
+func printAspectConfigValidator(outf shared.OutFn, v config.AspectValidator) {
 	outf("Params: \n")
 	c := v.DefaultConfig()
 	if c == nil {

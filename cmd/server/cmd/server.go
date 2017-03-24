@@ -31,6 +31,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter"
+	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
@@ -57,7 +58,7 @@ type serverArgs struct {
 	configFetchIntervalSec uint
 }
 
-func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
+func serverCmd(outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -108,7 +109,7 @@ func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
 	return &serverCmd
 }
 
-func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
+func runServer(sa *serverArgs, outf shared.OutFn, errorf shared.ErrorFn) {
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
 

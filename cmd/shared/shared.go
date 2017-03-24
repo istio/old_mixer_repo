@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+// Package shared contains types and functions that are used across the full
+// set of mixer commands.
+package shared
 
 import (
 	"github.com/spf13/cobra"
@@ -20,13 +22,19 @@ import (
 	"istio.io/mixer/pkg/version"
 )
 
-func versionCmd(outf outFn) *cobra.Command {
-	versionCmd := cobra.Command{
+// OutFn is a function used for normal output.
+type OutFn func(format string, a ...interface{})
+
+// ErrorFn is a function used for error output.
+type ErrorFn func(format string, a ...interface{})
+
+// VersionCmd is a command used to print version information.
+func VersionCmd(outf OutFn) *cobra.Command {
+	return &cobra.Command{
 		Use:   "version",
-		Short: "Prints out build version information for Mixer",
+		Short: "Prints out build version information for the mixer",
 		Run: func(cmd *cobra.Command, args []string) {
 			outf("%s\n", version.Info)
 		},
 	}
-	return &versionCmd
 }

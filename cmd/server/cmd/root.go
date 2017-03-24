@@ -21,16 +21,12 @@ import (
 	"github.com/spf13/cobra"
 	// need to pull this in
 	_ "google.golang.org/grpc/grpclog/glogger"
+
+	"istio.io/mixer/cmd/shared"
 )
 
-// A function used for normal output.
-type outFn func(format string, a ...interface{})
-
-// A function used for error output.
-type errorFn func(format string, a ...interface{})
-
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, outf outFn, errorf errorFn) *cobra.Command {
+func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "The Istio mixer provides control plane functionality to the Istio proxy and services",
@@ -53,7 +49,7 @@ func GetRootCmd(args []string, outf outFn, errorf errorFn) *cobra.Command {
 
 	rootCmd.AddCommand(adapterCmd(outf))
 	rootCmd.AddCommand(serverCmd(outf, errorf))
-	rootCmd.AddCommand(versionCmd(outf))
+	rootCmd.AddCommand(shared.VersionCmd(outf))
 
 	return rootCmd
 }
