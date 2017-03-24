@@ -119,7 +119,7 @@ func (a adapterKey) String() string {
 func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) {
 	var m = &pb.GlobalConfig{}
 	if err := yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("GlobalConfig", "failed to unmarshall config into proto with err: %v", err)
+		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
 	}
 
 	p.validated.adapterByName = make(map[adapterKey]*pb.Adapter)
@@ -211,7 +211,7 @@ func (p *Validator) validateServiceConfig(cfg string, validatePresence bool) (ce
 	var err error
 	m := &pb.ServiceConfig{}
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("ServiceConfig", "failed to unmarshall config into proto with err: %v", err)
+		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto with err: %v", err)
 	}
 	if ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
 		return ce
@@ -226,11 +226,11 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertAdapterParams converts returns a typed proto message based on available Validator.
-func ConvertAdapterParams(find AdapterValidatorFinder, name string, params interface{}, strict bool) (ac adapter.Config, ce *adapter.ConfigErrors) {
+func ConvertAdapterParams(f AdapterValidatorFinder, name string, params interface{}, strict bool) (ac adapter.Config, ce *adapter.ConfigErrors) {
 	var avl adapter.ConfigValidator
 	var found bool
 
-	if avl, found = find(name); !found {
+	if avl, found = f(name); !found {
 		return nil, ce.Append(name, UnknownValidator(name))
 	}
 
@@ -245,24 +245,23 @@ func ConvertAdapterParams(find AdapterValidatorFinder, name string, params inter
 }
 
 // ConvertAspectParams converts returns a typed proto message based on available Validator.
-func ConvertAspectParams(find AspectValidatorFinder, name string, params interface{}, strict bool, df descriptor.Finder) (
-	ap AspectParams, ce *adapter.ConfigErrors) {
-
+func ConvertAspectParams(f AspectValidatorFinder, name string, params interface{}, strict bool, df descriptor.Finder) (AspectParams, *adapter.ConfigErrors) {
+	var ce *adapter.ConfigErrors
 	var avl AspectValidator
 	var found bool
 
-	if avl, found = find(name); !found {
+	if avl, found = f(name); !found {
 		return nil, ce.Append(name, UnknownValidator(name))
 	}
 
-	ap = avl.DefaultConfig()
+	ap := avl.DefaultConfig()
 	if err := Decode(params, ap, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode aspect params with err: %v", err)
 	}
 	if err := avl.ValidateConfig(ap, expr.NewCEXLEvaluator(), df); err != nil {
 		return nil, ce.Appendf(name, "aspect validation failed with err: %v", err)
 	}
-	return
+	return ap, nil
 }
 
 // Decode interprets src interface{} as the specified proto message.
@@ -270,11 +269,11 @@ func ConvertAspectParams(find AspectValidatorFinder, name string, params interfa
 func Decode(src interface{}, dst adapter.Config, strict bool) error {
 	ba, err := json.Marshal(src)
 	if err != nil {
-		return fmt.Errorf("failed to marshall config into json with err: %v", err)
+		return fmt.Errorf("failed to marshal config into json with err: %v", err)
 	}
 	um := jsonpb.Unmarshaler{AllowUnknownFields: !strict}
 	if err := um.Unmarshal(bytes.NewReader(ba), dst); err != nil {
-		return fmt.Errorf("failed to unmarshall config into proto with err: %v", err)
+		return fmt.Errorf("failed to unmarshal config into proto with err: %v", err)
 	}
 	return nil
 }
