@@ -25,6 +25,8 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -46,10 +48,10 @@ type (
 	// Manager is responsible for a specific aspect and presents a uniform interface
 	// to the rest of the system.
 	Manager interface {
-		adapter.ConfigValidator
+		config.AspectValidator
 
 		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *config.Combined, adapter adapter.Builder, env adapter.Env) (Wrapper, error)
+		NewAspect(cfg *cpb.Combined, adapter adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error)
 
 		// Kind return the kind of aspect
 		Kind() Kind
