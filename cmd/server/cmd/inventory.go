@@ -54,7 +54,7 @@ func adapterCmd(printf shared.FormatFn) *cobra.Command {
 }
 
 func listAspects(printf shared.FormatFn) {
-	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
+	aspectMap := adapterManager.Aspects(aspect.Inventory())
 
 	keys := []string{}
 	for kind := range aspectMap {

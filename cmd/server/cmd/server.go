@@ -124,11 +124,11 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
-	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
-		adapterMgr.AdapterToAspectMapperFunc(),
+	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
+		adapterMgr.AdapterToAspectMapper,
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
-	handler := api.NewHandler(adapterMgr, adapterMgr.MethodMap())
+	handler := api.NewHandler(adapterMgr)
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
@@ -191,7 +191,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		tracer = tracing.DisabledTracer()
 	}
 
-	configManager.Register(handler.(config.ChangeListener))
+	configManager.Register(adapterMgr)
 	configManager.Start()
 
 	// get everything wired up
