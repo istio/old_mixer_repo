@@ -100,7 +100,7 @@ func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, d
 
 		// TODO: this doesn't feel like quite the right spot to do this check, but it's the best we have ¯\_(ツ)_/¯
 		if _, err := metricDefinitionFromProto(desc); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshall descriptor into its adapter representation with err: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation with err: %v", err)
 		}
 	}
 	return
