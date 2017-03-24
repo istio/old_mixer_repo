@@ -25,11 +25,11 @@ message Params {
     google.protobuf.Duration min_deduplication_duration = 1;
 
     // Redis network address
-    string url = 2;
+    string redis_server_url = 2;
 
     // Socket type for talking to redis
     string socket_type = 3;
 
     // Maximum number of idle connections to redis
-    int64 pool_size = 4;
+    int64 connection_pool_size = 4;
 }

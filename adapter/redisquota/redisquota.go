@@ -75,9 +75,9 @@ var (
 	desc = "Redis-based quotas."
 	conf = &config.Params{
 		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
-		Url:        "localhost:6379",
-		SocketType: "tcp",
-		PoolSize:   10,
+		RedisServerUrl:           "localhost:6379",
+		SocketType:               "tcp",
+		ConnectionPoolSize:       10,
 	}
 )
 
@@ -113,7 +113,7 @@ func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapte
 
 // newAspectWithDedup returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	connPool, _ := newConnPool(c.SocketType, c.Url, c.PoolSize)
+	connPool, _ := newConnPool(c.SocketType, c.RedisServerUrl, c.ConnectionPoolSize)
 	rq := &redisQuota{
 		definitions: definitions,
 		cells:       make(map[string]int64),
