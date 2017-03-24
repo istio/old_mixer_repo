@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	_ "google.golang.org/grpc/grpclog/glogger"
+	_ "google.golang.org/grpc/grpclog/glogger" // needed to initialize glog
 
 	"istio.io/mixer/cmd/shared"
 )
