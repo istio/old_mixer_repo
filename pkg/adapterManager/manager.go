@@ -384,30 +384,24 @@ func closeExecutor(executor aspect.Executor) {
 	}
 }
 
-// AspectValidatorFinder returns a AdapterValidatorFinder for aspects.
-func (m *Manager) AspectValidatorFinder() config.AspectValidatorFinder {
-	return func(kind string) (config.AspectValidator, bool) {
-		k, found := aspect.ParseKind(kind)
-		if !found {
-			return nil, false
-		}
-		c, found := m.managers[k]
-		return c, found
+// AspectValidatorFinder returns a BuilderValidatorFinder for aspects.
+func (m *Manager) AspectValidatorFinder(kind string) (config.AspectValidator, bool) {
+	k, found := aspect.ParseKind(kind)
+	if !found {
+		return nil, false
 	}
+	c, found := m.managers[k]
+	return c, found
 }
 
-// AdapterToAspectMapperFunc returns AdapterToAspectMapper.
-func (m *Manager) AdapterToAspectMapperFunc() config.AdapterToAspectMapper {
-	return func(impl string) (kinds []string) {
-		return m.builders.SupportedKinds(impl)
-	}
+// BuilderValidatorFinder returns a BuilderValidatorFinder for builders.
+func (m *Manager) BuilderValidatorFinder(name string) (adapter.ConfigValidator, bool) {
+	return m.builders.FindBuilder(name)
 }
 
-// BuilderValidatorFinder returns a AdapterValidatorFinder for builders.
-func (m *Manager) BuilderValidatorFinder() config.AdapterValidatorFinder {
-	return func(name string) (adapter.ConfigValidator, bool) {
-		return m.builders.FindBuilder(name)
-	}
+// AdapterToAspectMapper returns AdapterToAspectMapper.
+func (m *Manager) AdapterToAspectMapper(adapter string) (kinds []string) {
+	return m.builders.SupportedKinds(adapter)
 }
 
 // Aspects returns a fully constructed manager map.
