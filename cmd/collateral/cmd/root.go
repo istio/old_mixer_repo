@@ -27,16 +27,11 @@ import (
 
 	mixc "istio.io/mixer/cmd/client/cmd"
 	mixs "istio.io/mixer/cmd/server/cmd"
+	"istio.io/mixer/cmd/shared"
 )
 
-// A function used for normal output.
-type outFn func(format string, a ...interface{})
-
-// A function used for error output.
-type errorFn func(format string, a ...interface{})
-
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, outf outFn, errorf errorFn) *cobra.Command {
+func GetRootCmd(args []string, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
 	outputDir := ""
 
 	rootCmd := &cobra.Command{
@@ -57,7 +52,7 @@ func GetRootCmd(args []string, outf outFn, errorf errorFn) *cobra.Command {
 	return rootCmd
 }
 
-func work(outf outFn, errorf errorFn, outputDir string) {
+func work(outf shared.OutFn, errorf shared.ErrorFn, outputDir string) {
 	roots := []*cobra.Command{
 		mixc.GetRootCmd(nil, nil, nil),
 		mixs.GetRootCmd(nil, nil, nil),

@@ -22,9 +22,10 @@ import (
 	"github.com/spf13/cobra"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/cmd/shared"
 )
 
-func reportCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
+func reportCmd(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "report",
 		Short: "Invokes the mixer's Report API.",
@@ -33,7 +34,7 @@ func reportCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
 		}}
 }
 
-func report(rootArgs *rootArgs, outf outFn, errorf errorFn) {
+func report(rootArgs *rootArgs, outf shared.OutFn, errorf shared.ErrorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
