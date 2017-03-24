@@ -89,11 +89,11 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	for idx, v := range newAspectShouldSucceed {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			c := &config.Combined{
+			c := &configpb.Combined{
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{"template": "{{.test}}"}},
 			}
-			asp, err := m.NewAspect(c, tl, test.Env{})
+			asp, err := m.NewAspect(c, tl, test.Env{}, nil)
 			if err != nil {
 				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
 			}
@@ -107,7 +107,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 }
 
 func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
-	defaultCfg := &config.Combined{
+	defaultCfg := &configpb.Combined{
 		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 		Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
 			Log: &aconfig.AccessLogsParams_AccessLog{
@@ -132,7 +132,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 
 	failureCases := []struct {
 		name  string
-		cfg   *config.Combined
+		cfg   *configpb.Combined
 		adptr adapter.Builder
 	}{
 		{"errorLogger", defaultCfg, errLogger},
@@ -142,7 +142,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range failureCases {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
+			if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}, nil); err == nil {
 				t.Fatalf("NewAspect()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
 			}
 		})
@@ -150,7 +150,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 }
 
 func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
-	configs := []adapter.AspectConfig{
+	configs := []config.AspectParams{
 		&aconfig.AccessLogsParams{
 			LogName: "test",
 			Log: &aconfig.AccessLogsParams_AccessLog{
@@ -164,7 +164,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range configs {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			if err := m.ValidateConfig(v); err != nil {
+			if err := m.ValidateConfig(v, nil, nil); err != nil {
 				t.Fatalf("ValidateConfig(%v) => unexpected error: %v", v, err)
 			}
 		})
@@ -172,7 +172,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 }
 
 func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
-	configs := []adapter.AspectConfig{
+	configs := []config.AspectParams{
 		&aconfig.AccessLogsParams{},
 		&aconfig.AccessLogsParams{Log: &aconfig.AccessLogsParams_AccessLog{LogFormat: aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED}},
 	}
@@ -180,7 +180,7 @@ func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range configs {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			if err := m.ValidateConfig(v); err == nil {
+			if err := m.ValidateConfig(v, nil, nil); err == nil {
 				t.Fatalf("ValidateConfig(%v) expected err", v)
 			}
 		})
@@ -204,6 +204,23 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		template: tmpl,
 	}
 
+	errExec := &accessLogsWrapper{
+		name: "access_log",
+		labels: map[string]string{
+			"timestamp": "foo",
+			"notFound":  "missing",
+		},
+		template: tmpl,
+		templateExprs: map[string]string{
+			"timestamp": "foo",
+			"notFound":  "missing",
+		},
+	}
+
+	errEval := test.NewFakeEval(func(string, attribute.Bag) (interface{}, error) {
+		return nil, errors.New("expected")
+	})
+
 	emptyEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{}}
 	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"test": "foo"}}
 
@@ -216,6 +233,7 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 	}{
 		{"empty bag with defaults", noLabels, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{emptyEntry}},
 		{"attrs in bag", labelsInBag, &test.Bag{Strs: map[string]string{"foo": ""}}, test.NewIDEval(), []adapter.LogEntry{sourceEntry}},
+		{"failed evals", errExec, test.NewBag(), errEval, []adapter.LogEntry{emptyEntry}},
 	}
 
 	for idx, v := range tests {
@@ -244,9 +262,6 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 
 func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 	timeTmpl, _ := template.New("test").Parse(`{{(.timestamp.Format "02/Jan/2006:15:04:05 -0700")}}`)
-	errEval := test.NewFakeEval(func(string, attribute.Bag) (interface{}, error) {
-		return nil, errors.New("expected")
-	})
 
 	executeErr := &accessLogsWrapper{
 		name: "access_log",
@@ -270,7 +285,6 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 		mapper expr.Evaluator
 	}{
 		{"template.Execute() error", executeErr, test.NewBag(), test.NewIDEval()},
-		{"evalAll() error", executeErr, test.NewBag(), errEval},
 		{"LogAccess() error", logErr, test.NewBag(), test.NewIDEval()},
 	}
 

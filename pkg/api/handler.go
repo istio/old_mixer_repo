@@ -28,6 +28,8 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/status"
 )
 
@@ -56,8 +58,8 @@ type Handler interface {
 // Executor executes any aspect as described by config.Combined.
 type Executor interface {
 	// Execute takes a set of configurations and Executes all of them.
-	Execute(ctx context.Context, cfgs []*config.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
-		ma aspect.APIMethodArgs) aspect.Output
+	Execute(ctx context.Context, cfgs []*cpb.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+		ma aspect.APIMethodArgs, df descriptor.Finder) aspect.Output
 }
 
 // handlerState holds state and configuration for the handler.
@@ -65,6 +67,8 @@ type handlerState struct {
 	aspectExecutor Executor
 	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime>
 	cfg atomic.Value
+	// Descriptor finder (derived from configs) that'll be used for creating aspect managers to serve API methods. <descriptor.Finder>
+	df atomic.Value
 
 	// methodMap maps an API method to a set of aspects configured for the method
 	methodMap map[aspect.APIMethod]config.AspectSet
@@ -85,7 +89,8 @@ func (h *handlerState) execute(ctx context.Context, requestBag *attribute.Mutabl
 	ctx = attribute.NewContext(ctx, requestBag)
 
 	cfg, _ := h.cfg.Load().(config.Resolver)
-	if cfg == nil {
+	df, _ := h.df.Load().(descriptor.Finder)
+	if cfg == nil || df == nil {
 		// config has not been loaded yet
 		const msg = "Configuration is not yet available"
 		glog.Error(msg)
@@ -103,7 +108,7 @@ func (h *handlerState) execute(ctx context.Context, requestBag *attribute.Mutabl
 		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
 	}
 
-	return h.aspectExecutor.Execute(ctx, cfgs, requestBag, responseBag, ma)
+	return h.aspectExecutor.Execute(ctx, cfgs, requestBag, responseBag, ma, df)
 }
 
 // Check performs 'check' function corresponding to the mixer api.
@@ -172,6 +177,7 @@ func (h *handlerState) Quota(ctx context.Context, requestBag *attribute.MutableB
 }
 
 // ConfigChange listens for config change notifications.
-func (h *handlerState) ConfigChange(cfg config.Resolver) {
+func (h *handlerState) ConfigChange(cfg config.Resolver, df descriptor.Finder) {
 	h.cfg.Store(cfg)
+	h.df.Store(df)
 }

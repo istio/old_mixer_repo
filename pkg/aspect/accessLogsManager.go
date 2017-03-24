@@ -17,11 +17,14 @@ package aspect
 import (
 	"fmt"
 	"text/template"
+	"time"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -41,7 +44,7 @@ type (
 
 const (
 	// TODO: revisit when well-known attributes are defined.
-	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.source_user) "-"}} ` +
+	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
 		`[{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} ` +
 		`{{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
 	// TODO: revisit when well-known attributes are defined.
@@ -53,7 +56,7 @@ func newAccessLogsManager() Manager {
 	return accessLogsManager{}
 }
 
-func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m accessLogsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
 	var templateStr string
@@ -73,7 +76,7 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", cfg.LogName, templateStr, err)
 	}
 
-	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
+	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", cfg.LogName, err)
 	}
@@ -88,7 +91,7 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 }
 
 func (accessLogsManager) Kind() Kind { return AccessLogsKind }
-func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
+func (accessLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.AccessLogsParams{
 		LogName: "access_log",
 		Log: &aconfig.AccessLogsParams_AccessLog{
@@ -97,7 +100,7 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
 		ce = ce.Appendf("Log", "an AccessLog entry must be provided")
@@ -117,15 +120,8 @@ func (e *accessLogsWrapper) Close() error {
 }
 
 func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	labels, err := evalAll(e.labels, attrs, mapper)
-	if err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to eval labels for log %s with err: %s", e.name, err))}
-	}
-
-	templateVals, err := evalAll(e.templateExprs, attrs, mapper)
-	if err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to eval template expressions for log %s with err: %s", e.name, err))}
-	}
+	labels := permissiveEval(e.labels, attrs, mapper)
+	templateVals := permissiveEval(e.templateExprs, attrs, mapper)
 
 	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, templateVals); err != nil {
@@ -144,4 +140,22 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		return Output{Status: status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))}
 	}
 	return Output{Status: status.OK}
+}
+
+func permissiveEval(labels map[string]string, attrs attribute.Bag, mapper expr.Evaluator) map[string]interface{} {
+	mappedVals := make(map[string]interface{}, len(labels))
+	for name, exp := range labels {
+		v, err := mapper.Eval(exp, attrs)
+		if err == nil {
+			mappedVals[name] = v
+			continue
+		}
+		// TODO: timestamp is hardcoded here to match hardcoding in
+		// templates and to get around current issues with existence of
+		// attribute descriptors and expressiveness of config language
+		if name == "timestamp" {
+			mappedVals[name] = time.Now()
+		}
+	}
+	return mappedVals
 }
