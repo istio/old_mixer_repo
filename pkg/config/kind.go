@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+package config
 
 // Kind of aspect
 type Kind int
@@ -25,6 +25,8 @@ const (
 	ListsKind
 	MetricsKind
 	QuotasKind
+
+	NumKinds
 )
 
 // Name of all supported aspect kinds.
