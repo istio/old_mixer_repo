@@ -19,20 +19,22 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/hashicorp/go-multierror"
+	rpc "github.com/googleapis/googleapis/google/rpc"
+	multierror "github.com/hashicorp/go-multierror"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
 
 type (
-	metricsManager struct {
-	}
+	metricsManager struct{}
 
 	metricInfo struct {
 		definition *adapter.MetricDefinition
@@ -40,7 +42,7 @@ type (
 		labels     map[string]string
 	}
 
-	metricsWrapper struct {
+	metricsExecutor struct {
 		name     string
 		aspect   adapter.MetricsAspect
 		metadata map[string]*metricInfo // metric name -> info
@@ -48,12 +50,11 @@ type (
 )
 
 // newMetricsManager returns a manager for the metric aspect.
-func newMetricsManager() Manager {
+func newMetricsManager() ReportManager {
 	return &metricsManager{}
 }
 
-// NewAspect creates a metric aspect.
-func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	// TODO: get descriptors from config
@@ -112,17 +113,17 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 		}
 	}
 	b := a.(adapter.MetricsBuilder)
-	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v' and err: %s", c, err)
 	}
-	return &metricsWrapper{b.Name(), asp, metadata}, nil
+	return &metricsExecutor{b.Name(), asp, metadata}, nil
 }
 
-func (*metricsManager) Kind() Kind                          { return MetricsKind }
-func (*metricsManager) DefaultConfig() adapter.AspectConfig { return &aconfig.MetricsParams{} }
+func (*metricsManager) Kind() Kind                         { return MetricsKind }
+func (*metricsManager) DefaultConfig() config.AspectParams { return &aconfig.MetricsParams{} }
 
-func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (*metricsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	// TODO: we need to be provided the metric descriptors in addition to the metrics themselves here, so we can do type assertions.
 	// We also need some way to assert the type of the result of evaluating an expression, but we don't have any attributes or an
 	// evaluator on hand.
@@ -132,7 +133,7 @@ func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigE
 	return
 }
 
-func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
+func (w *metricsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	result := &multierror.Error{}
 	var values []adapter.Value
 
@@ -170,13 +171,13 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma 
 
 	err := result.ErrorOrNil()
 	if err != nil {
-		return Output{Status: status.WithError(err)}
+		return status.WithError(err)
 	}
 
-	return Output{Status: status.OK}
+	return status.OK
 }
 
-func (w *metricsWrapper) Close() error {
+func (w *metricsExecutor) Close() error {
 	return w.aspect.Close()
 }
 

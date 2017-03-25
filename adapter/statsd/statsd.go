@@ -22,7 +22,7 @@ import (
 
 	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
@@ -67,7 +67,7 @@ func newBuilder() *builder {
 	return &builder{adapter.NewDefaultBuilder(name, desc, defaultConf)}
 }
 
-func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
 	flushDuration, err := types.DurationFromProto(params.FlushDuration)
 	if err != nil {
@@ -90,7 +90,7 @@ func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErro
 	return
 }
 
-func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	params := cfg.(*config.Params)
 
 	flushBytes := int(params.FlushBytes)

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"sort"
@@ -21,12 +21,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/adapter"
+	"istio.io/mixer/cmd/shared"
 	pkgadapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/config"
 )
 
-func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
+func adapterCmd(printf shared.FormatFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
 		Short: "Inventory of available adapters and aspects in the mixer",
@@ -36,10 +38,7 @@ func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
 		Use:   "adapter",
 		Short: "List available adapter builders",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := listBuilders(outf)
-			if err != nil {
-				errorf("%v", err)
-			}
+			listBuilders(printf)
 		},
 	})
 
@@ -47,18 +46,15 @@ func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
 		Use:   "aspect",
 		Short: "List available aspects",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := listAspects(outf)
-			if err != nil {
-				errorf("%v", err)
-			}
+			listAspects(printf)
 		},
 	})
 
 	return &adapterCmd
 }
 
-func listAspects(outf outFn) error {
-	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
+func listAspects(printf shared.FormatFn) {
+	aspectMap := adapterManager.Aspects(aspect.Inventory())
 
 	keys := []string{}
 	for kind := range aspectMap {
@@ -68,14 +64,13 @@ func listAspects(outf outFn) error {
 	sort.Strings(keys)
 
 	for _, kind := range keys {
-		outf("aspect %s\n", kind)
+		printf("aspect %s", kind)
 		k, _ := aspect.ParseKind(kind)
-		printConfigValidator(outf, aspectMap[k])
+		printAspectConfigValidator(printf, aspectMap[k])
 	}
-	return nil
 }
 
-func listBuilders(outf outFn) error {
+func listBuilders(printf shared.FormatFn) {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
 	keys := []string{}
 	for k := range builderMap {
@@ -86,23 +81,33 @@ func listBuilders(outf outFn) error {
 	for _, impl := range keys {
 		b := builderMap[impl].Builder
 
-		outf("adapter %s: %s\n", impl, b.Description())
-		printConfigValidator(outf, b)
-
+		printf("adapter %s: %s", impl, b.Description())
+		printAdapterConfigValidator(printf, b)
 	}
-	return nil
 }
 
-func printConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
-
-	outf("Params: \n")
+func printAdapterConfigValidator(printf shared.FormatFn, v pkgadapter.ConfigValidator) {
+	printf("Params:")
 	c := v.DefaultConfig()
 	if c == nil {
 		return
 	}
 	out, err := yaml.Marshal(c)
 	if err != nil {
-		outf("%s", err)
+		printf("%s", err)
 	}
-	outf("%s", string(out[:])+"\n")
+	printf("%s", string(out[:]))
+}
+
+func printAspectConfigValidator(printf shared.FormatFn, v config.AspectValidator) {
+	printf("Params:")
+	c := v.DefaultConfig()
+	if c == nil {
+		return
+	}
+	out, err := yaml.Marshal(c)
+	if err != nil {
+		printf("%s", err)
+	}
+	printf("%s", string(out[:]))
 }

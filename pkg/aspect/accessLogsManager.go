@@ -17,11 +17,16 @@ package aspect
 import (
 	"fmt"
 	"text/template"
+	"time"
+
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -30,7 +35,7 @@ import (
 type (
 	accessLogsManager struct{}
 
-	accessLogsWrapper struct {
+	accessLogsExecutor struct {
 		name          string
 		aspect        adapter.AccessLogsAspect
 		labels        map[string]string // label name -> expression
@@ -41,7 +46,7 @@ type (
 
 const (
 	// TODO: revisit when well-known attributes are defined.
-	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.source_user) "-"}} ` +
+	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
 		`[{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} ` +
 		`{{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
 	// TODO: revisit when well-known attributes are defined.
@@ -49,11 +54,11 @@ const (
 )
 
 // newAccessLogsManager returns a manager for the access logs aspect.
-func newAccessLogsManager() Manager {
+func newAccessLogsManager() ReportManager {
 	return accessLogsManager{}
 }
 
-func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m accessLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
 	var templateStr string
@@ -73,12 +78,12 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", cfg.LogName, templateStr, err)
 	}
 
-	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
+	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", cfg.LogName, err)
 	}
 
-	return &accessLogsWrapper{
+	return &accessLogsExecutor{
 		name:          cfg.LogName,
 		aspect:        asp,
 		labels:        cfg.Log.Labels,
@@ -88,7 +93,7 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 }
 
 func (accessLogsManager) Kind() Kind { return AccessLogsKind }
-func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
+func (accessLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.AccessLogsParams{
 		LogName: "access_log",
 		Log: &aconfig.AccessLogsParams_AccessLog{
@@ -97,7 +102,7 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
 		ce = ce.Appendf("Log", "an AccessLog entry must be provided")
@@ -112,25 +117,18 @@ func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.Con
 	return
 }
 
-func (e *accessLogsWrapper) Close() error {
+func (e *accessLogsExecutor) Close() error {
 	return e.aspect.Close()
 }
 
-func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	labels, err := evalAll(e.labels, attrs, mapper)
-	if err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to eval labels for log %s with err: %s", e.name, err))}
-	}
-
-	templateVals, err := evalAll(e.templateExprs, attrs, mapper)
-	if err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to eval template expressions for log %s with err: %s", e.name, err))}
-	}
+func (e *accessLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+	labels := permissiveEval(e.labels, attrs, mapper)
+	templateVals := permissiveEval(e.templateExprs, attrs, mapper)
 
 	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, templateVals); err != nil {
 		pool.PutBuffer(buf)
-		return Output{Status: status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))}
+		return status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))
 	}
 	payload := buf.String()
 	pool.PutBuffer(buf)
@@ -141,7 +139,25 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 		TextPayload: payload,
 	}
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
-		return Output{Status: status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))}
+		return status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))
 	}
-	return Output{Status: status.OK}
+	return status.OK
+}
+
+func permissiveEval(labels map[string]string, attrs attribute.Bag, mapper expr.Evaluator) map[string]interface{} {
+	mappedVals := make(map[string]interface{}, len(labels))
+	for name, exp := range labels {
+		v, err := mapper.Eval(exp, attrs)
+		if err == nil {
+			mappedVals[name] = v
+			continue
+		}
+		// TODO: timestamp is hardcoded here to match hardcoding in
+		// templates and to get around current issues with existence of
+		// attribute descriptors and expressiveness of config language
+		if name == "timestamp" {
+			mappedVals[name] = time.Now()
+		}
+	}
+	return mappedVals
 }

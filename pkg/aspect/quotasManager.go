@@ -16,32 +16,31 @@ package aspect
 
 import (
 	"fmt"
-	"strconv"
-	"sync/atomic"
 
 	ptypes "github.com/gogo/protobuf/types"
-
 	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
 
 type (
-	quotasManager struct {
-		dedupCounter int64
-	}
+	quotasManager struct{}
 
 	quotaInfo struct {
 		definition *adapter.QuotaDefinition
 		labels     map[string]string
 	}
 
-	quotasWrapper struct {
+	quotasExecutor struct {
 		manager  *quotasManager
 		aspect   adapter.QuotasAspect
 		metadata map[string]*quotaInfo
@@ -50,12 +49,11 @@ type (
 )
 
 // newQuotasManager returns a manager for the quotas aspect.
-func newQuotasManager() Manager {
+func newQuotasManager() QuotaManager {
 	return &quotasManager{}
 }
 
-// NewAspect creates a quota aspect.
-func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
 	// TODO: get this from config
@@ -100,12 +98,12 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 		}
 	}
 
-	asp, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	asp, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
 		return nil, err
 	}
 
-	return &quotasWrapper{
+	return &quotasExecutor{
 		manager:  m,
 		metadata: metadata,
 		aspect:   asp,
@@ -113,36 +111,25 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 	}, nil
 }
 
-func (*quotasManager) Kind() Kind                                                     { return QuotasKind }
-func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
-func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (*quotasManager) Kind() Kind                         { return QuotasKind }
+func (*quotasManager) DefaultConfig() config.AspectParams { return &aconfig.QuotasParams{} }
+func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
+	return
+}
 
-func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	qma, ok := ma.(*QuotaMethodArgs)
-
-	// TODO: this conditional is only necessary because we currently perform quota
-	// checking via the Check API, which doesn't generate a QuotaMethodArgs
-	if !ok {
-		qma = &QuotaMethodArgs{
-			Quota:           "RequestCount",
-			Amount:          1,
-			DeduplicationID: strconv.FormatInt(atomic.AddInt64(&w.manager.dedupCounter, 1), 16),
-			BestEffort:      false,
-		}
-	}
-
+func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp) {
 	info, ok := w.metadata[qma.Quota]
 	if !ok {
 		msg := fmt.Sprintf("Unknown quota '%s' requested", qma.Quota)
 		glog.Error(msg)
-		return Output{Status: status.WithInvalidArgument(msg)}
+		return status.WithInvalidArgument(msg), nil
 	}
 
 	labels, err := evalAll(info.labels, attrs, mapper)
 	if err != nil {
 		msg := fmt.Sprintf("Unable to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
 		glog.Error(msg)
-		return Output{Status: status.WithInvalidArgument(msg)}
+		return status.WithInvalidArgument(msg), nil
 	}
 
 	qa := adapter.QuotaArgs{
@@ -166,28 +153,24 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 
 	if err != nil {
 		glog.Errorf("Quota allocation failed: %v", err)
-		return Output{Status: status.WithError(err)}
+		return status.WithError(err), nil
 	}
 
 	if qr.Amount == 0 {
 		msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
 		glog.Warning(msg)
-		return Output{Status: status.WithResourceExhausted(msg)}
+		return status.WithResourceExhausted(msg), nil
 	}
 
 	if glog.V(2) {
 		glog.Infof("Allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
 	}
 
-	return Output{
-		Status: status.OK,
-		Response: &QuotaMethodResp{
-			Amount:     qr.Amount,
-			Expiration: qr.Expiration,
-		}}
+	qmr := QuotaMethodResp(qr)
+	return status.OK, &qmr
 }
 
-func (w *quotasWrapper) Close() error {
+func (w *quotasExecutor) Close() error {
 	return w.aspect.Close()
 }
 
