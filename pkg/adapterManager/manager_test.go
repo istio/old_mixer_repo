@@ -22,11 +22,11 @@ import (
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
-
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
@@ -40,14 +40,28 @@ type (
 		kinds []string
 	}
 
-	fakemgr struct {
+	fakeCheckAspectMgr struct {
 		aspect.Manager
 		kind   aspect.Kind
-		w      *fakewrapper
+		ce     aspect.CheckExecutor
 		called int8
 	}
 
-	fakeevaluator struct {
+	fakeReportAspectMgr struct {
+		aspect.Manager
+		kind   aspect.Kind
+		re     aspect.ReportExecutor
+		called int8
+	}
+
+	fakeQuotaAspectMgr struct {
+		aspect.Manager
+		kind   aspect.Kind
+		qe     aspect.QuotaExecutor
+		called int8
+	}
+
+	fakeEvaluator struct {
 		expr.Evaluator
 	}
 
@@ -57,66 +71,132 @@ type (
 		instance testAspect
 	}
 
+	// implements adapter.Builder too.
 	testAspect struct {
-		body func() aspect.Output
+		body func() rpc.Status
 	}
 
-	fakewrapper struct {
+	fakeCheckExecutor struct {
 		called int8
 	}
 
-	fakeadp struct {
+	fakeReportExecutor struct {
+		called int8
+	}
+
+	fakeQuotaExecutor struct {
+		called int8
+		result aspect.QuotaMethodResp
+	}
+
+	fakeBuilder struct {
 		name string
 		adapter.Builder
 	}
+
+	fakeResolver struct {
+		ret []*configpb.Combined
+		err error
+	}
 )
 
-func (f *fakeadp) Name() string { return f.name }
+func (f *fakeResolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*configpb.Combined, error) {
+	return f.ret, f.err
+}
 
-func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (output aspect.Output) {
+func (f *fakeBuilder) Name() string { return f.name }
+
+func (f *fakeCheckExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (output rpc.Status) {
 	f.called++
 	return
 }
-func (f *fakewrapper) Close() error { return nil }
+func (f *fakeCheckExecutor) Close() error { return nil }
 
-func (m *fakemgr) Kind() aspect.Kind {
+func (f *fakeReportExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (output rpc.Status) {
+	f.called++
+	return
+}
+func (f *fakeReportExecutor) Close() error { return nil }
+
+func (f *fakeQuotaExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *aspect.QuotaMethodArgs) (output rpc.Status, qmr *aspect.QuotaMethodResp) {
+	f.called++
+	return status.OK, &f.result
+}
+func (f *fakeQuotaExecutor) Close() error { return nil }
+
+func (m *fakeCheckAspectMgr) Kind() aspect.Kind {
 	return m.kind
 }
 
-func newTestManager(name string, throwOnNewAspect bool, body func() aspect.Output) testManager {
+func (m *fakeCheckAspectMgr) NewCheckExecutor(cfg *configpb.Combined, adp adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
+	m.called++
+	if m.ce == nil {
+		return nil, errors.New("unable to create aspect")
+	}
+
+	return m.ce, nil
+}
+
+func (m *fakeReportAspectMgr) Kind() aspect.Kind {
+	return m.kind
+}
+
+func (m *fakeReportAspectMgr) NewReportExecutor(cfg *configpb.Combined, adp adapter.Builder,
+	env adapter.Env, _ descriptor.Finder) (aspect.ReportExecutor, error) {
+
+	m.called++
+	if m.re == nil {
+		return nil, errors.New("unable to create aspect")
+	}
+
+	return m.re, nil
+}
+
+func (m *fakeQuotaAspectMgr) Kind() aspect.Kind {
+	return m.kind
+}
+
+func (m *fakeQuotaAspectMgr) NewQuotaExecutor(cfg *configpb.Combined, adp adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.QuotaExecutor, error) {
+	m.called++
+	if m.qe == nil {
+		return nil, errors.New("unable to create aspect")
+	}
+
+	return m.qe, nil
+}
+
+func newTestManager(name string, throwOnNewAspect bool, body func() rpc.Status) testManager {
 	return testManager{name, throwOnNewAspect, testAspect{body}}
 }
-func (testManager) Close() error                                                { return nil }
-func (testManager) DefaultConfig() adapter.AspectConfig                         { return nil }
-func (testManager) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
-func (testManager) Kind() aspect.Kind                                           { return aspect.DenialsKind }
-func (m testManager) Name() string                                              { return m.name }
-func (testManager) Description() string                                         { return "deny checker aspect manager for testing" }
+func (testManager) Close() error                       { return nil }
+func (testManager) DefaultConfig() config.AspectParams { return nil }
+func (testManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) *adapter.ConfigErrors {
+	return nil
+}
+func (testManager) Kind() aspect.Kind   { return aspect.DenialsKind }
+func (m testManager) Name() string      { return m.name }
+func (testManager) Description() string { return "deny checker aspect manager for testing" }
 
-func (m testManager) NewAspect(cfg *config.Combined, adapter adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
+func (m testManager) NewCheckExecutor(cfg *configpb.Combined, adapter adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
 	if m.throw {
-		panic("NewAspect panic")
+		panic("NewCheckExecutor panic")
 	}
 	return m.instance, nil
 }
-func (m testManager) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenialsAspect, error) {
+
+func (m testManager) NewDenyChecker(env adapter.Env, c adapter.Config) (adapter.DenialsAspect, error) {
 	return m.instance, nil
 }
 
 func (testAspect) Close() error { return nil }
-func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) aspect.Output {
+func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	return t.body()
 }
-func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(rpc.INTERNAL)} }
-
-func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
-	m.called++
-	if m.w == nil {
-		return nil, errors.New("unable to create aspect")
-	}
-
-	return m.w, nil
-}
+func (testAspect) Deny() rpc.Status                                    { return rpc.Status{Code: int32(rpc.INTERNAL)} }
+func (testAspect) DefaultConfig() adapter.Config                       { return nil }
+func (testAspect) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return nil }
+func (testAspect) Name() string                                        { return "" }
+func (testAspect) Description() string                                 { return "" }
 
 func (m *fakeBuilderReg) FindBuilder(adapterName string) (adapter.Builder, bool) {
 	return m.adp, m.found
@@ -126,20 +206,25 @@ func (m *fakeBuilderReg) SupportedKinds(name string) []string {
 	return m.kinds
 }
 
-type ttable struct {
-	mgrFound  bool
-	kindFound bool
-	errString string
-	wrapper   *fakewrapper
-	cfg       []*config.Combined
-}
-
 func getReg(found bool) *fakeBuilderReg {
-	return &fakeBuilderReg{&fakeadp{name: "k1impl1"}, found, []string{aspect.DenialsKind.String()}}
+	return &fakeBuilderReg{&fakeBuilder{name: "k1impl1"}, found, []string{
+		aspect.DenialsKind.String(),
+		aspect.AccessLogsKind.String(),
+		aspect.QuotasKind.String(),
+	}}
 }
 
-func newFakeMgrReg(w *fakewrapper) map[aspect.Kind]aspect.Manager {
-	mgrs := []aspect.Manager{&fakemgr{kind: aspect.DenialsKind, w: w}, &fakemgr{kind: aspect.AccessLogsKind}}
+func newFakeMgrReg(ce *fakeCheckExecutor, re *fakeReportExecutor, qe *fakeQuotaExecutor) map[aspect.Kind]aspect.Manager {
+	var f1 aspect.CheckManager
+	var f2 aspect.ReportManager
+	var f3 aspect.QuotaManager
+
+	f1 = &fakeCheckAspectMgr{kind: aspect.DenialsKind, ce: ce}
+	f2 = &fakeReportAspectMgr{kind: aspect.AccessLogsKind, re: re}
+	f3 = &fakeQuotaAspectMgr{kind: aspect.QuotasKind, qe: qe}
+
+	mgrs := []aspect.Manager{f1, f2, f3}
+
 	mreg := make(map[aspect.Kind]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
@@ -148,17 +233,22 @@ func newFakeMgrReg(w *fakewrapper) map[aspect.Kind]aspect.Manager {
 }
 
 func TestManager(t *testing.T) {
-	goodcfg := &config.Combined{
+	goodcfg := &configpb.Combined{
 		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
-	badcfg1 := &config.Combined{
+	goodcfg2 := &configpb.Combined{
+		Aspect:  &configpb.Aspect{Kind: aspect.AccessLogsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: aspect.AccessLogsKindName, Impl: "k1impl2", Params: &rpc.Status{}},
+	}
+
+	badcfg1 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
-	badcfg2 := &config.Combined{
+	badcfg2 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
@@ -166,56 +256,65 @@ func TestManager(t *testing.T) {
 	emptyMgrs := map[aspect.Kind]aspect.Manager{}
 	requestBag := attribute.GetMutableBag(nil)
 	responseBag := attribute.GetMutableBag(nil)
-	mapper := &fakeevaluator{}
+	mapper := &fakeEvaluator{}
 
-	ttt := []ttable{
-		{false, false, "could not find aspect manager", nil, []*config.Combined{goodcfg}},
-		{true, false, "could not find registered adapter", nil, []*config.Combined{goodcfg}},
-		{true, true, "", &fakewrapper{}, []*config.Combined{goodcfg}},
-		{true, true, "", nil, []*config.Combined{goodcfg}},
-		{true, true, "can't handle type", nil, []*config.Combined{badcfg1}},
-		{true, true, "can't handle type", nil, []*config.Combined{badcfg2}},
+	ttt := []struct {
+		mgrFound      bool
+		kindFound     bool
+		errString     string
+		checkExecutor *fakeCheckExecutor
+		cfg           []*configpb.Combined
+	}{
+		{false, false, "could not find aspect manager", nil, []*configpb.Combined{goodcfg}},
+		{true, false, "could not find registered adapter", nil, []*configpb.Combined{goodcfg}},
+		{true, true, "", &fakeCheckExecutor{}, []*configpb.Combined{goodcfg, goodcfg2}},
+		{true, true, "", nil, []*configpb.Combined{goodcfg}},
+		{true, true, "can't handle type", nil, []*configpb.Combined{badcfg1}},
+		{true, true, "can't handle type", nil, []*configpb.Combined{badcfg2}},
 	}
 
 	for idx, tt := range ttt {
 		r := getReg(tt.kindFound)
 		mgr := emptyMgrs
 		if tt.mgrFound {
-			mgr = newFakeMgrReg(tt.wrapper)
+			mgr = newFakeMgrReg(tt.checkExecutor, nil, nil)
 		}
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, nil, gp, agp)
 
-		out := m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil)
-		errStr := out.Message()
+		m.cfg.Store(&fakeResolver{tt.cfg, nil})
+
+		out := m.Check(context.Background(), requestBag, responseBag)
+		errStr := out.Message
 		if !strings.Contains(errStr, tt.errString) {
 			t.Errorf("[%d] expected: '%s' \ngot: '%s'", idx, tt.errString, errStr)
 		}
 
-		if tt.errString != "" || tt.wrapper == nil {
+		if tt.errString != "" || tt.checkExecutor == nil {
 			continue
 		}
 
-		if tt.wrapper.called != 1 {
-			t.Errorf("[%d] Expected wrapper call", idx)
+		if tt.checkExecutor.called != 1 {
+			t.Errorf("[%d] Expected executor to have been called once, got %d calls", idx, tt.checkExecutor.called)
 		}
-		mgr1 := mgr[aspect.DenialsKind]
-		fmgr := mgr1.(*fakemgr)
+
+		mgr1 := mgr[aspect.DenialsKind].(aspect.CheckManager)
+		fmgr := mgr1.(*fakeCheckAspectMgr)
 		if fmgr.called != 1 {
-			t.Errorf("[%d] Expected mgr.NewAspect call", idx)
+			t.Errorf("[%d] Expected mgr.NewExecutor called 1, got %d calls", idx, fmgr.called)
 		}
 
 		// call again
 		// check for cache
-		_ = m.Execute(context.Background(), tt.cfg, requestBag, responseBag, nil)
-		if tt.wrapper.called != 2 {
-			t.Errorf("[%d] Expected 2nd wrapper call", idx)
+		_ = m.Check(context.Background(), requestBag, responseBag)
+		if tt.checkExecutor.called != 2 {
+			t.Errorf("[%d] Expected executor to have been called twice, got %d calls", idx, tt.checkExecutor.called)
 		}
 
 		if fmgr.called != 1 {
-			t.Errorf("[%d] Unexpected mgr.NewAspect call %d", idx, fmgr.called)
+			t.Errorf("[%d] Unexpected mgr.NewExecutor call %d", idx, fmgr.called)
 		}
 
 		gp.Close()
@@ -223,48 +322,122 @@ func TestManager(t *testing.T) {
 	}
 }
 
+func TestReport(t *testing.T) {
+	r := getReg(true)
+	requestBag := attribute.GetMutableBag(nil)
+	responseBag := attribute.GetMutableBag(nil)
+	gp := pool.NewGoroutinePool(1, true)
+	agp := pool.NewGoroutinePool(1, true)
+	mapper := &fakeEvaluator{}
+	re := &fakeReportExecutor{}
+	mgrs := newFakeMgrReg(nil, re, nil)
+
+	m := newManager(r, mgrs, mapper, nil, gp, agp)
+
+	cfg := []*configpb.Combined{
+		{
+			Aspect:  &configpb.Aspect{Kind: aspect.AccessLogsKindName},
+			Builder: &configpb.Adapter{Name: "Foo"},
+		},
+	}
+	m.cfg.Store(&fakeResolver{cfg, nil})
+
+	out := m.Report(context.Background(), requestBag, responseBag)
+
+	if !status.IsOK(out) {
+		t.Errorf("Report failed with %v", out)
+	}
+
+	if re.called != 1 {
+		t.Errorf("Executor invoked %d times, expected once", re.called)
+	}
+
+	gp.Close()
+	agp.Close()
+}
+
+func TestQuota(t *testing.T) {
+	r := getReg(true)
+	requestBag := attribute.GetMutableBag(nil)
+	responseBag := attribute.GetMutableBag(nil)
+	gp := pool.NewGoroutinePool(1, true)
+	agp := pool.NewGoroutinePool(1, true)
+	mapper := &fakeEvaluator{}
+	qe := &fakeQuotaExecutor{result: aspect.QuotaMethodResp{Amount: 42}}
+	mgrs := newFakeMgrReg(nil, nil, qe)
+
+	m := newManager(r, mgrs, mapper, nil, gp, agp)
+
+	cfg := []*configpb.Combined{
+		{
+			Aspect:  &configpb.Aspect{Kind: aspect.QuotasKindName},
+			Builder: &configpb.Adapter{Name: "Foo"},
+		},
+	}
+	m.cfg.Store(&fakeResolver{cfg, nil})
+
+	qmr, out := m.Quota(context.Background(), requestBag, responseBag, nil)
+
+	if !status.IsOK(out) {
+		t.Errorf("Quota failed with %v", out)
+	}
+
+	if qe.called != 1 {
+		t.Errorf("Executor invoked %d times, expected once", qe.called)
+	}
+
+	if qmr.Amount != 42 {
+		t.Errorf("Got quota amount of %d, expecting 42", qmr.Amount)
+	}
+
+	gp.Close()
+	agp.Close()
+}
+
 func TestManager_BulkExecute(t *testing.T) {
-	goodcfg := &config.Combined{
+	goodcfg := &configpb.Combined{
 		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
-
-	badcfg1 := &config.Combined{
+	badcfg1 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
-	badcfg2 := &config.Combined{
+	badcfg2 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
 	}
+
 	cases := []struct {
 		errString string
-		cfgs      []*config.Combined
+		cfgs      []*configpb.Combined
 	}{
-		{"", []*config.Combined{}},
-		{"", []*config.Combined{goodcfg}},
-		{"", []*config.Combined{goodcfg, goodcfg}},
-		{"can't handle type", []*config.Combined{badcfg1, goodcfg}},
-		{"can't handle type", []*config.Combined{goodcfg, badcfg2}},
+		{"", []*configpb.Combined{}},
+		{"", []*configpb.Combined{goodcfg}},
+		{"", []*configpb.Combined{goodcfg, goodcfg}},
+		{"can't handle type", []*configpb.Combined{badcfg1, goodcfg}},
+		{"can't handle type", []*configpb.Combined{goodcfg, badcfg2}},
 	}
 
 	requestBag := attribute.GetMutableBag(nil)
 	responseBag := attribute.GetMutableBag(nil)
-	mapper := &fakeevaluator{}
+	mapper := &fakeEvaluator{}
 	for idx, c := range cases {
 		r := getReg(true)
-		mgr := newFakeMgrReg(&fakewrapper{})
+		mgr := newFakeMgrReg(&fakeCheckExecutor{}, &fakeReportExecutor{}, &fakeQuotaExecutor{})
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, nil, gp, agp)
 
-		out := m.Execute(context.Background(), c.cfgs, requestBag, responseBag, nil)
-		errStr := out.Message()
+		m.cfg.Store(&fakeResolver{c.cfgs, nil})
+
+		out := m.Check(context.Background(), requestBag, responseBag)
+		errStr := out.Message
 		if !strings.Contains(errStr, c.errString) {
-			t.Errorf("[%d] got: '%s' want: '%s'", idx, c.errString, errStr)
+			t.Errorf("[%d] got: '%s' want: '%s'", idx, errStr, c.errString)
 		}
 
 		gp.Close()
@@ -273,7 +446,7 @@ func TestManager_BulkExecute(t *testing.T) {
 }
 
 func TestRecovery_NewAspect(t *testing.T) {
-	testRecovery(t, "NewAspect Throws", true, false, "NewAspect")
+	testRecovery(t, "NewExecutor Throws", true, false, "NewExecutor")
 }
 
 func TestRecovery_AspectExecute(t *testing.T) {
@@ -283,19 +456,19 @@ func TestRecovery_AspectExecute(t *testing.T) {
 func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
 	var cacheThrow testManager
 	if throwOnExecute {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() aspect.Output {
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() rpc.Status {
 			panic("panic")
 		})
 	} else {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() aspect.Output {
-			return aspect.Output{Status: status.WithError(errors.New("empty"))}
+		cacheThrow = newTestManager(name, throwOnNewAspect, func() rpc.Status {
+			return status.WithError(errors.New("empty"))
 		})
 	}
 	mreg := map[aspect.Kind]aspect.Manager{
 		aspect.DenialsKind: cacheThrow,
 	}
 	breg := &fakeBuilderReg{
-		adp:   cacheThrow,
+		adp:   cacheThrow.instance,
 		found: true,
 	}
 
@@ -303,20 +476,21 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 	agp := pool.NewGoroutinePool(1, true)
 	m := newManager(breg, mreg, nil, nil, gp, agp)
 
-	cfg := []*config.Combined{
+	cfg := []*configpb.Combined{
 		{
 			Builder: &configpb.Adapter{Name: name},
 			Aspect:  &configpb.Aspect{Kind: name},
 		},
 	}
+	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	out := m.Execute(context.Background(), cfg, nil, nil, nil)
-	if out.IsOK() {
+	out := m.Check(context.Background(), nil, nil)
+	if status.IsOK(out) {
 		t.Error("Aspect panicked, but got no error from manager.Execute")
 	}
 
-	if !strings.Contains(out.Message(), want) {
-		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, out.Message())
+	if !strings.Contains(out.Message, want) {
+		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, out.Message)
 	}
 
 	gp.Close()
@@ -329,21 +503,20 @@ func TestExecute(t *testing.T) {
 		inCode   rpc.Code
 		inErr    error
 		wantCode rpc.Code
-		resp     aspect.APIMethodResp
 	}{
-		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK, "RESPONSE"},
-		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN, nil},
+		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK},
+		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN},
 	}
 
-	for _, c := range cases {
-		mngr := newTestManager(c.name, false, func() aspect.Output {
-			return aspect.Output{Status: status.New(c.inCode), Response: c.resp}
+	for i, c := range cases {
+		mngr := newTestManager(c.name, false, func() rpc.Status {
+			return status.New(c.inCode)
 		})
 		mreg := map[aspect.Kind]aspect.Manager{
 			aspect.DenialsKind: mngr,
 		}
 		breg := &fakeBuilderReg{
-			adp:   mngr,
+			adp:   mngr.instance,
 			found: true,
 		}
 
@@ -351,20 +524,20 @@ func TestExecute(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(breg, mreg, nil, nil, gp, agp)
 
-		cfg := []*config.Combined{
+		cfg := []*configpb.Combined{
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
+		m.cfg.Store(&fakeResolver{cfg, nil})
 
-		o := m.Execute(context.Background(), cfg, nil, nil, nil)
-		if c.inErr != nil && o.IsOK() {
-			t.Errorf("m.Execute(...) want err: %v", c.inErr)
+		o := m.dispatch(context.Background(), nil, nil, checkMethod,
+			func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+				return status.OK
+			})
+		if c.inErr != nil && status.IsOK(o) {
+			t.Errorf("m.dispatch(...) want err: %v", c.inErr)
 		}
-		if c.inErr == nil && !o.IsOK() {
-			t.Errorf("m.Execute(...) = %v; wanted o.Status.Code == rpc.OK", o)
-		}
-
-		if c.resp != o.Response {
-			t.Errorf("m.Execute(...) got response %v, expected %v", o.Response, c.resp)
+		if c.inErr == nil && !status.IsOK(o) {
+			t.Errorf("m.dispatch(...) = %v; wanted o.Code == rpc.OK, case %d", o, i)
 		}
 
 		gp.Close()
@@ -381,15 +554,16 @@ func TestExecute_Cancellation(t *testing.T) {
 	agp := pool.NewGoroutinePool(128, true)
 	agp.AddWorkers(32)
 
-	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration shouldn't matter when we have a canceled ctx
-	handler := &Manager{gp: gp, adapterGP: agp}
+	m := &Manager{gp: gp, adapterGP: agp}
 	cancel()
 
-	cfg := []*config.Combined{
+	cfg := []*configpb.Combined{
 		{&configpb.Adapter{Name: ""}, &configpb.Aspect{Kind: ""}},
 	}
-	if out := handler.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil); out.IsOK() {
-		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
+	m.cfg.Store(&fakeResolver{cfg, nil})
+
+	if out := m.dispatch(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), checkMethod, nil); status.IsOK(out) {
+		t.Error("m.dispatch(canceledContext, ...) = _, nil; wanted any err")
 	}
 
 	gp.Close()
@@ -401,15 +575,15 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	blockChan := make(chan struct{})
 
 	name := "blocked"
-	mngr := newTestManager(name, false, func() aspect.Output {
+	mngr := newTestManager(name, false, func() rpc.Status {
 		<-blockChan
-		return aspect.Output{Status: status.OK}
+		return status.OK
 	})
 	mreg := map[aspect.Kind]aspect.Manager{
 		aspect.DenialsKind: mngr,
 	}
 	breg := &fakeBuilderReg{
-		adp:   mngr,
+		adp:   mngr.instance,
 		found: true,
 	}
 
@@ -426,11 +600,13 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		cancel()
 	}()
 
-	cfg := []*config.Combined{{
+	cfg := []*configpb.Combined{{
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}}
-	if out := m.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil); out.IsOK() {
+	m.cfg.Store(&fakeResolver{cfg, nil})
+
+	if out := m.Check(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil)); status.IsOK(out) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)
