@@ -1,4 +1,4 @@
-// Copyright 2016 Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"crypto/tls"
@@ -31,6 +31,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter"
+	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
@@ -41,71 +42,76 @@ import (
 )
 
 type serverArgs struct {
-	port                  uint
-	maxMessageSize        uint
-	maxConcurrentStreams  uint
-	apiWorkerPoolSize     uint
-	adapterWorkerPoolSize uint
-	singleThreaded        bool
-	compressedPayload     bool
-	enableTracing         bool
-	serverCertFile        string
-	serverKeyFile         string
-	clientCertFiles       string
-
-	// mixer manager args
+	maxMessageSize         uint
+	maxConcurrentStreams   uint
+	apiWorkerPoolSize      int
+	adapterWorkerPoolSize  int
+	port                   uint16
+	singleThreaded         bool
+	compressedPayload      bool
+	enableTracing          bool
+	serverCertFile         string
+	serverKeyFile          string
+	clientCertFiles        string
 	serviceConfigFile      string
 	globalConfigFile       string
 	configFetchIntervalSec uint
 }
 
-func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
+func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
 		Short: "Starts the mixer as a server",
-		Run: func(cmd *cobra.Command, args []string) {
-			outf("Starting gRPC server on port %v\n", sa.port)
-
-			err := runServer(sa)
-			if err != nil {
-				errorf("%v", err)
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if sa.apiWorkerPoolSize <= 0 {
+				return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", sa.apiWorkerPoolSize)
 			}
+
+			if sa.adapterWorkerPoolSize <= 0 {
+				return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", sa.adapterWorkerPoolSize)
+			}
+
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			runServer(sa, printf, fatalf)
 		},
 	}
-	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
+	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
-	serverCmd.PersistentFlags().UintVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
-	serverCmd.PersistentFlags().UintVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
+	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
+	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
 	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run the mixer in single-threaded mode (useful "+
 		"for debugging)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
+
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
+	_ = serverCmd.MarkPersistentFlagFilename("serverCertFile")
+
 	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
+	_ = serverCmd.MarkPersistentFlagFilename("serverKeyFile")
+
 	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
+
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
-	// mixer manager args
-
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "serviceConfig.yml", "Combined Service Config")
+	_ = serverCmd.MarkPersistentFlagFilename("serverConfigFile", "yaml", "yml")
+
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "globalConfig.yml", "Global Config")
-	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Config fetch interval in seconds")
+	_ = serverCmd.MarkPersistentFlagFilename("globalConfigFile", "yaml", "yml")
+
+	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
 
 	return &serverCmd
 }
 
-func runServer(sa *serverArgs) error {
-	apiPoolSize := int(sa.apiWorkerPoolSize)
-	if apiPoolSize <= 0 {
-		return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", apiPoolSize)
-	}
-
-	adapterPoolSize := int(sa.adapterWorkerPoolSize)
-	if adapterPoolSize <= 0 {
-		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", adapterPoolSize)
-	}
+func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
+	apiPoolSize := sa.apiWorkerPoolSize
+	adapterPoolSize := sa.adapterWorkerPoolSize
 
 	gp := pool.NewGoroutinePool(apiPoolSize, sa.singleThreaded)
 	gp.AddWorkers(apiPoolSize)
@@ -118,11 +124,11 @@ func runServer(sa *serverArgs) error {
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
-	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
-		adapterMgr.AdapterToAspectMapperFunc(),
+	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
+		adapterMgr.AdapterToAspectMapper,
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
-	handler := api.NewHandler(adapterMgr, adapterMgr.MethodMap())
+	handler := api.NewHandler(adapterMgr)
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
@@ -130,7 +136,7 @@ func runServer(sa *serverArgs) error {
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
-			return fmt.Errorf("failed to load server certificate and server key: %v", err)
+			fatalf("Failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
 	}
@@ -140,16 +146,16 @@ func runServer(sa *serverArgs) error {
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			pem, err := ioutil.ReadFile(clientCertFile)
 			if err != nil {
-				return fmt.Errorf("failed to load client certificate: %v", err)
+				fatalf("Failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
 	}
 
 	// get the network stuff setup
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", uint16(sa.port)))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", sa.port))
 	if err != nil {
-		return err
+		fatalf("Unable to listen on socket: %v", err)
 	}
 
 	// construct the gRPC options
@@ -185,7 +191,7 @@ func runServer(sa *serverArgs) error {
 		tracer = tracing.DisabledTracer()
 	}
 
-	configManager.Register(handler.(config.ChangeListener))
+	configManager.Register(adapterMgr)
 	configManager.Start()
 
 	// get everything wired up
@@ -193,5 +199,9 @@ func runServer(sa *serverArgs) error {
 	s := api.NewGRPCServer(handler, tracer, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 
-	return gs.Serve(listener)
+	printf("Starting gRPC server on port %v", sa.port)
+
+	if err = gs.Serve(listener); err != nil {
+		fatalf("Failed serving gRPC server: %v", err)
+	}
 }

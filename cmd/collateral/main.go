@@ -1,4 +1,4 @@
-// Copyright 2017 The Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+// This is a simple command that is used to output the auto-generated collateral
+// files for the various mixer CLI commands. More specifically, this outputs
+// markdown files and man pages that describe the CLI commands, along with
+// bash completion files.
+
+package main
 
 import (
-	"testing"
+	"os"
+
+	"istio.io/mixer/cmd/collateral/cmd"
+	"istio.io/mixer/cmd/shared"
 )
 
-func TestMethodNames(t *testing.T) {
-	cases := []struct {
-		method APIMethod
-		name   string
-	}{
-		{CheckMethod, "Check"},
-		{ReportMethod, "Report"},
-		{QuotaMethod, "Quota"},
-	}
+func main() {
+	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
 
-	for _, c := range cases {
-		if c.method.String() != c.name {
-			t.Errorf("Got %s, expecting %s", c.method.String(), c.name)
-		}
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(-1)
 	}
 }

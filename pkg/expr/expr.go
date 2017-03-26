@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -86,8 +87,8 @@ type Expression struct {
 
 // AttributeDescriptorFinder finds attribute descriptors.
 type AttributeDescriptorFinder interface {
-	// FindAttributeDescriptor finds attribute descriptor in the vocabulary. returns nil if not found.
-	FindAttributeDescriptor(name string) *config.AttributeDescriptor
+	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
+	GetAttribute(name string) *config.AttributeDescriptor
 }
 
 // TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
@@ -96,7 +97,7 @@ func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]
 		return e.Const.Type, nil
 	}
 	if e.Var != nil {
-		ad := attrs.FindAttributeDescriptor(e.Var.Name)
+		ad := attrs.GetAttribute(e.Var.Name)
 		if ad == nil {
 			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
 		}
@@ -144,8 +145,8 @@ func (e *Expression) String() string {
 	return "<nil>"
 }
 
-// newConstant creates a new constant of given type.
-// It also stores a typed form of the constant.
+// newConstant converts literals recognized by parser (ie. int and string) to
+// `config.ValueType`s, building a typed *Constant.
 func newConstant(v string, vType config.ValueType) (*Constant, error) {
 	var typedVal interface{}
 	var err error
@@ -159,9 +160,20 @@ func newConstant(v string, vType config.ValueType) (*Constant, error) {
 			return nil, err
 		}
 	default: // string
-		if typedVal, err = strconv.Unquote(v); err != nil {
+		// Several `config.ValueType`s are parsed as strings, so
+		// they must be parse separately as those value types
+		// (and the appropriate vType must be set).
+		var unquoted string
+		if unquoted, err = strconv.Unquote(v); err != nil {
 			return nil, err
 		}
+		if typedVal, err = time.ParseDuration(unquoted); err == nil {
+			vType = config.DURATION
+			break
+		}
+		// TODO: add support for other config ValueTypes serialized
+		// as string
+		typedVal = unquoted
 	}
 	return &Constant{StrValue: v, Type: vType, Value: typedVal}, nil
 }
@@ -412,6 +424,14 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 		return
 	}
 	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
+}
+
+func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (config.ValueType, error) {
+	v, err := Parse(expr)
+	if err != nil {
+		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s' with err: %v", expr, err)
+	}
+	return v.TypeCheck(attrFinder, e.fMap)
 }
 
 // Validate validates expression for syntactic correctness.
