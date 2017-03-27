@@ -100,6 +100,26 @@ func newBuilder() builder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
+func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
+	c := cfg.(*config.Params)
+
+	dedupWindow, err := ptypes.DurationFromProto(c.MinDeduplicationDuration)
+	if err != nil {
+		ce = ce.Append("MinDeduplicationDuration", err)
+		return
+	}
+	if dedupWindow <= 0 {
+		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", dedupWindow)
+	}
+
+	if c.ConnectionPoolSize < 0 {
+		ce = ce.Appendf("ConnectionPoolSize", "redis connection pool size of %v is invalid, must be > 0", c.ConnectionPoolSize)
+
+	}
+
+	return
+}
+
 func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return newAspect(env, c.(*config.Params), d)
 }
@@ -113,7 +133,11 @@ func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapte
 
 // newAspectWithDedup returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	connPool, _ := newConnPool(c.SocketType, c.RedisServerUrl, c.ConnectionPoolSize)
+	connPool, err := newConnPool(c.RedisServerUrl, c.SocketType, c.ConnectionPoolSize)
+	if err != nil {
+		// TODO: propagate Connection Pool error here
+		return nil, err
+	}
 	rq := &redisQuota{
 		definitions: definitions,
 		cells:       make(map[string]int64),
@@ -138,21 +162,22 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 	amount, exp, err := rq.commonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
-		conn, err := rq.redisPool.get()
-		if err != nil {
-			rq.logger.Infof("Could not get connection to redis")
-			return 0, time.Time{}, 0
-		}
+		conn, _ := rq.redisPool.get()
+		// TODO: propagate Connection Pool error here
+		// if err != nil {
+		// 	rq.logger.Infof("Could not get connection to redis")
+		// 	return 0, time.Time{}, 0
+		//}
 		defer rq.redisPool.put(conn)
 
 		// increase the value of this key by the amount of result
 		conn.pipeAppend("INCRBY", key, result)
-		resp, err := conn.pipeResponse()
-
-		if err != nil {
-			rq.logger.Infof("Could not get response from redis")
-			return 0, time.Time{}, 0
-		}
+		resp, _ := conn.pipeResponse()
+		// TODO: propagate Connection Pool error here
+		// if err != nil {
+		//	rq.logger.Infof("Could not get response from redis")
+		//	return 0, time.Time{}, 0
+		//}
 		ret := resp.int()
 
 		if ret > d.MaxAmount {
@@ -177,18 +202,21 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 	amount, _, err := rq.commonWrapper(args,
 		func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration) {
 			result := args.QuotaAmount
-			conn, err := rq.redisPool.get()
-			if err != nil {
-				return 0, time.Time{}, 0
-			}
+			conn, _ := rq.redisPool.get()
+			// TODO: propagate Connection Pool error here
+			// if err != nil {
+			// 	return 0, time.Time{}, 0
+			// }
 			defer rq.redisPool.put(conn)
 
 			// decrease the value of this key by the amount of result
 			conn.pipeAppend("DECRBY", key, result)
-			resp, err := conn.pipeResponse()
-			if err != nil {
-				return 0, time.Time{}, 0
-			}
+			resp, _ := conn.pipeResponse()
+			// TODO: propagate Connection Pool error here
+			// TODO: propagate Connection Pool error here
+			// if err != nil {
+			// 	return 0, time.Time{}, 0
+			// }
 			ret := resp.int()
 
 			if ret <= 0 {

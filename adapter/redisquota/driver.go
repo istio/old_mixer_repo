@@ -37,11 +37,6 @@ type response struct {
 
 // Get is to get a connection from the connection pool.
 func (cp *connPool) get() (*connection, error) {
-	if cp == nil {
-		// TODO: remove err when mock redis is added
-		var err error
-		return &connection{nil, 0}, err
-	}
 	client, err := cp.pool.Get()
 
 	return &connection{client, 0}, err
@@ -49,13 +44,6 @@ func (cp *connPool) get() (*connection, error) {
 
 // Put is to put a connection c back to the pool.
 func (cp *connPool) put(c *connection) {
-	// TODO: radix does not appear to track if we attempt to put a connection back with pipelined
-	// responses that have not been flushed. If we are in this state, just kill the connection
-	// and don't put it back in the pool.
-	if cp == nil {
-		// TODO: remove err when mock redis is added
-		return
-	}
 	cp.pool.Put(c.client)
 }
 
@@ -69,37 +57,25 @@ func newConnPool(redisURL string, redisSocketType string, redisPoolSize int64) (
 }
 
 func (cp *connPool) empty() {
-	// clean up all the connections in the pool.
-	if cp == nil {
-		// TODO: remove err when mock redis is added
-		return
-	}
 	cp.pool.Empty()
 }
 
 func (c *connection) pipeAppend(cmd string, args ...interface{}) {
-	if c != nil {
-		c.client.PipeAppend(cmd, args...)
-	}
+	c.client.PipeAppend(cmd, args...)
 	c.pending++
 }
 
 func (c *connection) pipeResponse() (*response, error) {
-	if c != nil {
-		c.pending--
-		resp := c.client.PipeResp()
-		return &response{resp}, resp.Err
-	}
-	// TODO: remove err when mock redis is added
-	var err error
-	return &response{nil}, err
+	c.pending--
+	resp := c.client.PipeResp()
+	return &response{resp}, resp.Err
 }
 
 func (r *response) int() int64 {
 	i, err := r.response.Int64()
 
 	if err != nil {
-		return 0
+		return -1
 	}
 	return i
 }

@@ -250,3 +250,14 @@ new_go_repository(
     importpath = "github.com/mediocregopher/radix.v2",
 )
 
+new_go_repository(
+    name = "com_github_mini_redis",
+    commit = "bfdf65a73693a032fe06492c5ac63ac08ccf5b7d", # March 25, 2017 (no releases)
+    importpath = "github.com/alicebob/miniredis",
+)
+
+new_go_repository(
+    name = "com_github_bsm_redeo",
+    commit = "1ce09fc76693fb3c1ca9b529c66f38920beb6fb8", # Aug 17, 2016 (no releases)
+    importpath = "github.com/bsm/redeo",
+)

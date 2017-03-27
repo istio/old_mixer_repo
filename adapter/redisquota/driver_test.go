@@ -17,20 +17,28 @@ package redisquota
 import (
 	"sync"
 	"testing"
+
+	"github.com/alicebob/miniredis"
 )
 
 func TestPool(t *testing.T) {
-	pool, _ := newConnPool("localhost:6379", "tcp", 10)
-	// TODO: remove comment after mock redis is added.
-	/* if err != nil {
+	// Start miniredis as a mock redis for unit test.
+	s, err := miniredis.Run()
+	if err != nil {
+		t.Errorf("Unable to start mini redis: %v", err)
+	}
+	defer s.Close()
+
+	pool, err := newConnPool(s.Addr(), "tcp", 10)
+	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
-	*/
+
 	var wg sync.WaitGroup
 	for i := 0; i < 1; i++ {
 		wg.Add(1)
 		go func() {
-			for i := 0; i < 100; i++ {
+			for i := 0; i < 1; i++ {
 				conn, err := pool.get()
 				if err != nil {
 					t.Errorf("Unable to get connection from pool: %v", err)
@@ -44,23 +52,67 @@ func TestPool(t *testing.T) {
 	pool.empty()
 }
 
-// TODO: add mock redis for more unit tests.
-/*
-func TestPipe(t *testing.T) {
+func TestNoConnection(t *testing.T) {
 	pool, err := newConnPool("localhost:6379", "tcp", 10)
-
-	if err != nil {
-		t.Errorf("Unable to create aspect: %v", err)
+	if err == nil {
+		t.Errorf("Expecting error, got success")
+	}
+	if pool != nil {
+		t.Errorf("Expecting failure, got success")
 	}
 
-	conn, err := pool.get()
-	if err != nil {
-		t.Errorf("Unable to create aspect: %v", err)
-	}
-
-	conn.pipeAppend("INCRBY", "key1", "result1")
-	if conn.pending != 1 {
-		t.Errorf("Unable to pipe command: %v", err)
-	}
 }
-*/
+
+func TestPipe(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		t.Errorf("Unable to start mini redis: %v", err)
+	}
+	defer s.Close()
+	err = s.Set("key1", "0")
+	if err != nil {
+		t.Errorf("Unable to set value: %v", err)
+	}
+
+	pool, err := newConnPool(s.Addr(), "tcp", 10)
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		conn, err := pool.get()
+		if err != nil {
+			t.Errorf("Unable to get connection: %v", err)
+		}
+
+		conn.pipeAppend("INCRBY", "key1", "10")
+		if conn.pending != 1 {
+			t.Errorf("Unable to pipe command: %v", err)
+		}
+
+		resp, err := conn.pipeResponse()
+		if err != nil {
+			t.Errorf("Unable to get response: %v", err)
+		}
+
+		if resp.int() != 10 {
+			t.Errorf("Wrong response: %v", err)
+		}
+
+		if conn.pending != 0 {
+			t.Errorf("Unable to delete command: %v", err)
+		}
+
+		resp, err = conn.pipeResponse()
+		if resp.int() != -1 {
+			t.Errorf("Unable to get response command: %v", err)
+		}
+
+		pool.put(conn)
+		wg.Done()
+	}()
+	wg.Wait()
+	pool.empty()
+}
