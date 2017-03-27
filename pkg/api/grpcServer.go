@@ -49,7 +49,7 @@ import (
 // grpcServer holds the state for the gRPC API server.
 type grpcServer struct {
 	aspectDispatcher adapterManager.AspectDispatcher
-	attrMgr          attribute.Manager
+	attrMgr          *attribute.Manager
 	tracer           tracing.Tracer
 	gp               *pool.GoroutinePool
 
@@ -78,8 +78,10 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 		request proto.Message, response proto.Message)) error {
 
 	// tracks attribute state for this stream
-	tracker := s.attrMgr.NewTracker()
-	defer tracker.Done()
+	reqTracker := s.attrMgr.NewTracker()
+	respTracker := s.attrMgr.NewTracker()
+	defer reqTracker.Done()
+	defer respTracker.Done()
 
 	// used to serialize sending on the grpc stream, since the grpc stream is not multithread-safe
 	sendLock := &sync.Mutex{}
@@ -103,7 +105,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			return err
 		}
 
-		requestBag, err := tracker.ApplyRequestAttributes(requestAttrs)
+		requestBag, err := reqTracker.ApplyProto(requestAttrs)
 		if err != nil {
 			msg := "Request could not be processed due to invalid 'attribute_update'."
 			glog.Error(msg, "\n", err)
@@ -133,7 +135,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			worker(ctx2, requestBag, responseBag, request, response)
 
 			sendLock.Lock()
-			tracker.GetResponseAttributes(responseBag, responseAttrs)
+			respTracker.ApplyBag(responseBag, 0, responseAttrs)
 			err := s.sendMsg(stream, response)
 			sendLock.Unlock()
 
