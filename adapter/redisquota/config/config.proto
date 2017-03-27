@@ -27,7 +27,7 @@ message Params {
     // Redis network address
     string redis_server_url = 2;
 
-    // Socket type for talking to redis
+    // Network for communicating with redis, i.e., "tcp"
     string socket_type = 3;
 
     // Maximum number of idle connections to redis
