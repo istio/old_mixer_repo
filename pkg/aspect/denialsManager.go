@@ -15,47 +15,53 @@
 package aspect
 
 import (
+	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
 type (
 	denialsManager struct{}
 
-	denialsWrapper struct {
+	denialsExecutor struct {
 		aspect adapter.DenialsAspect
 	}
 )
 
 // newDenialsManager returns a manager for the denials aspect.
-func newDenialsManager() Manager {
+func newDenialsManager() CheckManager {
 	return denialsManager{}
 }
 
-// NewAspect creates a denyChecker aspect.
-func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+// NewCheckExecutor creates a denyChecker aspect.
+func (denialsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
 	aa := ga.(adapter.DenialsBuilder)
 	var asp adapter.DenialsAspect
 	var err error
 
-	if asp, err = aa.NewDenialsAspect(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
+	if asp, err = aa.NewDenialsAspect(env, cfg.Builder.Params.(config.AspectParams)); err != nil {
 		return nil, err
 	}
 
-	return &denialsWrapper{
+	return &denialsExecutor{
 		aspect: asp,
 	}, nil
 }
 
-func (denialsManager) Kind() Kind                                                       { return DenialsKind }
-func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenialsParams{} }
-func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
-
-func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	return Output{Status: a.aspect.Deny()}
+func (denialsManager) Kind() Kind                         { return DenialsKind }
+func (denialsManager) DefaultConfig() config.AspectParams { return &aconfig.DenialsParams{} }
+func (denialsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
+	return
 }
 
-func (a *denialsWrapper) Close() error { return a.aspect.Close() }
+func (a *denialsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+	return a.aspect.Deny()
+}
+
+func (a *denialsExecutor) Close() error { return a.aspect.Close() }

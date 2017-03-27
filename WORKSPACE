@@ -131,6 +131,24 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_cpuguy83_go_md2man",
+    commit = "648eed146d3f3beacb64063cd0daae908015eebd", # Mar 19, 2017 (no releases)
+    importpath = "github.com/cpuguy83/go-md2man",
+)
+
+new_go_repository(
+    name = "com_github_russross_blackfriday",
+    commit = "35eb537633d9950afc8ae7bdf0edb6134584e9fc", # Mar 19, 2017 (no releases)
+    importpath = "github.com/russross/blackfriday",
+)
+
+new_go_repository(
+    name = "com_github_shurcooL_sanitized_anchor_name",
+    commit = "10ef21a441db47d8b13ebcc5fd2310f636973c77", # Mar 19, 2017 (no releases)
+    importpath = "github.com/shurcooL/sanitized_anchor_name",
+)
+
+new_go_repository(
     name = "com_github_hashicorp_go_multierror",
     commit = "ed905158d87462226a13fe39ddf685ea65f1c11f", # Dec 16, 2016 (no releases)
     importpath = "github.com/hashicorp/go-multierror",
@@ -160,7 +178,7 @@ new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
     path = "../api",
-    commit = "2cb09827d7f09a6e88eac2c2249dcb45c5419f09", # Mar 14, 2017 (no releases)
+    commit = "48fe05c75bcdb5c3413111d3c8d232368404b310", # Mar 22, 2017 (no releases)
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
     use_local = False,
@@ -224,4 +242,22 @@ new_go_repository(
     name = "com_github_cactus_statsd_client",
     commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d", # release 3.1.0, 5/30/2016
     importpath = "github.com/cactus/go-statsd-client",
+)
+
+new_go_repository(
+    name = "com_github_redis_client",
+    commit = "1ac54a28f5934ea5e08f588647e734aba2383cb8", # Jan 28, 2017 (no releases)
+    importpath = "github.com/mediocregopher/radix.v2",
+)
+
+new_go_repository(
+    name = "com_github_mini_redis",
+    commit = "bfdf65a73693a032fe06492c5ac63ac08ccf5b7d", # March 25, 2017 (no releases)
+    importpath = "github.com/alicebob/miniredis",
+)
+
+new_go_repository(
+    name = "com_github_bsm_redeo",
+    commit = "1ce09fc76693fb3c1ca9b529c66f38920beb6fb8", # Aug 17, 2016 (no releases)
+    importpath = "github.com/bsm/redeo",
 )

@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "accessLogsManager.go",
-        "apiMethod.go",
         "applicationLogsManager.go",
         "denialsManager.go",
         "descriptors.go",
@@ -22,6 +21,7 @@ go_library(
         "//pkg/aspect/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config:go_default_library",
+        "//pkg/config/descriptor:go_default_library",
         "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
@@ -43,7 +43,7 @@ go_test(
     size = "small",
     srcs = [
         "accessLogsManager_test.go",
-        "apiMethod_test.go",
+        "applicationLogsManager_test.go",
         "denialsManager_test.go",
         "descriptors_test.go",
         "inventory_test.go",

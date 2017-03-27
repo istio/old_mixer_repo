@@ -30,6 +30,6 @@ type (
 		Builder
 
 		// NewDenialsAspect returns a new instance of the DenyChecker aspect.
-		NewDenialsAspect(env Env, c AspectConfig) (DenialsAspect, error)
+		NewDenialsAspect(env Env, c Config) (DenialsAspect, error)
 	}
 )
