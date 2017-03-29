@@ -33,6 +33,10 @@ func TestConfigErrors(t *testing.T) {
 	ce = ce.Appendf(cases[0].field, "format %d", 0)
 	ce = ce.Append(cases[1].field, fmt.Errorf("format %d", 1))
 
+	if ce.Error() != ce.String() {
+		t.Errorf("ce.String() = '%s', expected '%s'", ce.String(), ce.Error())
+	}
+
 	for i, c := range cases {
 		err := ce.Multi.Errors[i].(ConfigError)
 		if err.Field != c.field {
@@ -43,6 +47,9 @@ func TestConfigErrors(t *testing.T) {
 		}
 		if err.Error() != c.error {
 			t.Errorf("Case %d Error() returns '%s', expected '%s'", i, err.Error(), c.error)
+		}
+		if err.String() != err.Error() {
+			t.Errorf("err.String() = '%s', expected '%s'", err.String(), err.Error())
 		}
 	}
 
@@ -89,5 +96,15 @@ func TestExtend(t *testing.T) {
 	c1 = c1.Extend(c2)
 	if len(c1.Multi.Errors) != len(c2.Multi.Errors) {
 		t.Error("Expected lengths to match")
+	}
+
+	var ce *ConfigErrors
+	if ce.Extend(nil) != nil {
+		t.Error("nil.Extend(nil) != nil")
+	}
+
+	ce = ce.Append("Foo", fmt.Errorf("format %d", 0))
+	if ce.Extend(nil) != ce {
+		t.Error("ce.Extend(nil) != ce")
 	}
 }

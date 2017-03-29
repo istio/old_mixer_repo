@@ -31,8 +31,8 @@ import (
 
 // Resolver resolves configuration to a list of combined configs.
 type Resolver interface {
-	// Resolve resolves configuration to a list of combined configs.
-	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*pb.Combined, error)
+	// resolve resolves configuration to a list of combined configs.
+	Resolve(bag attribute.Bag, kindSet KindSet) ([]*pb.Combined, error)
 }
 
 // ChangeListener listens for config change notifications.
@@ -47,17 +47,17 @@ type ChangeListener interface {
 type Manager struct {
 	eval             expr.Evaluator
 	aspectFinder     AspectValidatorFinder
-	builderFinder    AdapterValidatorFinder
+	builderFinder    BuilderValidatorFinder
 	descriptorFinder descriptor.Finder
 	findAspects      AdapterToAspectMapper
 	loopDelay        time.Duration
 	globalConfig     string
 	serviceConfig    string
+	ticker           *time.Ticker
 
-	cl      []ChangeListener
-	closing chan bool
-	scSHA   [sha1.Size]byte
-	gcSHA   [sha1.Size]byte
+	cl    []ChangeListener
+	scSHA [sha1.Size]byte
+	gcSHA [sha1.Size]byte
 
 	sync.RWMutex
 	lastError error
@@ -74,7 +74,7 @@ type Manager struct {
 // as command line input parameters.
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
-func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder AdapterValidatorFinder,
+func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
 	findAspects AdapterToAspectMapper, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,
@@ -84,7 +84,6 @@ func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builder
 		loopDelay:     loopDelay,
 		globalConfig:  globalConfig,
 		serviceConfig: serviceConfig,
-		closing:       make(chan bool),
 	}
 	return m
 }
@@ -104,7 +103,7 @@ func read(fname string) ([sha1.Size]byte, string, error) {
 }
 
 // fetch config and return runtime if a new one is available.
-func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
+func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
@@ -122,8 +121,8 @@ func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
 		return nil, nil, nil
 	}
 
-	v := NewValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
-	if vd, cerr = v.Validate(sc, gc); cerr != nil {
+	v := newValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
+	if vd, cerr = v.validate(sc, gc); cerr != nil {
 		return nil, nil, cerr
 	}
 
@@ -131,7 +130,7 @@ func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
-	return NewRuntime(vd, c.eval), c.descriptorFinder, nil
+	return newRuntime(vd, c.eval), c.descriptorFinder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed
@@ -163,21 +162,17 @@ func (c *Manager) LastError() (err error) {
 }
 
 // Close stops the config manager go routine.
-func (c *Manager) Close() { close(c.closing) }
+func (c *Manager) Close() {
+	if c.ticker != nil {
+		c.ticker.Stop()
+	}
+}
 
 func (c *Manager) loop() {
-	ticker := time.NewTicker(c.loopDelay)
-	defer ticker.Stop()
-	done := false
-	for !done {
-		select {
-		case <-ticker.C:
-			err := c.fetchAndNotify()
-			if err != nil {
-				glog.Warning(err)
-			}
-		case <-c.closing:
-			done = true
+	for range c.ticker.C {
+		err := c.fetchAndNotify()
+		if err != nil {
+			glog.Warning(err)
 		}
 	}
 }
@@ -187,6 +182,7 @@ func (c *Manager) Start() {
 	err := c.fetchAndNotify()
 	// We make an attempt to synchronously fetch and notify configuration
 	// If it is not successful, we will continue to watch for changes.
+	c.ticker = time.NewTicker(c.loopDelay)
 	go c.loop()
 	if err != nil {
 		glog.Warning("Unable to process config: ", err)

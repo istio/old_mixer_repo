@@ -31,8 +31,10 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type fakeQuotaAspect struct {
@@ -76,8 +78,8 @@ func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.Confi
 
 func TestNewQuotasManager(t *testing.T) {
 	m := newQuotasManager()
-	if m.Kind() != QuotasKind {
-		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), QuotasKind)
+	if m.Kind() != config.QuotasKind {
+		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), config.QuotasKind)
 	}
 	if err := m.ValidateConfig(m.DefaultConfig(), nil, nil); err != nil {
 		t.Errorf("m.ValidateConfig(m.DefaultConfig()) = %v; wanted no err", err)
@@ -108,13 +110,13 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	}}
 
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	if _, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), nil); err != nil {
+		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 
 	conf = newQuotaConfig("FOOBAR", map[string]string{})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	if _, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), nil); err != nil {
+		t.Errorf("NewQuotaExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
 
@@ -129,16 +131,16 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.QuotasAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil)
+	_, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), nil)
 	if err == nil {
-		t.Error("newQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
+		t.Error("newQuotasManager().NewExecutor(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
 	if !strings.Contains(err.Error(), errString) {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
+		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
 	}
 }
 
-func TestQuotaWrapper_Execute(t *testing.T) {
+func TestQuotaExecutor_Execute(t *testing.T) {
 	goodEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
@@ -202,25 +204,25 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
 			var receivedArgs adapter.QuotaArgs
-			wrapper := &quotasWrapper{
+			executor := &quotasExecutor{
 				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 					receivedArgs = qa
 					return adapter.QuotaResult{Amount: c.allocAmount, Expiration: time.Duration(0)}, c.allocErr
 				}},
 				metadata: c.mdin,
 			}
-			out := wrapper.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
+			out, resp := executor.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
 				Quota:      "request_count",
 				Amount:     1,
 				BestEffort: c.bestEffort,
 			})
 
-			errString := out.Message()
+			errString := out.Message
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message(), c.errString)
+				t.Errorf("executor.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message, c.errString)
 			}
 
-			if out.IsOK() {
+			if status.IsOK(out) {
 				o, found := c.out[receivedArgs.Definition.Name]
 				if !found {
 					t.Errorf("Got unexpected args %v, wanted only %v", receivedArgs, c.out)
@@ -234,7 +236,6 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 					}
 				}
 
-				resp := out.Response.(*QuotaMethodResp)
 				if resp.Amount != c.resp.Amount {
 					t.Errorf("Got amount %d, expecting %d", resp.Amount, c.resp.Amount)
 				}
@@ -243,22 +244,22 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 					t.Errorf("Got expiration %d, expecting %d", resp.Expiration, c.resp.Expiration)
 				}
 			} else {
-				if out.Response != nil {
-					t.Errorf("Got response %v, expecting nil", out.Response)
+				if resp != nil {
+					t.Errorf("Got response %v, expecting nil", resp)
 				}
 			}
 		})
 	}
 }
 
-func TestQuotasWrapper_Close(t *testing.T) {
+func TestQuotasExecutor_Close(t *testing.T) {
 	inner := &fakeQuotaAspect{closed: false}
-	wrapper := &quotasWrapper{aspect: inner}
-	if err := wrapper.Close(); err != nil {
-		t.Errorf("wrapper.Close() = %v; wanted no err", err)
+	executor := &quotasExecutor{aspect: inner}
+	if err := executor.Close(); err != nil {
+		t.Errorf("executor.Close() = %v; wanted no err", err)
 	}
 	if !inner.closed {
-		t.Error("quotasWrapper.Close() didn't close the aspect inside")
+		t.Error("quotasExecutor.Close() didn't close the aspect inside")
 	}
 }
 

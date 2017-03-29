@@ -1,4 +1,4 @@
-// Copyright 2017 The Istio Authors.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+syntax = "proto3";
 
-import (
-	"testing"
-)
+package adapter.redisquota.config;
 
-func TestKinds(t *testing.T) {
-	i := 0
-	for k := range kindToString {
-		str := k.String()
-		kind, ok := ParseKind(str)
+import "google/protobuf/duration.proto";
 
-		if !ok {
-			t.Error("Got !ok, expecting true")
-		}
+option go_package = "config";
 
-		if kind != k {
-			t.Errorf("%d: Got %v, expected %v", i, kind, k)
-		}
-		i++
-	}
+message Params {
+    // Minimum number of seconds that deduplication is possible for a given operation.
+    google.protobuf.Duration min_deduplication_duration = 1;
+
+    // Redis network address
+    string redis_server_url = 2;
+
+    // Network for communicating with redis, i.e., "tcp"
+    string socket_type = 3;
+
+    // Maximum number of idle connections to redis
+    int64 connection_pool_size = 4;
 }

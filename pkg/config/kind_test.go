@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+package config
 
 import (
 	"testing"
 )
 
-func TestMethodNames(t *testing.T) {
-	cases := []struct {
-		method APIMethod
-		name   string
-	}{
-		{CheckMethod, "Check"},
-		{ReportMethod, "Report"},
-		{QuotaMethod, "Quota"},
-	}
+func TestKinds(t *testing.T) {
+	i := 0
+	for k := range kindToString {
+		str := k.String()
+		kind, ok := ParseKind(str)
 
-	for _, c := range cases {
-		if c.method.String() != c.name {
-			t.Errorf("Got %s, expecting %s", c.method.String(), c.name)
+		if !ok {
+			t.Error("Got !ok, expecting true")
 		}
+
+		if kind != k {
+			t.Errorf("%d: Got %v, expected %v", i, kind, k)
+		}
+		i++
 	}
 }
