@@ -208,8 +208,9 @@ func (m *fakeBuilderReg) SupportedKinds(builder string) config.KindSet {
 }
 
 func getReg(found bool) *fakeBuilderReg {
+	var ks config.KindSet
 	return &fakeBuilderReg{&fakeBuilder{name: "k1impl1"}, found,
-		1<<uint(config.DenialsKind) | 1<<uint(config.AccessLogsKind) | 1<<uint(config.QuotasKind),
+		ks.Set(config.DenialsKind).Set(config.AccessLogsKind).Set(config.QuotasKind),
 	}
 }
 

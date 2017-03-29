@@ -133,7 +133,7 @@ func (p *validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 		// Then register it for all of them.
 		kinds := p.findAspects(aa.Impl)
 		for kind := Kind(0); kind < NumKinds; kind++ {
-			if kinds&(1<<uint(kind)) != 0 {
+			if kinds.IsSet(kind) {
 				p.validated.adapterByName[adapterKey{kind, aa.Name}] = aa
 			}
 		}

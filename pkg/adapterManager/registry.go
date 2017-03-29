@@ -111,27 +111,21 @@ func (r *registry) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
 }
 
 func (r *registry) insert(k config.Kind, b adapter.Builder) {
-	ok := true
-	if glog.V(1) {
-		defer func() {
-			if ok {
-				glog.Infof("Registered %s / %s", k, b.Name())
-			}
-		}()
-	}
-
 	bi := r.builders[b.Name()]
 	if bi == nil {
-		r.builders[b.Name()] = &BuilderInfo{b, 1 << uint(k)}
-		return
+		bi = &BuilderInfo{Builder: b}
+		r.builders[b.Name()] = bi
+	} else if bi.Builder != b {
+		// panic only if 2 different builder objects are trying to identify by the
+		// same Name.  2nd registration is ok so long as old and the new are same
+		msg := fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", b.Name(), bi.Builder, b)
+		glog.Error(msg)
+		panic(msg)
 	}
 
-	// panic only if 2 different builder objects are trying to identify by the
-	// same Name.  2nd registration is ok so long as old and the new are same
-	if bi.Builder != b {
-		ok = false
-		panic(fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", b.Name(), bi.Builder, b))
-	}
+	bi.Kinds = bi.Kinds.Set(k)
 
-	bi.Kinds |= 1 << uint(k)
+	if glog.V(1) {
+		glog.Infof("Registered %s / %s", k, b.Name())
+	}
 }

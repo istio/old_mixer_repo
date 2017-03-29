@@ -32,9 +32,6 @@ type (
 		// used to evaluate selectors
 		eval expr.PredicateEvaluator
 	}
-
-	// KindSet is a set of aspects by kind.
-	KindSet int
 )
 
 // newRuntime returns a runtime object given a validated config and a predicate eval.
@@ -86,7 +83,7 @@ func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.A
 		path = path + "/" + sel
 		for _, aa := range rule.GetAspects() {
 			k, ok := ParseKind(aa.Kind)
-			if !ok || (kindSet&(1<<uint(k))) == 0 {
+			if !ok || !kindSet.IsSet(k) {
 				glog.V(3).Infof("Aspect %s not selected [%v]", aa.Kind, kindSet)
 				continue
 			}

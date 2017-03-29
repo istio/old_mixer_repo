@@ -108,14 +108,14 @@ func TestRuntime(t *testing.T) {
 
 	for idx, tt := range table {
 		fe := &trueEval{tt.err, tt.ncalls, tt.ret}
-		var aspects KindSet
+		var kinds KindSet
 		for _, a := range tt.asp {
 			k, _ := ParseKind(a)
-			aspects |= 1 << uint(k)
+			kinds = kinds.Set(k)
 		}
 		rt := newRuntime(v, fe)
 
-		al, err := rt.Resolve(bag, aspects)
+		al, err := rt.Resolve(bag, kinds)
 
 		if tt.err != nil {
 			merr := err.(*multierror.Error)

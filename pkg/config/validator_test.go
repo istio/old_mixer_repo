@@ -87,7 +87,7 @@ type configTable struct {
 func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValidator) *fakeVFinder {
 	var kinds KindSet
 	for k := range asp {
-		kinds |= 1 << uint(k)
+		kinds = kinds.Set(k)
 	}
 	return &fakeVFinder{ada: ada, asp: asp, kinds: kinds}
 }

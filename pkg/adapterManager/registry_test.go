@@ -207,7 +207,7 @@ func TestMultiKinds(t *testing.T) {
 
 	// register as accessLog
 
-	kinds := config.KindSet(1<<uint(config.QuotasKind) | 1<<uint(config.AccessLogsKind))
+	kinds := config.KindSet(0).Set(config.QuotasKind).Set(config.AccessLogsKind)
 
 	reg.RegisterAccessLogsBuilder(builder)
 	if !reflect.DeepEqual(reg.SupportedKinds(builder.Name()), kinds) {
