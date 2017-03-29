@@ -27,18 +27,13 @@ import (
 )
 
 func TestEvalAll(t *testing.T) {
-	// empty map
-	// 1 valid expr
-	// 2 valid exprs
-	// 1 valid, 1 invalid
-	// 1 invalid, 1 valid
 	bag := &test.Bag{Strs: map[string]string{"1": "1", "2": "2"}}
 	eval := test.NewFakeEval(func(s string, _ attribute.Bag) (interface{}, error) {
-		s, f := bag.String(s)
+		str, f := bag.String(s)
 		if !f {
 			return nil, fmt.Errorf("no key %s", s)
 		}
-		return s, nil
+		return str, nil
 	})
 
 	tests := []struct {

@@ -86,7 +86,7 @@ var (
 	}
 
 	quotaWithLabels = &dpb.QuotaDescriptor{
-		Name:       "no label desc",
+		Name:       "desc with labels",
 		Expiration: &ptypes.Duration{Seconds: 1},
 		Labels: []*dpb.LabelDescriptor{
 			{Name: "source", ValueType: dpb.STRING},
