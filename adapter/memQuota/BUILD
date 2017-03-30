@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "memQuota.go",
         "rollingWindow.go",
+        "util.go",
     ],
     deps = [
         "//adapter/memQuota/config:go_default_library",

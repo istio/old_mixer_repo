@@ -27,55 +27,26 @@
 package memQuota
 
 import (
-	"fmt"
-	"sort"
-	"strconv"
-	"sync"
 	"time"
 
 	ptypes "github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/adapter/memQuota/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/pool"
 )
 
 type builder struct{ adapter.DefaultBuilder }
 
 type memQuota struct {
-	sync.Mutex
+	// common info among different quota adapters
+	common QuotaUtil
 
 	// the counters we track for non-expiring quotas, protected by lock
 	cells map[string]int64
 
 	// the rolling windows we track for expiring quotas, protected by lock
 	windows map[string]*rollingWindow
-
-	// two ping-ponging maps of active dedup ids
-	recentDedup map[string]dedupState
-	oldDedup    map[string]dedupState
-
-	// used for reaping dedup ids
-	ticker *time.Ticker
-
-	// indirection to support fast deterministic tests
-	getTime func() time.Time
-
-	logger adapter.Logger
 }
-
-type dedupState struct {
-	amount int64
-	exp    time.Time
-}
-
-// we maintain a pool of these for use by the makeKey function
-type keyWorkspace struct {
-	keys []string
-}
-
-// pool of reusable keyWorkspace structs
-var keyWorkspacePool = sync.Pool{New: func() interface{} { return &keyWorkspace{} }}
 
 var (
 	name = "memQuota"
@@ -130,20 +101,22 @@ func newAspect(env adapter.Env, c *config.Params) (adapter.QuotasAspect, error) 
 // newAspect returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker) (adapter.QuotasAspect, error) {
 	mq := &memQuota{
-		cells:       make(map[string]int64),
-		windows:     make(map[string]*rollingWindow),
-		recentDedup: make(map[string]dedupState),
-		oldDedup:    make(map[string]dedupState),
-		ticker:      ticker,
-		getTime:     time.Now,
-		logger:      env.Logger(),
+		common: QuotaUtil{
+			RecentDedup: make(map[string]DedupState),
+			OldDedup:    make(map[string]DedupState),
+			Ticker:      ticker,
+			GetTime:     time.Now,
+			Logger:      env.Logger(),
+		},
+		cells:   make(map[string]int64),
+		windows: make(map[string]*rollingWindow),
 	}
 
 	env.ScheduleDaemon(func() {
-		for range mq.ticker.C {
-			mq.Lock()
-			mq.reapDedup()
-			mq.Unlock()
+		for range mq.common.Ticker.C {
+			mq.common.Lock()
+			mq.common.ReapDedup()
+			mq.common.Unlock()
 		}
 	})
 
@@ -151,7 +124,7 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker) (adapter.QuotasAsp
 }
 
 func (mq *memQuota) Close() error {
-	mq.ticker.Stop()
+	mq.common.Ticker.Stop()
 	return nil
 }
 
@@ -164,7 +137,7 @@ func (mq *memQuota) AllocBestEffort(args adapter.QuotaArgs) (adapter.QuotaResult
 }
 
 func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.QuotaResult, error) {
-	amount, exp, err := mq.commonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+	amount, exp, err := mq.common.CommonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
@@ -211,7 +184,7 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Quot
 }
 
 func (mq *memQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
-	amount, _, err := mq.commonWrapper(args,
+	amount, _, err := mq.common.CommonWrapper(args,
 		func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration) {
 			result := args.QuotaAmount
 
@@ -248,130 +221,4 @@ func (mq *memQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 		})
 
 	return amount, err
-}
-
-type quotaFunc func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration)
-
-func (mq *memQuota) commonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, error) {
-	d := args.Definition
-	if args.QuotaAmount < 0 {
-		return 0, 0, fmt.Errorf("negative quota amount %d received", args.QuotaAmount)
-	}
-
-	if args.QuotaAmount == 0 {
-		return 0, 0, nil
-	}
-
-	key := makeKey(args.Definition.Name, args.Labels)
-
-	mq.Lock()
-
-	currentTime := mq.getTime()
-	currentTick := currentTime.UnixNano() / nanosPerTick
-
-	var amount int64
-	var t time.Time
-	var exp time.Duration
-
-	result, dup := mq.recentDedup[args.DeduplicationID]
-	if !dup {
-		result, dup = mq.oldDedup[args.DeduplicationID]
-	}
-
-	if dup {
-		mq.logger.Infof("Quota operation satisfied through deduplication: dedupID %v, amount %v", args.DeduplicationID, result.amount)
-		amount = result.amount
-		exp = result.exp.Sub(currentTime)
-		if exp < 0 {
-			exp = 0
-		}
-	} else {
-		amount, t, exp = qf(d, key, currentTime, currentTick)
-		mq.recentDedup[args.DeduplicationID] = dedupState{amount: amount, exp: t}
-	}
-
-	mq.Unlock()
-
-	return amount, exp, nil
-}
-
-// reapDedup cleans up dedup entries from the oldDedup map and moves all entries from
-// the recentDedup map into the oldDedup map, making those next in line for deletion.
-//
-// This is normally called on a regular basis via a go routine. It's also used directly
-// from tests to inject specific behaviors.
-func (mq *memQuota) reapDedup() {
-	t := mq.oldDedup
-	mq.oldDedup = mq.recentDedup
-	mq.recentDedup = t
-
-	mq.logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
-
-	// TODO: why isn't there a O(1) way to clear a map to the empty state?!
-	for k := range t {
-		delete(t, k)
-	}
-}
-
-// Produce a unique key representing the given labels.
-func makeKey(name string, labels map[string]interface{}) string {
-	ws := keyWorkspacePool.Get().(*keyWorkspace)
-	keys := ws.keys
-	buf := pool.GetBuffer()
-
-	// ensure stable order
-	for k := range labels {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	buf.WriteString(name)
-	for _, k := range keys {
-		buf.WriteString(";")
-		buf.WriteString(k)
-		buf.WriteString("=")
-
-		switch v := labels[k].(type) {
-		case string:
-			buf.WriteString(v)
-		case int64:
-			var bytes [32]byte
-			buf.Write(strconv.AppendInt(bytes[:], v, 16))
-		case float64:
-			var bytes [32]byte
-			buf.Write(strconv.AppendFloat(bytes[:], v, 'b', -1, 64))
-		case bool:
-			var bytes [32]byte
-			buf.Write(strconv.AppendBool(bytes[:], v))
-		case []byte:
-			buf.Write(v)
-		case map[string]string:
-			ws := keyWorkspacePool.Get().(*keyWorkspace)
-			mk := ws.keys
-
-			// ensure stable order
-			for k2 := range v {
-				mk = append(mk, k2)
-			}
-			sort.Strings(mk)
-
-			for _, k2 := range mk {
-				buf.WriteString(k2)
-				buf.WriteString(v[k2])
-			}
-
-			ws.keys = keys[:0]
-			keyWorkspacePool.Put(ws)
-		default:
-			buf.WriteString(v.(fmt.Stringer).String())
-		}
-	}
-
-	result := buf.String()
-
-	pool.PutBuffer(buf)
-	ws.keys = keys[:0]
-	keyWorkspacePool.Put(ws)
-
-	return result
 }

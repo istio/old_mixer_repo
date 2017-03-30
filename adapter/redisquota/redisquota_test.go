@@ -95,7 +95,7 @@ func TestAllocAndRelease(t *testing.T) {
 				Labels:          labels,
 			}
 
-			asp.getTime = func() time.Time {
+			asp.common.GetTime = func() time.Time {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
