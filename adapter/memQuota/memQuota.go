@@ -32,6 +32,7 @@ import (
 	ptypes "github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/adapter/memQuota/config"
+	"istio.io/mixer/adapter/memQuota/util"
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -39,7 +40,7 @@ type builder struct{ adapter.DefaultBuilder }
 
 type memQuota struct {
 	// common info among different quota adapters
-	common QuotaUtil
+	common util.QuotaUtil
 
 	// the counters we track for non-expiring quotas, protected by lock
 	cells map[string]int64
@@ -54,14 +55,6 @@ var (
 	conf = &config.Params{
 		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
 	}
-)
-
-const (
-	// See the rollingWindow comment for a description of what this is for.
-	ticksPerSecond = 10
-
-	// ns/tick
-	nanosPerTick = int64(time.Second / ticksPerSecond)
 )
 
 // Register records the builders exposed by this adapter.
@@ -101,9 +94,9 @@ func newAspect(env adapter.Env, c *config.Params) (adapter.QuotasAspect, error) 
 // newAspect returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker) (adapter.QuotasAspect, error) {
 	mq := &memQuota{
-		common: QuotaUtil{
-			RecentDedup: make(map[string]DedupState),
-			OldDedup:    make(map[string]DedupState),
+		common: util.QuotaUtil{
+			RecentDedup: make(map[string]util.DedupState),
+			OldDedup:    make(map[string]util.DedupState),
 			Ticker:      ticker,
 			GetTime:     time.Now,
 			Logger:      env.Logger(),
@@ -160,7 +153,7 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Quot
 		window, ok := mq.windows[key]
 		if !ok {
 			seconds := int32((d.Expiration + time.Second - 1) / time.Second)
-			window = newRollingWindow(d.MaxAmount, int64(seconds)*ticksPerSecond)
+			window = newRollingWindow(d.MaxAmount, int64(seconds)*util.TicksPerSecond)
 			mq.windows[key] = window
 		}
 

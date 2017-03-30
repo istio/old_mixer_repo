@@ -21,7 +21,7 @@ import (
 
 	ptypes "github.com/gogo/protobuf/types"
 
-	"istio.io/mixer/adapter/memQuota"
+	"istio.io/mixer/adapter/memQuota/util"
 	"istio.io/mixer/adapter/redisquota/config"
 	"istio.io/mixer/pkg/adapter"
 )
@@ -30,7 +30,7 @@ type builder struct{ adapter.DefaultBuilder }
 
 type redisQuota struct {
 	// common info among different quota adapters
-	common memQuota.QuotaUtil
+	common util.QuotaUtil
 
 	// connection pool with redis
 	redisPool *connPool
@@ -96,9 +96,9 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) 
 		return nil, err
 	}
 	rq := &redisQuota{
-		common: memQuota.QuotaUtil{
-			RecentDedup: make(map[string]memQuota.DedupState),
-			OldDedup:    make(map[string]memQuota.DedupState),
+		common: util.QuotaUtil{
+			RecentDedup: make(map[string]util.DedupState),
+			OldDedup:    make(map[string]util.DedupState),
 			Ticker:      ticker,
 			GetTime:     time.Now,
 			Logger:      env.Logger(),
@@ -144,6 +144,11 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 			}
 			// grab as much as we can
 			result = d.MaxAmount - (ret - result)
+			conn.pipeAppend("SET", key, d.MaxAmount)
+			resp, _ = conn.pipeResponse()
+			if resp.int() != d.MaxAmount {
+				rq.common.Logger.Warningf("Could not set value to key.")
+			}
 		}
 
 		return result, currentTime.Add(d.Expiration), d.Expiration
@@ -181,6 +186,7 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 				conn.pipeAppend("DEL", key)
 				// consume the output of previous command
 				resp, _ = conn.pipeResponse()
+				result += ret
 			}
 
 			return result, time.Time{}, 0

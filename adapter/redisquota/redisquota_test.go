@@ -74,6 +74,7 @@ func TestAllocAndRelease(t *testing.T) {
 		{"Q1", "5", 0, 0, true, 0, 0, 0, 0},
 		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
 		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
+		{"Q1", "5c", 0, 0, false, 0, 0, 15, 5},
 	}
 
 	labels := make(map[string]interface{})

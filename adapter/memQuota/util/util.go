@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memQuota
+package util
 
 import (
 	"fmt"
@@ -53,6 +53,14 @@ type keyWorkspace struct {
 	keys []string
 }
 
+const (
+	// TicksPerSecond determines the number of quantized time intervals in 1 second.
+	TicksPerSecond = 10
+
+	// NanosPerTick is equal to ns/tick
+	NanosPerTick = int64(time.Second / TicksPerSecond)
+)
+
 // pool of reusable keyWorkspace structs
 var keyWorkspacePool = sync.Pool{New: func() interface{} { return &keyWorkspace{} }}
 
@@ -74,7 +82,7 @@ func (qu *QuotaUtil) CommonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64,
 	qu.Lock()
 
 	currentTime := qu.GetTime()
-	currentTick := currentTime.UnixNano() / nanosPerTick
+	currentTick := currentTime.UnixNano() / NanosPerTick
 
 	var amount int64
 	var t time.Time
