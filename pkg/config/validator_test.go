@@ -282,7 +282,7 @@ adapters:
     kind: denials
     impl: denyChecker
     params:
-      check_attribute: src.ip
+      check_expression: src.ip
       blacklist: true
 `
 const sGlobalConfig = sGlobalConfigValid + `
@@ -335,7 +335,7 @@ rules:
     adapter: ""
     inputs: {}
     params:
-      check_attribute: src.ip
+      check_expression: src.ip
       blacklist: true
       unknown_field: true
   rules:
@@ -345,7 +345,7 @@ rules:
       adapter: ""
       inputs: {}
       params:
-        check_attribute: src.ip
+        check_expression: src.ip
         blacklist: true
 `
 
@@ -391,4 +391,7 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 func (e *fakeExpr) Validate(expression string) error { return e.err }
 func (e *fakeExpr) TypeCheck(string, expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
 	return dpb.VALUE_TYPE_UNSPECIFIED, e.err
+}
+func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, dpb.ValueType) error {
+	return e.err
 }
