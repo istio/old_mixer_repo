@@ -17,16 +17,12 @@ rules:
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
-          service: api.name | "unknown"
-          method: api.method | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_latency
         value: response.latency | "0ms"
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
-          service: api.name | "unknown"
-          method: api.method | "unknown"
           response_code: response.code | 200
   - kind: access-logs
     params:
