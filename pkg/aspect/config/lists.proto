@@ -29,7 +29,6 @@ message ListsParams {
   // blacklist determines if this behaves like a blacklist
   // default is whitelist
   bool blacklist = 1;
-  // check_expression is the attribute to check on the list
-  // should be a well known attribute or must be mapped in mappings
+  // check_expression is the expression evaluated at runtime to derive the value that is checked against the list
   string check_expression = 2;
 }
