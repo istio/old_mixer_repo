@@ -50,11 +50,11 @@ type testState struct {
 	reportBadAttr bool
 }
 
-func (ts *testState) createGRPCServer(port uint16) error {
+func (ts *testState) createGRPCServer() (string, error) {
 	// get the network stuff setup
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var grpcOptions []grpc.ServerOption
@@ -74,7 +74,7 @@ func (ts *testState) createGRPCServer(port uint16) error {
 		_ = ts.gs.Serve(listener)
 	}()
 
-	return nil
+	return listener.Addr().String(), nil
 }
 
 func (ts *testState) deleteGRPCServer() {
@@ -82,12 +82,12 @@ func (ts *testState) deleteGRPCServer() {
 	ts.gp.Close()
 }
 
-func (ts *testState) createAPIClient(port uint16) error {
+func (ts *testState) createAPIClient(dial string) error {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 
 	var err error
-	if ts.connection, err = grpc.Dial(fmt.Sprintf("localhost:%v", port), opts...); err != nil {
+	if ts.connection, err = grpc.Dial(dial, opts...); err != nil {
 		return err
 	}
 
@@ -101,13 +101,14 @@ func (ts *testState) deleteAPIClient() {
 	ts.connection = nil
 }
 
-func prepTestState(port uint16) (*testState, error) {
+func prepTestState() (*testState, error) {
 	ts := &testState{}
-	if err := ts.createGRPCServer(port); err != nil {
+	dial, err := ts.createGRPCServer()
+	if err != nil {
 		return nil, err
 	}
 
-	if err := ts.createAPIClient(port); err != nil {
+	if err = ts.createAPIClient(dial); err != nil {
 		ts.deleteGRPCServer()
 		return nil, err
 	}
@@ -125,7 +126,6 @@ func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, outpu
 }
 
 func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
-
 	if ts.reportBadAttr {
 		// we inject an attribute with an unsupported type to trigger an error path
 		output.Set("BADATTR", 0)
@@ -142,16 +142,16 @@ func (ts *testState) Quota(ctx context.Context, requestBag *attribute.MutableBag
 }
 
 func TestCheck(t *testing.T) {
-	ts, err := prepTestState(29999)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Check(context.Background())
 	if err != nil {
-		t.Errorf("Check failed %v", err)
+		t.Fatalf("Check failed %v", err)
 		return
 	}
 
@@ -201,16 +201,16 @@ func TestCheck(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
-	ts, err := prepTestState(30000)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
-		t.Errorf("Report failed %v", err)
+		t.Fatalf("Report failed %v", err)
 		return
 	}
 
@@ -260,16 +260,16 @@ func TestReport(t *testing.T) {
 }
 
 func TestQuota(t *testing.T) {
-	ts, err := prepTestState(30001)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Quota(context.Background())
 	if err != nil {
-		t.Errorf("Quota failed %v", err)
+		t.Fatalf("Quota failed %v", err)
 		return
 	}
 
@@ -324,16 +324,16 @@ func TestQuota(t *testing.T) {
 }
 
 func TestOverload(t *testing.T) {
-	ts, err := prepTestState(30002)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
-		t.Errorf("Report failed %v", err)
+		t.Fatalf("Report failed %v", err)
 		return
 	}
 
@@ -381,16 +381,16 @@ func TestOverload(t *testing.T) {
 }
 
 func TestBadAttr(t *testing.T) {
-	ts, err := prepTestState(29998)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
-		t.Errorf("Report failed %v", err)
+		t.Fatalf("Report failed %v", err)
 		return
 	}
 
@@ -439,16 +439,16 @@ func TestBadAttr(t *testing.T) {
 }
 
 func TestRudeClose(t *testing.T) {
-	ts, err := prepTestState(29997)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
-		t.Errorf("Report failed %v", err)
+		t.Fatalf("Report failed %v", err)
 		return
 	}
 
@@ -466,9 +466,9 @@ func TestRudeClose(t *testing.T) {
 }
 
 func TestBrokenStream(t *testing.T) {
-	ts, err := prepTestState(30009)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
@@ -485,7 +485,7 @@ func TestBrokenStream(t *testing.T) {
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
-		t.Errorf("Report failed %v", err)
+		t.Fatalf("Report failed %v", err)
 		return
 	}
 
@@ -494,14 +494,15 @@ func TestBrokenStream(t *testing.T) {
 		t.Errorf("Failed to send request: %v", err)
 	}
 
+	// we never hear back from the server (since the send failed). Just wait
+	// for the goroutine to signal it's done
 	wg.Wait()
-	// we never hear back...
 }
 
 func TestBadBag(t *testing.T) {
-	ts, err := prepTestState(30010)
+	ts, err := prepTestState()
 	if err != nil {
-		t.Errorf("unable to prep test state %v", err)
+		t.Fatalf("Unable to prep test state: %v", err)
 		return
 	}
 	defer ts.cleanupTestState()
@@ -520,7 +521,7 @@ func TestBadBag(t *testing.T) {
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
-		t.Errorf("Report failed %v", err)
+		t.Fatalf("Report failed %v", err)
 		return
 	}
 
@@ -529,8 +530,9 @@ func TestBadBag(t *testing.T) {
 		t.Errorf("Failed to send request: %v", err)
 	}
 
+	// we never hear back from the server (since the send failed). Just wait
+	// for the goroutine to signal it's done
 	wg.Wait()
-	// we never hear back...
 }
 
 func init() {
