@@ -209,7 +209,10 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	}
 
 	var attrs mixerpb.Attributes
-	attribute.NewManager().NewTracker().ApplyBag(b, 0, &attrs)
+	if err := attribute.NewManager().NewTracker().ApplyBag(b, 0, &attrs); err != nil {
+		return nil, err
+	}
+
 	return &attrs, nil
 }
 

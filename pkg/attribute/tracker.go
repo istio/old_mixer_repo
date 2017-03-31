@@ -22,7 +22,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-// Tracker is responsible for implementing the mixer's so-called attribute protocol.
+// Tracker is responsible for implementing the mixer's attribute protocol.
 //
 // This tracks a set of attributes over time. The tracker keeps a current set of
 // attributes which can be mutated in one of two ways. The first way is by
@@ -31,17 +31,21 @@ import (
 type Tracker interface {
 	// ApplyProto refreshes the set of attributes based on an update proto.
 	//
-	// This returns a Bag that reflects the current state of attribute context
-	// that the proto indicated.
+	// This returns a Bag that reflects the current state of the attribute context
+	// that the proto targeted.
 	//
 	// If this returns a non-nil error, it indicates there was a problem in the
 	// supplied Attributes proto. When this happens, none of the tracked attribute
 	// state will have been affected.
 	ApplyProto(attrs *mixerpb.Attributes) (*MutableBag, error)
 
-	// ApplyBag refreshes the tracked attributes with the content of the supplied bag and produces an
+	// ApplyBag refreshes the tracked attributes with the content of the supplied bag and fills-in an
 	// output proto representing the change in state.
-	ApplyBag(bag *MutableBag, context int32, output *mixerpb.Attributes)
+	//
+	// An error indicates the attribute bag contained some invalid attribute
+	// type. In such a case, the output struct will have been left partially updated
+	// and be in an effective unusable state.
+	ApplyBag(bag *MutableBag, context int32, output *mixerpb.Attributes) error
 
 	// Done indicates the tracker can be reclaimed.
 	Done()
@@ -114,7 +118,7 @@ func (at *tracker) ApplyProto(attrs *mixerpb.Attributes) (*MutableBag, error) {
 	return CopyBag(mb), nil
 }
 
-func (at *tracker) ApplyBag(bag *MutableBag, context int32, output *mixerpb.Attributes) {
+func (at *tracker) ApplyBag(bag *MutableBag, context int32, output *mixerpb.Attributes) error {
 	// TODO: this code has not been optimized for speed. For the moment, we just need
 	//       something that works reasonably well so we can evaluate usability and
 	//       general perf profile of the mixer API. Depending on what we find during
@@ -160,7 +164,12 @@ func (at *tracker) ApplyBag(bag *MutableBag, context int32, output *mixerpb.Attr
 		newValue, _ := bag.Get(attrName)
 		oldValue, _ := mb.Get(attrName)
 
-		if !compareAttributeValue(newValue, oldValue) {
+		same, err := compareAttributeValues(newValue, oldValue)
+		if err != nil {
+			return fmt.Errorf("unable to compare attribute %s: %v", attrName, err)
+		}
+
+		if !same {
 			mb.values[attrName] = newValue
 			index := at.getWordIndex(attrName)
 
@@ -199,6 +208,8 @@ func (at *tracker) ApplyBag(bag *MutableBag, context int32, output *mixerpb.Attr
 		at.currentDictionary = at.dictionaries.Intern(newDict)
 		output.Dictionary = at.currentDictionary
 	}
+
+	return nil
 }
 
 func (at *tracker) getWordIndex(newWord string) int32 {
@@ -219,71 +230,53 @@ func (at *tracker) getWordIndex(newWord string) int32 {
 	return index
 }
 
-func compareAttributeValue(v1, v2 interface{}) bool {
+func compareAttributeValues(v1, v2 interface{}) (bool, error) {
+	var result bool
 	switch t1 := v1.(type) {
 	case string:
 		t2, ok := v2.(string)
-		if !ok || t1 != t2 {
-			return false
-		}
+		result = ok && t1 == t2
 	case int64:
 		t2, ok := v2.(int64)
-		if !ok || t1 != t2 {
-			return false
-		}
+		result = ok && t1 == t2
 	case float64:
 		t2, ok := v2.(float64)
-		if !ok || t1 != t2 {
-			return false
-		}
+		result = ok && t1 == t2
 	case bool:
 		t2, ok := v2.(bool)
-		if !ok || t1 != t2 {
-			return false
-		}
+		result = ok && t1 == t2
 	case time.Time:
 		t2, ok := v2.(time.Time)
-		if !ok || t1 != t2 {
-			return false
-		}
+		result = ok && t1 == t2
 	case time.Duration:
 		t2, ok := v2.(time.Duration)
-		if !ok || t1 != t2 {
-			return false
-		}
+		result = ok && t1 == t2
+
 	case []byte:
 		t2, ok := v2.([]byte)
-		if !ok {
-			return false
-		}
-
-		if len(t1) != len(t2) {
-			return false
-		}
-
-		for i := 0; i < len(t1); i++ {
-			if t1[i] != t2[i] {
-				return false
+		if result = ok && len(t1) == len(t2); result {
+			for i := 0; i < len(t1); i++ {
+				if t1[i] != t2[i] {
+					result = false
+					break
+				}
 			}
 		}
+
 	case map[string]string:
 		t2, ok := v2.(map[string]string)
-		if !ok {
-			return false
-		}
-
-		if len(t1) != len(t2) {
-			return false
-		}
-
-		for k, v := range t1 {
-			if v != t2[k] {
-				return false
+		if result = ok && len(t1) == len(t2); result {
+			for k, v := range t1 {
+				if v != t2[k] {
+					result = false
+					break
+				}
 			}
 		}
+
 	default:
-		panic(fmt.Sprintf("Unsupported attribute value type: %T", v1))
+		return false, fmt.Errorf("unsupported attribute value type: %T", v1)
 	}
 
-	return true
+	return result, nil
 }

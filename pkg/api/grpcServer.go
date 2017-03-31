@@ -101,7 +101,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 		if err == io.EOF {
 			return nil
 		} else if err != nil {
-			glog.Errorf("Stream error %s", err)
+			glog.Errorf("Reading from gRPC request stream failed: %v", err)
 			return err
 		}
 
@@ -135,8 +135,11 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			worker(ctx2, requestBag, responseBag, request, response)
 
 			sendLock.Lock()
-			respTracker.ApplyBag(responseBag, 0, responseAttrs)
-			err := s.sendMsg(stream, response)
+			if err = respTracker.ApplyBag(responseBag, 0, responseAttrs); err != nil {
+				*responseAttrs = mixerpb.Attributes{}
+				glog.Errorf("Unable to apply response attribute bag, sending blank attributes: %v", err)
+			}
+			err = s.sendMsg(stream, response)
 			sendLock.Unlock()
 
 			if err != nil {

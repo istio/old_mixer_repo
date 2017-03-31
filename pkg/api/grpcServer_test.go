@@ -42,11 +42,12 @@ const (
 )
 
 type testState struct {
-	client     mixerpb.MixerClient
-	connection *grpc.ClientConn
-	gs         *grpc.Server
-	gp         *pool.GoroutinePool
-	s          *grpcServer
+	client        mixerpb.MixerClient
+	connection    *grpc.ClientConn
+	gs            *grpc.Server
+	gp            *pool.GoroutinePool
+	s             *grpcServer
+	reportBadAttr bool
 }
 
 func (ts *testState) createGRPCServer(port uint16) error {
@@ -124,6 +125,12 @@ func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, outpu
 }
 
 func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
+
+	if ts.reportBadAttr {
+		// we inject an attribute with an unsupported type to trigger an error path
+		output.Set("BADATTR", 0)
+	}
+
 	return status.WithPermissionDenied("Not Implementd")
 }
 
@@ -459,7 +466,7 @@ func TestRudeClose(t *testing.T) {
 }
 
 func TestBrokenStream(t *testing.T) {
-	ts, err := prepTestState(30000)
+	ts, err := prepTestState(30009)
 	if err != nil {
 		t.Errorf("unable to prep test state %v", err)
 		return
@@ -488,6 +495,42 @@ func TestBrokenStream(t *testing.T) {
 	}
 
 	wg.Wait()
+	// we never hear back...
+}
+
+func TestBadBag(t *testing.T) {
+	ts, err := prepTestState(30010)
+	if err != nil {
+		t.Errorf("unable to prep test state %v", err)
+		return
+	}
+	defer ts.cleanupTestState()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	// install a failing SendMsg to exercise the failure path
+	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
+		err = errors.New("nothing good")
+		wg.Done()
+		return err
+	}
+
+	ts.reportBadAttr = true
+
+	stream, err := ts.client.Report(context.Background())
+	if err != nil {
+		t.Errorf("Report failed %v", err)
+		return
+	}
+
+	request := mixerpb.ReportRequest{}
+	if err := stream.Send(&request); err != nil {
+		t.Errorf("Failed to send request: %v", err)
+	}
+
+	wg.Wait()
+	// we never hear back...
 }
 
 func init() {

@@ -113,7 +113,9 @@ func TestTracker_ApplyRequestAttributes(t *testing.T) {
 
 	// make sure round-tripping works properly
 	var a mixerpb.Attributes
-	NewManager().NewTracker().ApplyBag(b1, 0, &a)
+	if err = NewManager().NewTracker().ApplyBag(b1, 0, &a); err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
 	b2, err := NewManager().NewTracker().ApplyProto(&a)
 	if err != nil {
 		t.Errorf("Expecting success, got %v", err)
@@ -174,7 +176,9 @@ func TestTracker_GetResponseAttributes(t *testing.T) {
 
 func checkRoundtrip(t *testing.T, tracker Tracker, b *MutableBag) {
 	var attrs mixerpb.Attributes
-	tracker.ApplyBag(b, 0, &attrs)
+	if err := tracker.ApplyBag(b, 0, &attrs); err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
 
 	o, err := tracker.ApplyProto(&attrs)
 	if err != nil {
@@ -198,7 +202,7 @@ func compareBags(b1 Bag, b2 Bag) bool {
 			return false
 		}
 
-		if !compareAttributeValue(v1, v2) {
+		if same, _ := compareAttributeValues(v1, v2); !same {
 			return false
 		}
 	}
@@ -207,11 +211,12 @@ func compareBags(b1 Bag, b2 Bag) bool {
 }
 
 func TestTracker_BadValue(t *testing.T) {
-	defer func() {
-		_ = recover()
-	}()
-
 	j := 0
-	compareAttributeValue(&j, &j)
-	t.Error("Expecting panic, got cool, calm, and collected")
+	same, err := compareAttributeValues(&j, &j)
+	if same {
+		t.Error("Expecting false, got true")
+	}
+	if err == nil {
+		t.Error("Expected error, got success")
+	}
 }
