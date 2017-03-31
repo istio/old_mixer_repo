@@ -237,7 +237,7 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 	noLogName := wrap("", &validLog)
 
 	missingDesc := validLog
-	missingDesc.DescriptorName = "not in the applogsDF"
+	missingDesc.DescriptorName = "not in the df"
 
 	invalidSeverity := validLog
 	invalidSeverity.Severity = "int64"
@@ -254,10 +254,10 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 	invalidDescLog.DescriptorName = invalidDesc.Name
 
 	tests := []struct {
-		name      string
-		cfg       *aconfig.ApplicationLogsParams
-		applogsDF descriptor.Finder
-		err       string
+		name string
+		cfg  *aconfig.ApplicationLogsParams
+		df   descriptor.Finder
+		err  string
 	}{
 		{"valid", wrap("valid", &validLog), df, ""},
 		{"empty config", &aconfig.ApplicationLogsParams{}, df, "LogName"},
@@ -271,7 +271,7 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if err := (&applicationLogsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), tt.applogsDF); err != nil || tt.err != "" {
+			if err := (&applicationLogsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), tt.df); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("Foo = '%s', wanted no err", err.Error())
 				} else if !strings.Contains(err.Error(), tt.err) {
