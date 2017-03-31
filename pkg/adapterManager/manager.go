@@ -39,6 +39,11 @@ import (
 
 // AspectDispatcher executes aspects associated with individual API methods
 type AspectDispatcher interface {
+
+	// Preprocess dispatches to the set of aspects that will run before any
+	// other aspects in the mixer (aka: the Check, Report, Quota aspects).
+	Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status
+
 	// Check dispatches to the set of aspects associated with the Check API method
 	Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
 
@@ -53,14 +58,15 @@ type AspectDispatcher interface {
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
-	managers      [config.NumKinds]aspect.Manager
-	mapper        expr.Evaluator
-	builders      builderFinder
-	checkKindSet  config.KindSet
-	reportKindSet config.KindSet
-	quotaKindSet  config.KindSet
-	gp            *pool.GoroutinePool
-	adapterGP     *pool.GoroutinePool
+	managers          [config.NumKinds]aspect.Manager
+	mapper            expr.Evaluator
+	builders          builderFinder
+	checkKindSet      config.KindSet
+	reportKindSet     config.KindSet
+	quotaKindSet      config.KindSet
+	preprocessKindSet config.KindSet
+	gp                *pool.GoroutinePool
+	adapterGP         *pool.GoroutinePool
 
 	// Configs for the aspects that'll be used to serve each API method.
 	cfg atomic.Value
@@ -100,6 +106,10 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 		adapterGP:     adapterGP,
 	}
 
+	for _, m := range inventory.Preprocess {
+		mg.preprocessKindSet = mg.preprocessKindSet.Set(m.Kind())
+	}
+
 	for _, m := range inventory.Check {
 		mg.checkKindSet = mg.checkKindSet.Set(m.Kind())
 	}
@@ -116,7 +126,7 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 }
 
 // Check dispatches to the set of aspects associated with the Check API method
-func (m *Manager) Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, m.checkKindSet,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			cw := executor.(aspect.CheckExecutor)
@@ -125,7 +135,7 @@ func (m *Manager) Check(ctx context.Context, requestBag *attribute.MutableBag, r
 }
 
 // Report dispatches to the set of aspects associated with the Report API method
-func (m *Manager) Report(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) Report(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, m.reportKindSet,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
@@ -134,7 +144,7 @@ func (m *Manager) Report(ctx context.Context, requestBag *attribute.MutableBag, 
 }
 
 // Quota dispatches to the set of aspects associated with the Quota API method
-func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	var qmr *aspect.QuotaMethodResp
@@ -149,10 +159,27 @@ func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag, r
 	return qmr, o
 }
 
+// Preprocess dispatches to the set of aspects that must run before any other
+// configured aspects.
+func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+	return m.dispatch(ctx, requestBag, responseBag, m.preprocessKindSet,
+		func(executor aspect.Executor, eval expr.Evaluator) rpc.Status {
+			ppw := executor.(aspect.PreprocessExecutor)
+			result, rpcStatus := ppw.Execute(requestBag, eval)
+			if status.IsOK(rpcStatus) {
+				if err := responseBag.Merge(result.Attrs); err != nil {
+					// TODO: better error messages that push internal details into debuginfo messages
+					rpcStatus = status.WithInternal("The results from the request preprocessing could not be merged.")
+				}
+			}
+			return rpcStatus
+		})
+}
+
 type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status
 
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
-func (m *Manager) dispatch(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
 	kindSet config.KindSet, invokeFunc invokeExecutorFunc) rpc.Status {
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, requestBag)
@@ -220,7 +247,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag *attribute.MutableBag
 		bags[i] = r.responseBag
 	}
 
-	if err := responseBag.Merge(bags); err != nil {
+	if err := responseBag.Merge(bags...); err != nil {
 		glog.Errorf("Unable to merge response attributes: %v", err)
 		return status.WithError(err)
 	}
@@ -267,7 +294,7 @@ type result struct {
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
+func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBag, responseBag *attribute.MutableBag,
 	df descriptor.Finder, invokeFunc invokeExecutorFunc) (out rpc.Status) {
 	var mgr aspect.Manager
 	var found bool
@@ -325,15 +352,15 @@ func newCacheKey(kind config.Kind, cfg *configpb.Combined) (*cacheKey, error) {
 	// use gob encoding so that we don't rely on proto marshal
 	enc := gob.NewEncoder(b)
 
-	if cfg.Builder.GetParams() != nil {
-		if err := enc.Encode(cfg.Builder.GetParams()); err != nil {
+	if cfg.Builder.Params != nil {
+		if err := enc.Encode(cfg.Builder.Params); err != nil {
 			return nil, err
 		}
 		ret.builderParamsSHA = sha1.Sum(b.Bytes())
 	}
 	b.Reset()
-	if cfg.Aspect.GetParams() != nil {
-		if err := enc.Encode(cfg.Aspect.GetParams()); err != nil {
+	if cfg.Aspect.Params != nil {
+		if err := enc.Encode(cfg.Aspect.Params); err != nil {
 			return nil, err
 		}
 
@@ -364,6 +391,8 @@ func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder a
 	env := newEnv(builder.Name(), m.adapterGP)
 
 	switch m := mgr.(type) {
+	case aspect.PreprocessManager:
+		executor, err = m.NewPreprocessExecutor(cfg, builder, env, df)
 	case aspect.CheckManager:
 		executor, err = m.NewCheckExecutor(cfg, builder, env, df)
 	case aspect.ReportManager:
@@ -428,6 +457,10 @@ func Aspects(inventory aspect.ManagerInventory) [config.NumKinds]aspect.Manager 
 	}
 
 	for _, m := range inventory.Quota {
+		r[m.Kind()] = m
+	}
+
+	for _, m := range inventory.Preprocess {
 		r[m.Kind()] = m
 	}
 
