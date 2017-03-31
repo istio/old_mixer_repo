@@ -60,7 +60,14 @@ metrics:
     - name: response_code
       value_type: 2 # INT64
 quotas:
-- name: RequestCount
-  max_amount: 5
-  expiration:
-    seconds: 1
+  - name: RequestCount
+    max_amount: 5
+    expiration:
+      seconds: 1
+logs:
+  - name: common
+    display_name: Apache Common Log Format
+    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+  - name: combined
+    display_name: Apache Combined Log Format
+    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}} {{or (.referer) "-"}} {{or (.user_agent) "-"}}'
