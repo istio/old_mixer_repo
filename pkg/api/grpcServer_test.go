@@ -145,14 +145,12 @@ func TestCheck(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Check(context.Background())
 	if err != nil {
 		t.Fatalf("Check failed %v", err)
-		return
 	}
 
 	waitc := make(chan int64)
@@ -204,14 +202,12 @@ func TestReport(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
 		t.Fatalf("Report failed %v", err)
-		return
 	}
 
 	waitc := make(chan int64)
@@ -263,14 +259,12 @@ func TestQuota(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Quota(context.Background())
 	if err != nil {
 		t.Fatalf("Quota failed %v", err)
-		return
 	}
 
 	waitc := make(chan *mixerpb.QuotaResponse)
@@ -327,14 +321,12 @@ func TestOverload(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
 		t.Fatalf("Report failed %v", err)
-		return
 	}
 
 	const numMessages = 16384
@@ -384,14 +376,12 @@ func TestBadAttr(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
 		t.Fatalf("Report failed %v", err)
-		return
 	}
 
 	attrs := mixerpb.Attributes{
@@ -442,14 +432,12 @@ func TestRudeClose(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
 		t.Fatalf("Report failed %v", err)
-		return
 	}
 
 	request := mixerpb.ReportRequest{}
@@ -503,7 +491,6 @@ func TestBadBag(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
@@ -522,7 +509,6 @@ func TestBadBag(t *testing.T) {
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
 		t.Fatalf("Report failed %v", err)
-		return
 	}
 
 	request := mixerpb.ReportRequest{}
