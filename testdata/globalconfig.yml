@@ -16,6 +16,12 @@ adapters:
   - name: default
     impl: denyChecker
 attributes:
+  # TODO: we really need to remove these, they're not part of the attribute vocab.
+  - name: api.name
+    value_type: 1 # STRING
+  - name: api.method
+    value_type: 1 # STRING
+
   - name: source.name
     value_type: 1 # STRING
   - name: target.name
