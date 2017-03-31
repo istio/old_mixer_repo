@@ -19,6 +19,7 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	apipb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -66,14 +67,16 @@ func (listsManager) Kind() config.Kind {
 
 func (listsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.ListsParams{
-		CheckAttribute: "src.ip",
+		CheckExpression: "source.ip",
 	}
 }
 
-func (listsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
-	lc := c.(*aconfig.ListsParams)
-	if lc.CheckAttribute == "" {
-		ce = ce.Appendf("CheckAttribute", "Missing")
+func (listsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+	cfg := c.(*aconfig.ListsParams)
+	if cfg.CheckExpression == "" {
+		ce = ce.Appendf("CheckExpression", "no expression provided")
+	} else if err := v.AssertType(cfg.CheckExpression, df, apipb.STRING); err != nil {
+		ce = ce.Appendf("CheckExpression", "error type checking expression: %v", err)
 	}
 	return
 }
@@ -85,9 +88,9 @@ func (a *listsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.
 	var symbol string
 	var symbolExpr string
 
-	// CheckAttribute should be processed and sent to input
-	if symbolExpr, found = a.inputs[a.params.CheckAttribute]; !found {
-		return status.WithError(fmt.Errorf("mapping for %s not found", a.params.CheckAttribute))
+	// CheckExpression should be processed and sent to input
+	if symbolExpr, found = a.inputs[a.params.CheckExpression]; !found {
+		return status.WithError(fmt.Errorf("mapping for %s not found", a.params.CheckExpression))
 	}
 
 	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {

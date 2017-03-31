@@ -16,27 +16,65 @@ package aspect
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/config"
 	cpb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/expr"
 )
 
 func TestListsManager(t *testing.T) {
+	df := test.NewDescriptorFinder(map[string]interface{}{
+		"source.ip": &dpb.AttributeDescriptor{Name: "source.ip", ValueType: dpb.STRING},
+	})
+
 	lm := newListsManager()
 	if lm.Kind() != config.ListsKind {
 		t.Errorf("m.Kind() = %s wanted %s", lm.Kind(), config.ListsKind)
 	}
-	if err := lm.ValidateConfig(lm.DefaultConfig(), nil, nil); err != nil {
+	if err := lm.ValidateConfig(lm.DefaultConfig(), expr.NewCEXLEvaluator(), df); err != nil {
 		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
 	}
-	if err := lm.ValidateConfig(&aconfig.ListsParams{}, nil, nil); err == nil {
+	if err := lm.ValidateConfig(&aconfig.ListsParams{}, expr.NewCEXLEvaluator(), df); err == nil {
 		t.Error("ValidateConfig(ListsParams{}) should produce an error.")
+	}
+}
+
+func TestListsManager_ValidateConfig(t *testing.T) {
+	df := test.NewDescriptorFinder(map[string]interface{}{
+		"string": &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":  &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+	})
+
+	tests := []struct {
+		name string
+		cfg  *aconfig.ListsParams
+		err  string
+	}{
+		{"valid", &aconfig.ListsParams{CheckExpression: "string"}, ""},
+		{"empty config", &aconfig.ListsParams{}, "no expression provided"},
+		{"invalid expression", &aconfig.ListsParams{CheckExpression: "string |"}, "error type checking expression"},
+		{"wrong type", &aconfig.ListsParams{CheckExpression: "int64"}, "expected type STRING"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if errs := (&listsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), df); errs != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", errs.Error())
+				} else if !strings.Contains(errs.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, errs.Error())
+				}
+			}
+		})
 	}
 }
 
@@ -106,8 +144,8 @@ func TestListsExecutor_Execute(t *testing.T) {
 		aspect adapter.ListsAspect
 		params *aconfig.ListsParams
 	}{
-		{"not blacklisted", map[string]string{"ipAddr": "source.ip"}, &testList{}, &aconfig.ListsParams{CheckAttribute: "ipAddr", Blacklist: true}},
-		{"whitelisted", map[string]string{"ipAddr": "source.ip"}, &testList{inList: true}, &aconfig.ListsParams{CheckAttribute: "ipAddr", Blacklist: false}},
+		{"not blacklisted", map[string]string{"ipAddr": "source.ip"}, &testList{}, &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: true}},
+		{"whitelisted", map[string]string{"ipAddr": "source.ip"}, &testList{inList: true}, &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: false}},
 	}
 
 	for _, v := range cases {
@@ -123,8 +161,8 @@ func TestListsExecutor_Execute(t *testing.T) {
 
 func TestListsExecutor_ExecuteErrors(t *testing.T) {
 
-	attrParam := &aconfig.ListsParams{CheckAttribute: "ipAddr"}
-	blacklistParam := &aconfig.ListsParams{CheckAttribute: "ipAddr", Blacklist: true}
+	attrParam := &aconfig.ListsParams{CheckExpression: "ipAddr"}
+	blacklistParam := &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: true}
 	internal := int32(rpc.INTERNAL)
 	permDenied := int32(rpc.PERMISSION_DENIED)
 	inputMap := map[string]string{"ipAddr": "source.ip"}
