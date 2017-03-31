@@ -20,10 +20,20 @@ attributes:
     value_type: 1 # STRING
   - name: target.name
     value_type: 1 # STRING
-  - name: api.name
+  - name: origin.ip
+    value_type: 6 # IP_ADDRESS
+  - name: origin.user
     value_type: 1 # STRING
-  - name: api.method
+  - name: request.time
+    value_type: 5 # TIMESTAMP
+  - name: request.method
     value_type: 1 # STRING
+  - name: request.path
+    value_type: 1 # STRING
+  - name: request.scheme
+    value_type: 1 # STRING
+  - name: response.size
+    value_type: 2 # INT64
   - name: response.code
     value_type: 2 # INT64
   - name: response.latency

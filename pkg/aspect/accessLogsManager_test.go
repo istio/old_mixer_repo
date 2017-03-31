@@ -187,6 +187,9 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 	invalidDescLog := validLog
 	invalidDescLog.DescriptorName = invalidDesc.Name
 
+	missingTmplExprs := validLog
+	missingTmplExprs.TemplateExpressions = map[string]string{"foo": "not an attribute"}
+
 	tests := []struct {
 		name string
 		cfg  *aconfig.AccessLogsParams
@@ -199,6 +202,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 		{"missing desc", wrap("missing desc", &missingDesc), df, "could not find a descriptor"},
 		{"invalid labels", wrap("labels", &invalidLabels), df, "Labels"},
 		{"invalid logtemplate", wrap("tmpl", &invalidDescLog), df, "LogDescriptor"},
+		{"template expr attr missing", wrap("missing attr", &missingTmplExprs), df, "TemplateExpressions"},
 	}
 
 	for idx, tt := range tests {

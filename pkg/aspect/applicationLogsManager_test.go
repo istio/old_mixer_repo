@@ -253,6 +253,9 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 	invalidDescLog := validLog
 	invalidDescLog.DescriptorName = invalidDesc.Name
 
+	missingTmplExprs := validLog
+	missingTmplExprs.TemplateExpressions = map[string]string{"foo": "not an attribute"}
+
 	tests := []struct {
 		name string
 		cfg  *aconfig.ApplicationLogsParams
@@ -267,6 +270,7 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 		{"invalid timestamp", wrap("ts", &invalidTimestamp), df, "Timestamp"},
 		{"invalid labels", wrap("labels", &invalidLabels), df, "Labels"},
 		{"invalid logtemplate", wrap("tmpl", &invalidDescLog), df, "LogDescriptor"},
+		{"template expr attr missing", wrap("missing attr", &missingTmplExprs), df, "TemplateExpressions"},
 	}
 
 	for idx, tt := range tests {

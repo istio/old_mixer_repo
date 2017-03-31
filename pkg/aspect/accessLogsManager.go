@@ -100,6 +100,7 @@ func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator,
 		return ce.Appendf("AccessLogs", "could not find a descriptor for the access log '%s'", cfg.Log.DescriptorName)
 	}
 	ce = ce.Extend(validateLabels(fmt.Sprintf("AccessLogs[%s].Labels", cfg.Log.DescriptorName), cfg.Log.Labels, desc.Labels, v, df))
+	ce = ce.Extend(validateTemplateExpressions(fmt.Sprintf("LogDescriptor[%s].TemplateExpressions", desc.Name), cfg.Log.TemplateExpressions, v, df))
 
 	// TODO: how do we validate the log.TemplateExpressions against desc.LogTemplate? We can't just `Execute` the template
 	// against the expressions: while the keys to the template may be correct, the values will be wrong which could result
