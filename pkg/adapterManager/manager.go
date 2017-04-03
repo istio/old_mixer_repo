@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -31,7 +32,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	configpb "istio.io/mixer/pkg/config/proto"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -127,7 +128,12 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 
 // Check dispatches to the set of aspects associated with the Check API method
 func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, m.checkKindSet,
+	configs, err := m.loadConfigs(requestBag, m.checkKindSet, false)
+	if err != nil {
+		glog.Error(err)
+		return status.WithError(err)
+	}
+	return m.dispatch(ctx, requestBag, responseBag, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			cw := executor.(aspect.CheckExecutor)
 			return cw.Execute(requestBag, evaluator)
@@ -136,7 +142,12 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 
 // Report dispatches to the set of aspects associated with the Report API method
 func (m *Manager) Report(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, m.reportKindSet,
+	configs, err := m.loadConfigs(requestBag, m.reportKindSet, false)
+	if err != nil {
+		glog.Error(err)
+		return status.WithError(err)
+	}
+	return m.dispatch(ctx, requestBag, responseBag, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
@@ -148,7 +159,14 @@ func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	var qmr *aspect.QuotaMethodResp
-	o := m.dispatch(ctx, requestBag, responseBag, m.quotaKindSet,
+
+	configs, err := m.loadConfigs(requestBag, m.quotaKindSet, false)
+	if err != nil {
+		glog.Error(err)
+		return qmr, status.WithError(err)
+	}
+
+	o := m.dispatch(ctx, requestBag, responseBag, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
@@ -159,10 +177,34 @@ func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.
 	return qmr, o
 }
 
+func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreprocess bool) ([]*cpb.Combined, error) {
+	cfg, _ := m.cfg.Load().(config.Resolver)
+	if cfg == nil {
+		return nil, errors.New("configuration is not yet available")
+	}
+	resolveFn := cfg.Resolve
+	if isPreprocess {
+		resolveFn = cfg.ResolveUnconditional
+	}
+	configs, err := resolveFn(attrs, ks)
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve config: %v", err)
+	}
+	if glog.V(2) {
+		glog.Infof("Resolved [%d] ==> %v ", len(configs), configs)
+	}
+	return configs, nil
+}
+
 // Preprocess dispatches to the set of aspects that must run before any other
 // configured aspects.
 func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, m.preprocessKindSet,
+	configs, err := m.loadConfigs(requestBag, m.preprocessKindSet, true)
+	if err != nil {
+		glog.Error(err)
+		return status.WithError(err)
+	}
+	return m.dispatch(ctx, requestBag, responseBag, configs,
 		func(executor aspect.Executor, eval expr.Evaluator) rpc.Status {
 			ppw := executor.(aspect.PreprocessExecutor)
 			result, rpcStatus := ppw.Execute(requestBag, eval)
@@ -179,29 +221,9 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status
 
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
-func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
-	kindSet config.KindSet, invokeFunc invokeExecutorFunc) rpc.Status {
+func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, requestBag)
-
-	cfg, _ := m.cfg.Load().(config.Resolver)
-	if cfg == nil {
-		// config has not been loaded yet
-		const msg = "Configuration is not yet available"
-		glog.Error(msg)
-		return status.WithInternal(msg)
-	}
-
-	cfgs, err := cfg.Resolve(requestBag, kindSet)
-	if err != nil {
-		msg := fmt.Sprintf("unable to resolve config: %v", err)
-		glog.Error(msg)
-		return status.WithInternal(msg)
-	}
-
-	if glog.V(2) {
-		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
-	}
 
 	df, _ := m.df.Load().(descriptor.Finder)
 	numCfgs := len(cfgs)
@@ -288,13 +310,13 @@ func combineResults(results []result) rpc.Status {
 
 // result holds the values returned by the execution of an adapter
 type result struct {
-	cfg         *configpb.Combined
+	cfg         *cpb.Combined
 	status      rpc.Status
 	responseBag *attribute.MutableBag
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBag, responseBag *attribute.MutableBag,
+func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag, responseBag *attribute.MutableBag,
 	df descriptor.Finder, invokeFunc invokeExecutorFunc) (out rpc.Status) {
 	var mgr aspect.Manager
 	var found bool
@@ -341,7 +363,7 @@ type cacheKey struct {
 	aspectParamsSHA  [sha1.Size]byte
 }
 
-func newCacheKey(kind config.Kind, cfg *configpb.Combined) (*cacheKey, error) {
+func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 	ret := cacheKey{
 		kind: kind,
 		impl: cfg.Builder.GetImpl(),
@@ -372,7 +394,7 @@ func newCacheKey(kind config.Kind, cfg *configpb.Combined) (*cacheKey, error) {
 }
 
 // cacheGet gets an aspect executor from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder adapter.Builder, df descriptor.Finder) (executor aspect.Executor, err error) {
+func (m *Manager) cacheGet(cfg *cpb.Combined, mgr aspect.Manager, builder adapter.Builder, df descriptor.Finder) (executor aspect.Executor, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err

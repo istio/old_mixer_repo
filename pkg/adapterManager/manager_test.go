@@ -116,6 +116,10 @@ func (f *fakeResolver) Resolve(bag attribute.Bag, kindSet config.KindSet) ([]*cp
 	return f.ret, f.err
 }
 
+func (f *fakeResolver) ResolveUnconditional(bag attribute.Bag, kindSet config.KindSet) ([]*cpb.Combined, error) {
+	return f.ret, f.err
+}
+
 func (f *fakeBuilder) Name() string { return f.name }
 
 func (f *fakePreprocessExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.PreprocessResult, rpc.Status) {
@@ -594,7 +598,7 @@ func TestExecute(t *testing.T) {
 		}
 		m.cfg.Store(&fakeResolver{cfg, nil})
 
-		o := m.dispatch(context.Background(), nil, nil, 0,
+		o := m.dispatch(context.Background(), nil, nil, cfg,
 			func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 				return status.OK
 			})
@@ -627,7 +631,10 @@ func TestExecute_Cancellation(t *testing.T) {
 	}
 	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	if out := m.dispatch(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), 0, nil); status.IsOK(out) {
+	reqBag := attribute.GetMutableBag(nil)
+	respBag := attribute.GetMutableBag(nil)
+
+	if out := m.dispatch(ctx, reqBag, respBag, cfg, nil); status.IsOK(out) {
 		t.Error("m.dispatch(canceledContext, ...) = _, nil; wanted any err")
 	}
 
