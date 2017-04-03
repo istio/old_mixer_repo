@@ -71,11 +71,11 @@ func (c *connection) pipeResponse() (*response, error) {
 	return &response{resp}, resp.Err
 }
 
-func (r *response) int() int64 {
+func (r *response) int() (int64, error) {
 	i, err := r.response.Int64()
 
 	if err != nil {
-		return -1
+		return -1, err
 	}
-	return i
+	return i, nil
 }
