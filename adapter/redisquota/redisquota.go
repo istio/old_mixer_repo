@@ -111,23 +111,34 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 	amount, exp, err := rq.common.CommonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
-		conn, _ := rq.redisPool.get()
-		// TODO: propagate Connection Pool error here
-		// if err != nil {
-		// 	rq.logger.Infof("Could not get connection to redis")
-		// 	return 0, time.Time{}, 0
-		//}
+		seconds := int32((d.Expiration + time.Second - 1) / time.Second)
+
+		conn, err := rq.redisPool.get()
+		if err != nil {
+			rq.common.Logger.Warningf("Could not get connection to redis %v", err)
+			return 0, time.Time{}, 0
+		}
 		defer rq.redisPool.put(conn)
 
 		// increase the value of this key by the amount of result
 		conn.pipeAppend("INCRBY", key, result)
-		resp, _ := conn.pipeResponse()
-		// TODO: propagate Connection Pool error here
-		// if err != nil {
-		//	rq.logger.Infof("Could not get response from redis")
-		//	return 0, time.Time{}, 0
-		//}
-		ret := resp.int()
+		resp, err := conn.pipeResponse()
+		if err != nil {
+			rq.common.Logger.Warningf("Could not get response from redis %v", err)
+			return 0, time.Time{}, 0
+		}
+		ret, _ := resp.int()
+		if d.Expiration != 0 {
+			conn.pipeAppend("EXPIRE", key, seconds)
+			resp, _ = conn.pipeResponse()
+			rv, err := resp.int()
+			if err != nil {
+				rq.common.Logger.Warningf("Got error when setting expire for key %v", err)
+			}
+			if rv != 1 {
+				rq.common.Logger.Warningf("Could not set expire for key")
+			}
+		}
 
 		if ret > d.MaxAmount {
 			if !bestEffort {
@@ -135,9 +146,10 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 			}
 			// grab as much as we can
 			result = d.MaxAmount - (ret - result)
-			conn.pipeAppend("SET", key, d.MaxAmount)
+			conn.pipeAppend("DECRBY", key, (ret - d.MaxAmount))
 			resp, _ = conn.pipeResponse()
-			if resp.int() != d.MaxAmount {
+			res, _ := resp.int()
+			if res != d.MaxAmount {
 				rq.common.Logger.Warningf("Could not set value to key.")
 			}
 		}
@@ -156,28 +168,64 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 	amount, _, err := rq.common.CommonWrapper(args,
 		func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration) {
 			result := args.QuotaAmount
-			conn, _ := rq.redisPool.get()
-			// TODO: propagate Connection Pool error here
-			// if err != nil {
-			// 	return 0, time.Time{}, 0
-			// }
+			seconds := int32((d.Expiration + time.Second - 1) / time.Second)
+
+			conn, err := rq.redisPool.get()
+			if err != nil {
+				rq.common.Logger.Warningf("Could not get connection to redis %v", err)
+				return 0, time.Time{}, 0
+			}
 			defer rq.redisPool.put(conn)
+
+			conn.pipeAppend("GET", key)
+			resp, err := conn.pipeResponse()
+			if err != nil {
+				rq.common.Logger.Warningf("Could not check key in redis %v", err)
+				return 0, time.Time{}, 0
+			}
+			inuse, err := resp.int()
+			if err != nil {
+				rq.common.Logger.Warningf("Unable to get integer: %v", err)
+				return 0, time.Time{}, 0
+			}
 
 			// decrease the value of this key by the amount of result
 			conn.pipeAppend("DECRBY", key, result)
-			resp, _ := conn.pipeResponse()
-			// TODO: propagate Connection Pool error here
-			// if err != nil {
-			// 	return 0, time.Time{}, 0
-			// }
-			ret := resp.int()
+			resp, err = conn.pipeResponse()
+			if err != nil {
+				rq.common.Logger.Warningf("Could not get response from redis %v", err)
+				return 0, time.Time{}, 0
+			}
+
+			ret, err := resp.int()
+			if err != nil {
+				rq.common.Logger.Warningf("Unable to get integer: %v", err)
+				return 0, time.Time{}, 0
+			}
+
+			if d.Expiration != 0 {
+				conn.pipeAppend("EXPIRE", key, seconds)
+				resp, err = conn.pipeResponse()
+				if err != nil {
+					rq.common.Logger.Warningf("Could not check key in redis %v", err)
+					return 0, time.Time{}, 0
+				}
+				rv, err := resp.int()
+				if err != nil {
+					rq.common.Logger.Warningf("Got error when setting expire for key %v", err)
+				}
+				if rv != 1 {
+					rq.common.Logger.Warningf("Could not set expire for key")
+				}
+			}
 
 			if ret <= 0 {
 				// delete the key since it contains no useful state
 				conn.pipeAppend("DEL", key)
 				// consume the output of previous command
 				resp, _ = conn.pipeResponse()
-				result += ret
+				result = d.MaxAmount - inuse
+
 			}
 
 			return result, time.Time{}, 0
