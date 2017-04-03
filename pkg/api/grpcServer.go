@@ -93,9 +93,9 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, tracer trac
 	}
 }
 
-// dispatcher does all the nitty-gritty details of handling the mixer's low-level API
+// dispatch does all the nitty-gritty details of handling the mixer's low-level API
 // protocol and dispatching to the right API dispatchWrapperFn.
-func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string, getState stateGetterFn, worker dispatchFn) error {
+func (s *grpcServer) dispatch(stream grpc.Stream, methodName string, getState stateGetterFn, worker dispatchFn) error {
 
 	// tracks attribute state for this stream
 	reqTracker := s.attrMgr.NewTracker()
@@ -190,17 +190,17 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string, getState 
 
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(stream mixerpb.Mixer_CheckServer) error {
-	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Check", getCheckState, s.preprocess(s.handleCheck))
+	return s.dispatch(stream, "/istio.mixer.v1.Mixer/Check", getCheckState, s.preprocess(s.handleCheck))
 }
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(stream mixerpb.Mixer_ReportServer) error {
-	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Report", getReportState, s.preprocess(s.handleReport))
+	return s.dispatch(stream, "/istio.mixer.v1.Mixer/Report", getReportState, s.preprocess(s.handleReport))
 }
 
 // Quota is the entry point for the external Quota method
 func (s *grpcServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
-	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Quota", getQuotaState, s.preprocess(s.handleQuota))
+	return s.dispatch(stream, "/istio.mixer.v1.Mixer/Quota", getQuotaState, s.preprocess(s.handleQuota))
 }
 
 func (s *grpcServer) handleCheck(ctx context.Context, args dispatchArgs) {
