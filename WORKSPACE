@@ -18,6 +18,12 @@ git_repository(
 
 load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
+git_repository(
+    name = "istio_toolbox",
+    remote = "https://github.com/istio/toolbox.git",
+    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4"
+)
+
 proto_repositories()
 
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
