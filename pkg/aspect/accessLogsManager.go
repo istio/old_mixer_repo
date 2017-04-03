@@ -78,7 +78,7 @@ func (accessLogsManager) Kind() config.Kind { return config.AccessLogsKind }
 func (accessLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.AccessLogsParams{
 		LogName: "access_log",
-		Log: &aconfig.AccessLogsParams_AccessLog{
+		Log: aconfig.AccessLogsParams_AccessLog{
 			DescriptorName: "common",
 		},
 	}
@@ -88,10 +88,6 @@ func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator,
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.LogName == "" {
 		ce = ce.Appendf("LogName", "no log name provided")
-	}
-	if cfg.Log == nil {
-		// We can't do any more validation without a Log
-		return ce.Appendf("AccessLogs.Log", "an AccessLog entry must be provided")
 	}
 
 	desc := df.GetLog(cfg.Log.DescriptorName)

@@ -76,7 +76,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	combinedStruct := &aconfig.AccessLogsParams{
 		LogName: "combined_access_log",
-		Log: &aconfig.AccessLogsParams_AccessLog{
+		Log: aconfig.AccessLogsParams_AccessLog{
 			DescriptorName: "common",
 		},
 	}
@@ -115,7 +115,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	defaultCfg := &configpb.Combined{
 		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 		Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
-			Log: &aconfig.AccessLogsParams_AccessLog{
+			Log: aconfig.AccessLogsParams_AccessLog{
 				DescriptorName: "common",
 			},
 		}},
@@ -142,7 +142,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 }
 
 func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
-	wrap := func(name string, log *aconfig.AccessLogsParams_AccessLog) *aconfig.AccessLogsParams {
+	wrap := func(name string, log aconfig.AccessLogsParams_AccessLog) *aconfig.AccessLogsParams {
 		return &aconfig.AccessLogsParams{
 			LogName: name,
 			Log:     log,
@@ -174,8 +174,6 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 		TemplateExpressions: map[string]string{"foo": "int64"},
 	}
 
-	noLogName := wrap("", &validLog)
-
 	missingDesc := validLog
 	missingDesc.DescriptorName = "not in the df"
 
@@ -196,13 +194,13 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 		df   descriptor.Finder
 		err  string
 	}{
-		{"valid", wrap("valid", &validLog), df, ""},
+		{"valid", wrap("valid", validLog), df, ""},
 		{"empty config", &aconfig.AccessLogsParams{}, df, "LogName"},
-		{"no log name", noLogName, df, "LogName"},
-		{"missing desc", wrap("missing desc", &missingDesc), df, "could not find a descriptor"},
-		{"invalid labels", wrap("labels", &invalidLabels), df, "Labels"},
-		{"invalid logtemplate", wrap("tmpl", &invalidDescLog), df, "LogDescriptor"},
-		{"template expr attr missing", wrap("missing attr", &missingTmplExprs), df, "TemplateExpressions"},
+		{"no log name", wrap("", validLog), df, "LogName"}, // name is ""
+		{"missing desc", wrap("missing desc", missingDesc), df, "could not find a descriptor"},
+		{"invalid labels", wrap("labels", invalidLabels), df, "Labels"},
+		{"invalid logtemplate", wrap("tmpl", invalidDescLog), df, "LogDescriptor"},
+		{"template expr attr missing", wrap("missing attr", missingTmplExprs), df, "TemplateExpressions"},
 	}
 
 	for idx, tt := range tests {
