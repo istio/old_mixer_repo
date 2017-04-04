@@ -114,7 +114,15 @@ func TestPipe(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expecting error, got success")
 		}
-		if result != -1 {
+		if result != 0 {
+			t.Errorf("Unable to get response command: %v", err)
+		}
+
+		result, err = conn.getIntResp()
+		if err == nil {
+			t.Errorf("Expecting error, got success")
+		}
+		if result != 0 {
 			t.Errorf("Unable to get response command: %v", err)
 		}
 

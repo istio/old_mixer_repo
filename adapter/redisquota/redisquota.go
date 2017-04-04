@@ -125,26 +125,15 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 
 		// increase the value of this key by the amount of result
 		conn.pipeAppend("INCRBY", key, result)
-		resp, err := conn.pipeResponse()
+		ret, err := conn.getIntResp()
 		if err != nil {
-			rq.redisError = rq.common.Logger.Errorf("Could not get response from redis %v", err)
-			return 0, time.Time{}, 0
-		}
-		ret, err := resp.int()
-		if err != nil {
-			rq.redisError = rq.common.Logger.Errorf("Unable to get integer value: %v", err)
+			rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
 			return 0, time.Time{}, 0
 		}
 
 		if d.Expiration != 0 {
 			conn.pipeAppend("EXPIRE", key, seconds)
-			resp, err = conn.pipeResponse()
-			if err != nil {
-				rq.redisError = rq.common.Logger.Errorf("Could not get response from redis: %v", err)
-				return 0, time.Time{}, 0
-			}
-
-			rv, errInt := resp.int()
+			rv, errInt := conn.getIntResp()
 			if errInt != nil {
 				rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key: %v", errInt)
 				return 0, time.Time{}, 0
@@ -161,14 +150,9 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 			// grab as much as we can
 			result = d.MaxAmount - (ret - result)
 			conn.pipeAppend("DECRBY", key, (ret - d.MaxAmount))
-			resp, err = conn.pipeResponse()
+			res, err := conn.getIntResp()
 			if err != nil {
-				rq.redisError = rq.common.Logger.Errorf("Could not get response from redis: %v", err)
-				return 0, time.Time{}, 0
-			}
-			res, err := resp.int()
-			if err != nil {
-				rq.redisError = rq.common.Logger.Errorf("Unable to get integer: %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
 				return 0, time.Time{}, 0
 			}
 			if res != d.MaxAmount {
@@ -201,39 +185,23 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 			defer rq.redisPool.put(conn)
 
 			conn.pipeAppend("GET", key)
-			resp, err := conn.pipeResponse()
+			inuse, err := conn.getIntResp()
 			if err != nil {
-				rq.redisError = rq.common.Logger.Errorf("Could not check key in redis: %v", err)
-				return 0, time.Time{}, 0
-			}
-			inuse, err := resp.int()
-			if err != nil {
-				rq.redisError = rq.common.Logger.Errorf("Unable to get integer: %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
 				return 0, time.Time{}, 0
 			}
 
 			// decrease the value of this key by the amount of result
 			conn.pipeAppend("DECRBY", key, result)
-			resp, err = conn.pipeResponse()
+			ret, err := conn.getIntResp()
 			if err != nil {
-				rq.redisError = rq.common.Logger.Errorf("Could not get response from redis: %v", err)
-				return 0, time.Time{}, 0
-			}
-
-			ret, err := resp.int()
-			if err != nil {
-				rq.redisError = rq.common.Logger.Errorf("Unable to get integer: %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
 				return 0, time.Time{}, 0
 			}
 
 			if d.Expiration != 0 {
 				conn.pipeAppend("EXPIRE", key, seconds)
-				resp, err = conn.pipeResponse()
-				if err != nil {
-					rq.redisError = rq.common.Logger.Errorf("Could not check key in redis %v", err)
-					return 0, time.Time{}, 0
-				}
-				rv, errInt := resp.int()
+				rv, errInt := conn.getIntResp()
 				if errInt != nil {
 					rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key %v", errInt)
 					return 0, time.Time{}, 0
@@ -247,9 +215,12 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 				// delete the key since it contains no useful state
 				conn.pipeAppend("DEL", key)
 				// consume the output of previous command
-				resp, err = conn.pipeResponse()
+				resp, err := conn.getIntResp()
 				if err != nil {
 					rq.redisError = rq.common.Logger.Errorf("Could not get response from redis %v", err)
+					return 0, time.Time{}, 0
+				} else if resp != 1 {
+					rq.redisError = rq.common.Logger.Errorf("Could not remove key from redis")
 					return 0, time.Time{}, 0
 				}
 				result = d.MaxAmount - inuse

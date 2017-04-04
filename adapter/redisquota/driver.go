@@ -75,7 +75,16 @@ func (r *response) int() (int64, error) {
 	i, err := r.response.Int64()
 
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	return i, nil
+}
+
+func (c *connection) getIntResp() (int64, error) {
+	resp, err := c.pipeResponse()
+	if err != nil {
+		return 0, err
+	}
+	res, err := resp.int()
+	return res, err
 }
