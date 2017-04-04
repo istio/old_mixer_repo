@@ -20,8 +20,8 @@ load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
 git_repository(
     name = "istio_toolbox",
+    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4", # Mar 29 2017 (no releases)
     remote = "https://github.com/istio/toolbox.git",
-    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4"
 )
 
 proto_repositories()
