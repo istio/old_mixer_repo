@@ -32,6 +32,8 @@ type redisQuota struct {
 
 	// connection pool with redis
 	redisPool *connPool
+
+	redisError error
 }
 
 var (
@@ -83,7 +85,7 @@ func newAspect(env adapter.Env, c *config.Params) (adapter.QuotasAspect, error) 
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) (adapter.QuotasAspect, error) {
 	connPool, err := newConnPool(c.RedisServerUrl, c.SocketType, c.ConnectionPoolSize)
 	if err != nil {
-		// TODO: propagate Connection Pool error here
+		err = env.Logger().Errorf("Could not create connection pool with redis: %v", err)
 		return nil, err
 	}
 	rq := &redisQuota{
@@ -94,7 +96,8 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) 
 			GetTime:     time.Now,
 			Logger:      env.Logger(),
 		},
-		redisPool: connPool,
+		redisPool:  connPool,
+		redisError: nil,
 	}
 	return rq, nil
 }
@@ -115,7 +118,7 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 
 		conn, err := rq.redisPool.get()
 		if err != nil {
-			rq.common.Logger.Warningf("Could not get connection to redis %v", err)
+			rq.redisError = rq.common.Logger.Errorf("Could not get connection to redis %v", err)
 			return 0, time.Time{}, 0
 		}
 		defer rq.redisPool.put(conn)
@@ -124,19 +127,30 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 		conn.pipeAppend("INCRBY", key, result)
 		resp, err := conn.pipeResponse()
 		if err != nil {
-			rq.common.Logger.Warningf("Could not get response from redis %v", err)
+			rq.redisError = rq.common.Logger.Errorf("Could not get response from redis %v", err)
 			return 0, time.Time{}, 0
 		}
-		ret, _ := resp.int()
+		ret, err := resp.int()
+		if err != nil {
+			rq.redisError = rq.common.Logger.Errorf("Unable to get integer value: %v", err)
+			return 0, time.Time{}, 0
+		}
+
 		if d.Expiration != 0 {
 			conn.pipeAppend("EXPIRE", key, seconds)
-			resp, _ = conn.pipeResponse()
-			rv, err := resp.int()
+			resp, err = conn.pipeResponse()
 			if err != nil {
-				rq.common.Logger.Warningf("Got error when setting expire for key %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Could not get response from redis: %v", err)
+				return 0, time.Time{}, 0
 			}
-			if rv != 1 {
-				rq.common.Logger.Warningf("Could not set expire for key")
+
+			rv, errInt := resp.int()
+			if errInt != nil {
+				rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key: %v", errInt)
+				return 0, time.Time{}, 0
+			} else if rv != 1 {
+				rq.redisError = rq.common.Logger.Errorf("Could not set expire for key.")
+				return 0, time.Time{}, 0
 			}
 		}
 
@@ -147,10 +161,19 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 			// grab as much as we can
 			result = d.MaxAmount - (ret - result)
 			conn.pipeAppend("DECRBY", key, (ret - d.MaxAmount))
-			resp, _ = conn.pipeResponse()
-			res, _ := resp.int()
+			resp, err = conn.pipeResponse()
+			if err != nil {
+				rq.redisError = rq.common.Logger.Errorf("Could not get response from redis: %v", err)
+				return 0, time.Time{}, 0
+			}
+			res, err := resp.int()
+			if err != nil {
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer: %v", err)
+				return 0, time.Time{}, 0
+			}
 			if res != d.MaxAmount {
-				rq.common.Logger.Warningf("Could not set value to key.")
+				rq.redisError = rq.common.Logger.Errorf("Could not set value to key.")
+				return 0, time.Time{}, 0
 			}
 		}
 
@@ -172,7 +195,7 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 
 			conn, err := rq.redisPool.get()
 			if err != nil {
-				rq.common.Logger.Warningf("Could not get connection to redis %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Could not get connection to redis: %v", err)
 				return 0, time.Time{}, 0
 			}
 			defer rq.redisPool.put(conn)
@@ -180,12 +203,12 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 			conn.pipeAppend("GET", key)
 			resp, err := conn.pipeResponse()
 			if err != nil {
-				rq.common.Logger.Warningf("Could not check key in redis %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Could not check key in redis: %v", err)
 				return 0, time.Time{}, 0
 			}
 			inuse, err := resp.int()
 			if err != nil {
-				rq.common.Logger.Warningf("Unable to get integer: %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer: %v", err)
 				return 0, time.Time{}, 0
 			}
 
@@ -193,13 +216,13 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 			conn.pipeAppend("DECRBY", key, result)
 			resp, err = conn.pipeResponse()
 			if err != nil {
-				rq.common.Logger.Warningf("Could not get response from redis %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Could not get response from redis: %v", err)
 				return 0, time.Time{}, 0
 			}
 
 			ret, err := resp.int()
 			if err != nil {
-				rq.common.Logger.Warningf("Unable to get integer: %v", err)
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer: %v", err)
 				return 0, time.Time{}, 0
 			}
 
@@ -207,15 +230,16 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 				conn.pipeAppend("EXPIRE", key, seconds)
 				resp, err = conn.pipeResponse()
 				if err != nil {
-					rq.common.Logger.Warningf("Could not check key in redis %v", err)
+					rq.redisError = rq.common.Logger.Errorf("Could not check key in redis %v", err)
 					return 0, time.Time{}, 0
 				}
-				rv, err := resp.int()
-				if err != nil {
-					rq.common.Logger.Warningf("Got error when setting expire for key %v", err)
-				}
-				if rv != 1 {
-					rq.common.Logger.Warningf("Could not set expire for key")
+				rv, errInt := resp.int()
+				if errInt != nil {
+					rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key %v", errInt)
+					return 0, time.Time{}, 0
+				} else if rv != 1 {
+					rq.redisError = rq.common.Logger.Errorf("Could not set expire for key")
+					return 0, time.Time{}, 0
 				}
 			}
 
@@ -223,7 +247,11 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 				// delete the key since it contains no useful state
 				conn.pipeAppend("DEL", key)
 				// consume the output of previous command
-				resp, _ = conn.pipeResponse()
+				resp, err = conn.pipeResponse()
+				if err != nil {
+					rq.redisError = rq.common.Logger.Errorf("Could not get response from redis %v", err)
+					return 0, time.Time{}, 0
+				}
 				result = d.MaxAmount - inuse
 
 			}
