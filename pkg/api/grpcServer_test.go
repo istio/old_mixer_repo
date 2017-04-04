@@ -552,7 +552,8 @@ func TestPreprocessFailure(t *testing.T) {
 				close(waitc)
 				return
 			} else if err != nil {
-				t.Fatalf("Failed to receive a response : %v", err)
+				t.Errorf("Failed to receive a response : %v", err)
+				return
 			} else {
 				waitc <- response.Result
 			}
