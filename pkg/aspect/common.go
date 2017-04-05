@@ -58,7 +58,7 @@ func validateLabels(ceField string, labels map[string]string, labelDescs []*dpb.
 		if label := findLabel(name, labelDescs); label == nil {
 			ce = ce.Appendf(ceField, "wrong dimensions: extra label named %s", name)
 		} else if err := v.AssertType(exp, df, label.ValueType); err != nil {
-			ce = ce.Appendf(ceField, "error type checking label %s: %v", err)
+			ce = ce.Appendf(ceField, "error type checking label '%s': %v", name, err)
 		}
 	}
 	return

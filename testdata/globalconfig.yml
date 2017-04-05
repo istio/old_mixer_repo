@@ -84,6 +84,45 @@ logs:
   - name: accesslog.common
     display_name: Apache Common Log Format
     log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+    labels:
+    - name: originIp
+      value_type: 6 # IP_ADDRESS
+    - name: sourceUser
+      value_type: 1 # STRING
+    - name: timestamp
+      value_type: 5 # TIMESTAMP
+    - name: method
+      value_type: 1 # STRING
+    - name: url
+      value_type: 1 # STRING
+    - name: protocol
+      value_type: 1 # STRING
+    - name: responseCode
+      value_type: 2 # INT64
+    - name: responseSize
+      value_type: 2 # INT64
   - name: accesslog.combined
     display_name: Apache Combined Log Format
-    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}} {{or (.referer) "-"}} {{or (.user_agent) "-"}}'
+    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}} {{or (.referer) "-"}} {{or (.userAgent) "-"}}'
+    labels:
+    - name: originIp
+      value_type: 6 # IP_ADDRESS
+    - name: sourceUser
+      value_type: 1 # STRING
+    - name: timestamp
+      value_type: 5 # TIMESTAMP
+    - name: method
+      value_type: 1 # STRING
+    - name: url
+      value_type: 1 # STRING
+    - name: protocol
+      value_type: 1 # STRING
+    - name: responseCode
+      value_type: 2 # INT64
+    - name: responseSize
+      value_type: 2 # INT64
+    - name: referer
+      value_type: 1 # STRING
+    - name: userAgent
+      value_type: 1 # STRING
+

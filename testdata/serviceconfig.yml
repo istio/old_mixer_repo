@@ -42,3 +42,12 @@ rules:
            protocol: request.scheme
            responseCode: response.code
            responseSize: response.size
+        labels:
+           originIp: origin.ip
+           sourceUser: origin.user
+           timestamp: request.time
+           method: request.method
+           url: request.path
+           protocol: request.scheme
+           responseCode: response.code
+           responseSize: response.size
