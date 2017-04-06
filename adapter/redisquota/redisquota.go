@@ -19,8 +19,6 @@ package redisquota
 import (
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	"istio.io/mixer/adapter/memQuota/util"
 	"istio.io/mixer/adapter/redisquota/config"
 	"istio.io/mixer/pkg/adapter"
@@ -34,13 +32,15 @@ type redisQuota struct {
 
 	// connection pool with redis
 	redisPool *connPool
+
+	redisError error
 }
 
 var (
 	name = "redisQuota"
 	desc = "Redis-based quotas."
 	conf = &config.Params{
-		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
+		MinDeduplicationDuration: time.Duration(1) * time.Second,
 		RedisServerUrl:           "localhost:6379",
 		SocketType:               "tcp",
 		ConnectionPoolSize:       10,
@@ -60,13 +60,8 @@ func newBuilder() builder {
 func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
-	dedupWindow, err := ptypes.DurationFromProto(c.MinDeduplicationDuration)
-	if err != nil {
-		ce = ce.Append("MinDeduplicationDuration", err)
-		return
-	}
-	if dedupWindow <= 0 {
-		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", dedupWindow)
+	if c.MinDeduplicationDuration <= 0 {
+		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
 	}
 
 	if c.ConnectionPoolSize < 0 {
@@ -83,16 +78,14 @@ func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config, d map[string]*
 
 // newAspect returns a new aspect.
 func newAspect(env adapter.Env, c *config.Params) (adapter.QuotasAspect, error) {
-	dedupWindow, _ := ptypes.DurationFromProto(c.MinDeduplicationDuration)
-
-	return newAspectWithDedup(env, time.NewTicker(dedupWindow), c)
+	return newAspectWithDedup(env, time.NewTicker(c.MinDeduplicationDuration), c)
 }
 
 // newAspectWithDedup returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) (adapter.QuotasAspect, error) {
 	connPool, err := newConnPool(c.RedisServerUrl, c.SocketType, c.ConnectionPoolSize)
 	if err != nil {
-		// TODO: propagate Connection Pool error here
+		err = env.Logger().Errorf("Could not create connection pool with redis: %v", err)
 		return nil, err
 	}
 	rq := &redisQuota{
@@ -103,7 +96,8 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) 
 			GetTime:     time.Now,
 			Logger:      env.Logger(),
 		},
-		redisPool: connPool,
+		redisPool:  connPool,
+		redisError: nil,
 	}
 	return rq, nil
 }
@@ -120,23 +114,34 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 	amount, exp, err := rq.common.CommonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
-		conn, _ := rq.redisPool.get()
-		// TODO: propagate Connection Pool error here
-		// if err != nil {
-		// 	rq.logger.Infof("Could not get connection to redis")
-		// 	return 0, time.Time{}, 0
-		//}
+		seconds := int32((d.Expiration + time.Second - 1) / time.Second)
+
+		conn, err := rq.redisPool.get()
+		if err != nil {
+			rq.redisError = rq.common.Logger.Errorf("Could not get connection to redis %v", err)
+			return 0, time.Time{}, 0
+		}
 		defer rq.redisPool.put(conn)
 
 		// increase the value of this key by the amount of result
 		conn.pipeAppend("INCRBY", key, result)
-		resp, _ := conn.pipeResponse()
-		// TODO: propagate Connection Pool error here
-		// if err != nil {
-		//	rq.logger.Infof("Could not get response from redis")
-		//	return 0, time.Time{}, 0
-		//}
-		ret := resp.int()
+		ret, err := conn.getIntResp()
+		if err != nil {
+			rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
+			return 0, time.Time{}, 0
+		}
+
+		if d.Expiration != 0 {
+			conn.pipeAppend("EXPIRE", key, seconds)
+			rv, errInt := conn.getIntResp()
+			if errInt != nil {
+				rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key: %v", errInt)
+				return 0, time.Time{}, 0
+			} else if rv != 1 {
+				rq.redisError = rq.common.Logger.Errorf("Could not set expire for key.")
+				return 0, time.Time{}, 0
+			}
+		}
 
 		if ret > d.MaxAmount {
 			if !bestEffort {
@@ -144,10 +149,15 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 			}
 			// grab as much as we can
 			result = d.MaxAmount - (ret - result)
-			conn.pipeAppend("SET", key, d.MaxAmount)
-			resp, _ = conn.pipeResponse()
-			if resp.int() != d.MaxAmount {
-				rq.common.Logger.Warningf("Could not set value to key.")
+			conn.pipeAppend("DECRBY", key, (ret - d.MaxAmount))
+			res, err := conn.getIntResp()
+			if err != nil {
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
+				return 0, time.Time{}, 0
+			}
+			if res != d.MaxAmount {
+				rq.redisError = rq.common.Logger.Errorf("Could not set value to key.")
+				return 0, time.Time{}, 0
 			}
 		}
 
@@ -165,28 +175,56 @@ func (rq *redisQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 	amount, _, err := rq.common.CommonWrapper(args,
 		func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration) {
 			result := args.QuotaAmount
-			conn, _ := rq.redisPool.get()
-			// TODO: propagate Connection Pool error here
-			// if err != nil {
-			// 	return 0, time.Time{}, 0
-			// }
+			seconds := int32((d.Expiration + time.Second - 1) / time.Second)
+
+			conn, err := rq.redisPool.get()
+			if err != nil {
+				rq.redisError = rq.common.Logger.Errorf("Could not get connection to redis: %v", err)
+				return 0, time.Time{}, 0
+			}
 			defer rq.redisPool.put(conn)
+
+			conn.pipeAppend("GET", key)
+			inuse, err := conn.getIntResp()
+			if err != nil {
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
+				return 0, time.Time{}, 0
+			}
 
 			// decrease the value of this key by the amount of result
 			conn.pipeAppend("DECRBY", key, result)
-			resp, _ := conn.pipeResponse()
-			// TODO: propagate Connection Pool error here
-			// if err != nil {
-			// 	return 0, time.Time{}, 0
-			// }
-			ret := resp.int()
+			ret, err := conn.getIntResp()
+			if err != nil {
+				rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
+				return 0, time.Time{}, 0
+			}
+
+			if d.Expiration != 0 {
+				conn.pipeAppend("EXPIRE", key, seconds)
+				rv, errInt := conn.getIntResp()
+				if errInt != nil {
+					rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key %v", errInt)
+					return 0, time.Time{}, 0
+				} else if rv != 1 {
+					rq.redisError = rq.common.Logger.Errorf("Could not set expire for key")
+					return 0, time.Time{}, 0
+				}
+			}
 
 			if ret <= 0 {
 				// delete the key since it contains no useful state
 				conn.pipeAppend("DEL", key)
 				// consume the output of previous command
-				resp, _ = conn.pipeResponse()
-				result += ret
+				resp, err := conn.getIntResp()
+				if err != nil {
+					rq.redisError = rq.common.Logger.Errorf("Could not get response from redis %v", err)
+					return 0, time.Time{}, 0
+				} else if resp != 1 {
+					rq.redisError = rq.common.Logger.Errorf("Could not remove key from redis")
+					return 0, time.Time{}, 0
+				}
+				result = d.MaxAmount - inuse
+
 			}
 
 			return result, time.Time{}, 0
