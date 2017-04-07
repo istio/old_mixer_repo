@@ -55,6 +55,11 @@ DESCRIPTOR_FILE_GROUP = [
     "mixer/v1/config/descriptor/value_type.proto",
 ]
 
+filegroup(
+    name = "mixer/v1/config/descriptor_protos",
+    srcs = DESCRIPTOR_FILE_GROUP,
+)
+
 gogoslick_proto_library(
     name = "mixer/v1/config",
     importmap = {
