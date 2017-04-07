@@ -64,6 +64,9 @@ def postsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/mixer') {
     bazel.updateBazelRc()
     stage('Code Coverage') {
+      bazel.fetch('-k //...')
+      bazel.build('//...')
+      sh('bin/bazel_to_go.py')
       bazel.test('//...')
       sh('bin/codecov.sh')
       utils.publishCodeCoverage('MIXER_CODECOV_TOKEN')
