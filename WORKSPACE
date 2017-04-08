@@ -115,7 +115,7 @@ new_git_repository(
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "cdee119ee21e61eef7093a41ba148fa83585e143",  # Mar 14, 2017 (v1.2.0)
+    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
     importpath = "google.golang.org/grpc",
 )
 
@@ -182,7 +182,7 @@ new_git_or_local_repository(
     path = "../api",
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
-    use_local = False,
+    use_local = True,
 )
 
 new_http_archive(

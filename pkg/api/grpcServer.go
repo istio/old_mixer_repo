@@ -14,28 +14,16 @@
 
 package api
 
-// gRPC server. The GRPCServer type handles incoming streaming gRPC traffic and invokes method-specific
-// handlers to implement the method-specific logic.
-//
-// When you create a GRPCServer instance, you specify a number of transport-level options, along with the
-// set of method handlers responsible for the logic of individual API methods
-
-// TODO: Once the gRPC code is updated to use context objects from "context" as
-// opposed to from "golang.org/x/net/context", this code should be updated to
-// pass the context from the gRPC streams to downstream calls as opposed to merely
-// using context.Background.
-
 import (
 	"context"
-	"io"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"github.com/opentracing/opentracing-go/log"
+	context2 "golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/adapterManager"
@@ -50,41 +38,37 @@ type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
 		aspectDispatcher adapterManager.AspectDispatcher
-		attrMgr          *attribute.Manager
 		tracer           tracing.Tracer
 		gp               *pool.GoroutinePool
 
 		// replaceable sendMsg so we can inject errors in tests
 		sendMsg func(grpc.Stream, proto.Message) error
+
+		words []string
 	}
 
 	// dispatchState holds the set of information used for dispatch and
 	// request handling.
 	dispatchState struct {
-		request, response           proto.Message
-		requestIndex, responseIndex *int64
-		inAttrs, outAttrs           *mixerpb.Attributes
-		result                      *rpc.Status
+		request, response proto.Message
+		inAttrs, outAttrs *mixerpb.Attributes
+		result            *rpc.Status
 	}
 
 	// dispatchArgs holds the set of information passed into dispatchFns.
 	// These args are derived from the dispatchState.
 	dispatchArgs struct {
 		request, response       proto.Message
-		requestIndex            int64
 		requestBag, responseBag *attribute.MutableBag
-		result                  *rpc.Status
 	}
 
-	stateGetterFn func() dispatchState
-	dispatchFn    func(ctx context.Context, args dispatchArgs)
+	dispatchFn func(ctx context.Context, args dispatchArgs) rpc.Status
 )
 
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, tracer tracing.Tracer, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	return &grpcServer{
 		aspectDispatcher: aspectDispatcher,
-		attrMgr:          attribute.NewManager(),
 		tracer:           tracer,
 		gp:               gp,
 		sendMsg: func(stream grpc.Stream, m proto.Message) error {
@@ -93,154 +77,127 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, tracer trac
 	}
 }
 
-// dispatch does all the nitty-gritty details of handling Mixer's low-level API
+// dispatch implements all the nitty-gritty details of handling the mixer's low-level API
 // protocol and dispatching to the right API dispatchWrapperFn.
-func (s *grpcServer) dispatch(stream grpc.Stream, methodName string, getState stateGetterFn, worker dispatchFn) error {
-
-	// tracks attribute state for this stream
-	reqTracker := s.attrMgr.NewTracker()
-	respTracker := s.attrMgr.NewTracker()
-	defer reqTracker.Done()
-	defer respTracker.Done()
-
-	// used to serialize sending on the grpc stream, since the grpc stream is not multithread-safe
-	sendLock := &sync.Mutex{}
-
-	root, ctx := s.tracer.StartRootSpan(stream.Context(), methodName)
-	defer root.Finish()
-
-	// ensure pending stuff is done before leaving
-	wg := sync.WaitGroup{}
-	defer wg.Wait()
-
-	for {
-		dState := getState()
-
-		// get a single message
-		err := stream.RecvMsg(dState.request)
-		if err == io.EOF {
-			return nil
-		} else if err != nil {
-			glog.Errorf("Reading from gRPC request stream failed: %v", err)
-			return err
-		}
-		// ensure the indices are matched for processing
-		*dState.responseIndex = *dState.requestIndex
-
-		requestBag, err := reqTracker.ApplyProto(dState.inAttrs)
-		if err != nil {
-			msg := "Request could not be processed due to invalid 'attribute_update'."
-			glog.Error(msg, "\n", err)
-			details := status.NewBadRequest("attribute_update", err)
-			*dState.result = status.InvalidWithDetails(msg, details)
-
-			sendLock.Lock()
-			err = s.sendMsg(stream, dState.response)
-			sendLock.Unlock()
-
-			if err != nil {
-				glog.Errorf("Unable to send gRPC response message: %v", err)
-			}
-
-			continue
-		}
-
-		// throw the message into the work queue
-		wg.Add(1)
-		s.gp.ScheduleWork(func() {
-			span, ctx2 := s.tracer.StartSpanFromContext(ctx, "RequestProcessing")
-			span.LogFields(log.Object("gRPC request", dState.request))
-
-			responseBag := attribute.GetMutableBag(nil)
-
-			// do the actual work for the message
-			args := dispatchArgs{
-				dState.request,
-				dState.response,
-				*dState.requestIndex,
-				requestBag,
-				responseBag,
-				dState.result,
-			}
-
-			worker(ctx2, args)
-
-			sendLock.Lock()
-			if err = respTracker.ApplyBag(responseBag, 0, dState.outAttrs); err != nil {
-				*dState.outAttrs = mixerpb.Attributes{}
-				glog.Errorf("Unable to apply response attribute bag, sending blank attributes: %v", err)
-			}
-			err = s.sendMsg(stream, dState.response)
-			sendLock.Unlock()
-
-			if err != nil {
-				glog.Errorf("Unable to send gRPC response message: %v", err)
-			}
-
-			requestBag.Done()
-			responseBag.Done()
-
-			span.LogFields(log.Object("gRPC response", dState.response))
-			span.Finish()
-
-			wg.Done()
-		})
+func (s *grpcServer) dispatch(ctx context.Context, dState *dispatchState, worker dispatchFn) error {
+	protoBag, err := attribute.GetBagFromProto(dState.inAttrs, s.words)
+	if err != nil {
+		msg := "Request could not be processed due to invalid 'attributes'."
+		glog.Error(msg, "\n", err)
+		details := status.NewBadRequest("attributes", err)
+		out := status.InvalidWithDetails(msg, details)
+		return makeGRPCError(out)
 	}
+
+	requestBag := attribute.GetMutableBag(protoBag)
+	responseBag := attribute.GetMutableBag(nil)
+
+	// do the actual work for the message
+	args := dispatchArgs{
+		dState.request,
+		dState.response,
+		requestBag,
+		responseBag,
+	}
+
+	out := worker(ctx, args)
+
+	if dState.outAttrs != nil {
+		// TODO		responseBag.ToProto(dState.outAttrs, s.words)
+	}
+
+	requestBag.Done()
+	responseBag.Done()
+	protoBag.Done()
+
+	return makeGRPCError(out)
 }
 
-// Check is the entry point for the external Check method
-func (s *grpcServer) Check(stream mixerpb.Mixer_CheckServer) error {
-	return s.dispatch(stream, "/istio.mixer.v1.Mixer/Check", getCheckState, s.preprocess(s.handleCheck))
+func makeGRPCError(status rpc.Status) error {
+	return grpc.Errorf(codes.Code(status.Code), status.Message)
 }
 
-// Report is the entry point for the external Report method
-func (s *grpcServer) Report(stream mixerpb.Mixer_ReportServer) error {
-	return s.dispatch(stream, "/istio.mixer.v1.Mixer/Report", getReportState, s.preprocess(s.handleReport))
+// Check is the entry point for the external Check2 method
+func (s *grpcServer) Check(ctx context2.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+	resp := &mixerpb.CheckResponse{}
+	var result rpc.Status
+
+	dState := dispatchState{
+		request:  req,
+		response: resp,
+		inAttrs:  &req.Attributes,
+		outAttrs: &resp.Attributes,
+		result:   &result,
+	}
+
+	err := s.dispatch(ctx, &dState, s.preprocess(s.handleCheck))
+	return resp, err
 }
 
-// Quota is the entry point for the external Quota method
-func (s *grpcServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
-	return s.dispatch(stream, "/istio.mixer.v1.Mixer/Quota", getQuotaState, s.preprocess(s.handleQuota))
+// Report is the entry point for the external Report2 method
+func (s *grpcServer) Report(ctx context2.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	resp := &mixerpb.ReportResponse{}
+	var result rpc.Status
+
+	for i := 0; i < len(req.Attributes); i++ {
+		if len(req.Attributes[i].Words) == 0 {
+			req.Attributes[i].Words = req.DefaultWords
+		}
+
+		dState := dispatchState{
+			request:  req,
+			response: resp,
+			inAttrs:  &req.Attributes[i],
+			outAttrs: nil,
+			result:   &result,
+		}
+
+		err := s.dispatch(ctx, &dState, s.preprocess(s.handleReport))
+		if err != nil {
+			return resp, err
+		}
+	}
+
+	return resp, nil
 }
 
-func (s *grpcServer) handleCheck(ctx context.Context, args dispatchArgs) {
+// Quota is the entry point for the external Quota2 method
+func (s *grpcServer) Quota(ctx context2.Context, req *mixerpb.QuotaRequest) (*mixerpb.QuotaResponse, error) {
+	resp := &mixerpb.QuotaResponse{}
+	var result rpc.Status
 
+	dState := dispatchState{
+		request:  req,
+		response: resp,
+		inAttrs:  &req.Attributes,
+		outAttrs: nil,
+		result:   &result,
+	}
+
+	err := s.dispatch(ctx, &dState, s.preprocess(s.handleQuota))
+	return resp, err
+}
+
+func (s *grpcServer) handleCheck(ctx context.Context, args dispatchArgs) rpc.Status {
 	resp := args.response.(*mixerpb.CheckResponse)
 
-	if glog.V(2) {
-		glog.Infof("Check [%x]", args.requestIndex)
-	}
+	out := s.aspectDispatcher.Check(ctx, args.requestBag, args.responseBag)
 
-	*args.result = s.aspectDispatcher.Check(ctx, args.requestBag, args.responseBag)
 	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
 	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
 	//       30s TTL but a whitelist check has got a 120s TTL)
 	resp.Expiration = time.Duration(5) * time.Second
 
-	if glog.V(2) {
-		glog.Infof("Check [%x] <-- %s", args.requestIndex, args.response)
-	}
+	return out
 }
 
-func (s *grpcServer) handleReport(ctx context.Context, args dispatchArgs) {
-	if glog.V(2) {
-		glog.Infof("Report [%x]", args.requestIndex)
-	}
-
-	*args.result = s.aspectDispatcher.Report(ctx, args.requestBag, args.responseBag)
-
-	if glog.V(2) {
-		glog.Infof("Report [%x] <-- %s", args.requestIndex, args.response)
-	}
+func (s *grpcServer) handleReport(ctx context.Context, args dispatchArgs) rpc.Status {
+	return s.aspectDispatcher.Report(ctx, args.requestBag, args.responseBag)
 }
 
-func (s *grpcServer) handleQuota(ctx context.Context, args dispatchArgs) {
+func (s *grpcServer) handleQuota(ctx context.Context, args dispatchArgs) rpc.Status {
 	req := args.request.(*mixerpb.QuotaRequest)
 	resp := args.response.(*mixerpb.QuotaResponse)
-
-	if glog.V(2) {
-		glog.Infof("Quota [%x]", req.RequestIndex)
-	}
 
 	qma := &aspect.QuotaMethodArgs{
 		Quota:           req.Quota,
@@ -248,80 +205,32 @@ func (s *grpcServer) handleQuota(ctx context.Context, args dispatchArgs) {
 		DeduplicationID: req.DeduplicationId,
 		BestEffort:      req.BestEffort,
 	}
-	var qmr *aspect.QuotaMethodResp
 
-	qmr, *args.result = s.aspectDispatcher.Quota(ctx, args.requestBag, args.responseBag, qma)
+	qmr, out := s.aspectDispatcher.Quota(ctx, args.requestBag, args.responseBag, qma)
 
 	if qmr != nil {
 		resp.Amount = qmr.Amount
 		resp.Expiration = qmr.Expiration
 	}
 
-	if glog.V(2) {
-		glog.Infof("Quota [%x] <-- %s", req.RequestIndex, args.response)
-	}
+	return out
 }
 
 func (s *grpcServer) preprocess(dispatch dispatchFn) dispatchFn {
-	return func(ctx context.Context, args dispatchArgs) {
+	return func(ctx context.Context, args dispatchArgs) rpc.Status {
 
-		if glog.V(2) {
-			glog.Infof("Preprocessing [%x]", args.requestIndex)
-		}
+		out := s.aspectDispatcher.Preprocess(ctx, args.requestBag, args.responseBag)
 
-		*args.result = s.aspectDispatcher.Preprocess(ctx, args.requestBag, args.responseBag)
-
-		if glog.V(2) {
-			glog.Infof("Preprocessing [%x] <-- %s", args.requestIndex, args.result)
-		}
-
-		if !status.IsOK(*args.result) {
-			return
+		if !status.IsOK(out) {
+			return out
 		}
 
 		if err := args.requestBag.Merge(args.responseBag); err != nil {
 			// TODO: better error messages that push internal details into debuginfo messages
 			glog.Errorf("Could not merge mutable bags for request: %v", err)
-			*args.result = status.WithInternal("The results from the request preprocessing could not be merged.")
-			return
+			return status.WithInternal("The results from the request preprocessing could not be merged.")
 		}
 
-		dispatch(ctx, args)
-	}
-}
-
-func getCheckState() dispatchState {
-	request := &mixerpb.CheckRequest{}
-	response := &mixerpb.CheckResponse{}
-	response.AttributeUpdate = &mixerpb.Attributes{}
-	return dispatchState{
-		request, response,
-		&request.RequestIndex, &response.RequestIndex,
-		&request.AttributeUpdate, response.AttributeUpdate,
-		&response.Result,
-	}
-}
-
-func getReportState() dispatchState {
-	request := &mixerpb.ReportRequest{}
-	response := &mixerpb.ReportResponse{}
-	response.AttributeUpdate = &mixerpb.Attributes{}
-	return dispatchState{
-		request, response,
-		&request.RequestIndex, &response.RequestIndex,
-		&request.AttributeUpdate, response.AttributeUpdate,
-		&response.Result,
-	}
-}
-
-func getQuotaState() dispatchState {
-	request := &mixerpb.QuotaRequest{}
-	response := &mixerpb.QuotaResponse{}
-	response.AttributeUpdate = &mixerpb.Attributes{}
-	return dispatchState{
-		request, response,
-		&request.RequestIndex, &response.RequestIndex,
-		&request.AttributeUpdate, response.AttributeUpdate,
-		&response.Result,
+		return dispatch(ctx, args)
 	}
 }

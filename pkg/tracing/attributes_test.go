@@ -25,19 +25,19 @@ import (
 
 var (
 	attrs = &mixerpb.Attributes{
-		Dictionary:       map[int32]string{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N11", 10: "N12"},
-		StringAttributes: map[int32]string{1: "1", 2: "2"},
-		Int64Attributes:  map[int32]int64{3: 3, 4: 4},
-		DoubleAttributes: map[int32]float64{5: 5.0, 6: 6.0},
-		BoolAttributes:   map[int32]bool{7: true, 8: false},
-		BytesAttributes:  map[int32][]uint8{9: {9}, 10: {10}},
+		Words:   []string{"N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10"},
+		Strings: map[int32]int32{-1: -1, -2: -2},
+		Int64S:  map[int32]int64{-3: -3, -4: -4},
+		Doubles: map[int32]float64{-5: 5.0, -6: 6.0},
+		Bools:   map[int32]bool{-7: true, -8: false},
+		Bytes:   map[int32][]uint8{-9: {9}, -10: {10}},
 	}
 )
 
 func TestContext(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
+	bag, err := attribute.GetBagFromProto(attrs, nil)
 	if err != nil {
-		t.Errorf("Failed to construct bag: %v", err)
+		t.Fatalf("Failed to construct bag: %v", err)
 	}
 
 	if c := FromContext(context.Background()); c != nil {
@@ -54,7 +54,7 @@ func TestContext(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
+	bag, err := attribute.GetBagFromProto(attrs, nil)
 	if err != nil {
 		t.Errorf("Failed to construct bag: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestSet(t *testing.T) {
 }
 
 func TestForeachKey(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
+	bag, err := attribute.GetBagFromProto(attrs, nil)
 	if err != nil {
 		t.Errorf("Failed to construct bag: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestForeachKey(t *testing.T) {
 }
 
 func TestForeachKey_PropagatesErr(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
+	bag, err := attribute.GetBagFromProto(attrs, nil)
 	if err != nil {
 		t.Errorf("Failed to construct bag: %v", err)
 	}

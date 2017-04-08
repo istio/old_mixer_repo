@@ -20,7 +20,8 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/mixer/pkg/attribute"
 )
@@ -43,11 +44,9 @@ func TestAttributeHandling(t *testing.T) {
 		t.Errorf("Expected to parse attributes, got failure %v", err)
 	}
 
-	tracker := attribute.NewManager().NewTracker()
-
 	var b attribute.Bag
-	if b, err = tracker.ApplyProto(a); err != nil {
-		t.Errorf("Expected to start request, got failure %v", err)
+	if b, err = attribute.GetBagFromProto(a, nil); err != nil {
+		t.Errorf("Expected to get proto bag, got failure %v", err)
 	}
 
 	results := []struct {
@@ -161,19 +160,17 @@ func TestAttributeErrorHandling(t *testing.T) {
 	}
 }
 
-func TestDecodeStatus(t *testing.T) {
-	// just making sure all paths work properly
-	cases := []rpc.Status{
-		{Code: int32(rpc.ALREADY_EXISTS)},
-		{Code: 123456},
-
-		{Code: int32(rpc.ALREADY_EXISTS), Message: "FOO"},
-		{Code: 123456, Message: "FOO"},
+func TestDecodeError(t *testing.T) {
+	cases := []error{
+		grpc.Errorf(codes.AlreadyExists, ""),
+		grpc.Errorf(codes.Code(123456), ""),
+		grpc.Errorf(codes.AlreadyExists, "FOO"),
+		grpc.Errorf(codes.Code(123456), "FOO"),
 	}
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			s := decodeStatus(c)
+			s := decodeError(c)
 			if s == "" {
 				t.Error("Got '', expecting a valid string")
 			}
