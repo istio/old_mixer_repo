@@ -15,8 +15,6 @@
 package redisquota
 
 import (
-	"sync"
-
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
 )
@@ -25,7 +23,6 @@ import (
 type connPool struct {
 	// TODO: add number of connections here
 	pool *pool.Pool
-	sync.Mutex
 }
 
 type connection struct {
@@ -39,9 +36,7 @@ type response struct {
 
 // Get is to get a connection from the connection pool.
 func (cp *connPool) get() (*connection, error) {
-	cp.Lock()
 	client, err := cp.pool.Get()
-	cp.Unlock()
 
 	return &connection{client, 0}, err
 }
@@ -57,7 +52,7 @@ func newConnPool(redisURL string, redisSocketType string, redisPoolSize int64) (
 	if err != nil {
 		return nil, err
 	}
-	return &connPool{pool, sync.Mutex{}}, err
+	return &connPool{pool}, err
 }
 
 func (cp *connPool) empty() {
