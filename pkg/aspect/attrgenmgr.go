@@ -18,7 +18,6 @@ import (
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	apb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -52,15 +51,15 @@ func (attrGenMgr) DefaultConfig() (c config.AspectParams) {
 
 func (attrGenMgr) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (cerrs *adapter.ConfigErrors) {
 	params := c.(*apb.AttributeGeneratorsParams)
-	attrs := make([]string, 0, len(params.GeneratedAttributes))
-	for _, descr := range params.GeneratedAttributes {
-		attrs = append(attrs, descr.Name)
+	attrs := make([]string, 0, len(params.ValueAttributeMap))
+	for _, attrName := range params.ValueAttributeMap {
+		attrs = append(attrs, attrName)
 	}
 	for _, name := range attrs {
-		if a := df.GetAttribute(name); a != nil {
+		if a := df.GetAttribute(name); a == nil {
 			cerrs = cerrs.Appendf(
-				"generated_attributes",
-				"Attribute '%s' is already configured. It may not be re-generated.",
+				"value_attribute_map",
+				"Attribute '%s' is not configured for use within the mixer. It cannot be used as a target for generated values.",
 				name)
 		}
 	}
@@ -78,40 +77,30 @@ func (attrGenMgr) NewPreprocessExecutor(cfg *cpb.Combined, b adapter.Builder, en
 
 func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*PreprocessResult, rpc.Status) {
 	attrGen := e.aspect
-	in, err := evalAll(e.params.Labels, attrs, mapper)
+	in, err := evalAll(e.params.InputExpressions, attrs, mapper)
 	if err != nil {
-		errMsg := "Could not evaluate label expressions for attribute generation."
+		errMsg := "Could not evaluate input expressions for attribute generation."
 		glog.Error(errMsg, err)
 		return nil, status.WithInternal(errMsg)
 	}
 	out, err := attrGen.Generate(in)
 	if err != nil {
-		errMsg := "Attribute generation failed."
+		errMsg := "Attribute value generation failed."
 		glog.Error(errMsg, err)
 		return nil, status.WithInternal(errMsg)
 	}
 	bag := attribute.GetMutableBag(nil)
-	adl := attributeDescriptorList(e.params.GeneratedAttributes)
 	for key, val := range out {
-		if adl.contains(key) {
+		if attrName, found := e.params.ValueAttributeMap[key]; found {
 			// TODO: type validation?
-			bag.Set(key, val)
+			bag.Set(attrName, val)
+			continue
 		}
-		// TODO: should we return a failure here (produced an attribute
-		// that isn't in descriptor list)?
+		glog.Warningf("Generated value '%s' was not mapped to an attribute.", key)
 	}
+	// TODO: need to check that all attributes in map have been assigned a
+	// value?
 	return &PreprocessResult{Attrs: bag}, status.OK
 }
 
 func (e *attrGenExec) Close() error { return e.aspect.Close() }
-
-type attributeDescriptorList []*dpb.AttributeDescriptor
-
-func (l attributeDescriptorList) contains(name string) bool {
-	for _, d := range l {
-		if d.Name == name {
-			return true
-		}
-	}
-	return false
-}

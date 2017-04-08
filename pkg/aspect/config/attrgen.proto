@@ -17,7 +17,6 @@ syntax = "proto3";
 package pkg.aspect.config;
 
 import "gogoproto/gogo.proto";
-import "mixer/v1/config/descriptor/attribute_descriptor.proto";
 
 option go_package="config";
 option (gogoproto.goproto_getters_all) = false;
@@ -26,11 +25,14 @@ option (gogoproto.gostring_all) = false;
 
 // Configures an AttributeGenerator aspect.
 message AttributeGeneratorsParams {
-    // Map of label name to attribute expression. At runtime, each
-    // expression will be evaluated to determine the value provided to the
+    // Map of input params name to attribute expressions. At runtime, each
+    // expression will be evaluated to determine the input value provided to the
     // aspect.
-    map<string, string> labels = 1;
+    map<string, string> input_expressions = 1;
 
-    // Descriptors for the new attributes that will be produced by this aspect.
-    repeated istio.mixer.v1.config.descriptor.AttributeDescriptor generated_attributes = 2;
+    // Map of generated value names to mixer attribute names. Individual aspect
+    // implementations will produce a map of output values (name -> value).
+    // These output values will be converted into attributes for consumption by
+    // the rest of the mixer via this map.
+    map<string, string> value_attribute_map = 2;
 }
