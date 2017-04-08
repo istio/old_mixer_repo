@@ -21,8 +21,11 @@ type (
 	AttributesGenerator interface {
 		Aspect
 
-		// Generate takes input labels and produces a map of new
-		// attribute values (name-value pairs).
+		// Generate takes a map of named input values and produces an
+		// output map of named values. The input values will be
+		// populated via configured attribute expressions. The output
+		// map will be used to create new attribute values for use by
+		// the rest of the mixer, as controlled by aspect config.
 		Generate(map[string]interface{}) (map[string]interface{}, error)
 	}
 
