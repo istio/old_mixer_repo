@@ -49,25 +49,25 @@ func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 		"source_ip": &dpb.AttributeDescriptor{Name: "source_ip"},
 	})
 
-	newAttrs := &apb.AttributeGeneratorsParams{
-		GeneratedAttributes: []*dpb.AttributeDescriptor{
-			{Name: "no_conflict"},
+	foundAttr := &apb.AttributeGeneratorsParams{
+		ValueAttributeMap: map[string]string{
+			"src_pod_ip": "source_ip",
 		},
 	}
 
-	existingAttrs := &apb.AttributeGeneratorsParams{
-		GeneratedAttributes: []*dpb.AttributeDescriptor{
-			{Name: "source_ip"},
+	notFoundAttr := &apb.AttributeGeneratorsParams{
+		ValueAttributeMap: map[string]string{
+			"src_pod_ip": "not_found",
 		},
 	}
 
 	m := newAttrGenMgr()
-	if err := m.ValidateConfig(newAttrs, expr.NewCEXLEvaluator(), dfind); err != nil {
-		t.Errorf("Unexpected error '%v' for config: %v", err, newAttrs)
+	if err := m.ValidateConfig(foundAttr, expr.NewCEXLEvaluator(), dfind); err != nil {
+		t.Errorf("Unexpected error '%v' for config: %v", err, foundAttr)
 	}
 
-	if err := m.ValidateConfig(existingAttrs, expr.NewCEXLEvaluator(), dfind); err == nil {
-		t.Errorf("Expected error for config: %#v", existingAttrs)
+	if err := m.ValidateConfig(notFoundAttr, expr.NewCEXLEvaluator(), dfind); err == nil {
+		t.Errorf("Expected error for config: %#v", notFoundAttr)
 	}
 }
 
@@ -134,12 +134,12 @@ func (t testAttrGen) Generate(in map[string]interface{}) (map[string]interface{}
 func TestAttributeGeneratorExecutor_Execute(t *testing.T) {
 
 	genParams := &apb.AttributeGeneratorsParams{
-		Labels: map[string]string{
-			"input": "source_ip",
+		InputExpressions: map[string]string{
+			"pod.ip": "source_ip",
 		},
-		GeneratedAttributes: []*dpb.AttributeDescriptor{
-			{Name: "found"},
-			{Name: "source_service"},
+		ValueAttributeMap: map[string]string{
+			"found":   "service_found",
+			"src_svc": "source_service",
 		},
 	}
 
@@ -147,17 +147,16 @@ func TestAttributeGeneratorExecutor_Execute(t *testing.T) {
 	inBag.Set("source_ip", "10.1.1.10")
 
 	outMap := map[string]interface{}{
-		"found":          true,
-		"source_service": "service1",
+		"found":   true,
+		"src_svc": "service1",
 	}
-	outBag := attribute.GetMutableBag(nil)
-	for k, v := range outMap {
-		outBag.Set(k, v)
-	}
+	wantBag := attribute.GetMutableBag(nil)
+	wantBag.Set("service_found", true)
+	wantBag.Set("source_service", "service1")
 
 	extraOutMap := map[string]interface{}{
 		"found":              true,
-		"source_service":     "service1",
+		"src_svc":            "service1",
 		"should_be_stripped": "never_used",
 	}
 
@@ -169,10 +168,10 @@ func TestAttributeGeneratorExecutor_Execute(t *testing.T) {
 		wantAttrs attribute.Bag
 		wantErr   bool
 	}{
-		{"no error", attrGenExec{&testAttrGen{out: outMap}, genParams}, inBag, atest.NewIDEval(), outBag, false},
-		{"strippped attrs", attrGenExec{&testAttrGen{out: extraOutMap}, genParams}, inBag, atest.NewIDEval(), outBag, false},
-		{"generate error", attrGenExec{&testAttrGen{out: outMap, returnErr: true}, genParams}, inBag, atest.NewIDEval(), outBag, true},
-		{"eval error", attrGenExec{&testAttrGen{}, genParams}, inBag, atest.NewErrEval(), outBag, true},
+		{"no error", attrGenExec{&testAttrGen{out: outMap}, genParams}, inBag, atest.NewIDEval(), wantBag, false},
+		{"strippped attrs", attrGenExec{&testAttrGen{out: extraOutMap}, genParams}, inBag, atest.NewIDEval(), wantBag, false},
+		{"generate error", attrGenExec{&testAttrGen{out: outMap, returnErr: true}, genParams}, inBag, atest.NewIDEval(), wantBag, true},
+		{"eval error", attrGenExec{&testAttrGen{}, genParams}, inBag, atest.NewErrEval(), wantBag, true},
 	}
 
 	for _, v := range tests {
