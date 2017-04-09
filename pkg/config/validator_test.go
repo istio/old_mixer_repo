@@ -32,6 +32,12 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
+const (
+	keyAdapters            = "/scopes/global/adapters"
+	keyDescriptors         = "/scopes/global/descriptors"
+	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
+)
+
 type fakeVFinder struct {
 	ada   map[string]adapter.ConfigValidator
 	asp   map[Kind]AspectValidator

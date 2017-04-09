@@ -86,7 +86,8 @@ const ktargetService = "target.service"
 // Make this a reasonable number so that we don't reallocate slices often.
 const resolveSize = 50
 
-func resolve(bag attribute.Bag, kindSet KindSet, policy map[Key]*pb.ServiceConfig, resolveRules resolveRulesFunc, onlyEmptySelectors bool) (dlist []*pb.Combined, err error) {
+func resolve(bag attribute.Bag, kindSet KindSet, policy map[Key]*pb.ServiceConfig, resolveRules resolveRulesFunc,
+	onlyEmptySelectors bool) (dlist []*pb.Combined, err error) {
 	var scopes []string
 	if glog.V(2) {
 		glog.Infof("resolving for: %s", kindSet)
@@ -150,10 +151,12 @@ func (r *runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 	return r.eval.EvalPredicate(selector, bag)
 }
 
-type resolveRulesFunc func(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string, dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error)
+type resolveRulesFunc func(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
+	dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error)
 
 // resolveRules recurses through the config struct and returns a list of combined aspects
-func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string, dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
+func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
+	dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
 	var selected bool
 	var lerr error
 	var err error
