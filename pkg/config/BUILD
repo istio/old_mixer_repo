@@ -5,9 +5,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "fsstore.go",
         "kind.go",
         "manager.go",
         "runtime.go",
+        "store.go",
         "validator.go",
     ],
     deps = [
@@ -28,6 +30,7 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "fsstore_test.go",
         "kind_test.go",
         "manager_test.go",
         "runtime_test.go",
