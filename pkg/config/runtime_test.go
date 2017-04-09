@@ -112,7 +112,8 @@ func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver {
 	return &fakeresolver{am: am, resolveError: re}
 }
 
-func (fr *fakeresolver) rrf(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string, dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
+func (fr *fakeresolver) rrf(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
+	dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
 	if fr.resolveError != nil {
 		return nil, fr.resolveError
 	}
