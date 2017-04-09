@@ -16,7 +16,7 @@ package config
 
 import (
 	"crypto/sha1"
-	"io/ioutil"
+	"reflect"
 	"sync"
 	"time"
 
@@ -48,20 +48,18 @@ type ChangeListener interface {
 // It applies validated changes to the registered config change listeners.
 // api.Handler listens for config changes.
 type Manager struct {
-	eval             expr.Evaluator
-	aspectFinder     AspectValidatorFinder
-	builderFinder    BuilderValidatorFinder
-	descriptorFinder descriptor.Finder
-	findAspects      AdapterToAspectMapper
-	loopDelay        time.Duration
-	globalConfig     string
-	serviceConfig    string
-	ticker           *time.Ticker
+	eval           expr.Evaluator
+	aspectFinder   AspectValidatorFinder
+	builderFinder  BuilderValidatorFinder
+	findAspects    AdapterToAspectMapper
+	loopDelay      time.Duration
+	store          KVStore
+	ticker         *time.Ticker
+	lastFetchIndex int
 
-	cl    []ChangeListener
-	scSHA [sha1.Size]byte
-	gcSHA [sha1.Size]byte
+	cl []ChangeListener
 
+	lastValidated *Validated
 	sync.RWMutex
 	lastError error
 }
@@ -78,82 +76,94 @@ type Manager struct {
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
 func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
-	findAspects AdapterToAspectMapper, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
+	findAspects AdapterToAspectMapper, store KVStore, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,
 		aspectFinder:  aspectFinder,
 		builderFinder: builderFinder,
 		findAspects:   findAspects,
 		loopDelay:     loopDelay,
-		globalConfig:  globalConfig,
-		serviceConfig: serviceConfig,
+		store:         store,
 	}
+
 	return m
 }
+
+// StoreChange is called by "store" when new changes are available
+//func (c *Manager) StoreChange(index int) {
+//	// fetchAndNotify already logs errors
+//	c.fetchAndNotify()
+//}
 
 // Register makes the ConfigManager aware of a ConfigChangeListener.
 func (c *Manager) Register(cc ChangeListener) {
 	c.cl = append(c.cl, cc)
 }
 
-func read(fname string) ([sha1.Size]byte, string, error) {
-	var data []byte
-	var err error
-	if data, err = ioutil.ReadFile(fname); err != nil {
-		return [sha1.Size]byte{}, "", err
-	}
-	return sha1.Sum(data), string(data[:]), nil
-}
+//  /scopes/global/subjects/global/rules.yml
+//  /scopes/global/adapters.yml
+//  /scopes/global/descriptors.yml
 
 // fetch config and return runtime if a new one is available.
 func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
-	var vd *Validated
-	var cerr *adapter.ConfigErrors
-
-	gcSHA, gc, err2 := read(c.globalConfig)
-	if err2 != nil {
-		return nil, nil, err2
+	keys, index, err := c.store.List("/scopes", true)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	scSHA, sc, err1 := read(c.serviceConfig)
-	if err1 != nil {
-		return nil, nil, err1
+	// read
+	shas := map[string][sha1.Size]byte{}
+	data := map[string]string{}
+
+	var found bool
+	var val string
+
+	for _, k := range keys {
+		val, index, found = c.store.Get(k)
+		if !found {
+			continue
+		}
+		data[k] = val
+		shas[k] = sha1.Sum([]byte(val))
 	}
 
-	if gcSHA == c.gcSHA && scSHA == c.scSHA {
+	if c.lastValidated != nil && reflect.DeepEqual(shas, c.lastValidated.shas) {
+		// nothing actually changed.
 		return nil, nil, nil
 	}
 
 	v := newValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
-	if vd, cerr = v.validate(sc, gc); cerr != nil {
+	var vd *Validated
+	var cerr *adapter.ConfigErrors
+	vd, cerr = v.validate(data)
+	if cerr != nil {
+		glog.Warningf("Validation failed: %s", cerr.String())
 		return nil, nil, cerr
 	}
-
-	c.descriptorFinder = descriptor.NewFinder(v.validated.globalConfig)
-
-	c.gcSHA = gcSHA
-	c.scSHA = scSHA
-	return newRuntime(vd, c.eval), c.descriptorFinder, nil
+	// check if shah have changed.
+	c.lastFetchIndex = index
+	vd.shas = shas
+	c.lastValidated = vd
+	return newRuntime(vd, c.eval), v.descriptorFinder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed
-func (c *Manager) fetchAndNotify() error {
+func (c *Manager) fetchAndNotify() {
 	rt, df, err := c.fetch()
 	if err != nil {
 		c.Lock()
 		c.lastError = err
 		c.Unlock()
-		return err
+		glog.Warningf("Error installing new config %s", err)
 	}
 	if rt == nil {
-		return nil
+		return
 	}
 
-	glog.Infof("Installing new config from %s sha=%x ", c.serviceConfig, c.scSHA)
+	glog.Infof("Installing new config from %s ", c.store)
 	for _, cl := range c.cl {
 		cl.ConfigChange(rt, df)
 	}
-	return nil
 }
 
 // LastError returns last error encountered by the manager while processing config.
@@ -173,21 +183,18 @@ func (c *Manager) Close() {
 
 func (c *Manager) loop() {
 	for range c.ticker.C {
-		err := c.fetchAndNotify()
-		if err != nil {
-			glog.Warning(err)
-		}
+		c.fetchAndNotify()
 	}
 }
 
 // Start watching for configuration changes and handle updates.
 func (c *Manager) Start() {
-	err := c.fetchAndNotify()
-	// We make an attempt to synchronously fetch and notify configuration
+	c.fetchAndNotify()
+	// FIXME add change notifier registration once we have
+	// and adapter that supports it cn.RegisterStoreChangeListener(c)
+
+	// if store does not support notification use the loop
 	// If it is not successful, we will continue to watch for changes.
 	c.ticker = time.NewTicker(c.loopDelay)
 	go c.loop()
-	if err != nil {
-		glog.Warning("Unable to process config: ", err)
-	}
 }
