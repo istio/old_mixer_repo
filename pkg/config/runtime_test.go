@@ -80,7 +80,7 @@ func TestGetScopes(t *testing.T) {
 }
 
 func buildServiceConfig(key string, kinds []string) *pb.ServiceConfig {
-	aspects := make([]*pb.Aspect, len(kinds), len(kinds))
+	aspects := make([]*pb.Aspect, len(kinds))
 	for idx, kind := range kinds {
 		aspects[idx] = &pb.Aspect{
 			Kind: kind,
