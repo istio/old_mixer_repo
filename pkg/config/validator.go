@@ -165,15 +165,12 @@ func (v *Validated) Clone() *Validated {
 }
 
 const (
-	sGlobal                = "global"
-	sScopes                = "scopes"
-	sSubjects              = "subjects"
-	sRules                 = "rules"
-	sAdapters              = "adapters"
-	sDescriptors           = "descriptors"
-	keyAdapters            = "/scopes/global/adapters"
-	keyDescriptors         = "/scopes/global/descriptors"
-	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
+	sGlobal      = "global"
+	sScopes      = "scopes"
+	sSubjects    = "subjects"
+	sRules       = "rules"
+	sAdapters    = "adapters"
+	sDescriptors = "descriptors"
 )
 
 // GlobalPolicyKey this policy is applies to all requests
