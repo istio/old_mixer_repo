@@ -330,7 +330,7 @@ func descriptorKey(scope string) string {
 // It returns a fully validated Config if no errors are found.
 func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
 
-	cfgkey := make([]string, len(cfg), len(cfg))
+	cfgkey := make([]string, len(cfg))
 	for k := range cfg {
 		cfgkey = append(cfgkey, k)
 	}
