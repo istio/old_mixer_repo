@@ -111,6 +111,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 }
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
+	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
 
@@ -125,15 +126,21 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
+	var store config.KVStore
+	store, err = config.NewStore(sa.serviceConfigFile)
+	if err != nil {
+		fatalf("%s", err.Error())
+	}
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
 		adapterMgr.SupportedKinds,
-		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
+		store, time.Second*time.Duration(sa.configFetchIntervalSec))
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
-		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
+		var sc tls.Certificate
+		sc, err = tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
 			fatalf("Failed to load server certificate and server key: %v", err)
 		}
@@ -143,7 +150,8 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	if sa.clientCertFiles != "" {
 		clientCerts = x509.NewCertPool()
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
-			pem, err := ioutil.ReadFile(clientCertFile)
+			var pem []byte
+			pem, err = ioutil.ReadFile(clientCertFile)
 			if err != nil {
 				fatalf("Failed to load client certificate: %v", err)
 			}
@@ -151,8 +159,9 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		}
 	}
 
+	var listener net.Listener
 	// get the network stuff setup
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", sa.port))
+	listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port))
 	if err != nil {
 		fatalf("Unable to listen on socket: %v", err)
 	}

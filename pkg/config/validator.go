@@ -26,11 +26,14 @@ package config
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/pkg/adapter"
@@ -78,7 +81,13 @@ func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderVali
 		findAspects:   findAspects,
 		strict:        strict,
 		exprValidator: exprValidator,
-		validated:     &Validated{},
+		validated: &Validated{
+			adapterByName: make(map[adapterKey]*pb.Adapter),
+			policy:        make(map[Key]*pb.ServiceConfig),
+			adapter:       make(map[string]*pb.GlobalConfig),
+			descriptor:    make(map[string]*pb.GlobalConfig),
+			shas:          make(map[string][sha1.Size]byte),
+		},
 	}
 }
 
@@ -98,31 +107,124 @@ type (
 		kind Kind
 		name string
 	}
+
+	// Key is used to lookup a policy.
+	Key struct {
+		// Scope of the policy document.
+		Scope string
+		// Subject of the policy document.
+		Subject string
+	}
+
 	// Validated store validated configuration.
 	// It has been validated as internally consistent and correct.
 	Validated struct {
 		adapterByName map[adapterKey]*pb.Adapter
-		globalConfig  *pb.GlobalConfig
-		serviceConfig *pb.ServiceConfig
-		numAspects    int
+		// descriptors and adapters are only allowed in global scope
+		adapter    map[string]*pb.GlobalConfig
+		descriptor map[string]*pb.GlobalConfig
+		policy     map[Key]*pb.ServiceConfig
+		shas       map[string][sha1.Size]byte
+		numAspects int
 	}
 )
+
+func copyDescriptors(m map[string]*pb.GlobalConfig) map[string]*pb.GlobalConfig {
+	d := map[string]*pb.GlobalConfig{}
+	for k, a := range m {
+		d[k] = a
+	}
+	return d
+}
+
+// Clone makes a clone of validated config
+func (v *Validated) Clone() *Validated {
+	aa := map[adapterKey]*pb.Adapter{}
+	for k, a := range v.adapterByName {
+		aa[k] = a
+	}
+
+	pol := map[Key]*pb.ServiceConfig{}
+	for k, a := range v.policy {
+		pol[k] = a
+	}
+
+	shas := map[string][sha1.Size]byte{}
+	for k, a := range v.shas {
+		shas[k] = a
+	}
+
+	return &Validated{
+		adapterByName: aa,
+		policy:        pol,
+		adapter:       copyDescriptors(v.adapter),
+		descriptor:    copyDescriptors(v.descriptor),
+		numAspects:    v.numAspects,
+		shas:          shas,
+	}
+}
+
+const (
+	sGlobal                = "global"
+	sScopes                = "scopes"
+	sSubjects              = "subjects"
+	sRules                 = "rules"
+	sAdapters              = "adapters"
+	sDescriptors           = "descriptors"
+	keyAdapters            = "/scopes/global/adapters"
+	keyDescriptors         = "/scopes/global/descriptors"
+	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
+)
+
+// GlobalPolicyKey this policy is applies to all requests
+// so we just create a well known key for it
+var GlobalPolicyKey = Key{Scope: sGlobal, Subject: sGlobal}
+
+// String string repr of a Policy Key
+func (p Key) String() string {
+	return fmt.Sprintf("%s/%s", p.Scope, p.Subject)
+}
+
+// /scopes/global/subjects/global/rules --> global / global
+func parseConfigKey(key string) (k *Key) {
+	comps := strings.Split(key, "/")
+	if len(comps) < 6 {
+		return nil
+	}
+	if comps[1] != sScopes || comps[3] != sSubjects {
+		return nil
+	}
+	k = &Key{comps[2], comps[4]}
+	return k
+}
 
 func (a adapterKey) String() string {
 	return fmt.Sprintf("%s//%s", a.kind, a.name)
 }
 
-// validateGlobalConfig consumes a yml config string with adapter config.
-// It is validated in presence of validators.
-func (p *validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) {
+// validateDescriptors
+// TODO add validation beyond proto parse
+func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.ConfigErrors) {
+	var m = &pb.GlobalConfig{}
+	if err := yaml.Unmarshal([]byte(cfg), m); err != nil {
+		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
+	}
+	p.validated.descriptor[key] = m
+	return
+}
+
+// validateAdapters consumes a yml config string with adapter config.
+// It is validated in the presence of validators.
+func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.ConfigErrors) {
 	var m = &pb.GlobalConfig{}
 	if err := yaml.Unmarshal([]byte(cfg), m); err != nil {
 		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
 	}
 
-	p.validated.adapterByName = make(map[adapterKey]*pb.Adapter)
 	var acfg adapter.Config
 	var err *adapter.ConfigErrors
+	// FIXME update this when we start supporting adapters defined in multiple scopes
+	p.validated.adapterByName = make(map[adapterKey]*pb.Adapter)
 	for _, aa := range m.GetAdapters() {
 		if acfg, err = convertAdapterParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
 			ce = ce.Appendf("Adapter: "+aa.Impl, "failed to convert aspect params to proto with err: %v", err)
@@ -138,7 +240,7 @@ func (p *validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 			}
 		}
 	}
-	p.validated.globalConfig = m
+	p.validated.adapter[key] = m
 	return
 }
 
@@ -153,7 +255,7 @@ func (p *validator) validateSelector(selector string) (err error) {
 
 // validateAspectRules validates the recursive configuration data structure.
 // It is primarily used by validate ServiceConfig.
-func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (ce *adapter.ConfigErrors) {
+func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (numAspects int, ce *adapter.ConfigErrors) {
 	var acfg adapter.Config
 	for _, rule := range rules {
 		if err := p.validateSelector(rule.GetSelector()); err != nil {
@@ -167,7 +269,7 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 				continue
 			}
 			aa.Params = acfg
-			p.validated.numAspects++
+			numAspects++
 			if validatePresence {
 				if aa.Adapter == "" {
 					aa.Adapter = "default"
@@ -188,24 +290,77 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		if len(rs) == 0 {
 			continue
 		}
-		if verr := p.validateAspectRules(rs, path, validatePresence); verr != nil {
+		if na, verr := p.validateAspectRules(rs, path, validatePresence); verr != nil {
 			ce = ce.Extend(verr)
+		} else {
+			numAspects += na
 		}
 	}
-	return ce
+	return numAspects, ce
+}
+
+//  classify keys into rules, adapter and descriptors
+
+func classifyKeys(keys []string) map[string][]string {
+	keymap := map[string][]string{}
+	for _, key := range keys {
+		kk := strings.Split(key, "/")
+		var k string
+		switch kk[len(kk)-1] {
+		case sRules:
+			k = sRules
+		case sAdapters:
+			k = sAdapters
+		case sDescriptors:
+			k = sDescriptors
+		default:
+			if glog.V(4) {
+				glog.Infoln("unknown key", keys)
+			}
+			continue
+		}
+		keymap[k] = append(keymap[k], key)
+	}
+
+	return keymap
+}
+
+func descriptorKey(scope string) string {
+	return fmt.Sprintf("/scopes/%s/%s", scope, sDescriptors)
 }
 
 // validate validates a single serviceConfig and globalConfig together.
 // It returns a fully validated Config if no errors are found.
-func (p *validator) validate(serviceCfg string, globalCfg string) (rt *Validated, ce *adapter.ConfigErrors) {
-	if re := p.validateGlobalConfig(globalCfg); re != nil {
-		return rt, ce.Appendf("GlobalConfig", "failed validation").Extend(re)
-	}
-	// The order is important here, because serviceConfig refers to global config
-	p.descriptorFinder = descriptor.NewFinder(p.validated.globalConfig)
+func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
 
-	if re := p.validateServiceConfig(serviceCfg, true); re != nil {
-		return rt, ce.Appendf("ServiceConfig", "failed validation").Extend(re)
+	cfgkey := make([]string, len(cfg), len(cfg))
+	for k := range cfg {
+		cfgkey = append(cfgkey, k)
+	}
+	keymap := classifyKeys(cfgkey)
+
+	for _, kk := range keymap[sDescriptors] {
+		if re := p.validateDescriptors(kk, cfg[kk]); re != nil {
+			return rt, ce.Appendf("GlobalConfig", "failed validation").Extend(re)
+		}
+	}
+
+	for _, kk := range keymap[sAdapters] {
+		if re := p.validateAdapters(kk, cfg[kk]); re != nil {
+			return rt, ce.Appendf("GlobalConfig", "failed validation").Extend(re)
+		}
+	}
+
+	// The order is important here, because serviceConfig refers to adapters and descriptors
+	p.descriptorFinder = descriptor.NewFinder(p.validated.descriptor[descriptorKey(sGlobal)])
+	for _, kk := range keymap[sRules] {
+		ck := parseConfigKey(kk)
+		if ck == nil {
+			continue
+		}
+		if re := p.validateServiceConfig(*ck, cfg[kk], true); re != nil {
+			return rt, ce.Appendf("ServiceConfig", "failed validation").Extend(re)
+		}
 	}
 	return p.validated, nil
 }
@@ -213,17 +368,20 @@ func (p *validator) validate(serviceCfg string, globalCfg string) (rt *Validated
 // ValidateServiceConfig validates service config.
 // if validatePresence is true it will ensure that the named adapter and Kinds
 // have an available and configured adapter.
-func (p *validator) validateServiceConfig(cfg string, validatePresence bool) (ce *adapter.ConfigErrors) {
+func (p *validator) validateServiceConfig(pk Key, cfg string, validatePresence bool) (ce *adapter.ConfigErrors) {
 	var err error
 	m := &pb.ServiceConfig{}
+	var numAspects int
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
 		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto with err: %v", err)
 	}
-	if ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
+	if numAspects, ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
 		return ce
 	}
-	p.validated.serviceConfig = m
-	return
+	p.validated.policy[pk] = m
+	p.validated.numAspects += numAspects
+
+	return nil
 }
 
 // unknownValidator returns error for the given name.

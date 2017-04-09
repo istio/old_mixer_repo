@@ -15,6 +15,9 @@
 package config
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -42,22 +45,32 @@ func newRuntime(v *Validated, evaluator expr.PredicateEvaluator) *runtime {
 	}
 }
 
-// ResolveFn is a function that returns a list of Combined configs for an
-// attribute bag and aspect kind set pair. It is used, at runtime, to retrieve
-// the set of configs that apply to an operation.
-type ResolveFn func(bag attribute.Bag, set KindSet) ([]*pb.Combined, error)
+// GetScopes returns configuration scopes that apply given a target service
+func GetScopes(target string) ([]string, error) {
+	return getK8sScopes(target)
+}
 
-// Resolve returns a list of CombinedConfig given an attribute bag.
+// K8S_MAX_SPLIT how many components does a k8s svc have
+const k8sMaSplit = 2
+
+// getK8sScopes return k8s scopes
+// my-svc.my-namespace.svc.cluster.local --> [ global, my-namespace, my-svc ]
+// This is k8s specific, it should be made configurable
+func getK8sScopes(target string) ([]string, error) {
+	comps := strings.SplitN(target, ".", k8sMaSplit)
+	if len(comps) < 2 {
+		return nil, fmt.Errorf("target not valid %s, must be of type my-svc.my-namespace.svc.cluster.local", target)
+	}
+	svc, ns := comps[0], comps[1]
+	return []string{"global", ns, svc + "." + ns}, nil
+}
+
+// resolve returns a list of CombinedConfig given an attribute bag.
 // It will only return config from the requested set of aspects.
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
-func (r *runtime) Resolve(bag attribute.Bag, kindSet KindSet) (dlist []*pb.Combined, err error) {
-	if glog.V(2) {
-		glog.Infof("resolving for: %s", kindSet)
-		defer func() { glog.Infof("resolved (err=%v): %s", err, dlist) }()
-	}
-	dlist = make([]*pb.Combined, 0, r.numAspects)
-	return r.resolveRules(bag, kindSet, r.serviceConfig.GetRules(), "/", dlist, false /* conditional full resolve */)
+func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined, err error) {
+	return resolve(bag, set, r.policy, r.resolveRules, false /* conditional full resolve */)
 }
 
 // ResolveUnconditional returns the list of CombinedConfigs for the supplied
@@ -65,12 +78,68 @@ func (r *runtime) Resolve(bag attribute.Bag, kindSet KindSet) (dlist []*pb.Combi
 // it only attempts to find aspects in rules that have an empty selector. This
 // method is primarily used for preprocess aspect configuration retrieval.
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*pb.Combined, err error) {
+	return resolve(bag, set, r.policy, r.resolveRules, true /* unconditional resolve */)
+}
+
+const ktargetService = "target.service"
+
+// Make this a reasonable number so that we don't reallocate slices often.
+const resolveSize = 50
+
+func resolve(bag attribute.Bag, kindSet KindSet, policy map[Key]*pb.ServiceConfig, resolveRules resolveRulesFunc, onlyEmptySelectors bool) (dlist []*pb.Combined, err error) {
+	var scopes []string
 	if glog.V(2) {
-		glog.Infof("resolving (unconditional) for: %s", set)
-		defer func() { glog.Infof("resolved (unconditional, err=%v): %s", err, out) }()
+		glog.Infof("resolving for: %s", kindSet)
+		defer func() { glog.Infof("resolved (err=%v): %s", err, dlist) }()
 	}
-	out = make([]*pb.Combined, 0, r.numAspects)
-	return r.resolveRules(bag, set, r.serviceConfig.GetRules(), "/", out, true /* unconditional resolve */)
+
+	target, _ := bag.Get(ktargetService)
+	if target == nil {
+		return nil, fmt.Errorf("%s attribute not found", ktargetService)
+	}
+
+	if scopes, err = GetScopes(target.(string)); err != nil {
+		return nil, err
+	}
+
+	dlist = make([]*pb.Combined, 0, resolveSize)
+	dlistout := make([]*pb.Combined, 0, resolveSize)
+
+	for idx := 0; idx < len(scopes); idx++ {
+		scope := scopes[idx]
+		amap := make(map[string][]*pb.Combined)
+
+		for j := idx; j < len(scopes); j++ {
+			subject := scopes[j]
+			key := Key{scope, subject}
+			pol := policy[key]
+			if pol == nil {
+				continue
+			}
+			// empty the slice, do not re allocate
+			dlist = dlist[:0]
+			if dlist, err = resolveRules(bag, kindSet, pol.GetRules(), "/", dlist, onlyEmptySelectors); err != nil {
+				return dlist, err
+			}
+
+			aamap := make(map[string][]*pb.Combined)
+
+			for _, d := range dlist {
+				aamap[d.Aspect.Kind] = append(aamap[d.Aspect.Kind], d)
+			}
+
+			// more specific subject replaces
+			for k, v := range aamap {
+				amap[k] = v
+			}
+		}
+		// collapse from amap
+		for _, v := range amap {
+			dlistout = append(dlistout, v...)
+		}
+	}
+
+	return dlistout, nil
 }
 
 func (r *runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error) {
@@ -81,19 +150,19 @@ func (r *runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 	return r.eval.EvalPredicate(selector, bag)
 }
 
-// resolveRules recurses through the config struct and returns a list of combined aspects
-func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule,
-	path string, dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
+type resolveRulesFunc func(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string, dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error)
 
+// resolveRules recurses through the config struct and returns a list of combined aspects
+func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string, dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
 	var selected bool
 	var lerr error
 	var err error
 
 	for _, rule := range rules {
-		glog.V(3).Infof("resolveRules (%v) ==> %v ", rule, path)
-
+		if glog.V(3) {
+			glog.Infof("resolveRules (%v) ==> %v ", rule, path)
+		}
 		sel := rule.GetSelector()
-
 		if sel != "" && onlyEmptySelectors {
 			continue
 		}
@@ -104,7 +173,6 @@ func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.A
 		if !selected {
 			continue
 		}
-
 		path = path + "/" + sel
 		for _, aa := range rule.GetAspects() {
 			k, ok := ParseKind(aa.Kind)
