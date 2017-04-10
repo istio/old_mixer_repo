@@ -29,7 +29,7 @@ const (
 	ChangeTypeDelete
 )
 
-// Change a change record in the changelog
+// Change - A change record in the changelog.
 type Change struct {
 	// Key that was affected
 	Key string `json:"key"`
