@@ -47,14 +47,16 @@ go_metalinter() {
     fi
 
     # default: lint everything. This runs on the main build
-    PKGS="./pkg/... ./cmd/... ./adapter/... ./example/..."
+    if [[ -z ${PKGS} ]];then
+		PKGS="./pkg/... ./cmd/... ./adapter/... ./example/..."
 
-    # convert LAST_GOOD_GITSHA to list of packages.
-    if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
-        echo "Using ${LAST_GOOD_GITSHA} to compare files to."
-        PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
-    else
-        echo 'Running linters on all files.'
+		# convert LAST_GOOD_GITSHA to list of packages.
+		if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
+			echo "Using ${LAST_GOOD_GITSHA} to compare files to."
+			PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
+		else
+			echo 'Running linters on all files.'
+		fi
     fi
 
     gometalinter\
@@ -70,6 +72,7 @@ go_metalinter() {
         --enable=gofmt\
         --enable=goimports\
         --enable=golint --min-confidence=0 --exclude=.pb.go --exclude=pkg/config/proto/combined.go --exclude="should have a package comment"\
+        --exclude=".*pkg/config/apiserver_test.go:.*method WriteAsJson should be WriteAsJSON"\
         --enable=gosimple\
         --enable=ineffassign\
         --enable=interfacer\
