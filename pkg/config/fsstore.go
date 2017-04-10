@@ -64,6 +64,7 @@ func newFSStore(root string) *FSStore {
 	}
 }
 
+// force compile time check.
 var _ KVStore = &FSStore{}
 
 func (f *FSStore) getPath(key string) string {
@@ -91,7 +92,7 @@ func (f *FSStore) Set(key string, value string) (index int, err error) {
 	}
 
 	var tf writeCloser
-	tf, err = f.writeCloserGetter("/tmp/", "FSStore_Set")
+	tf, err = f.writeCloserGetter(os.TempDir(), "FSStore_Set")
 	if err != nil {
 		return -1, err
 	}
@@ -118,7 +119,6 @@ func (f *FSStore) List(key string, recurse bool) (keys []string, index int, err 
 		}
 		return nil
 	})
-
 	return keys, -1, err
 }
 
