@@ -132,9 +132,10 @@ func testConfigManager(t *testing.T, mgr *Manager, mt mtest, loopDelay time.Dura
 // fakeMemStore
 
 type fakeMemStore struct {
-	data  map[string]string
-	index int
-	err   error
+	data     map[string]string
+	index    int
+	err      error
+	writeErr error
 
 	cl StoreListener
 	sync.RWMutex
@@ -158,8 +159,8 @@ func (f *fakeMemStore) Get(key string) (value string, index int, found bool) {
 func (f *fakeMemStore) Set(key string, value string) (index int, err error) {
 	f.Lock()
 	defer f.Unlock()
-	if f.err != nil {
-		return f.index, f.err
+	if f.writeErr != nil {
+		return f.index, f.writeErr
 	}
 
 	f.index++
@@ -171,7 +172,7 @@ func (f *fakeMemStore) Set(key string, value string) (index int, err error) {
 		}
 	}(f.index, f.cl)
 
-	return f.index, f.err
+	return f.index, f.writeErr
 }
 
 // List keys with the prefix
