@@ -21,6 +21,7 @@ package config
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -28,10 +29,15 @@ import (
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
+
+type validateFunc func(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors)
+
+type readBodyFunc func(r io.Reader) ([]byte, error)
 
 // API is the server wrapper that listens for incoming requests to the manager and processes them
 type API struct {
@@ -39,15 +45,15 @@ type API struct {
 	rootPath string
 
 	// used at the back end for validation and storage
-	store         KVStore
-	eval          expr.Evaluator
-	aspectFinder  AspectValidatorFinder
-	builderFinder BuilderValidatorFinder
-	findAspects   AdapterToAspectMapper
+	store    KVStore
+	validate validateFunc
 
 	// house keeping
 	handler http.Handler
 	Server  *http.Server
+
+	// fault injection
+	readBody readBodyFunc
 }
 
 // DefaultAPIPort default port exposed by the API server.
@@ -56,33 +62,41 @@ const DefaultAPIPort = 9094
 // register routes
 func (a *API) register(c *restful.Container) {
 	ws := &restful.WebService{}
-	ws.Consumes(restful.MIME_JSON, "application/x-yaml")
+	ws.Consumes(restful.MIME_JSON, "application/yaml", "application/x-yaml")
 	ws.Produces(restful.MIME_JSON)
 	ws.Path(a.rootPath)
 
-	ws.Route(
-		ws.GET("/scopes/{scope}/subjects/{subject}/rules").
-			To(a.getRules).
-			Doc("Gets rules associated with the given scope and subject").
-			Param(ws.PathParameter("scope", "scope").DataType("string")).
-			Param(ws.PathParameter("subject", "subject").DataType("string")).
-			Writes(pb.ServiceConfig{}))
+	ws.Route(ws.
+		GET("/scopes/{scope}/subjects/{subject}/rules").
+		To(a.getRules).
+		Doc("Gets rules associated with the given scope and subject").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Writes(pb.ServiceConfig{}))
 
+	ws.Route(ws.
+		PUT("/scopes/{scope}/subjects/{subject}/rules").
+		To(a.putRules).
+		Doc("Replaces rules associated with the given scope and subject").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Writes(rpc.Status{}))
 	c.Add(ws)
 }
 
 // NewAPI creates a new API server
-func NewAPI(version string, port int, eval expr.Evaluator, aspectFinder AspectValidatorFinder,
+func NewAPI(version string, port int, eval expr.Validator, aspectFinder AspectValidatorFinder,
 	builderFinder BuilderValidatorFinder, findAspects AdapterToAspectMapper, store KVStore) *API {
 	c := restful.NewContainer()
 	a := &API{
-		version:       version,
-		rootPath:      fmt.Sprintf("/api/%s", version),
-		eval:          eval,
-		aspectFinder:  aspectFinder,
-		builderFinder: builderFinder,
-		findAspects:   findAspects,
-		store:         store,
+		version:  version,
+		rootPath: fmt.Sprintf("/api/%s", version),
+		store:    store,
+		readBody: ioutil.ReadAll,
+		validate: func(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
+			v := newValidator(aspectFinder, builderFinder, findAspects, true, eval)
+			return v.validate(cfg)
+		},
 	}
 	a.register(c)
 	a.Server = &http.Server{Addr: ":" + strconv.Itoa(port), Handler: c}
@@ -100,23 +114,63 @@ func (a *API) Run() {
 // "/scopes/{scope}/subjects/{subject}/rules"
 func (a *API) getRules(req *restful.Request, resp *restful.Response) {
 	funcPath := req.Request.URL.Path[len(a.rootPath):]
-	val, idx, found := a.store.Get(funcPath)
+	val, index, found := a.store.Get(funcPath)
 	if !found {
-		writeError(http.StatusNotFound, fmt.Sprintf("no rules for %s\n", funcPath), resp)
+		writeResponse(http.StatusNotFound, fmt.Sprintf("no rules for %s\n", funcPath), resp)
 		return
 	}
+
 	// TODO send index back to the client
-	_ = idx
+	_ = index
 	resp.AddHeader("Content-Type", "application/yaml")
 	write(val, resp)
 }
 
+// putRules replaces the entire service config document for the scope and subject
+// "/scopes/{scope}/subjects/{subject}/rules"
+func (a *API) putRules(req *restful.Request, resp *restful.Response) {
+	funcPath := req.Request.URL.Path[len(a.rootPath):]
+
+	// TODO optimize only read descriptors and adapters
+	data, _, index, err := readdb(a.store, "/")
+	if err != nil {
+		writeResponse(http.StatusInternalServerError, err.Error(), resp)
+		return
+	}
+	// TODO send index back to the client
+	_ = index
+
+	var bval []byte
+	bval, err = a.readBody(req.Request.Body)
+	if err != nil {
+		writeResponse(http.StatusInternalServerError, err.Error(), resp)
+		return
+	}
+	val := string(bval)
+	data[funcPath] = val
+
+	_, cerr := a.validate(data)
+	if cerr != nil {
+		glog.Warning(cerr.Error())
+		glog.Warning(val)
+		writeResponse(http.StatusPreconditionFailed, cerr.Error(), resp)
+		return
+	}
+	index, err = a.store.Set(funcPath, val)
+	if err != nil {
+		writeResponse(http.StatusInternalServerError, err.Error(), resp)
+		return
+	}
+	// TODO send index back to the client
+	_ = index
+
+	writeResponse(http.StatusOK, fmt.Sprintf("Created %s", funcPath), resp)
+}
+
 // a subset of restful.Response
 type response interface {
-	// WriteHeader see restful.Response#WriteHeader
-	WriteHeader(httpStatus int)
-	// WriteAsJson see restful.Response#WriteAsJson
-	WriteAsJson(value interface{}) error
+	// WriteHeaderAndJson is a convenience method for writing the status and a value in Json with a given Content-Type.
+	WriteHeaderAndJson(status int, value interface{}, contentType string) error
 }
 
 func write(contents string, resp io.Writer) {
@@ -126,11 +180,13 @@ func write(contents string, resp io.Writer) {
 	}
 }
 
-func writeError(httpStatus int, msg string, resp response) {
-	resp.WriteHeader(httpStatus)
-	if err := resp.WriteAsJson(
+func writeResponse(httpStatus int, msg string, resp response) {
+	if err := resp.WriteHeaderAndJson(
+		httpStatus,
 		status.WithMessage(
-			httpStatusToRPC(httpStatus), msg)); err != nil {
+			httpStatusToRPC(httpStatus), msg),
+		restful.MIME_JSON,
+	); err != nil {
 		glog.Warning(err)
 	}
 }
@@ -145,9 +201,10 @@ func httpStatusToRPC(httpStatus int) rpc.Code {
 
 // httpStatusToRpc limited mapping from proto documentation.
 var httpStatusToRPCMap = map[int]rpc.Code{
-	http.StatusOK:           rpc.OK,
-	http.StatusNotFound:     rpc.NOT_FOUND,
-	http.StatusConflict:     rpc.ALREADY_EXISTS,
-	http.StatusForbidden:    rpc.PERMISSION_DENIED,
-	http.StatusUnauthorized: rpc.UNAUTHENTICATED,
+	http.StatusOK:                 rpc.OK,
+	http.StatusNotFound:           rpc.NOT_FOUND,
+	http.StatusConflict:           rpc.ALREADY_EXISTS,
+	http.StatusForbidden:          rpc.PERMISSION_DENIED,
+	http.StatusUnauthorized:       rpc.UNAUTHENTICATED,
+	http.StatusPreconditionFailed: rpc.FAILED_PRECONDITION,
 }

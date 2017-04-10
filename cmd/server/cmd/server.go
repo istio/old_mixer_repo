@@ -98,7 +98,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "fs://testdata/configroot", "URL of the config store. My be fs:// for file system, or redis:// for redis url")
+	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "fs://testdata/configroot",
+		"URL of the config store. My be fs:// for file system, or redis:// for redis url")
 
 	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
 
