@@ -100,15 +100,10 @@ func (c *Manager) Register(cc ChangeListener) {
 	c.cl = append(c.cl, cc)
 }
 
-//  /scopes/global/subjects/global/rules
-//  /scopes/global/adapters
-//  /scopes/global/descriptors
-
-// fetch config and return runtime if a new one is available.
-func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
-	keys, index, err := c.store.List("/scopes", true)
+func readdb(store KVStore, prefix string) (map[string]string, map[string][sha1.Size]byte, int, error) {
+	keys, index, err := store.List(prefix, true)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, index, err
 	}
 
 	// read
@@ -119,12 +114,27 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 	var val string
 
 	for _, k := range keys {
-		val, index, found = c.store.Get(k)
+		val, index, found = store.Get(k)
 		if !found {
 			continue
 		}
 		data[k] = val
 		shas[k] = sha1.Sum([]byte(val))
+	}
+
+	return data, shas, index, nil
+}
+
+//  /scopes/global/subjects/global/rules
+//  /scopes/global/adapters
+//  /scopes/global/descriptors
+
+// fetch config and return runtime if a new one is available.
+func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
+
+	data, shas, index, err := readdb(c.store, "/")
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if c.lastValidated != nil && reflect.DeepEqual(shas, c.lastValidated.shas) {

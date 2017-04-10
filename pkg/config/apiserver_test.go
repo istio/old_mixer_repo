@@ -18,13 +18,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
+
+	"istio.io/mixer/pkg/adapter"
 )
 
 func makeAPIRequest(handler http.Handler, method, url string, data []byte, t *testing.T) (int, []byte) {
@@ -44,7 +48,6 @@ func makeAPIRequest(handler http.Handler, method, url string, data []byte, t *te
 }
 
 func TestAPI_getRules(t *testing.T) {
-
 	uri := "/scopes/scope/subjects/subject/rules"
 	val := "Value"
 	store := &fakeMemStore{
@@ -80,6 +83,81 @@ func TestAPI_getRules(t *testing.T) {
 
 }
 
+func readBody(err string) readBodyFunc {
+	return func(r io.Reader) (b []byte, e error) {
+		if err != "" {
+			e = errors.New(err)
+		}
+		return
+	}
+}
+
+func validate(err string) validateFunc {
+	return func(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
+		if err != "" {
+			ce = ce.Appendf("main", err)
+		}
+		return
+	}
+}
+
+type errorPhase int
+
+const (
+	errNone errorPhase = iota
+	errStoreRead
+	errStoreWrite
+	errReadyBody
+	errValidate
+)
+
+func TestAPI_putRules(t *testing.T) {
+	key := "/scopes/scope/subjects/subject/rules"
+	val := "Value"
+
+	for _, tst := range []struct {
+		msg    string
+		phase  errorPhase
+		status int
+	}{
+		{"Created ", errNone, http.StatusOK},
+		{"store write error", errStoreWrite, http.StatusInternalServerError},
+		{"store read error", errStoreRead, http.StatusInternalServerError},
+		{"request read error", errReadyBody, http.StatusInternalServerError},
+		{"config validation error", errValidate, http.StatusPreconditionFailed},
+	} {
+		t.Run(tst.msg, func(t *testing.T) {
+
+			store := &fakeMemStore{
+				data: map[string]string{
+					key: val,
+				},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			switch tst.phase {
+			case errStoreRead:
+				store.err = errors.New(tst.msg)
+			case errStoreWrite:
+				store.writeErr = errors.New(tst.msg)
+			case errReadyBody:
+				api.readBody = readBody(tst.msg)
+			case errValidate:
+				api.validate = validate(tst.msg)
+			}
+			sc, bbody := makeAPIRequest(api.handler, "PUT", "/api/v1"+key, []byte{}, t)
+			if sc != tst.status {
+				t.Errorf("http status got %d\nwant %d", sc, tst.status)
+			}
+			body := string(bbody)
+			if !strings.Contains(body, tst.msg) {
+				t.Errorf("got %s\nwant %s", body, tst.msg)
+			}
+		})
+	}
+}
+
 // TODO define a new envelope message
 // with a place for preparsed message?
 
@@ -105,10 +183,8 @@ type fakeresp struct {
 	value interface{}
 }
 
-func (f *fakeresp) WriteHeader(httpStatus int) {}
-
 // bin/linter.sh has a lint exclude for this.
-func (f *fakeresp) WriteAsJson(value interface{}) error {
+func (f *fakeresp) WriteHeaderAndJson(status int, value interface{}, contentType string) error {
 	f.value = value
 	return f.err
 }
@@ -132,7 +208,7 @@ func TestAPI_writeError(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%s", tst.code), func(t *testing.T) {
 			resp := &fakeresp{err: err}
-			writeError(tst.http, tst.message, resp)
+			writeResponse(tst.http, tst.message, resp)
 			rpcStatus, ok := resp.value.(rpc.Status)
 			if !ok {
 				t.Error("failed to produce rpc.Status")
