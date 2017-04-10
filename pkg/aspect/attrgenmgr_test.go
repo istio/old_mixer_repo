@@ -46,8 +46,23 @@ func TestAttributeGeneratorManager(t *testing.T) {
 func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 
 	dfind := atest.NewDescriptorFinder(map[string]interface{}{
+		"int64":     &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"duration":  &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
 		"source_ip": &dpb.AttributeDescriptor{Name: "source_ip"},
 	})
+
+	validExpr := &apb.AttributeGeneratorsParams{
+		InputExpressions: map[string]string{
+			"valid_int":      "42 | int64",
+			"valid_duration": "\"42ms\" | duration",
+		},
+	}
+
+	badExpr := &apb.AttributeGeneratorsParams{
+		InputExpressions: map[string]string{
+			"bad_expr": "int64 | duration",
+		},
+	}
 
 	foundAttr := &apb.AttributeGeneratorsParams{
 		ValueAttributeMap: map[string]string{
@@ -62,8 +77,16 @@ func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 	}
 
 	m := newAttrGenMgr()
+	if err := m.ValidateConfig(validExpr, expr.NewCEXLEvaluator(), dfind); err != nil {
+		t.Errorf("Unexpected error '%v' for config: %#v", err, validExpr)
+	}
+
+	if err := m.ValidateConfig(badExpr, expr.NewCEXLEvaluator(), dfind); err == nil {
+		t.Errorf("Expected error for config: %#v", badExpr)
+	}
+
 	if err := m.ValidateConfig(foundAttr, expr.NewCEXLEvaluator(), dfind); err != nil {
-		t.Errorf("Unexpected error '%v' for config: %v", err, foundAttr)
+		t.Errorf("Unexpected error '%v' for config: %#v", err, foundAttr)
 	}
 
 	if err := m.ValidateConfig(notFoundAttr, expr.NewCEXLEvaluator(), dfind); err == nil {
