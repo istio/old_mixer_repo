@@ -31,9 +31,13 @@ import (
 type (
 	attrGenMgr  struct{}
 	attrGenExec struct {
-		aspect adapter.AttributesGenerator
-		params *apb.AttributeGeneratorsParams
+		aspect   adapter.AttributesGenerator
+		params   *apb.AttributesGeneratorParams
+		bindings attrBindingsMap
 	}
+	// attrBindingsMap maps from adapter value name to attribute descriptor
+	// name
+	attrBindingsMap map[string]string
 )
 
 func newAttrGenMgr() PreprocessManager {
@@ -46,24 +50,24 @@ func (attrGenMgr) Kind() config.Kind {
 
 func (attrGenMgr) DefaultConfig() (c config.AspectParams) {
 	// NOTE: The default config leads to the generation of no new attributes.
-	return &apb.AttributeGeneratorsParams{}
+	return &apb.AttributesGeneratorParams{}
 }
 
 func (attrGenMgr) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (cerrs *adapter.ConfigErrors) {
-	params := c.(*apb.AttributeGeneratorsParams)
+	params := c.(*apb.AttributesGeneratorParams)
 	for n, expr := range params.InputExpressions {
 		if _, err := v.TypeCheck(expr, df); err != nil {
 			cerrs = cerrs.Appendf("input_expressions", "failed to parse expression '%s' with err: %v", n, err)
 		}
 	}
-	attrs := make([]string, 0, len(params.ValueAttributeMap))
-	for _, attrName := range params.ValueAttributeMap {
-		attrs = append(attrs, attrName)
+	attrs := make([]string, 0, len(params.AttributeBindings))
+	for _, binding := range params.AttributeBindings {
+		attrs = append(attrs, binding.DescriptorName)
 	}
 	for _, name := range attrs {
 		if a := df.GetAttribute(name); a == nil {
 			cerrs = cerrs.Appendf(
-				"value_attribute_map",
+				"attribute_bindings",
 				"Attribute '%s' is not configured for use within the mixer. It cannot be used as a target for generated values.",
 				name)
 		}
@@ -77,7 +81,12 @@ func (attrGenMgr) NewPreprocessExecutor(cfg *cpb.Combined, b adapter.Builder, en
 	if err != nil {
 		return nil, err
 	}
-	return &attrGenExec{aspect: ag, params: cfg.Aspect.Params.(*apb.AttributeGeneratorsParams)}, nil
+	params := cfg.Aspect.Params.(*apb.AttributesGeneratorParams)
+	bindings := make(attrBindingsMap, len(params.AttributeBindings))
+	for _, binding := range params.AttributeBindings {
+		bindings[binding.ValueName] = binding.DescriptorName
+	}
+	return &attrGenExec{aspect: ag, params: params, bindings: bindings}, nil
 }
 
 func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*PreprocessResult, rpc.Status) {
@@ -96,7 +105,7 @@ func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Prep
 	}
 	bag := attribute.GetMutableBag(nil)
 	for key, val := range out {
-		if attrName, found := e.params.ValueAttributeMap[key]; found {
+		if attrName, found := e.bindings[key]; found {
 			// TODO: type validation?
 			bag.Set(attrName, val)
 			continue
