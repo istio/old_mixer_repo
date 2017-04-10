@@ -237,3 +237,7 @@ func TestAPI_Run(t *testing.T) {
 		t.Errorf("unexpected failure while closing %s", err)
 	}
 }
+
+// CURL examples
+// curl  http://localhost:9094/api/v1/scopes/global/subjects/svc2.ns.cluster.local/rules
+//      --data-binary "{}<code></code>" -X PUT -H "Content-Type: application/yaml"
