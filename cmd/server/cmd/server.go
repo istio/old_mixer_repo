@@ -54,8 +54,7 @@ type serverArgs struct {
 	serverCertFile         string
 	serverKeyFile          string
 	clientCertFiles        string
-	serviceConfigFile      string
-	globalConfigFile       string
+	configStoreURL         string
 	configFetchIntervalSec uint
 }
 
@@ -99,11 +98,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "serviceConfig.yml", "Combined Service Config")
-	_ = serverCmd.MarkPersistentFlagFilename("serverConfigFile", "yaml", "yml")
-
-	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "globalConfig.yml", "Global Config")
-	_ = serverCmd.MarkPersistentFlagFilename("globalConfigFile", "yaml", "yml")
+	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "fs://testdata/configroot", "URL of the config store. My be fs:// for file system, or redis:// for redis url")
 
 	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
 
@@ -127,7 +122,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	var store config.KVStore
-	store, err = config.NewStore(sa.serviceConfigFile)
+	store, err = config.NewStore(sa.configStoreURL)
 	if err != nil {
 		fatalf("%s", err.Error())
 	}
