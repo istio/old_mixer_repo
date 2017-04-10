@@ -138,7 +138,7 @@ func TestNewStore(t *testing.T) {
 }
 
 func TestFSStore_Get(t *testing.T) {
-	fsroot, _ := ioutil.TempDir("/tmp/", "FSStore")
+	fsroot, _ := ioutil.TempDir(os.TempDir(), "FSStore")
 	f := newFSStore(fsroot)
 	_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 	defer func(f string) { _ = os.RemoveAll(f) }(fsroot)
@@ -152,14 +152,14 @@ func TestFSStore_Get(t *testing.T) {
 			// when file does not exist
 			_, _, found := f.Get("k1")
 			if found {
-				t.Errorf("unexpectedly found file")
+				t.Error("unexpectedly found file")
 			}
 		})
 	}
 }
 
 func TestFSStore_SetErrors(t *testing.T) {
-	fsroot, _ := ioutil.TempDir("/tmp/", "FSStore")
+	fsroot, _ := ioutil.TempDir(os.TempDir(), "FSStore")
 	_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 	defer func(f string) { _ = os.RemoveAll(f) }(fsroot)
 
@@ -216,7 +216,7 @@ func (f *fakeWriteCloser) Close() error {
 func (f *fakeWriteCloser) Name() string { return "fakeWriteCloser" }
 
 func TestFSStore_Delete(t *testing.T) {
-	fsroot, _ := ioutil.TempDir("/tmp/", "FSStore")
+	fsroot, _ := ioutil.TempDir(os.TempDir(), "FSStore")
 	f := newFSStore(fsroot)
 	_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 	defer func(f string) { _ = os.RemoveAll(f) }(fsroot)

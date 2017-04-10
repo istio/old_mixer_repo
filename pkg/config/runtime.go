@@ -65,7 +65,7 @@ func getK8sScopes(target string) ([]string, error) {
 	return []string{"global", ns, svc + "." + ns}, nil
 }
 
-// resolve returns a list of CombinedConfig given an attribute bag.
+// Resolve returns a list of CombinedConfig given an attribute bag.
 // It will only return config from the requested set of aspects.
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}

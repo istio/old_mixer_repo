@@ -193,8 +193,8 @@ func (f *fakeresp) Write(bytes []byte) (int, error) {
 	return 0, f.err
 }
 
-// Ensures that
-func TestAPI_writeError(t *testing.T) {
+// Ensures that writes responses correctly and error are logged
+func TestAPI_writeResponse(t *testing.T) {
 	// ensures that logging is performed
 	err := errors.New("always error")
 	for _, tst := range []struct {
@@ -220,7 +220,7 @@ func TestAPI_writeError(t *testing.T) {
 		})
 	}
 
-	// ensure write is logged
+	// ensure write error is logged
 	resp := &fakeresp{err: err}
 	val := "new info"
 	write(val, resp)
