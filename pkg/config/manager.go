@@ -100,9 +100,9 @@ func (c *Manager) Register(cc ChangeListener) {
 	c.cl = append(c.cl, cc)
 }
 
-//  /scopes/global/subjects/global/rules.yml
-//  /scopes/global/adapters.yml
-//  /scopes/global/descriptors.yml
+//  /scopes/global/subjects/global/rules
+//  /scopes/global/adapters
+//  /scopes/global/descriptors
 
 // fetch config and return runtime if a new one is available.
 func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
@@ -191,10 +191,14 @@ func (c *Manager) loop() {
 func (c *Manager) Start() {
 	c.fetchAndNotify()
 	// FIXME add change notifier registration once we have
-	// and adapter that supports it cn.RegisterStoreChangeListener(c)
+	// an adapter that supports it cn.RegisterStoreChangeListener(c)
 
 	// if store does not support notification use the loop
 	// If it is not successful, we will continue to watch for changes.
 	c.ticker = time.NewTicker(c.loopDelay)
 	go c.loop()
+
+	// TODO remove API server management from here into it's own binary file.
+	api := NewAPI("v1", DefaultAPIPort, c.eval, c.aspectFinder, c.builderFinder, c.findAspects, c.store)
+	go api.Run()
 }
