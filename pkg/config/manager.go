@@ -48,12 +48,14 @@ type ChangeListener interface {
 // It applies validated changes to the registered config change listeners.
 // api.Handler listens for config changes.
 type Manager struct {
-	eval           expr.Evaluator
-	aspectFinder   AspectValidatorFinder
-	builderFinder  BuilderValidatorFinder
-	findAspects    AdapterToAspectMapper
-	loopDelay      time.Duration
-	store          KVStore
+	eval          expr.Evaluator
+	aspectFinder  AspectValidatorFinder
+	builderFinder BuilderValidatorFinder
+	findAspects   AdapterToAspectMapper
+	loopDelay     time.Duration
+	store         KVStore
+	validate      validateFunc
+
 	ticker         *time.Ticker
 	lastFetchIndex int
 
@@ -84,6 +86,11 @@ func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builder
 		findAspects:   findAspects,
 		loopDelay:     loopDelay,
 		store:         store,
+		validate: func(cfg map[string]string) (*Validated, descriptor.Finder, *adapter.ConfigErrors) {
+			v := newValidator(aspectFinder, builderFinder, findAspects, true, eval)
+			rt, ce := v.validate(cfg)
+			return rt, v.descriptorFinder, ce
+		},
 	}
 
 	return m
@@ -142,10 +149,11 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 		return nil, nil, nil
 	}
 
-	v := newValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
 	var vd *Validated
+	var finder descriptor.Finder
 	var cerr *adapter.ConfigErrors
-	vd, cerr = v.validate(data)
+
+	vd, finder, cerr = c.validate(data)
 	if cerr != nil {
 		glog.Warningf("Validation failed: %s", cerr.String())
 		return nil, nil, cerr
@@ -154,7 +162,7 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 	c.lastFetchIndex = index
 	vd.shas = shas
 	c.lastValidated = vd
-	return newRuntime(vd, c.eval), v.descriptorFinder, nil
+	return newRuntime(vd, c.eval), finder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed
