@@ -56,6 +56,11 @@ type serverArgs struct {
 	clientCertFiles        string
 	configStoreURL         string
 	configFetchIntervalSec uint
+
+	// @deprecated
+	serviceConfigFile string
+	// @deprecated
+	globalConfigFile string
 }
 
 func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
@@ -98,12 +103,41 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "fs://testdata/configroot",
+	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. My be fs:// for file system, or redis:// for redis url")
+
+	// serviceConfig and gobalConfig are for compatibility only
+	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
+	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "", "Global Config")
 
 	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
 
 	return &serverCmd
+}
+
+// configStore - given config this function returns a KVStore
+// It provides a compatibility layer so one can continue using serviceConfigFile and globalConfigFile flags
+// until they are removed.
+func configStore(url string, serviceConfig string, globalConfig string, printf, fatalf shared.FormatFn) config.KVStore {
+	if url != "" {
+		store, err := config.NewStore(url)
+		if err != nil {
+			fatalf("%s", err.Error())
+		}
+		return store
+	}
+
+	if serviceConfig == "" || globalConfig == "" {
+		fatalf("Missing configStoreURL")
+	}
+
+	printf("*** serviceConfigFile and globalConfigFile are deprecated, use configStoreURL")
+	fsstore, err := config.NewCompatFSStore(globalConfig, serviceConfig)
+	if err != nil {
+		fatalf("%s", err.Error())
+	}
+
+	return fsstore
 }
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
@@ -122,11 +156,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
-	var store config.KVStore
-	store, err = config.NewStore(sa.configStoreURL)
-	if err != nil {
-		fatalf("%s", err.Error())
-	}
+	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
 		adapterMgr.SupportedKinds,
 		store, time.Second*time.Duration(sa.configFetchIntervalSec))

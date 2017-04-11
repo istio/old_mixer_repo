@@ -30,12 +30,13 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
 
-type validateFunc func(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors)
+type validateFunc func(cfg map[string]string) (rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors)
 
 type readBodyFunc func(r io.Reader) ([]byte, error)
 
@@ -93,9 +94,10 @@ func NewAPI(version string, port int, eval expr.Validator, aspectFinder AspectVa
 		rootPath: fmt.Sprintf("/api/%s", version),
 		store:    store,
 		readBody: ioutil.ReadAll,
-		validate: func(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
+		validate: func(cfg map[string]string) (*Validated, descriptor.Finder, *adapter.ConfigErrors) {
 			v := newValidator(aspectFinder, builderFinder, findAspects, true, eval)
-			return v.validate(cfg)
+			rt, ce := v.validate(cfg)
+			return rt, v.descriptorFinder, ce
 		},
 	}
 	a.register(c)
@@ -149,7 +151,7 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	val := string(bval)
 	data[funcPath] = val
 
-	_, cerr := a.validate(data)
+	_, _, cerr := a.validate(data)
 	if cerr != nil {
 		glog.Warning(cerr.Error())
 		glog.Warning(val)

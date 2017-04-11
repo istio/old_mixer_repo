@@ -29,6 +29,7 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config/descriptor"
 )
 
 func makeAPIRequest(handler http.Handler, method, url string, data []byte, t *testing.T) (int, []byte) {
@@ -93,7 +94,7 @@ func readBody(err string) readBodyFunc {
 }
 
 func validate(err string) validateFunc {
-	return func(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
+	return func(cfg map[string]string) (rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors) {
 		if err != "" {
 			ce = ce.Appendf("main", err)
 		}
