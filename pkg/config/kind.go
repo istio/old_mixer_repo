@@ -79,6 +79,22 @@ func (ks KindSet) Set(k Kind) KindSet {
 	return ks | (1 << k)
 }
 
+func (ks KindSet) String() string {
+	out := "["
+	for k, v := range kindToString {
+		if ks.IsSet(k) {
+			out += v + ", "
+		}
+	}
+
+	// Make sure the empty KindSet is printed as "[]" rather than "".
+	if len(out) <= len("[") {
+		return out + "]"
+	}
+	// Otherwise trim off the trailing ", " and close the bracket we opened.
+	return out[:len(out)-2] + "]"
+}
+
 func init() {
 	for k, v := range kindToString {
 		stringToKind[v] = k
