@@ -171,6 +171,10 @@ const (
 	sRules       = "rules"
 	sAdapters    = "adapters"
 	sDescriptors = "descriptors"
+
+	keyAdapters            = "/scopes/global/adapters"
+	keyDescriptors         = "/scopes/global/descriptors"
+	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
 )
 
 // GlobalPolicyKey this policy is applies to all requests

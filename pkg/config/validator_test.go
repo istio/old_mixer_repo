@@ -32,12 +32,6 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
-const (
-	keyAdapters            = "/scopes/global/adapters"
-	keyDescriptors         = "/scopes/global/descriptors"
-	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
-)
-
 type fakeVFinder struct {
 	ada   map[string]adapter.ConfigValidator
 	asp   map[Kind]AspectValidator
@@ -424,15 +418,15 @@ func TestValidated_Clone(t *testing.T) {
 	}
 
 	shas := map[string][sha1.Size]byte{
-		"/scopes/global/subjects/global/rules": {},
+		keyGlobalServiceConfig: {},
 	}
 
 	adp := map[string]*pb.GlobalConfig{
-		"/scopes/global/adapters": {},
+		keyAdapters: {},
 	}
 
 	desc := map[string]*pb.GlobalConfig{
-		"/scopes/global/descriptors": {},
+		keyDescriptors: {},
 	}
 
 	v := &Validated{
@@ -456,7 +450,7 @@ func TestParseConfigKey(t *testing.T) {
 		input string
 		key   *Key
 	}{
-		{"/scopes/global/subjects/global/rules", &Key{"global", "global"}},
+		{keyGlobalServiceConfig, &Key{"global", "global"}},
 		{"/scopes/global/subjects/global", nil},
 		{"/SCOPES/global/subjects/global/rules", nil},
 		{"/scopes/global/SUBJECTS/global/rules", nil},

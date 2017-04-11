@@ -64,6 +64,54 @@ func newFSStore(root string) *FSStore {
 	}
 }
 
+// NewCompatFSStore creates and returns an FSStore using old style
+// globalConfig and serviceConfig
+func NewCompatFSStore(globalConfig string, serviceConfig string) (fs *FSStore, err error) {
+	// no configURL, but serviceConfig and globalConfig are specified.
+	// compatibility
+	var data []byte
+	data, err = ioutil.ReadFile(globalConfig)
+	if err != nil {
+		return nil, err
+	}
+	gc := string(data)
+
+	data, err = ioutil.ReadFile(serviceConfig)
+	if err != nil {
+		return nil, err
+	}
+	sc := string(data)
+
+	var dir string
+	dir, err = ioutil.TempDir(os.TempDir(), "FSStore")
+	if err != nil {
+		return nil, err
+	}
+
+	fs = newFSStore(dir)
+
+	// intialize FSstore
+
+	_, err = fs.Set(keyGlobalServiceConfig, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = fs.Set(keyDescriptors, gc)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = fs.Set(keyAdapters, gc)
+	if err != nil {
+		return nil, err
+	}
+
+	glog.Warningf("Created a compatibility fsstore at %s", dir)
+
+	return fs, nil
+}
+
 // force compile time check.
 var _ KVStore = &FSStore{}
 
