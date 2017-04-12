@@ -48,6 +48,7 @@ type serverArgs struct {
 	apiWorkerPoolSize      int
 	adapterWorkerPoolSize  int
 	port                   uint16
+	configAPIPort          uint16
 	singleThreaded         bool
 	compressedPayload      bool
 	enableTracing          bool
@@ -84,6 +85,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 	}
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
+	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", config.DefaultAPIPort, "HTTP port to use for the mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
@@ -104,7 +106,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
-		"URL of the config store. My be fs:// for file system, or redis:// for redis url")
+		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
 
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
@@ -118,11 +120,11 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 // configStore - given config this function returns a KVStore
 // It provides a compatibility layer so one can continue using serviceConfigFile and globalConfigFile flags
 // until they are removed.
-func configStore(url string, serviceConfig string, globalConfig string, printf, fatalf shared.FormatFn) config.KVStore {
+func configStore(url string, serviceConfig string, globalConfig string, printf, fatalf shared.FormatFn) (store config.KeyValueStore) {
+	var err error
 	if url != "" {
-		store, err := config.NewStore(url)
-		if err != nil {
-			fatalf("%s", err.Error())
+		if store, err = config.NewStore(url); err != nil {
+			fatalf("Failed to get config store: %s", err.Error())
 		}
 		return store
 	}
@@ -132,12 +134,11 @@ func configStore(url string, serviceConfig string, globalConfig string, printf, 
 	}
 
 	printf("*** serviceConfigFile and globalConfigFile are deprecated, use configStoreURL")
-	fsstore, err := config.NewCompatFSStore(globalConfig, serviceConfig)
-	if err != nil {
-		fatalf("%s", err.Error())
+	if store, err = config.NewCompatFSStore(globalConfig, serviceConfig); err != nil {
+		fatalf("Failed to get config store: %s", err.Error())
 	}
 
-	return fsstore
+	return store
 }
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
@@ -161,13 +162,16 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		adapterMgr.SupportedKinds,
 		store, time.Second*time.Duration(sa.configFetchIntervalSec))
 
+	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
+		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
+		adapterMgr.SupportedKinds, store)
+
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		var sc tls.Certificate
-		sc, err = tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
-		if err != nil {
+		if sc, err = tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile); err != nil {
 			fatalf("Failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
@@ -177,8 +181,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		clientCerts = x509.NewCertPool()
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			var pem []byte
-			pem, err = ioutil.ReadFile(clientCertFile)
-			if err != nil {
+			if pem, err = ioutil.ReadFile(clientCertFile); err != nil {
 				fatalf("Failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
@@ -187,8 +190,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 
 	var listener net.Listener
 	// get the network stuff setup
-	listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port))
-	if err != nil {
+	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port)); err != nil {
 		fatalf("Unable to listen on socket: %v", err)
 	}
 
@@ -227,6 +229,9 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 
 	configManager.Register(adapterMgr)
 	configManager.Start()
+
+	printf("Starting Config API server on port %v", sa.configAPIPort)
+	go configAPIServer.Run()
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
