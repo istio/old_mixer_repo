@@ -65,21 +65,11 @@ func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 	}
 
 	foundAttr := &apb.AttributesGeneratorParams{
-		AttributeBindings: []*apb.AttributesGeneratorParams_AttributeBinding{
-			{
-				DescriptorName: "source_ip",
-				ValueName:      "src_pod_ip",
-			},
-		},
+		AttributeBindings: map[string]string{"source_ip": "srcPodIP"},
 	}
 
 	notFoundAttr := &apb.AttributesGeneratorParams{
-		AttributeBindings: []*apb.AttributesGeneratorParams_AttributeBinding{
-			{
-				DescriptorName: "not_found",
-				ValueName:      "src_pod_ip",
-			},
-		},
+		AttributeBindings: map[string]string{"not_found": "srcPodIP"},
 	}
 
 	tests := []struct {
@@ -146,16 +136,7 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 	c := &cpb.Combined{
 		Builder: &cpb.Adapter{Params: &apb.AttributesGeneratorParams{}},
 		Aspect: &cpb.Aspect{Params: &apb.AttributesGeneratorParams{
-			AttributeBindings: []*apb.AttributesGeneratorParams_AttributeBinding{
-				{
-					DescriptorName: "service_found",
-					ValueName:      "found",
-				},
-				{
-					DescriptorName: "source_service",
-					ValueName:      "src_svc",
-				},
-			},
+			AttributeBindings: map[string]string{"service_found": "found", "source_service": "srcSvc"},
 		}},
 	}
 
@@ -171,10 +152,10 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 				}
 				return
 			}
-			for _, binding := range c.Aspect.Params.(*apb.AttributesGeneratorParams).AttributeBindings {
+			for attrName, valName := range c.Aspect.Params.(*apb.AttributesGeneratorParams).AttributeBindings {
 				found := false
-				for valueName, attrName := range exec.(*attrGenExec).bindings {
-					if binding.ValueName == valueName && binding.DescriptorName == attrName {
+				for boundVal, boundAttr := range exec.(*attrGenExec).bindings {
+					if boundVal == valName && boundAttr == attrName {
 						found = true
 						break
 					}
@@ -182,7 +163,7 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 				if found {
 					continue
 				}
-				t.Errorf("Bindings map missing binding from %s to %s", binding.ValueName, binding.DescriptorName)
+				t.Errorf("Bindings map missing binding from %s to %s", valName, attrName)
 			}
 		})
 	}
@@ -198,38 +179,27 @@ func (t testAttrGen) Generate(in map[string]interface{}) (map[string]interface{}
 func TestAttributeGeneratorExecutor_Execute(t *testing.T) {
 
 	genParams := &apb.AttributesGeneratorParams{
-		InputExpressions: map[string]string{
-			"pod.ip": "source_ip",
-		},
-		AttributeBindings: []*apb.AttributesGeneratorParams_AttributeBinding{
-			{
-				DescriptorName: "service_found",
-				ValueName:      "found",
-			},
-			{
-				DescriptorName: "source_service",
-				ValueName:      "src_svc",
-			},
-		},
+		InputExpressions:  map[string]string{"pod.ip": "source_ip"},
+		AttributeBindings: map[string]string{"service_found": "found", "source_service": "srcSvc"},
 	}
 
-	bMap := map[string]string{"found": "service_found", "src_svc": "source_service"}
+	bMap := map[string]string{"found": "service_found", "srcSvc": "source_service"}
 
 	inBag := attribute.GetMutableBag(nil)
 	inBag.Set("source_ip", "10.1.1.10")
 
 	outMap := map[string]interface{}{
-		"found":   true,
-		"src_svc": "service1",
+		"found":  true,
+		"srcSvc": "service1",
 	}
 	wantBag := attribute.GetMutableBag(nil)
 	wantBag.Set("service_found", true)
 	wantBag.Set("source_service", "service1")
 
 	extraOutMap := map[string]interface{}{
-		"found":              true,
-		"src_svc":            "service1",
-		"should_be_stripped": "never_used",
+		"found":            true,
+		"srcSvc":           "service1",
+		"shouldBeStripped": "never_used",
 	}
 
 	tests := []struct {

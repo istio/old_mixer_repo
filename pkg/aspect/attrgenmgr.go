@@ -33,11 +33,8 @@ type (
 	attrGenExec struct {
 		aspect   adapter.AttributesGenerator
 		params   *apb.AttributesGeneratorParams
-		bindings attrBindingsMap
+		bindings map[string]string // value name => attribute name
 	}
-	// attrBindingsMap maps from adapter value name to attribute descriptor
-	// name
-	attrBindingsMap map[string]string
 )
 
 func newAttrGenMgr() PreprocessManager {
@@ -60,16 +57,13 @@ func (attrGenMgr) ValidateConfig(c config.AspectParams, v expr.Validator, df des
 			cerrs = cerrs.Appendf("input_expressions", "failed to parse expression '%s' with err: %v", n, err)
 		}
 	}
-	attrs := make([]string, 0, len(params.AttributeBindings))
-	for _, binding := range params.AttributeBindings {
-		attrs = append(attrs, binding.DescriptorName)
-	}
-	for _, name := range attrs {
-		if a := df.GetAttribute(name); a == nil {
+
+	for attrName := range params.AttributeBindings {
+		if a := df.GetAttribute(attrName); a == nil {
 			cerrs = cerrs.Appendf(
 				"attribute_bindings",
 				"Attribute '%s' is not configured for use within the mixer. It cannot be used as a target for generated values.",
-				name)
+				attrName)
 		}
 	}
 	return
@@ -82,9 +76,9 @@ func (attrGenMgr) NewPreprocessExecutor(cfg *cpb.Combined, b adapter.Builder, en
 		return nil, err
 	}
 	params := cfg.Aspect.Params.(*apb.AttributesGeneratorParams)
-	bindings := make(attrBindingsMap, len(params.AttributeBindings))
-	for _, binding := range params.AttributeBindings {
-		bindings[binding.ValueName] = binding.DescriptorName
+	bindings := make(map[string]string, len(params.AttributeBindings))
+	for attrName, valName := range params.AttributeBindings {
+		bindings[valName] = attrName
 	}
 	return &attrGenExec{aspect: ag, params: params, bindings: bindings}, nil
 }
@@ -112,8 +106,7 @@ func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Prep
 		}
 		glog.Warningf("Generated value '%s' was not mapped to an attribute.", key)
 	}
-	// TODO: need to check that all attributes in map have been assigned a
-	// value?
+	// TODO: check that all attributes in map have been assigned a value?
 	return &PreprocessResult{Attrs: bag}, status.OK
 }
 
