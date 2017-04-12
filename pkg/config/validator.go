@@ -177,11 +177,11 @@ const (
 	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
 )
 
-// GlobalPolicyKey this policy is applies to all requests
+// GlobalPolicyKey this policy applies to all requests
 // so we just create a well known key for it
 var GlobalPolicyKey = Key{Scope: sGlobal, Subject: sGlobal}
 
-// String string repr of a Policy Key
+// String string representation of a Key
 func (p Key) String() string {
 	return fmt.Sprintf("%s/%s", p.Scope, p.Subject)
 }
@@ -376,6 +376,7 @@ func (p *validator) validateServiceConfig(pk Key, cfg string, validatePresence b
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
 		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto with err: %v", err)
 	}
+
 	if numAspects, ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
 		return ce
 	}
@@ -441,7 +442,7 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 
 // decode interprets src interface{} as the specified proto message.
 // if strict is true returns error on unknown fields.
-func decode(src interface{}, dst adapter.Config, strict bool) error {
+func decode(src interface{}, dst proto.Message, strict bool) error {
 	ba, err := json.Marshal(src)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config into json with err: %v", err)

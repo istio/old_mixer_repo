@@ -59,6 +59,7 @@ go_metalinter() {
 		fi
     fi
 
+    # Note: WriteHeaderAndJson excluded because the interface is defined in a 3rd party library.
     gometalinter\
         --concurrency=4\
         --enable-gc\

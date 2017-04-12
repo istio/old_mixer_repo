@@ -19,17 +19,17 @@ import (
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ChangeType denotes the type of change
+// ChangeType denotes the type of a change
 type ChangeType int
 
 const (
-	// ChangeTypeUpdate - change was an update or a create to a key.
-	ChangeTypeUpdate ChangeType = iota
-	// ChangeTypeDelete - key was removed.
-	ChangeTypeDelete
+	// Update - change was an update or a create to a key.
+	Update ChangeType = iota
+	// Delete - key was removed.
+	Delete
 )
 
-// Change - A change record in the changelog.
+// Change - A record of mutation to the underlying KeyValueStore.
 type Change struct {
 	// Key that was affected
 	Key string `json:"key"`
@@ -39,13 +39,13 @@ type Change struct {
 	Index int `json:"index"`
 }
 
-// KVStore defines the back end interface used by mixer
+// KeyValueStore defines the key value store back end interface used by mixer
 // and the mixer config API server
 // It should support back ends like redis, etcd and NFS
-// All commands should return an index which can be used
-// to Read changes. If a KVStore does not support it,
-// it may return -1
-type KVStore interface {
+// All commands should return a change log index number which can be used
+// to Read changes. If a KeyValueStore does not support it,
+// it should return -1
+type KeyValueStore interface {
 	// Get value at a key, false if not found.
 	Get(key string) (value string, index int, found bool)
 
@@ -57,12 +57,8 @@ type KVStore interface {
 
 	// Delete a key.
 	Delete(key string) error
-}
 
-// StoreListener listens for calls from the store that some keys have changed.
-type StoreListener interface {
-	// StoreChange notify listener that a new change is available
-	StoreChange(index int)
+	fmt.Stringer
 }
 
 // ChangeLogReader read change log from the KV Store
@@ -71,13 +67,19 @@ type ChangeLogReader interface {
 	ReadChangeLog(index int) ([]*Change, error)
 }
 
-// ChangeNotifier implements change notification machinery for the KVStore
+// ChangeNotifier implements change notification machinery for the KeyValueStore.
 type ChangeNotifier interface {
-	// Register StoreChangeListener
-	// KVStore should call this method when there is a change
+	// Register StoreListener
+	// KeyValueStore should call this method when there is a change
 	// The client should issue ReadChangeLog to see what has changed if the call is available.
 	// else it should re-read the store, perform diff and apply changes.
 	RegisterStoreChangeListener(s StoreListener)
+}
+
+// StoreListener listens for calls from the store that some keys have changed.
+type StoreListener interface {
+	// NotifyStoreChanged notify listener that a new change is available.
+	NotifyStoreChanged(index int)
 }
 
 // URL types supported by the config store
@@ -89,7 +91,7 @@ const (
 )
 
 // NewStore create a new store based on the config URL.
-func NewStore(configURL string) (KVStore, error) {
+func NewStore(configURL string) (KeyValueStore, error) {
 	urlParts := strings.Split(configURL, "://")
 
 	if len(urlParts) < 2 {

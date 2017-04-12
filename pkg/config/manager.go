@@ -53,7 +53,7 @@ type Manager struct {
 	builderFinder BuilderValidatorFinder
 	findAspects   AdapterToAspectMapper
 	loopDelay     time.Duration
-	store         KVStore
+	store         KeyValueStore
 	validate      validateFunc
 
 	ticker         *time.Ticker
@@ -78,7 +78,7 @@ type Manager struct {
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
 func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
-	findAspects AdapterToAspectMapper, store KVStore, loopDelay time.Duration) *Manager {
+	findAspects AdapterToAspectMapper, store KeyValueStore, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,
 		aspectFinder:  aspectFinder,
@@ -107,7 +107,7 @@ func (c *Manager) Register(cc ChangeListener) {
 	c.cl = append(c.cl, cc)
 }
 
-func readdb(store KVStore, prefix string) (map[string]string, map[string][sha1.Size]byte, int, error) {
+func readdb(store KeyValueStore, prefix string) (map[string]string, map[string][sha1.Size]byte, int, error) {
 	keys, index, err := store.List(prefix, true)
 	if err != nil {
 		return nil, nil, index, err
@@ -215,8 +215,4 @@ func (c *Manager) Start() {
 	// If it is not successful, we will continue to watch for changes.
 	c.ticker = time.NewTicker(c.loopDelay)
 	go c.loop()
-
-	// TODO remove API server management from here into it's own binary file.
-	api := NewAPI("v1", DefaultAPIPort, c.eval, c.aspectFinder, c.builderFinder, c.findAspects, c.store)
-	go api.Run()
 }

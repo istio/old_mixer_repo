@@ -141,7 +141,11 @@ type fakeMemStore struct {
 	sync.RWMutex
 }
 
-var _ KVStore = &fakeMemStore{}
+var _ KeyValueStore = &fakeMemStore{}
+
+func (f *fakeMemStore) String() string {
+	return "fakeMemStore"
+}
 
 // Get value at a key, false if not found.
 func (f *fakeMemStore) Get(key string) (value string, index int, found bool) {
@@ -168,7 +172,7 @@ func (f *fakeMemStore) Set(key string, value string) (index int, err error) {
 
 	go func(idx int, cl StoreListener) {
 		if cl != nil {
-			cl.StoreChange(idx)
+			cl.NotifyStoreChanged(idx)
 		}
 	}(f.index, f.cl)
 

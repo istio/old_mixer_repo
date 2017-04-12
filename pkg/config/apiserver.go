@@ -14,10 +14,6 @@
 
 package config
 
-// Package config APIServer defines and implements the config API.
-// The server constructs and uses a validator for validations
-// The server uses KVStore to persists keys.
-
 import (
 	"fmt"
 	"io"
@@ -26,6 +22,7 @@ import (
 	"strconv"
 
 	restful "github.com/emicklei/go-restful"
+	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
@@ -40,25 +37,33 @@ type validateFunc func(cfg map[string]string) (rt *Validated, desc descriptor.Fi
 
 type readBodyFunc func(r io.Reader) ([]byte, error)
 
-// API is the server wrapper that listens for incoming requests to the manager and processes them
+// API defines and implements the configuration API.
+// The server constructs and uses a validator for validations
+// The server uses KeyValueStore to persists keys.
 type API struct {
 	version  string
 	rootPath string
 
 	// used at the back end for validation and storage
-	store    KVStore
+	store    KeyValueStore
 	validate validateFunc
 
 	// house keeping
 	handler http.Handler
-	Server  *http.Server
+	server  *http.Server
 
 	// fault injection
 	readBody readBodyFunc
 }
 
 // DefaultAPIPort default port exposed by the API server.
-const DefaultAPIPort = 9094
+const DefaultAPIPort uint16 = 9094
+
+// APIResponse defines the shape of the api response.
+type APIResponse struct {
+	Data   interface{} `json:"data,omitempty"`
+	Status *rpc.Status `json:"status,omitempty"`
+}
 
 // register routes
 func (a *API) register(c *restful.Container) {
@@ -73,7 +78,7 @@ func (a *API) register(c *restful.Container) {
 		Doc("Gets rules associated with the given scope and subject").
 		Param(ws.PathParameter("scope", "scope").DataType("string")).
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
-		Writes(pb.ServiceConfig{}))
+		Writes(APIResponse{}))
 
 	ws.Route(ws.
 		PUT("/scopes/{scope}/subjects/{subject}/rules").
@@ -81,13 +86,13 @@ func (a *API) register(c *restful.Container) {
 		Doc("Replaces rules associated with the given scope and subject").
 		Param(ws.PathParameter("scope", "scope").DataType("string")).
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
-		Writes(rpc.Status{}))
+		Writes(APIResponse{}))
 	c.Add(ws)
 }
 
 // NewAPI creates a new API server
-func NewAPI(version string, port int, eval expr.Validator, aspectFinder AspectValidatorFinder,
-	builderFinder BuilderValidatorFinder, findAspects AdapterToAspectMapper, store KVStore) *API {
+func NewAPI(version string, port uint16, eval expr.Validator, aspectFinder AspectValidatorFinder,
+	builderFinder BuilderValidatorFinder, findAspects AdapterToAspectMapper, store KeyValueStore) *API {
 	c := restful.NewContainer()
 	a := &API{
 		version:  version,
@@ -101,72 +106,87 @@ func NewAPI(version string, port int, eval expr.Validator, aspectFinder AspectVa
 		},
 	}
 	a.register(c)
-	a.Server = &http.Server{Addr: ":" + strconv.Itoa(port), Handler: c}
+	a.server = &http.Server{Addr: ":" + strconv.Itoa(int(port)), Handler: c}
 	a.handler = c
+	// ensure that we always send back an APIResponse object.
+	c.ServiceErrorHandler(func(err restful.ServiceError, req *restful.Request, resp *restful.Response) {
+		writeErrorResponse(err.Code, err.Message, resp)
+	})
 	return a
 }
 
 // Run calls listen and serve on the API server
 func (a *API) Run() {
-	glog.Infof("Starting Config API Server at %v", a.Server.Addr)
-	glog.Warning(a.Server.ListenAndServe())
+	glog.Warning(a.server.ListenAndServe())
 }
 
 // getRules returns the entire service config document for the scope and subject
 // "/scopes/{scope}/subjects/{subject}/rules"
 func (a *API) getRules(req *restful.Request, resp *restful.Response) {
 	funcPath := req.Request.URL.Path[len(a.rootPath):]
-	val, index, found := a.store.Get(funcPath)
-	if !found {
-		writeResponse(http.StatusNotFound, fmt.Sprintf("no rules for %s\n", funcPath), resp)
-		return
+	st, msg, data := getRules(a.store, funcPath)
+
+	writeResponse(st, msg, data, resp)
+
+	/*
+		// TODO send index back to the client
+		//_ = index
+	*/
+}
+
+func getRules(store KeyValueStore, path string) (statusCode int, msg string, data *pb.ServiceConfig) {
+	var val string
+	var found bool
+
+	if val, _, found = store.Get(path); !found {
+		return http.StatusNotFound, fmt.Sprintf("no rules for %s", path), nil
 	}
 
-	// TODO send index back to the client
-	_ = index
-	resp.AddHeader("Content-Type", "application/yaml")
-	write(val, resp)
+	m := &pb.ServiceConfig{}
+	if err := yaml.Unmarshal([]byte(val), m); err != nil {
+		return http.StatusInternalServerError, fmt.Sprintf("unbale to parse rules at %s", path), nil
+	}
+	return http.StatusOK, "ok", m
 }
 
 // putRules replaces the entire service config document for the scope and subject
 // "/scopes/{scope}/subjects/{subject}/rules"
 func (a *API) putRules(req *restful.Request, resp *restful.Response) {
-	funcPath := req.Request.URL.Path[len(a.rootPath):]
-
+	key := req.Request.URL.Path[len(a.rootPath):]
+	var data map[string]string
+	var err error
 	// TODO optimize only read descriptors and adapters
-	data, _, index, err := readdb(a.store, "/")
-	if err != nil {
-		writeResponse(http.StatusInternalServerError, err.Error(), resp)
+	if data, _, _, err = readdb(a.store, "/"); err != nil {
+		writeErrorResponse(http.StatusInternalServerError, err.Error(), resp)
 		return
 	}
 	// TODO send index back to the client
-	_ = index
 
 	var bval []byte
-	bval, err = a.readBody(req.Request.Body)
-	if err != nil {
-		writeResponse(http.StatusInternalServerError, err.Error(), resp)
+	if bval, err = a.readBody(req.Request.Body); err != nil {
+		writeErrorResponse(http.StatusInternalServerError, err.Error(), resp)
 		return
 	}
 	val := string(bval)
-	data[funcPath] = val
-
-	_, _, cerr := a.validate(data)
-	if cerr != nil {
-		glog.Warning(cerr.Error())
-		glog.Warning(val)
-		writeResponse(http.StatusPreconditionFailed, cerr.Error(), resp)
+	data[key] = val
+	/*
+		rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors
+	*/
+	var vd *Validated
+	var cerr *adapter.ConfigErrors
+	if vd, _, cerr = a.validate(data); cerr != nil {
+		glog.Warningf("Validation failed with %s\n %s", cerr.Error(), val)
+		writeErrorResponse(http.StatusPreconditionFailed, cerr.Error(), resp)
 		return
 	}
-	index, err = a.store.Set(funcPath, val)
-	if err != nil {
-		writeResponse(http.StatusInternalServerError, err.Error(), resp)
+
+	if _, err = a.store.Set(key, val); err != nil {
+		writeErrorResponse(http.StatusInternalServerError, err.Error(), resp)
 		return
 	}
 	// TODO send index back to the client
-	_ = index
-
-	writeResponse(http.StatusOK, fmt.Sprintf("Created %s", funcPath), resp)
+	writeResponse(http.StatusOK, fmt.Sprintf("Created %s", key),
+		vd.policy[*parseConfigKey(key)], resp)
 }
 
 // a subset of restful.Response
@@ -175,27 +195,30 @@ type response interface {
 	WriteHeaderAndJson(status int, value interface{}, contentType string) error
 }
 
-func write(contents string, resp io.Writer) {
-	_, err := resp.Write([]byte(contents))
-	if err != nil {
-		glog.Warning(err)
+func writeResponse(httpStatus int, msg string, data interface{}, resp response) {
+	rpcStatus := status.WithMessage(
+		httpStatusToRPC(httpStatus), msg)
+	out := &APIResponse{
+		Data:   data,
+		Status: &rpcStatus,
 	}
-}
 
-func writeResponse(httpStatus int, msg string, resp response) {
 	if err := resp.WriteHeaderAndJson(
 		httpStatus,
-		status.WithMessage(
-			httpStatusToRPC(httpStatus), msg),
+		out,
 		restful.MIME_JSON,
 	); err != nil {
 		glog.Warning(err)
 	}
 }
 
-func httpStatusToRPC(httpStatus int) rpc.Code {
-	code, ok := httpStatusToRPCMap[httpStatus]
-	if !ok {
+func writeErrorResponse(httpStatus int, msg string, resp response) {
+	writeResponse(httpStatus, msg, nil, resp)
+}
+
+func httpStatusToRPC(httpStatus int) (code rpc.Code) {
+	var ok bool
+	if code, ok = httpStatusToRPCMap[httpStatus]; !ok {
 		code = rpc.UNKNOWN
 	}
 	return code
