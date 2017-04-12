@@ -80,9 +80,6 @@ func TestAllocAndRelease(t *testing.T) {
 		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
 		{"Q1", "5c", 0, 0, false, 0, 0, 15, 5},
 
-		// The following tests works in real redis server, but the mock redis does not implement timeout function,
-		// which means that even set EXPIRE to key, key will persist forever. So unit tests cannot pass.
-
 		{"Q3", "6", 10, 10, false, time.Second * 2, 0, 0, 0},
 		{"Q3", "7", 10, 0, false, 0, 1, 0, 0},
 		{"Q3", "8", 10, 10, false, time.Second * 2, 3, 0, 0},
