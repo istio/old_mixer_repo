@@ -72,16 +72,16 @@ func (f *FSStore) String() string {
 
 // NewCompatFSStore creates and returns an FSStore using old style
 // globalConfig and serviceConfig
-func NewCompatFSStore(globalConfig string, serviceConfig string) (fs *FSStore, err error) {
+func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (fs *FSStore, err error) {
 	// no configURL, but serviceConfig and globalConfig are specified.
 	// compatibility
 	var data []byte
-	if data, err = ioutil.ReadFile(globalConfig); err != nil {
+	if data, err = ioutil.ReadFile(globalConfigFile); err != nil {
 		return nil, err
 	}
 	gc := string(data)
 
-	if data, err = ioutil.ReadFile(serviceConfig); err != nil {
+	if data, err = ioutil.ReadFile(serviceConfigFile); err != nil {
 		return nil, err
 	}
 	sc := string(data)
