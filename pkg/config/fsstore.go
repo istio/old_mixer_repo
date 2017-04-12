@@ -13,20 +13,22 @@
 // limitations under the License.
 
 // Package config FSStore
-// implements file system KVStore interface
+// implements file system KeyValueStore interface
 package config
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/golang/glog"
 )
 
-// FSStore Implements file system KVStore and change Store
+// FSStore implements file system KeyValueStore and change Store
 type FSStore struct {
 	// root directory
 	root string
@@ -64,27 +66,28 @@ func newFSStore(root string) *FSStore {
 	}
 }
 
+func (f *FSStore) String() string {
+	return fmt.Sprintf("FSStore: %s", f.root)
+}
+
 // NewCompatFSStore creates and returns an FSStore using old style
 // globalConfig and serviceConfig
 func NewCompatFSStore(globalConfig string, serviceConfig string) (fs *FSStore, err error) {
 	// no configURL, but serviceConfig and globalConfig are specified.
 	// compatibility
 	var data []byte
-	data, err = ioutil.ReadFile(globalConfig)
-	if err != nil {
+	if data, err = ioutil.ReadFile(globalConfig); err != nil {
 		return nil, err
 	}
 	gc := string(data)
 
-	data, err = ioutil.ReadFile(serviceConfig)
-	if err != nil {
+	if data, err = ioutil.ReadFile(serviceConfig); err != nil {
 		return nil, err
 	}
 	sc := string(data)
 
 	var dir string
-	dir, err = ioutil.TempDir(os.TempDir(), "FSStore")
-	if err != nil {
+	if dir, err = ioutil.TempDir(os.TempDir(), "FSStore"); err != nil {
 		return nil, err
 	}
 
@@ -92,68 +95,63 @@ func NewCompatFSStore(globalConfig string, serviceConfig string) (fs *FSStore, e
 
 	// intialize FSstore
 
-	_, err = fs.Set(keyGlobalServiceConfig, sc)
-	if err != nil {
+	if _, err = fs.Set(keyGlobalServiceConfig, sc); err != nil {
 		return nil, err
 	}
 
-	_, err = fs.Set(keyDescriptors, gc)
-	if err != nil {
+	if _, err = fs.Set(keyDescriptors, gc); err != nil {
 		return nil, err
 	}
 
-	_, err = fs.Set(keyAdapters, gc)
-	if err != nil {
+	if _, err = fs.Set(keyAdapters, gc); err != nil {
 		return nil, err
 	}
-
-	glog.Warningf("Created a compatibility fsstore at %s", dir)
-
 	return fs, nil
 }
 
 // force compile time check.
-var _ KVStore = &FSStore{}
+var _ KeyValueStore = &FSStore{}
 
 func (f *FSStore) getPath(key string) string {
-	return f.root + string(os.PathSeparator) + key
+	return path.Join(f.root, key)
 }
+
+const indexNotSupported = -1
 
 // Get value at a key, false if not found.
 func (f *FSStore) Get(key string) (value string, index int, found bool) {
 	p := f.getPath(key) + f.suffix
-	b, err := f.readfile(p)
-	if err != nil {
+	var b []byte
+	var err error
+
+	if b, err = f.readfile(p); err != nil {
 		if !os.IsNotExist(err) {
 			glog.Warningf("Could not access %s: %s", p, err)
 		}
-		return "", -1, false
+		return "", indexNotSupported, false
 	}
-	return string(b), -1, true
+	return string(b), indexNotSupported, true
 }
 
 // Set a value
 func (f *FSStore) Set(key string, value string) (index int, err error) {
 	p := f.getPath(key) + f.suffix
 	if err = f.mkdirAll(filepath.Dir(p), os.ModeDir|os.ModePerm); err != nil {
-		return -1, err
+		return indexNotSupported, err
 	}
 
 	var tf writeCloser
-	tf, err = f.writeCloserGetter(os.TempDir(), "FSStore_Set")
-	if err != nil {
-		return -1, err
+	if tf, err = f.writeCloserGetter(f.root, "FSStore_Set"); err != nil {
+		return indexNotSupported, err
 	}
-	_, err = tf.Write([]byte(value))
-	if err != nil {
-		return -1, err
+	if _, err = tf.Write([]byte(value)); err != nil {
+		return indexNotSupported, err
 	}
-	err = tf.Close()
-	if err != nil {
-		return -1, err
+	if err = tf.Close(); err != nil {
+		return indexNotSupported, err
 	}
 	// atomically rename
-	return -1, os.Rename(tf.Name(), p)
+	return indexNotSupported, os.Rename(tf.Name(), p)
 }
 
 // List keys with the prefix
@@ -167,14 +165,13 @@ func (f *FSStore) List(key string, recurse bool) (keys []string, index int, err 
 		}
 		return nil
 	})
-	return keys, -1, err
+	return keys, indexNotSupported, err
 }
 
-// Delete removed a key from the fs store.
+// Delete removes a key from the fs store.
 func (f *FSStore) Delete(key string) (err error) {
 	p := f.getPath(key) + f.suffix
-	err = f.remove(p)
-	if err == nil || os.IsNotExist(err) {
+	if err = f.remove(p); err == nil || os.IsNotExist(err) {
 		return nil
 	}
 	return err

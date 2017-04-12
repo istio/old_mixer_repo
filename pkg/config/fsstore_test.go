@@ -38,12 +38,12 @@ func TestFSStore(t *testing.T) {
 }
 
 type KVMgr struct {
-	store   KVStore
+	store   KeyValueStore
 	cleanup func()
 }
 
-func (k *KVMgr) Get() KVStore { return k.store }
-func (k *KVMgr) Cleanup()     { k.cleanup() }
+func (k *KVMgr) Get() KeyValueStore { return k.store }
+func (k *KVMgr) Cleanup()           { k.cleanup() }
 
 func testStore(t *testing.T, kvMgrfn func() *KVMgr) {
 	GOODKEYS := []string{

@@ -16,13 +16,13 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -30,6 +30,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config/descriptor"
+	pb "istio.io/mixer/pkg/config/proto"
 )
 
 func makeAPIRequest(handler http.Handler, method, url string, data []byte, t *testing.T) (int, []byte) {
@@ -48,16 +49,28 @@ func makeAPIRequest(handler http.Handler, method, url string, data []byte, t *te
 	return result.StatusCode, body
 }
 
+var rulesSC = &pb.ServiceConfig{
+	Rules: []*pb.AspectRule{
+		{
+			Selector: "true",
+			Aspects: []*pb.Aspect{
+				{
+					Kind: "quotas",
+					Params: map[string]interface{}{
+						"quotas": []map[string]interface{}{
+							{"descriptor_name": "RequestCount"},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func TestAPI_getRules(t *testing.T) {
 	uri := "/scopes/scope/subjects/subject/rules"
-	val := "Value"
-	store := &fakeMemStore{
-		data: map[string]string{
-			uri: val,
-		},
-	}
-	api := NewAPI("v1", 0, nil, nil,
-		nil, nil, store)
+	bval, _ := json.Marshal(rulesSC)
+	val := string(bval)
 
 	for _, ctx := range []struct {
 		key    string
@@ -65,19 +78,36 @@ func TestAPI_getRules(t *testing.T) {
 		status int
 	}{
 		{uri, val, http.StatusOK},
-		{"/scopes/scope/subjects/subject1/rules", val, http.StatusNotFound},
+		{uri, "<Unparseable> </Unparseable>", http.StatusInternalServerError},
+		{"/scopes/cluster/subjects/DOESNOTEXIST.cluster.local", val, http.StatusNotFound},
 	} {
 		t.Run(ctx.key, func(t *testing.T) {
-
-			sc, body := makeAPIRequest(api.handler, "GET", "/api/v1"+ctx.key, []byte{}, t)
-			if sc != ctx.status {
-				t.Errorf("http status got %d\nwant %d", sc, ctx.status)
+			store := &fakeMemStore{
+				data: map[string]string{
+					uri: ctx.val,
+				},
 			}
-			b := string(body)
-			if sc == http.StatusOK {
-				if !reflect.DeepEqual(ctx.val, b) {
-					t.Errorf("incorrect value got [%#v]\nwant [%#v]", b, ctx.val)
-				}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, body := makeAPIRequest(api.handler, "GET", api.rootPath+ctx.key, []byte{}, t)
+			if sc != ctx.status {
+				t.Fatalf("http status got %d\nwant %d", sc, ctx.status)
+			}
+			apiResp := &struct {
+				Data *pb.ServiceConfig `json:"data,omitempty"`
+				*APIResponse
+			}{}
+			if err := json.Unmarshal(body, apiResp); err != nil {
+				t.Fatalf("Unable to unmarshal json %s\n%s", err.Error(), string(body))
+			}
+			if sc != http.StatusOK {
+				return
+			}
+
+			bd, _ := json.Marshal(apiResp.Data)
+			if string(bd) != ctx.val {
+				t.Errorf("incorrect value got [%#v]\nwant [%#v]", string(bd), ctx.val)
 			}
 		})
 	}
@@ -149,11 +179,15 @@ func TestAPI_putRules(t *testing.T) {
 			}
 			sc, bbody := makeAPIRequest(api.handler, "PUT", "/api/v1"+key, []byte{}, t)
 			if sc != tst.status {
-				t.Errorf("http status got %d\nwant %d", sc, tst.status)
+				t.Fatalf("http status got %d\nwant %d", sc, tst.status)
 			}
-			body := string(bbody)
-			if !strings.Contains(body, tst.msg) {
-				t.Errorf("got %s\nwant %s", body, tst.msg)
+			apiResp := &APIResponse{}
+			if err := json.Unmarshal(bbody, apiResp); err != nil {
+				t.Fatalf("Unable to unmarshal json %s", err.Error())
+			}
+
+			if !strings.Contains(apiResp.Status.Message, tst.msg) {
+				t.Errorf("got %s\nwant %s", apiResp.Status, tst.msg)
 			}
 		})
 	}
@@ -195,7 +229,7 @@ func (f *fakeresp) Write(bytes []byte) (int, error) {
 }
 
 // Ensures that writes responses correctly and error are logged
-func TestAPI_writeResponse(t *testing.T) {
+func TestAPI_writeErrorResponse(t *testing.T) {
 	// ensures that logging is performed
 	err := errors.New("always error")
 	for _, tst := range []struct {
@@ -209,31 +243,24 @@ func TestAPI_writeResponse(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%s", tst.code), func(t *testing.T) {
 			resp := &fakeresp{err: err}
-			writeResponse(tst.http, tst.message, resp)
-			rpcStatus, ok := resp.value.(rpc.Status)
+			writeErrorResponse(tst.http, tst.message, resp)
+			apiResp, ok := resp.value.(*APIResponse)
 			if !ok {
-				t.Error("failed to produce rpc.Status")
+				t.Error("failed to produce APIResponse")
 				return
 			}
-			if rpcStatus.Code != int32(tst.code) {
-				t.Errorf("got %d\nwant %s", rpcStatus.Code, tst.code)
+			if apiResp.Status.Code != int32(tst.code) {
+				t.Errorf("got %d\nwant %s", apiResp.Status.Code, tst.code)
 			}
 		})
 	}
 
-	// ensure write error is logged
-	resp := &fakeresp{err: err}
-	val := "new info"
-	write(val, resp)
-	if !reflect.DeepEqual([]byte(val), resp.value) {
-		t.Errorf("got %v\nwant %v", resp.value, val)
-	}
 }
 
 func TestAPI_Run(t *testing.T) {
 	api := NewAPI("v1", 9094, nil, nil, nil, nil, nil)
 	go api.Run()
-	err := api.Server.Close()
+	err := api.server.Close()
 	if err != nil {
 		t.Errorf("unexpected failure while closing %s", err)
 	}

@@ -489,9 +489,6 @@ func (f *fakeCV) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 }
 
 func TestConvertAdapterParamsErrors(t *testing.T) {
-	//	func convertAdapterParams(f BuilderValidatorFinder, name string,
-	//		params interface{}, strict bool) (ac adapter.Config, ce *adapter.ConfigErrors)
-
 	for _, tt := range []struct {
 		params interface{}
 		cv     *fakeCV
