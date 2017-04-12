@@ -69,7 +69,7 @@ metrics:
       response_code: 2 # INT64
 quotas:
   - name: RequestCount
-    maxAmount: 5
+    max_amount: 5
     expiration:
       seconds: 1
 logs:

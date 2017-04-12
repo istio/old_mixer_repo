@@ -6,7 +6,7 @@ rules:
   - kind: quotas
     params:
       quotas:
-      - descriptorName: RequestCount
+      - descriptor_name: RequestCount
   - kind: metrics
     adapter: prometheus
     params:
