@@ -16,6 +16,7 @@ package config
 
 import (
 	"crypto/sha1"
+	"errors"
 	"reflect"
 	"sync"
 	"time"
@@ -56,6 +57,9 @@ type Manager struct {
 	store         KeyValueStore
 	validate      validateFunc
 
+	// attribute around which scopes and subjects are organized.
+	identityAttribute string
+
 	ticker         *time.Ticker
 	lastFetchIndex int
 
@@ -78,14 +82,15 @@ type Manager struct {
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
 func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
-	findAspects AdapterToAspectMapper, store KeyValueStore, loopDelay time.Duration) *Manager {
+	findAspects AdapterToAspectMapper, store KeyValueStore, loopDelay time.Duration, identityAttribute string) *Manager {
 	m := &Manager{
-		eval:          eval,
-		aspectFinder:  aspectFinder,
-		builderFinder: builderFinder,
-		findAspects:   findAspects,
-		loopDelay:     loopDelay,
-		store:         store,
+		eval:              eval,
+		aspectFinder:      aspectFinder,
+		builderFinder:     builderFinder,
+		findAspects:       findAspects,
+		loopDelay:         loopDelay,
+		store:             store,
+		identityAttribute: identityAttribute,
 		validate: func(cfg map[string]string) (*Validated, descriptor.Finder, *adapter.ConfigErrors) {
 			v := newValidator(aspectFinder, builderFinder, findAspects, true, eval)
 			rt, ce := v.validate(cfg)
@@ -141,9 +146,9 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 
 	data, shas, index, err := readdb(c.store, "/")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.New("Unable to read database: " + err.Error())
 	}
-
+	// check if sha has changed.
 	if c.lastValidated != nil && reflect.DeepEqual(shas, c.lastValidated.shas) {
 		// nothing actually changed.
 		return nil, nil, nil
@@ -158,11 +163,10 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 		glog.Warningf("Validation failed: %s", cerr.String())
 		return nil, nil, cerr
 	}
-	// check if shah have changed.
 	c.lastFetchIndex = index
 	vd.shas = shas
 	c.lastValidated = vd
-	return newRuntime(vd, c.eval), finder, nil
+	return newRuntime(vd, c.eval, c.identityAttribute), finder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed

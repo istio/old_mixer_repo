@@ -127,11 +127,11 @@ func (fr *fakeresolver) rrf(bag attribute.Bag, kindSet KindSet, rules []*pb.Aspe
 	return dlist, nil
 }
 
-func buildPolicy(pol []*fakePolicy) map[Key]*pb.ServiceConfig {
-	policy := map[Key]*pb.ServiceConfig{}
+func buildPolicy(pol []*fakePolicy) map[RulesKey]*pb.ServiceConfig {
+	policy := map[RulesKey]*pb.ServiceConfig{}
 
 	for _, p := range pol {
-		pk := Key{p.scope, p.subject}
+		pk := RulesKey{p.scope, p.subject}
 		policy[pk] = buildServiceConfig(fmt.Sprintf("%s", pk), p.kinds)
 	}
 	return policy
@@ -226,12 +226,12 @@ func TestResolve(t *testing.T) {
 			policy := buildPolicy(tt.pol)
 			attrs := map[string]interface{}{}
 			if tt.makebag {
-				attrs[ktargetService] = tt.target
+				attrs[keyTargetService] = tt.target
 			}
 			b := &bag{attrs}
 			var ks KindSet = 0xff
 			fr := newFakeResolver(tt.kinds, ks, tt.resolveError)
-			dl, err := resolve(b, ks, policy, fr.rrf, false)
+			dl, err := resolve(b, ks, policy, fr.rrf, false, keyTargetService)
 			if err != nil {
 				if tt.err == nil {
 					t1.Fatal("Unexpected Error", err)
@@ -287,7 +287,7 @@ func TestRuntime(t *testing.T) {
 			{ListsKind, "a1"}: a1,
 			{ListsKind, "a2"}: a2,
 		},
-		policy: map[Key]*pb.ServiceConfig{
+		policy: map[RulesKey]*pb.ServiceConfig{
 			GlobalPolicyKey: {
 				Rules: []*pb.AspectRule{
 					{
@@ -323,7 +323,7 @@ func TestRuntime(t *testing.T) {
 	}
 
 	bag := &bag{attrs: map[string]interface{}{
-		ktargetService: "svc1.ns1.svc.cluster.local",
+		keyTargetService: "svc1.ns1.svc.cluster.local",
 	}}
 
 	for idx, tt := range table {
@@ -333,7 +333,7 @@ func TestRuntime(t *testing.T) {
 			k, _ := ParseKind(a)
 			kinds = kinds.Set(k)
 		}
-		rt := newRuntime(v, fe)
+		rt := newRuntime(v, fe, keyTargetService)
 
 		al, err := rt.Resolve(bag, kinds)
 
@@ -381,7 +381,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 			{ListsKind, "a2"}:      a2,
 			{AttributesKind, "ag"}: ag,
 		},
-		policy: map[Key]*pb.ServiceConfig{
+		policy: map[RulesKey]*pb.ServiceConfig{
 			GlobalPolicyKey: {
 				Rules: []*pb.AspectRule{
 					{
@@ -429,7 +429,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 	}
 
 	bag := &bag{attrs: map[string]interface{}{
-		ktargetService: "svc1.ns1.svc.cluster.local",
+		keyTargetService: "svc1.ns1.svc.cluster.local",
 	}}
 
 	for idx, tt := range table {
@@ -439,7 +439,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 			k, _ := ParseKind(a)
 			kinds = kinds.Set(k)
 		}
-		rt := newRuntime(v, fe)
+		rt := newRuntime(v, fe, keyTargetService)
 
 		al, err := rt.ResolveUnconditional(bag, kinds)
 		if err != nil {

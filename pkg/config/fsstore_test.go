@@ -17,6 +17,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
 	"strings"
 	"testing"
@@ -28,7 +29,7 @@ func getContents(key string) string {
 
 func TestFSStore(t *testing.T) {
 	testStore(t, func() *KVMgr {
-		fsroot, _ := ioutil.TempDir("/tmp/", "FSStore")
+		fsroot, _ := ioutil.TempDir("/tmp/", "fsStore")
 		f := newFSStore(fsroot)
 		_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 		return &KVMgr{f, func() {
@@ -138,8 +139,8 @@ func TestNewStore(t *testing.T) {
 }
 
 func TestFSStore_Get(t *testing.T) {
-	fsroot, _ := ioutil.TempDir(os.TempDir(), "FSStore")
-	f := newFSStore(fsroot)
+	fsroot, _ := ioutil.TempDir(os.TempDir(), "fsStore")
+	f := newFSStore(fsroot).(*fsStore)
 	_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 	defer func(f string) { _ = os.RemoveAll(f) }(fsroot)
 
@@ -159,7 +160,7 @@ func TestFSStore_Get(t *testing.T) {
 }
 
 func TestFSStore_SetErrors(t *testing.T) {
-	fsroot, _ := ioutil.TempDir(os.TempDir(), "FSStore")
+	fsroot, _ := ioutil.TempDir(os.TempDir(), "fsStore")
 	_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 	defer func(f string) { _ = os.RemoveAll(f) }(fsroot)
 
@@ -173,13 +174,13 @@ func TestFSStore_SetErrors(t *testing.T) {
 		{"close", errors.New("close error")},
 	} {
 		t.Run(tt.when, func(t *testing.T) {
-			f := newFSStore(fsroot)
+			f := newFSStore(fsroot).(*fsStore)
 			if tt.when == "mkdir" {
 				f.mkdirAll = func(path string, perm os.FileMode) error {
 					return tt.err
 				}
 			} else {
-				f.writeCloserGetter = func(dir string, prefix string) (ff writeCloser, err error) {
+				f.tempFile = func() (ff writeCloser, err error) {
 					if tt.when == "" {
 						return nil, tt.err
 					}
@@ -216,8 +217,8 @@ func (f *fakeWriteCloser) Close() error {
 func (f *fakeWriteCloser) Name() string { return "fakeWriteCloser" }
 
 func TestFSStore_Delete(t *testing.T) {
-	fsroot, _ := ioutil.TempDir(os.TempDir(), "FSStore")
-	f := newFSStore(fsroot)
+	fsroot, _ := ioutil.TempDir(os.TempDir(), "fsStore")
+	f := newFSStore(fsroot).(*fsStore)
 	_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 	defer func(f string) { _ = os.RemoveAll(f) }(fsroot)
 
@@ -238,4 +239,34 @@ func TestFSStore_Delete(t *testing.T) {
 
 		})
 	}
+}
+
+func writeFile(t *testing.T, filename, contents string) {
+	if err := ioutil.WriteFile(filename, []byte(contents), os.ModePerm); err != nil {
+		t.Fatalf("unable to create file %s", filename)
+	}
+}
+
+func assertKey(t *testing.T, store KeyValueStore, key, want string) {
+	if s, _, _ := store.Get(key); s != want {
+		t.Fatalf("got %s want %s", s, want)
+	}
+}
+
+func TestNewCompatFSStore(t *testing.T) {
+	dir, _ := ioutil.TempDir("", "FTEST")
+	defer func(name string) { _ = os.RemoveAll(name) }(dir)
+
+	gc := "Global"
+	sc := "Service"
+	writeFile(t, path.Join(dir, gc), gc)
+	writeFile(t, path.Join(dir, sc), sc)
+
+	store, err := NewCompatFSStore(path.Join(dir, gc), path.Join(dir, sc))
+	if err != nil {
+		t.Fatalf("unexpected error %s", err.Error())
+	}
+
+	assertKey(t, store, keyGlobalServiceConfig, sc)
+	assertKey(t, store, keyDescriptors, gc)
 }
