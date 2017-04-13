@@ -36,4 +36,7 @@ message Params {
 
     // Maximum number of idle connections to redis
     int64 connection_pool_size = 4;
+
+    // Rate-limiting algorithm: rolling-window or fixed-window
+    string rate_limit_algorithm = 5;
 }
