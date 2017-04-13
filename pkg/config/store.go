@@ -64,7 +64,7 @@ type KeyValueStore interface {
 // ChangeLogReader read change log from the KV Store
 type ChangeLogReader interface {
 	// ReadChangeLog reads change events >= index
-	ReadChangeLog(index int) ([]*Change, error)
+	ReadChangeLog(index int) ([]Change, error)
 }
 
 // ChangeNotifier implements change notification machinery for the KeyValueStore.

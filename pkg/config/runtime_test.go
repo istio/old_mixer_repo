@@ -414,11 +414,11 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 						Selector: "",
 						Aspects: []*pb.Aspect{
 							{
-								Kind: AttributeGenerationKindName,
+								Kind: AttributesKindName,
 							},
 							{
 								Adapter: "ag",
-								Kind:    AttributeGenerationKindName,
+								Kind:    AttributesKindName,
 							},
 						},
 					},
