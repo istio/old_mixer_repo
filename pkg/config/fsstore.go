@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package config FSStore
-// implements file system KeyValueStore interface
 package config
 
 import (
@@ -28,18 +26,20 @@ import (
 	"github.com/golang/glog"
 )
 
-// FSStore implements file system KeyValueStore and change Store
-type FSStore struct {
+// fsStore implements file system KeyValueStore and change store.
+type fsStore struct {
 	// root directory
 	root string
+	// tmpdir is used as a scratch pad area
+	tmpdir string
 	// file suffix
 	suffix string
 
 	// testing and fault injection
-	writeCloserGetter writeCloserFunc
-	readfile          readFileFunc
-	mkdirAll          mkdirAllFunc
-	remove            removeFunc
+	tempFile writeCloserFunc
+	readfile readFileFunc
+	mkdirAll mkdirAllFunc
+	remove   removeFunc
 }
 
 // for testing
@@ -47,79 +47,77 @@ type writeCloser interface {
 	io.WriteCloser
 	Name() string
 }
-type writeCloserFunc func(dir string, prefix string) (f writeCloser, err error)
+type writeCloserFunc func() (f writeCloser, err error)
 type readFileFunc func(filename string) ([]byte, error)
 type mkdirAllFunc func(path string, perm os.FileMode) error
 type removeFunc func(name string) error
 
-func newFSStore(root string) *FSStore {
-	return &FSStore{
-		root:   root,
-		suffix: ".yml",
-		writeCloserGetter: func(a, b string) (f writeCloser, err error) {
-			f, err = ioutil.TempFile(a, b)
-			return
-		},
+func newFSStore(root string) KeyValueStore {
+	s := &fsStore{
+		root:     root,
+		tmpdir:   root + "/TMP",
+		suffix:   ".yml",
 		readfile: ioutil.ReadFile,
 		mkdirAll: os.MkdirAll,
 		remove:   os.Remove,
 	}
+
+	s.tempFile = func() (f writeCloser, err error) {
+		if err = s.mkdirAll(s.tmpdir, os.ModeDir|os.ModePerm); err != nil {
+			return
+		}
+		f, err = ioutil.TempFile(s.tmpdir, "fsStore")
+		return
+	}
+	return s
 }
 
-func (f *FSStore) String() string {
-	return fmt.Sprintf("FSStore: %s", f.root)
+func (f *fsStore) String() string {
+	return fmt.Sprintf("fsStore: %s", f.root)
 }
 
-// NewCompatFSStore creates and returns an FSStore using old style
+// NewCompatFSStore creates and returns an fsStore using old style
+// This should be removed once we migrate all configs to new style configs.
 // globalConfig and serviceConfig
-func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (fs *FSStore, err error) {
+func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (KeyValueStore, error) {
 	// no configURL, but serviceConfig and globalConfig are specified.
-	// compatibility
+	// provides compatibility
+	var err error
+	dm := map[string]string{
+		keyGlobalServiceConfig: serviceConfigFile,
+		keyDescriptors:         globalConfigFile,
+	}
 	var data []byte
-	if data, err = ioutil.ReadFile(globalConfigFile); err != nil {
-		return nil, err
-	}
-	gc := string(data)
-
-	if data, err = ioutil.ReadFile(serviceConfigFile); err != nil {
-		return nil, err
-	}
-	sc := string(data)
-
 	var dir string
-	if dir, err = ioutil.TempDir(os.TempDir(), "FSStore"); err != nil {
+	if dir, err = ioutil.TempDir(os.TempDir(), "fsStore"); err != nil {
 		return nil, err
 	}
+	fs := newFSStore(dir).(*fsStore)
 
-	fs = newFSStore(dir)
-
-	// intialize FSstore
-
-	if _, err = fs.Set(keyGlobalServiceConfig, sc); err != nil {
-		return nil, err
+	for k, v := range dm {
+		if data, err = fs.readfile(v); err != nil {
+			return nil, err
+		}
+		dm[k] = string(data)
 	}
+	dm[keyAdapters] = dm[keyDescriptors]
 
-	if _, err = fs.Set(keyDescriptors, gc); err != nil {
-		return nil, err
-	}
-
-	if _, err = fs.Set(keyAdapters, gc); err != nil {
-		return nil, err
+	for k, v := range dm {
+		if _, err = fs.Set(k, v); err != nil {
+			return nil, err
+		}
 	}
 	return fs, nil
 }
 
-// force compile time check.
-var _ KeyValueStore = &FSStore{}
-
-func (f *FSStore) getPath(key string) string {
+func (f *fsStore) getPath(key string) string {
 	return path.Join(f.root, key)
 }
 
 const indexNotSupported = -1
 
 // Get value at a key, false if not found.
-func (f *FSStore) Get(key string) (value string, index int, found bool) {
+func (f *fsStore) Get(key string) (value string, index int, found bool) {
 	p := f.getPath(key) + f.suffix
 	var b []byte
 	var err error
@@ -134,28 +132,33 @@ func (f *FSStore) Get(key string) (value string, index int, found bool) {
 }
 
 // Set a value
-func (f *FSStore) Set(key string, value string) (index int, err error) {
+func (f *fsStore) Set(key string, value string) (index int, err error) {
 	p := f.getPath(key) + f.suffix
 	if err = f.mkdirAll(filepath.Dir(p), os.ModeDir|os.ModePerm); err != nil {
 		return indexNotSupported, err
 	}
 
 	var tf writeCloser
-	if tf, err = f.writeCloserGetter(f.root, "FSStore_Set"); err != nil {
+	if tf, err = f.tempFile(); err != nil {
 		return indexNotSupported, err
 	}
-	if _, err = tf.Write([]byte(value)); err != nil {
+
+	_, err = tf.Write([]byte(value))
+	// always close the file and return the 1st failure.
+	errClose := tf.Close()
+	if err != nil {
 		return indexNotSupported, err
 	}
-	if err = tf.Close(); err != nil {
-		return indexNotSupported, err
+	if errClose != nil {
+		return indexNotSupported, errClose
 	}
+	// file has been written and closed.
 	// atomically rename
 	return indexNotSupported, os.Rename(tf.Name(), p)
 }
 
 // List keys with the prefix
-func (f *FSStore) List(key string, recurse bool) (keys []string, index int, err error) {
+func (f *fsStore) List(key string, recurse bool) (keys []string, index int, err error) {
 	keys = make([]string, 0, 10)
 	cc := &keys
 
@@ -169,7 +172,7 @@ func (f *FSStore) List(key string, recurse bool) (keys []string, index int, err 
 }
 
 // Delete removes a key from the fs store.
-func (f *FSStore) Delete(key string) (err error) {
+func (f *fsStore) Delete(key string) (err error) {
 	p := f.getPath(key) + f.suffix
 	if err = f.remove(p); err == nil || os.IsNotExist(err) {
 		return nil

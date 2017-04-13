@@ -107,13 +107,13 @@ func TestConfigValidatorError(t *testing.T) {
 				"denyChecker": &lc{},
 				"metrics2":    &lc{},
 			},
-			nil, 0, "service.name == “*”", false, sGlobalConfig},
+			nil, 0, "service.name == “*”", false, ConstGlobalConfig},
 		{nil,
 			map[string]adapter.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
 			},
-			nil, 1, "service.name == “*”", false, sGlobalConfig},
+			nil, 1, "service.name == “*”", false, ConstGlobalConfig},
 		{nil, nil,
 			map[Kind]AspectValidator{
 				MetricsKind: &ac{},
@@ -228,8 +228,8 @@ func TestFullConfigValidator(tt *testing.T) {
 			mgr := newVfinder(ctx.ada, ctx.asp)
 			fe.err = ctx.exprErr
 			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.AdapterToAspectMapperFunc, ctx.strict, fe)
-			// sGlobalConfig only defines 1 adapter: denyChecker
-			_, ce := p.validate(newFakeMap(sGlobalConfig, ctx.cfg))
+			// ConstGlobalConfig only defines 1 adapter: denyChecker
+			_, ce := p.validate(newFakeMap(ConstGlobalConfig, ctx.cfg))
 			cok := ce == nil
 			ok := ctx.cerr == nil
 			if ok != cok {
@@ -286,7 +286,7 @@ func TestDecoderError(t *testing.T) {
 	}
 }
 
-const sGlobalConfigValid = `
+const ConstGlobalConfigValid = `
 subject: "namespace:ns"
 revision: "2022"
 adapters:
@@ -297,7 +297,7 @@ adapters:
       check_expression: src.ip
       blacklist: true
 `
-const sGlobalConfig = sGlobalConfigValid + `
+const ConstGlobalConfig = ConstGlobalConfigValid + `
       unknown_field: true
 `
 
@@ -413,7 +413,7 @@ func TestValidated_Clone(t *testing.T) {
 		{AccessLogsKind, "n1"}: {},
 	}
 
-	pol := map[Key]*pb.ServiceConfig{
+	pol := map[RulesKey]*pb.ServiceConfig{
 		{"global", "global"}: {},
 	}
 
@@ -448,9 +448,9 @@ func TestValidated_Clone(t *testing.T) {
 func TestParseConfigKey(t *testing.T) {
 	for _, tst := range []struct {
 		input string
-		key   *Key
+		key   *RulesKey
 	}{
-		{keyGlobalServiceConfig, &Key{"global", "global"}},
+		{keyGlobalServiceConfig, &RulesKey{"global", "global"}},
 		{"/scopes/global/subjects/global", nil},
 		{"/SCOPES/global/subjects/global/rules", nil},
 		{"/scopes/global/SUBJECTS/global/rules", nil},

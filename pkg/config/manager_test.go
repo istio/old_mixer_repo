@@ -26,6 +26,10 @@ import (
 	"istio.io/mixer/pkg/config/descriptor"
 )
 
+const (
+	keyTargetService = "target.service"
+)
+
 type mtest struct {
 	gcContent string
 	gc        string
@@ -61,9 +65,9 @@ func TestConfigManager(t *testing.T) {
 	evaluator := newFakeExpr()
 	mlist := []mtest{
 		{"", "", "", "", nil, nil, ""},
-		{sGlobalConfig, "globalconfig", "", "", nil, nil, "failed validation"},
-		{sGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, nil, "failed validation"},
-		{sGlobalConfigValid, "globalconfig", sSvcConfig2, "serviceconfig", map[string]adapter.ConfigValidator{
+		{ConstGlobalConfig, "globalconfig", "", "", nil, nil, "failed validation"},
+		{ConstGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, nil, "failed validation"},
+		{ConstGlobalConfigValid, "globalconfig", sSvcConfig2, "serviceconfig", map[string]adapter.ConfigValidator{
 			"denyChecker": &lc{},
 			"metrics":     &lc{},
 			"listchecker": &lc{},
@@ -81,9 +85,48 @@ func TestConfigManager(t *testing.T) {
 			if mt.errStr != "" {
 				store.err = errors.New(mt.errStr)
 			}
-			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc, store, loopDelay)
+			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc, store, loopDelay, keyTargetService)
 			testConfigManager(t, ma, mt, loopDelay, idx)
 		})
+	}
+}
+
+func TestManager_FetchError(t *testing.T) {
+	loopDelay := time.Millisecond * 50
+	errStr := "TestManager_FetchError"
+	store := newFakeStore("{}", "{}")
+	mgr := NewManager(nil, nil, nil, nil, store, loopDelay, keyTargetService)
+
+	mgr.validate = func(cfg map[string]string) (rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors) {
+		ce = ce.Appendf("ABC", errStr)
+		return nil, nil, ce
+	}
+
+	testConfigManager(t, mgr, mtest{errStr: errStr}, loopDelay, 0)
+
+}
+
+func TestManager_readdb(t *testing.T) {
+	// testing modification between list and get
+	commonKey := "AA"
+	store := &fakeMemStore{
+		data: map[string]string{
+			commonKey: commonKey,
+			"BB":      "BB",
+		},
+	}
+	store.listKeys = []string{"NOTFOUND", commonKey}
+
+	// store.List will report additional key, which is not present anymore.
+
+	data, _, _, _ := readdb(store, "/")
+
+	if len(data) != 1 {
+		t.Errorf("got len=%d, want len=1", len(data))
+	}
+
+	if data[commonKey] != store.data[commonKey] {
+		t.Errorf("got %s, want %s", data[commonKey], store.data[commonKey])
 	}
 }
 
@@ -139,6 +182,8 @@ type fakeMemStore struct {
 
 	cl StoreListener
 	sync.RWMutex
+
+	listKeys []string
 }
 
 var _ KeyValueStore = &fakeMemStore{}
@@ -185,6 +230,10 @@ func (f *fakeMemStore) List(key string, recurse bool) (keys []string, index int,
 	defer f.RUnlock()
 	if f.err != nil {
 		return nil, f.index, f.err
+	}
+
+	if f.listKeys != nil {
+		return f.listKeys, f.index, f.err
 	}
 
 	for k := range f.data {

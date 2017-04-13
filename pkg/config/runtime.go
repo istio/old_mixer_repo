@@ -34,14 +34,19 @@ type (
 		Validated
 		// used to evaluate selectors
 		eval expr.PredicateEvaluator
+
+		// config is organized around the identityAttribute.
+		// target service identity, target.service
+		identityAttribute string
 	}
 )
 
 // newRuntime returns a runtime object given a validated config and a predicate eval.
-func newRuntime(v *Validated, evaluator expr.PredicateEvaluator) *runtime {
+func newRuntime(v *Validated, evaluator expr.PredicateEvaluator, identityAttribute string) *runtime {
 	return &runtime{
-		Validated: *v,
-		eval:      evaluator,
+		Validated:         *v,
+		eval:              evaluator,
+		identityAttribute: identityAttribute,
 	}
 }
 
@@ -55,7 +60,7 @@ const k8sMaSplit = 2
 
 // getK8sScopes return k8s scopes
 // my-svc.my-namespace.svc.cluster.local --> [ global, my-namespace, my-svc ]
-// This is k8s specific, it should be made configurable
+// When we have non k8s scopes, we will update this.
 func getK8sScopes(target string) ([]string, error) {
 	comps := strings.SplitN(target, ".", k8sMaSplit)
 	if len(comps) < 2 {
@@ -70,11 +75,11 @@ func getK8sScopes(target string) ([]string, error) {
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
 func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined, err error) {
-	if glog.V(2) {
+	if glog.V(4) {
 		glog.Infof("resolving for kinds: %s", set)
 		defer func() { glog.Infof("resolved configs (err=%v): %s", err, dlist) }()
 	}
-	return resolve(bag, set, r.policy, r.resolveRules, false /* conditional full resolve */)
+	return resolve(bag, set, r.policy, r.resolveRules, false /* conditional full resolve */, r.identityAttribute)
 }
 
 // ResolveUnconditional returns the list of CombinedConfigs for the supplied
@@ -82,25 +87,23 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined,
 // it only attempts to find aspects in rules that have an empty selector. This
 // method is primarily used for pre-process aspect configuration retrieval.
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*pb.Combined, err error) {
-	return resolve(bag, set, r.policy, r.resolveRules, true /* unconditional resolve */)
+	return resolve(bag, set, r.policy, r.resolveRules, true /* unconditional resolve */, r.identityAttribute)
 }
-
-const ktargetService = "target.service"
 
 // Make this a reasonable number so that we don't reallocate slices often.
 const resolveSize = 50
 
-func resolve(bag attribute.Bag, kindSet KindSet, policy map[Key]*pb.ServiceConfig, resolveRules resolveRulesFunc,
-	onlyEmptySelectors bool) (dlist []*pb.Combined, err error) {
+func resolve(bag attribute.Bag, kindSet KindSet, policy map[RulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
+	onlyEmptySelectors bool, identityAttribute string) (dlist []*pb.Combined, err error) {
 	var scopes []string
 	if glog.V(2) {
 		glog.Infof("unconditionally resolving for kinds: %s", kindSet)
 		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, dlist) }()
 	}
 
-	target, _ := bag.Get(ktargetService)
+	target, _ := bag.Get(identityAttribute)
 	if target == nil {
-		return nil, fmt.Errorf("%s attribute not found", ktargetService)
+		return nil, fmt.Errorf("%s attribute not found", identityAttribute)
 	}
 
 	if scopes, err = GetScopes(target.(string)); err != nil {
@@ -116,7 +119,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, policy map[Key]*pb.ServiceConfi
 
 		for j := idx; j < len(scopes); j++ {
 			subject := scopes[j]
-			key := Key{scope, subject}
+			key := RulesKey{scope, subject}
 			pol := policy[key]
 			if pol == nil {
 				continue

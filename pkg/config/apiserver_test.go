@@ -79,7 +79,8 @@ func TestAPI_getRules(t *testing.T) {
 	}{
 		{uri, val, http.StatusOK},
 		{uri, "<Unparseable> </Unparseable>", http.StatusInternalServerError},
-		{"/scopes/cluster/subjects/DOESNOTEXIST.cluster.local", val, http.StatusNotFound},
+		{"/scopes/cluster/subjects/DOESNOTEXIST.cluster.local/rules", val, http.StatusNotFound},
+		{"/unable_to_route_url_should_get_json_response", val, http.StatusNotFound},
 	} {
 		t.Run(ctx.key, func(t *testing.T) {
 			store := &fakeMemStore{
@@ -91,15 +92,18 @@ func TestAPI_getRules(t *testing.T) {
 				nil, nil, store)
 
 			sc, body := makeAPIRequest(api.handler, "GET", api.rootPath+ctx.key, []byte{}, t)
-			if sc != ctx.status {
-				t.Fatalf("http status got %d\nwant %d", sc, ctx.status)
-			}
 			apiResp := &struct {
 				Data *pb.ServiceConfig `json:"data,omitempty"`
 				*APIResponse
 			}{}
 			if err := json.Unmarshal(body, apiResp); err != nil {
 				t.Fatalf("Unable to unmarshal json %s\n%s", err.Error(), string(body))
+			}
+			if rpc.Code(apiResp.Status.Code) != httpStatusToRPC(ctx.status) {
+				t.Errorf("got %s, want %s", rpc.Code(apiResp.Status.Code), httpStatusToRPC(ctx.status))
+			}
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
 			}
 			if sc != http.StatusOK {
 				return
@@ -187,7 +191,7 @@ func TestAPI_putRules(t *testing.T) {
 			}
 
 			if !strings.Contains(apiResp.Status.Message, tst.msg) {
-				t.Errorf("got %s\nwant %s", apiResp.Status, tst.msg)
+				t.Errorf("got %v\nwant %s", apiResp.Status, tst.msg)
 			}
 		})
 	}

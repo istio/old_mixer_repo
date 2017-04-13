@@ -39,7 +39,7 @@ type readBodyFunc func(r io.Reader) ([]byte, error)
 
 // API defines and implements the configuration API.
 // The server constructs and uses a validator for validations
-// The server uses KeyValueStore to persists keys.
+// The server uses KeyValueStore to persist keys.
 type API struct {
 	version  string
 	rootPath string
@@ -59,10 +59,13 @@ type API struct {
 // DefaultAPIPort default port exposed by the API server.
 const DefaultAPIPort uint16 = 9094
 
+// MsgOk defines the text of the OK message in rpc.Status.Message.
+const MsgOk = "ok"
+
 // APIResponse defines the shape of the api response.
 type APIResponse struct {
 	Data   interface{} `json:"data,omitempty"`
-	Status *rpc.Status `json:"status,omitempty"`
+	Status rpc.Status  `json:"status,omitempty"`
 }
 
 // register routes
@@ -120,18 +123,12 @@ func (a *API) Run() {
 	glog.Warning(a.server.ListenAndServe())
 }
 
-// getRules returns the entire service config document for the scope and subject
+// getRules returns the rules document for the scope and the subject.
 // "/scopes/{scope}/subjects/{subject}/rules"
 func (a *API) getRules(req *restful.Request, resp *restful.Response) {
 	funcPath := req.Request.URL.Path[len(a.rootPath):]
 	st, msg, data := getRules(a.store, funcPath)
-
 	writeResponse(st, msg, data, resp)
-
-	/*
-		// TODO send index back to the client
-		//_ = index
-	*/
 }
 
 func getRules(store KeyValueStore, path string) (statusCode int, msg string, data *pb.ServiceConfig) {
@@ -144,9 +141,10 @@ func getRules(store KeyValueStore, path string) (statusCode int, msg string, dat
 
 	m := &pb.ServiceConfig{}
 	if err := yaml.Unmarshal([]byte(val), m); err != nil {
+		glog.Warningf("rules %s could not be parsed %s", path, err.Error())
 		return http.StatusInternalServerError, fmt.Sprintf("unbale to parse rules at %s", path), nil
 	}
-	return http.StatusOK, "ok", m
+	return http.StatusOK, MsgOk, m
 }
 
 // putRules replaces the entire service config document for the scope and subject
@@ -196,16 +194,13 @@ type response interface {
 }
 
 func writeResponse(httpStatus int, msg string, data interface{}, resp response) {
-	rpcStatus := status.WithMessage(
-		httpStatusToRPC(httpStatus), msg)
-	out := &APIResponse{
-		Data:   data,
-		Status: &rpcStatus,
-	}
-
 	if err := resp.WriteHeaderAndJson(
 		httpStatus,
-		out,
+		&APIResponse{
+			Data: data,
+			Status: status.WithMessage(
+				httpStatusToRPC(httpStatus), msg),
+		},
 		restful.MIME_JSON,
 	); err != nil {
 		glog.Warning(err)

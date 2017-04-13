@@ -43,20 +43,21 @@ import (
 )
 
 type serverArgs struct {
-	maxMessageSize         uint
-	maxConcurrentStreams   uint
-	apiWorkerPoolSize      int
-	adapterWorkerPoolSize  int
-	port                   uint16
-	configAPIPort          uint16
-	singleThreaded         bool
-	compressedPayload      bool
-	enableTracing          bool
-	serverCertFile         string
-	serverKeyFile          string
-	clientCertFiles        string
-	configStoreURL         string
-	configFetchIntervalSec uint
+	maxMessageSize          uint
+	maxConcurrentStreams    uint
+	apiWorkerPoolSize       int
+	adapterWorkerPoolSize   int
+	port                    uint16
+	configAPIPort           uint16
+	singleThreaded          bool
+	compressedPayload       bool
+	enableTracing           bool
+	serverCertFile          string
+	serverKeyFile           string
+	clientCertFiles         string
+	configStoreURL          string
+	configFetchIntervalSec  uint
+	configIdentityAttribute string
 
 	// @deprecated
 	serviceConfigFile string
@@ -107,6 +108,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
+	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
+		"Attribute that is used to idenity applicable scopes.")
 
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
@@ -117,10 +120,10 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	return &serverCmd
 }
 
-// configStore - given config this function returns a KVStore
+// configStore - given config this function returns a KeyValueStore
 // It provides a compatibility layer so one can continue using serviceConfigFile and globalConfigFile flags
 // until they are removed.
-func configStore(url string, serviceConfig string, globalConfig string, printf, fatalf shared.FormatFn) (store config.KeyValueStore) {
+func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf shared.FormatFn) (store config.KeyValueStore) {
 	var err error
 	if url != "" {
 		if store, err = config.NewStore(url); err != nil {
@@ -128,16 +131,13 @@ func configStore(url string, serviceConfig string, globalConfig string, printf, 
 		}
 		return store
 	}
-
-	if serviceConfig == "" || globalConfig == "" {
+	if serviceConfigFile == "" || globalConfigFile == "" {
 		fatalf("Missing configStoreURL")
 	}
-
 	printf("*** serviceConfigFile and globalConfigFile are deprecated, use configStoreURL")
-	if store, err = config.NewCompatFSStore(globalConfig, serviceConfig); err != nil {
+	if store, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
 		fatalf("Failed to get config store: %s", err.Error())
 	}
-
 	return store
 }
 
@@ -160,7 +160,8 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
 		adapterMgr.SupportedKinds,
-		store, time.Second*time.Duration(sa.configFetchIntervalSec))
+		store, time.Second*time.Duration(sa.configFetchIntervalSec),
+		sa.configIdentityAttribute)
 
 	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
 		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
