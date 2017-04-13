@@ -127,31 +127,31 @@ func (fr *fakeresolver) rrf(bag attribute.Bag, kindSet KindSet, rules []*pb.Aspe
 	return dlist, nil
 }
 
-func buildPolicy(pol []*fakePolicy) map[RulesKey]*pb.ServiceConfig {
-	policy := map[RulesKey]*pb.ServiceConfig{}
+func buildRule(rule []*fakeRule) map[rulesKey]*pb.ServiceConfig {
+	rules := map[rulesKey]*pb.ServiceConfig{}
 
-	for _, p := range pol {
-		pk := RulesKey{p.scope, p.subject}
-		policy[pk] = buildServiceConfig(fmt.Sprintf("%s", pk), p.kinds)
+	for _, p := range rule {
+		pk := rulesKey{p.scope, p.subject}
+		rules[pk] = buildServiceConfig(fmt.Sprintf("%s", pk), p.kinds)
 	}
-	return policy
+	return rules
 }
 
-type fakePolicy struct {
+type fakeRule struct {
 	scope   string
 	subject string
 	kinds   []string
 }
 
-func fP(scope string, subject string, kinds ...string) *fakePolicy {
-	return &fakePolicy{scope, subject, kinds}
+func fP(scope string, subject string, kinds ...string) *fakeRule {
+	return &fakeRule{scope, subject, kinds}
 }
 
-// TestResolve multi policy resolve
+// TestResolve multi rules resolve
 func TestResolve(t *testing.T) {
 	table := []struct {
 		target       string
-		pol          []*fakePolicy
+		rule         []*fakeRule
 		kinds        []string
 		makebag      bool
 		err          error
@@ -159,7 +159,7 @@ func TestResolve(t *testing.T) {
 		// check if the aspect is from the correct scope
 		assertions map[string]string
 	}{
-		{"svc1.ns1.svc.cluster.local", []*fakePolicy{
+		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
 			[]string{"metric0"},
 			true,
@@ -168,7 +168,7 @@ func TestResolve(t *testing.T) {
 				"metric0": "global/global",
 			},
 		},
-		{"svc1.ns1.svc.cluster.local", []*fakePolicy{
+		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1"),
 			fP("global", "ns1.svc.cluster.local", "metric0", "metric1"),
 		},
@@ -179,7 +179,7 @@ func TestResolve(t *testing.T) {
 				"metric0": "global/ns1.svc.cluster.local",
 			},
 		},
-		{"svc1.ns1.svc.cluster.local", []*fakePolicy{
+		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1"),
 			fP("global", "ns1.svc.cluster.local", "metric0"),
 			fP("global", "svc1.ns1.svc.cluster.local", "metric1"),
@@ -192,7 +192,7 @@ func TestResolve(t *testing.T) {
 				"metric1": "global/svc1.ns1.svc.cluster.local",
 			},
 		},
-		{"svc1.ns1.svc.cluster.local", []*fakePolicy{
+		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
 			[]string{"metric0"},
 			false,
@@ -201,7 +201,7 @@ func TestResolve(t *testing.T) {
 				"metric0": "global/global",
 			},
 		},
-		{"svc1", []*fakePolicy{
+		{"svc1", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
 			[]string{"metric0"},
 			true,
@@ -210,7 +210,7 @@ func TestResolve(t *testing.T) {
 				"metric0": "global/global",
 			},
 		},
-		{"svc1.ns1.svc.cluster.local", []*fakePolicy{
+		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
 			[]string{"metric0"},
 			true,
@@ -223,7 +223,7 @@ func TestResolve(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.target, func(t1 *testing.T) {
-			policy := buildPolicy(tt.pol)
+			rules := buildRule(tt.rule)
 			attrs := map[string]interface{}{}
 			if tt.makebag {
 				attrs[keyTargetService] = tt.target
@@ -231,7 +231,7 @@ func TestResolve(t *testing.T) {
 			b := &bag{attrs}
 			var ks KindSet = 0xff
 			fr := newFakeResolver(tt.kinds, ks, tt.resolveError)
-			dl, err := resolve(b, ks, policy, fr.rrf, false, keyTargetService)
+			dl, err := resolve(b, ks, rules, fr.rrf, false, keyTargetService)
 			if err != nil {
 				if tt.err == nil {
 					t1.Fatal("Unexpected Error", err)
@@ -287,8 +287,8 @@ func TestRuntime(t *testing.T) {
 			{ListsKind, "a1"}: a1,
 			{ListsKind, "a2"}: a2,
 		},
-		policy: map[RulesKey]*pb.ServiceConfig{
-			GlobalPolicyKey: {
+		rule: map[rulesKey]*pb.ServiceConfig{
+			globalRulesKey: {
 				Rules: []*pb.AspectRule{
 					{
 						Selector: "ok",
@@ -381,8 +381,8 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 			{ListsKind, "a2"}:      a2,
 			{AttributesKind, "ag"}: ag,
 		},
-		policy: map[RulesKey]*pb.ServiceConfig{
-			GlobalPolicyKey: {
+		rule: map[rulesKey]*pb.ServiceConfig{
+			globalRulesKey: {
 				Rules: []*pb.AspectRule{
 					{
 						Selector: "ok",

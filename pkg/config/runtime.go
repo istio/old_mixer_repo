@@ -36,7 +36,6 @@ type (
 		eval expr.PredicateEvaluator
 
 		// config is organized around the identityAttribute.
-		// target service identity, target.service
 		identityAttribute string
 	}
 )
@@ -79,7 +78,7 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined,
 		glog.Infof("resolving for kinds: %s", set)
 		defer func() { glog.Infof("resolved configs (err=%v): %s", err, dlist) }()
 	}
-	return resolve(bag, set, r.policy, r.resolveRules, false /* conditional full resolve */, r.identityAttribute)
+	return resolve(bag, set, r.rule, r.resolveRules, false /* conditional full resolve */, r.identityAttribute)
 }
 
 // ResolveUnconditional returns the list of CombinedConfigs for the supplied
@@ -87,13 +86,13 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined,
 // it only attempts to find aspects in rules that have an empty selector. This
 // method is primarily used for pre-process aspect configuration retrieval.
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*pb.Combined, err error) {
-	return resolve(bag, set, r.policy, r.resolveRules, true /* unconditional resolve */, r.identityAttribute)
+	return resolve(bag, set, r.rule, r.resolveRules, true /* unconditional resolve */, r.identityAttribute)
 }
 
 // Make this a reasonable number so that we don't reallocate slices often.
 const resolveSize = 50
 
-func resolve(bag attribute.Bag, kindSet KindSet, policy map[RulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
+func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
 	onlyEmptySelectors bool, identityAttribute string) (dlist []*pb.Combined, err error) {
 	var scopes []string
 	if glog.V(2) {
@@ -119,14 +118,14 @@ func resolve(bag attribute.Bag, kindSet KindSet, policy map[RulesKey]*pb.Service
 
 		for j := idx; j < len(scopes); j++ {
 			subject := scopes[j]
-			key := RulesKey{scope, subject}
-			pol := policy[key]
-			if pol == nil {
+			key := rulesKey{scope, subject}
+			rule := rules[key]
+			if rule == nil {
 				continue
 			}
 			// empty the slice, do not re allocate
 			dlist = dlist[:0]
-			if dlist, err = resolveRules(bag, kindSet, pol.GetRules(), "/", dlist, onlyEmptySelectors); err != nil {
+			if dlist, err = resolveRules(bag, kindSet, rule.GetRules(), "/", dlist, onlyEmptySelectors); err != nil {
 				return dlist, err
 			}
 

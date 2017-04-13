@@ -86,7 +86,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 	}
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
-	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", config.DefaultAPIPort, "HTTP port to use for the mixer's Configuration API")
+	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for the mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
@@ -109,7 +109,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
 	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
-		"Attribute that is used to idenity applicable scopes.")
+		"Attribute that is used to identify applicable scopes.")
 
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")

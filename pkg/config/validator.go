@@ -83,7 +83,7 @@ func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderVali
 		exprValidator: exprValidator,
 		validated: &Validated{
 			adapterByName: make(map[adapterKey]*pb.Adapter),
-			policy:        make(map[RulesKey]*pb.ServiceConfig),
+			rule:          make(map[rulesKey]*pb.ServiceConfig),
 			adapter:       make(map[string]*pb.GlobalConfig),
 			descriptor:    make(map[string]*pb.GlobalConfig),
 			shas:          make(map[string][sha1.Size]byte),
@@ -108,8 +108,8 @@ type (
 		name string
 	}
 
-	// RulesKey is used to lookup the combined rules document.
-	RulesKey struct {
+	// rulesKey is used to lookup the combined rules document.
+	rulesKey struct {
 		// Scope of the rules document.
 		Scope string
 		// Subject of the rules document.
@@ -123,7 +123,7 @@ type (
 		// descriptors and adapters are only allowed in global scope
 		adapter    map[string]*pb.GlobalConfig
 		descriptor map[string]*pb.GlobalConfig
-		policy     map[RulesKey]*pb.ServiceConfig
+		rule       map[rulesKey]*pb.ServiceConfig
 		shas       map[string][sha1.Size]byte
 		numAspects int
 	}
@@ -144,9 +144,9 @@ func (v *Validated) Clone() *Validated {
 		aa[k] = a
 	}
 
-	pol := map[RulesKey]*pb.ServiceConfig{}
-	for k, a := range v.policy {
-		pol[k] = a
+	rule := map[rulesKey]*pb.ServiceConfig{}
+	for k, a := range v.rule {
+		rule[k] = a
 	}
 
 	shas := map[string][sha1.Size]byte{}
@@ -156,7 +156,7 @@ func (v *Validated) Clone() *Validated {
 
 	return &Validated{
 		adapterByName: aa,
-		policy:        pol,
+		rule:          rule,
 		adapter:       copyDescriptors(v.adapter),
 		descriptor:    copyDescriptors(v.descriptor),
 		numAspects:    v.numAspects,
@@ -165,37 +165,33 @@ func (v *Validated) Clone() *Validated {
 }
 
 const (
-	constGlobal      = "global"
-	constScopes      = "scopes"
-	constSubjects    = "subjects"
-	constRules       = "rules"
-	constAdapters    = "adapters"
-	constDescriptors = "descriptors"
+	global      = "global"
+	scopes      = "scopes"
+	subjects    = "subjects"
+	rules       = "rules"
+	adapters    = "adapters"
+	descriptors = "descriptors"
 
 	keyAdapters            = "/scopes/global/adapters"
 	keyDescriptors         = "/scopes/global/descriptors"
 	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
 )
 
-// GlobalPolicyKey this policy applies to all requests
-// so we just create a well known key for it
-var GlobalPolicyKey = RulesKey{Scope: constGlobal, Subject: constGlobal}
-
 // String string representation of a Key
-func (p RulesKey) String() string {
+func (p rulesKey) String() string {
 	return fmt.Sprintf("%s/%s", p.Scope, p.Subject)
 }
 
 // /scopes/global/subjects/global/rules --> global / global
-func parseConfigKey(key string) (k *RulesKey) {
+func parseRulesKey(key string) (k *rulesKey) {
 	comps := strings.Split(key, "/")
 	if len(comps) < 6 {
 		return nil
 	}
-	if comps[1] != constScopes || comps[3] != constSubjects {
+	if comps[1] != scopes || comps[3] != subjects {
 		return nil
 	}
-	k = &RulesKey{comps[2], comps[4]}
+	k = &rulesKey{comps[2], comps[4]}
 	return k
 }
 
@@ -308,12 +304,12 @@ func classifyKeys(keys []string) map[string][]string {
 		kk := strings.Split(key, "/")
 		var k string
 		switch kk[len(kk)-1] {
-		case constRules:
-			k = constRules
-		case constAdapters:
-			k = constAdapters
-		case constDescriptors:
-			k = constDescriptors
+		case rules:
+			k = rules
+		case adapters:
+			k = adapters
+		case descriptors:
+			k = descriptors
 		default:
 			if glog.V(4) {
 				glog.Infoln("unknown key", keys)
@@ -327,7 +323,7 @@ func classifyKeys(keys []string) map[string][]string {
 }
 
 func descriptorKey(scope string) string {
-	return fmt.Sprintf("/scopes/%s/%s", scope, constDescriptors)
+	return fmt.Sprintf("/scopes/%s/%s", scope, descriptors)
 }
 
 // validate validates a single serviceConfig and globalConfig together.
@@ -340,22 +336,22 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 	}
 	keymap := classifyKeys(cfgkey)
 
-	for _, kk := range keymap[constDescriptors] {
+	for _, kk := range keymap[descriptors] {
 		if re := p.validateDescriptors(kk, cfg[kk]); re != nil {
 			return rt, ce.Appendf("GlobalConfig", "failed validation").Extend(re)
 		}
 	}
 
-	for _, kk := range keymap[constAdapters] {
+	for _, kk := range keymap[adapters] {
 		if re := p.validateAdapters(kk, cfg[kk]); re != nil {
 			return rt, ce.Appendf("GlobalConfig", "failed validation").Extend(re)
 		}
 	}
 
 	// The order is important here, because serviceConfig refers to adapters and descriptors
-	p.descriptorFinder = descriptor.NewFinder(p.validated.descriptor[descriptorKey(constGlobal)])
-	for _, kk := range keymap[constRules] {
-		ck := parseConfigKey(kk)
+	p.descriptorFinder = descriptor.NewFinder(p.validated.descriptor[descriptorKey(global)])
+	for _, kk := range keymap[rules] {
+		ck := parseRulesKey(kk)
 		if ck == nil {
 			continue
 		}
@@ -369,7 +365,7 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 // ValidateServiceConfig validates service config.
 // if validatePresence is true it will ensure that the named adapter and Kinds
 // have an available and configured adapter.
-func (p *validator) validateServiceConfig(pk RulesKey, cfg string, validatePresence bool) (ce *adapter.ConfigErrors) {
+func (p *validator) validateServiceConfig(pk rulesKey, cfg string, validatePresence bool) (ce *adapter.ConfigErrors) {
 	var err error
 	m := &pb.ServiceConfig{}
 	var numAspects int
@@ -380,7 +376,7 @@ func (p *validator) validateServiceConfig(pk RulesKey, cfg string, validatePrese
 	if numAspects, ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
 		return ce
 	}
-	p.validated.policy[pk] = m
+	p.validated.rule[pk] = m
 	p.validated.numAspects += numAspects
 
 	return nil

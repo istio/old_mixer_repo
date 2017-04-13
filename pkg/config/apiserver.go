@@ -56,11 +56,8 @@ type API struct {
 	readBody readBodyFunc
 }
 
-// DefaultAPIPort default port exposed by the API server.
-const DefaultAPIPort uint16 = 9094
-
 // MsgOk defines the text of the OK message in rpc.Status.Message.
-const MsgOk = "ok"
+const msgOk = "ok"
 
 // APIResponse defines the shape of the api response.
 type APIResponse struct {
@@ -141,10 +138,11 @@ func getRules(store KeyValueStore, path string) (statusCode int, msg string, dat
 
 	m := &pb.ServiceConfig{}
 	if err := yaml.Unmarshal([]byte(val), m); err != nil {
-		glog.Warningf("rules %s could not be parsed %s", path, err.Error())
-		return http.StatusInternalServerError, fmt.Sprintf("unbale to parse rules at %s", path), nil
+		msg := fmt.Sprintf("unable to parse rules at %s: %s", path, err.Error())
+		glog.Warning(msg)
+		return http.StatusInternalServerError, msg, nil
 	}
-	return http.StatusOK, MsgOk, m
+	return http.StatusOK, msgOk, m
 }
 
 // putRules replaces the entire service config document for the scope and subject
@@ -184,7 +182,7 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	}
 	// TODO send index back to the client
 	writeResponse(http.StatusOK, fmt.Sprintf("Created %s", key),
-		vd.policy[*parseConfigKey(key)], resp)
+		vd.rule[*parseRulesKey(key)], resp)
 }
 
 // a subset of restful.Response
