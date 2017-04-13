@@ -142,7 +142,7 @@ func TestConfigValidatorError(t *testing.T) {
 			mgr := newVfinder(tt.ada, tt.asp)
 			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.AdapterToAspectMapperFunc, tt.strict, evaluator)
 			if tt.cfg == sSvcConfig {
-				ce = p.validateServiceConfig(GlobalPolicyKey, fmt.Sprintf(tt.cfg, tt.selector), false)
+				ce = p.validateServiceConfig(globalRulesKey, fmt.Sprintf(tt.cfg, tt.selector), false)
 			} else {
 				ce = p.validateAdapters(keyAdapters, tt.cfg)
 			}
@@ -249,11 +249,15 @@ func TestFullConfigValidator(tt *testing.T) {
 	}
 }
 
+// globalRulesKey this rule set applies to all requests
+// so we create a well known key for it
+var globalRulesKey = rulesKey{Scope: global, Subject: global}
+
 func TestConfigParseError(t *testing.T) {
 	mgr := &fakeVFinder{}
 	evaluator := newFakeExpr()
 	p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.AdapterToAspectMapperFunc, false, evaluator)
-	ce := p.validateServiceConfig(GlobalPolicyKey, "<config>  </config>", false)
+	ce := p.validateServiceConfig(globalRulesKey, "<config>  </config>", false)
 
 	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
@@ -413,7 +417,7 @@ func TestValidated_Clone(t *testing.T) {
 		{AccessLogsKind, "n1"}: {},
 	}
 
-	pol := map[RulesKey]*pb.ServiceConfig{
+	rule := map[rulesKey]*pb.ServiceConfig{
 		{"global", "global"}: {},
 	}
 
@@ -431,7 +435,7 @@ func TestValidated_Clone(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: aa,
-		policy:        pol,
+		rule:          rule,
 		adapter:       adp,
 		descriptor:    desc,
 		numAspects:    1,
@@ -448,15 +452,15 @@ func TestValidated_Clone(t *testing.T) {
 func TestParseConfigKey(t *testing.T) {
 	for _, tst := range []struct {
 		input string
-		key   *RulesKey
+		key   *rulesKey
 	}{
-		{keyGlobalServiceConfig, &RulesKey{"global", "global"}},
+		{keyGlobalServiceConfig, &rulesKey{"global", "global"}},
 		{"/scopes/global/subjects/global", nil},
 		{"/SCOPES/global/subjects/global/rules", nil},
 		{"/scopes/global/SUBJECTS/global/rules", nil},
 	} {
 		t.Run(tst.input, func(t *testing.T) {
-			k := parseConfigKey(tst.input)
+			k := parseRulesKey(tst.input)
 			if !reflect.DeepEqual(k, tst.key) {
 				t.Errorf("got %s\nwant %s", k, tst.key)
 			}
