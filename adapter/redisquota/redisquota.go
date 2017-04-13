@@ -17,6 +17,7 @@
 package redisquota
 
 import (
+	"strconv"
 	"time"
 
 	"istio.io/mixer/adapter/memQuota/util"
@@ -34,6 +35,9 @@ type redisQuota struct {
 	redisPool *connPool
 
 	redisError error
+
+	// algorithm for rate-limiting, fixed-window or rolling-window
+	rateLimit string
 }
 
 var (
@@ -44,6 +48,7 @@ var (
 		RedisServerUrl:           "localhost:6379",
 		SocketType:               "tcp",
 		ConnectionPoolSize:       10,
+		RateLimitAlgorithm:       "fixed-window",
 	}
 )
 
@@ -66,6 +71,10 @@ func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	if c.ConnectionPoolSize < 0 {
 		ce = ce.Appendf("ConnectionPoolSize", "redis connection pool size of %v is invalid, must be > 0", c.ConnectionPoolSize)
 
+	}
+
+	if c.RateLimitAlgorithm != "rolling-window" && c.RateLimitAlgorithm != "fixed-window" {
+		ce = ce.Appendf("RateLimitAlgorithm", "rate limit algorithm of %v is invalid, only fixed-window and rolling-window are supported", c.RateLimitAlgorithm)
 	}
 
 	return
@@ -97,6 +106,7 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) 
 		},
 		redisPool:  connPool,
 		redisError: nil,
+		rateLimit:  c.RateLimitAlgorithm,
 	}
 
 	env.ScheduleDaemon(func() {
@@ -130,41 +140,105 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 		}
 		defer rq.redisPool.put(conn)
 
-		// increase the value of this key by the amount of result
-		conn.pipeAppend("INCRBY", key, result)
-		ret, err := conn.getIntResp()
-		if err != nil {
-			rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
-			return 0, time.Time{}, 0
-		}
+		// Rolling-window algorithm
+		// For rate-limiting use only, and no release for now.
+		if rq.rateLimit == "rolling-window" {
+			// Subsequent commands between MULTI and EXEC will be queued for atomic execution.
+			// The queued commands will not produce any real response until EXEC.
+			conn.pipeAppend("MULTI")
+			resp, _ := conn.pipeResponse()
 
-		if d.Expiration != 0 {
-			conn.pipeAppend("EXPIRE", key, seconds)
-			rv, errInt := conn.getIntResp()
-			if errInt != nil {
-				rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key: %v", errInt)
+			// Remove members in the sorted set which are out of the current window
+			now := int(currentTime.UnixNano())
+			exp := now - int(d.Expiration.Nanoseconds())
+			conn.pipeAppend("ZREMRANGEBYSCORE", key, 0, strconv.Itoa(exp))
+			resp, _ = conn.pipeResponse()
+
+			// Add the current request in the format of (member, score) to the sorted set, use timestamp as score here.
+			for i := 0; i < int(result); i++ {
+				conn.pipeAppend("ZADD", key, strconv.Itoa(now), strconv.Itoa(now+i))
+				resp, _ = conn.pipeResponse()
+			}
+
+			// Get the cardinality of the sorted set with key.
+			conn.pipeAppend("ZCARD", key)
+			resp, _ = conn.pipeResponse()
+
+			// Atomic execution of all the previous commands, starting from "MULTI"
+			conn.pipeAppend("EXEC")
+			// This will be the actual response to EXEC.
+			resp, err = conn.pipeResponse()
+			if err != nil {
+				rq.common.Logger.Warningf("Could not execute command on redis for expiring keys: %v", err)
 				return 0, time.Time{}, 0
-			} else if rv != 1 {
-				rq.redisError = rq.common.Logger.Errorf("Could not set expire for key.")
-				return 0, time.Time{}, 0
+			}
+
+			// The responses of previous commands are in an Array.
+			info, _ := resp.response.Array()
+			var lastElem int
+			for i := range info {
+				res, _ := info[i].Int()
+				if i == len(info)-1 {
+					lastElem = res
+				}
+			}
+
+			if int64(lastElem) > d.MaxAmount {
+				// Remove over added elements in sorted set.
+				conn.pipeAppend("ZREMRANGEBYRANK", key, -int64(lastElem)+d.MaxAmount, -1)
+				_, err := conn.getIntResp()
+				if err != nil {
+					rq.common.Logger.Warningf("Could not remove element in sorted set on redis for expiring keys: %v", err)
+					return 0, time.Time{}, 0
+				}
+
+				if !bestEffort {
+					return 0, time.Time{}, 0
+				}
+				// grab as much as we can
+				result = d.MaxAmount - (int64(lastElem) - result)
 			}
 		}
 
-		if ret > d.MaxAmount {
-			if !bestEffort {
-				return 0, time.Time{}, 0
-			}
-			// grab as much as we can
-			result = d.MaxAmount - (ret - result)
-			conn.pipeAppend("DECRBY", key, (ret - d.MaxAmount))
-			res, err := conn.getIntResp()
+		// Fixed-window algorithm
+		// For quota enforcement.
+		if rq.rateLimit == "fixed-window" {
+			// increase the value of this key by the amount of result
+			conn.pipeAppend("INCRBY", key, result)
+			ret, err := conn.getIntResp()
 			if err != nil {
 				rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
 				return 0, time.Time{}, 0
 			}
-			if res != d.MaxAmount {
-				rq.redisError = rq.common.Logger.Errorf("Could not set value to key.")
-				return 0, time.Time{}, 0
+
+			if d.Expiration != 0 {
+				conn.pipeAppend("EXPIRE", key, seconds)
+				rv, errInt := conn.getIntResp()
+				if errInt != nil {
+					rq.redisError = rq.common.Logger.Errorf("Got error when setting expire for key: %v", errInt)
+					return 0, time.Time{}, 0
+				} else if rv != 1 {
+					rq.redisError = rq.common.Logger.Errorf("Could not set expire for key.")
+					return 0, time.Time{}, 0
+				}
+			}
+
+			if ret > d.MaxAmount {
+				if !bestEffort {
+					return 0, time.Time{}, 0
+				}
+				// grab as much as we can
+				result = d.MaxAmount - (ret - result)
+				conn.pipeAppend("DECRBY", key, (ret - d.MaxAmount))
+				res, err := conn.getIntResp()
+				if err != nil {
+					rq.redisError = rq.common.Logger.Errorf("Unable to get integer response from redis: %v", err)
+					return 0, time.Time{}, 0
+				}
+				if res != d.MaxAmount {
+					rq.redisError = rq.common.Logger.Errorf("Could not set value to key.")
+					return 0, time.Time{}, 0
+				}
 			}
 		}
 
