@@ -64,50 +64,16 @@ func newFSStore(root string) KeyValueStore {
 
 	s.tempFile = func() (f writeCloser, err error) {
 		if err = s.mkdirAll(s.tmpdir, os.ModeDir|os.ModePerm); err != nil {
-			return
+			return nil, err
 		}
 		f, err = ioutil.TempFile(s.tmpdir, "fsStore")
-		return
+		return f, err
 	}
 	return s
 }
 
 func (f *fsStore) String() string {
 	return fmt.Sprintf("fsStore: %s", f.root)
-}
-
-// NewCompatFSStore creates and returns an fsStore using old style
-// This should be removed once we migrate all configs to new style configs.
-// globalConfig and serviceConfig
-func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (KeyValueStore, error) {
-	// no configURL, but serviceConfig and globalConfig are specified.
-	// provides compatibility
-	var err error
-	dm := map[string]string{
-		keyGlobalServiceConfig: serviceConfigFile,
-		keyDescriptors:         globalConfigFile,
-	}
-	var data []byte
-	var dir string
-	if dir, err = ioutil.TempDir(os.TempDir(), "fsStore"); err != nil {
-		return nil, err
-	}
-	fs := newFSStore(dir).(*fsStore)
-
-	for k, v := range dm {
-		if data, err = fs.readfile(v); err != nil {
-			return nil, err
-		}
-		dm[k] = string(data)
-	}
-	dm[keyAdapters] = dm[keyDescriptors]
-
-	for k, v := range dm {
-		if _, err = fs.Set(k, v); err != nil {
-			return nil, err
-		}
-	}
-	return fs, nil
 }
 
 func (f *fsStore) getPath(key string) string {

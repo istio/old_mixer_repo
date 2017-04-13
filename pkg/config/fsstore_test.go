@@ -144,6 +144,10 @@ func TestFSStore_Get(t *testing.T) {
 	_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
 	defer func(f string) { _ = os.RemoveAll(f) }(fsroot)
 
+	if !strings.Contains(f.String(), fsroot) {
+		t.Errorf("Expected %s to contain %s", f, fsroot)
+	}
+
 	for _, errs := range []error{os.ErrNotExist,
 		errors.New("unexpected error, want logs")} {
 		t.Run(errs.Error(), func(t *testing.T) {
