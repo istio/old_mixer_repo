@@ -90,8 +90,9 @@ def stablePostsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/mixer') {
     bazel.updateBazelRc()
     stage('Docker Push') {
+      def date = new Date().format("YYYY-MM-dd-HH.mm.ss")
       def images = 'mixer,mixer_debug'
-      def tags = "${env.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
+      def tags = "${env.GIT_SHORT_SHA},${date},latest"
       utils.publishDockerImagesToDockerHub(images, tags)
       utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
     }
