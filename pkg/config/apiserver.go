@@ -86,6 +86,7 @@ func (a *API) register(c *restful.Container) {
 		Doc("Replaces rules associated with the given scope and subject").
 		Param(ws.PathParameter("scope", "scope").DataType("string")).
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Reads(&pb.ServiceConfig{}).
 		Writes(APIResponse{}))
 	c.Add(ws)
 }
@@ -145,9 +146,10 @@ func getRules(store KeyValueStore, path string) (statusCode int, msg string, dat
 	return http.StatusOK, msgOk, m
 }
 
-// putRules replaces the entire service config document for the scope and subject
+// putRules replaces the entire rules document for the scope and subject
 // "/scopes/{scope}/subjects/{subject}/rules"
 func (a *API) putRules(req *restful.Request, resp *restful.Response) {
+
 	key := req.Request.URL.Path[len(a.rootPath):]
 	var data map[string]string
 	var err error

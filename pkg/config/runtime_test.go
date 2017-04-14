@@ -53,20 +53,24 @@ type ttable struct {
 func TestGetScopes(t *testing.T) {
 	table := []struct {
 		target  string
+		domain  string
 		scopes  []string
 		success bool
 	}{
-		{"my-svc.my-namespace.svc.cluster.local", []string{
+		{"my-svc.my-namespace.svc.cluster.local", "svc.cluster.local", []string{
 			"global", "my-namespace.svc.cluster.local", "my-svc.my-namespace.svc.cluster.local"}, true},
-		{"my-svc.my-namespace", []string{
-			"global", "my-namespace", "my-svc.my-namespace"}, true},
-		{"my-svc", []string{
+		{"my-svc.my-namespace.svc.cluster.local", ".svc.cluster.local", []string{
+			"global", "my-namespace.svc.cluster.local", "my-svc.my-namespace.svc.cluster.local"}, true},
+		{"my-svc.my-namespace.corp", "corp", []string{
+			"global", "my-namespace.corp", "my-svc.my-namespace.corp"}, true},
+		{"my-svc", "cluster.local.", []string{
 			"global", "my-namespace", "my-svc.my-namespace"}, false},
 	}
 
 	for _, tt := range table {
 		t.Run(tt.target, func(t1 *testing.T) {
-			got, err := GetScopes(tt.target)
+			got := make([]string, 0, 10)
+			got, err := GetScopes(tt.target, tt.domain, got)
 			if (err == nil) != tt.success {
 				t1.Errorf("got %s\nwant %t", err, tt.success)
 				return
@@ -205,7 +209,7 @@ func TestResolve(t *testing.T) {
 			fP("global", "global", "metric0", "metric1")},
 			[]string{"metric0"},
 			true,
-			errors.New("target not valid"), nil,
+			errors.New("interal error: scope"), nil,
 			map[string]string{
 				"metric0": "global/global",
 			},
@@ -231,7 +235,7 @@ func TestResolve(t *testing.T) {
 			b := &bag{attrs}
 			var ks KindSet = 0xff
 			fr := newFakeResolver(tt.kinds, ks, tt.resolveError)
-			dl, err := resolve(b, ks, rules, fr.rrf, false, keyTargetService)
+			dl, err := resolve(b, ks, rules, fr.rrf, false, keyTargetService, keyServiceDomain)
 			if err != nil {
 				if tt.err == nil {
 					t1.Fatal("Unexpected Error", err)
@@ -333,7 +337,7 @@ func TestRuntime(t *testing.T) {
 			k, _ := ParseKind(a)
 			kinds = kinds.Set(k)
 		}
-		rt := newRuntime(v, fe, keyTargetService)
+		rt := newRuntime(v, fe, keyTargetService, keyServiceDomain)
 
 		al, err := rt.Resolve(bag, kinds)
 
@@ -439,7 +443,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 			k, _ := ParseKind(a)
 			kinds = kinds.Set(k)
 		}
-		rt := newRuntime(v, fe, keyTargetService)
+		rt := newRuntime(v, fe, keyTargetService, keyServiceDomain)
 
 		al, err := rt.ResolveUnconditional(bag, kinds)
 		if err != nil {

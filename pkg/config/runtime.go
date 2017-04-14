@@ -36,37 +36,40 @@ type (
 		eval expr.PredicateEvaluator
 
 		// config is organized around the identityAttribute.
-		identityAttribute string
+		identityAttribute       string
+		identityAttributeDomain string
 	}
 )
 
 // newRuntime returns a runtime object given a validated config and a predicate eval.
-func newRuntime(v *Validated, evaluator expr.PredicateEvaluator, identityAttribute string) *runtime {
+func newRuntime(v *Validated, evaluator expr.PredicateEvaluator, identityAttribute, identityAttributeDomain string) *runtime {
 	return &runtime{
-		Validated:         *v,
-		eval:              evaluator,
-		identityAttribute: identityAttribute,
+		Validated:               *v,
+		eval:                    evaluator,
+		identityAttribute:       identityAttribute,
+		identityAttributeDomain: identityAttributeDomain,
 	}
 }
 
 // GetScopes returns configuration scopes that apply given a target service
-func GetScopes(target string) ([]string, error) {
-	return getK8sScopes(target)
-}
-
-// K8S_MAX_SPLIT how many components does a k8s svc have
-const k8sMaSplit = 2
-
-// getK8sScopes return k8s scopes
-// my-svc.my-namespace.svc.cluster.local --> [ global, my-namespace, my-svc ]
-// When we have non k8s scopes, we will update this.
-func getK8sScopes(target string) ([]string, error) {
-	comps := strings.SplitN(target, ".", k8sMaSplit)
-	if len(comps) < 2 {
-		return nil, fmt.Errorf("target not valid %s, must be of type my-svc.my-namespace.svc.cluster.local", target)
+// k8s example:  domain maps to global
+// attr - my-svc.my-namespace.svc.cluster.local
+// domain - svc.cluster.local
+// --> "global", "my-namespace.svc.cluster.local", "my-svc.my-namespace.svc.cluster.local"
+// ordering of scopes is from least specific to most specific.
+func GetScopes(attr string, domain string, scopes []string) ([]string, error) {
+	if !strings.HasSuffix(attr, domain) {
+		return scopes, fmt.Errorf("interal error: scope %s not in %s", attr, domain)
 	}
-	svc, ns := comps[0], comps[1]
-	return []string{"global", ns, svc + "." + ns}, nil
+	scopes = append(scopes, global)
+	for idx := len(attr) - (len(domain) + 2); idx >= 0; idx-- {
+		if attr[idx] == '.' {
+			scopes = append(scopes, attr[idx+1:])
+			idx--
+		}
+	}
+	scopes = append(scopes, attr)
+	return scopes, nil
 }
 
 // Resolve returns a list of CombinedConfig given an attribute bag.
@@ -78,7 +81,8 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined,
 		glog.Infof("resolving for kinds: %s", set)
 		defer func() { glog.Infof("resolved configs (err=%v): %s", err, dlist) }()
 	}
-	return resolve(bag, set, r.rule, r.resolveRules, false /* conditional full resolve */, r.identityAttribute)
+	return resolve(bag, set, r.rule, r.resolveRules, false, /* conditional full resolve */
+		r.identityAttribute, r.identityAttributeDomain)
 }
 
 // ResolveUnconditional returns the list of CombinedConfigs for the supplied
@@ -86,26 +90,27 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined,
 // it only attempts to find aspects in rules that have an empty selector. This
 // method is primarily used for pre-process aspect configuration retrieval.
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*pb.Combined, err error) {
-	return resolve(bag, set, r.rule, r.resolveRules, true /* unconditional resolve */, r.identityAttribute)
+	return resolve(bag, set, r.rule, r.resolveRules, true, /* unconditional resolve */
+		r.identityAttribute, r.identityAttributeDomain)
 }
 
 // Make this a reasonable number so that we don't reallocate slices often.
 const resolveSize = 50
 
 func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
-	onlyEmptySelectors bool, identityAttribute string) (dlist []*pb.Combined, err error) {
-	var scopes []string
+	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string) (dlist []*pb.Combined, err error) {
+	scopes := make([]string, 0, 10)
 	if glog.V(2) {
 		glog.Infof("unconditionally resolving for kinds: %s", kindSet)
 		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, dlist) }()
 	}
 
-	target, _ := bag.Get(identityAttribute)
-	if target == nil {
+	attr, _ := bag.Get(identityAttribute)
+	if attr == nil {
 		return nil, fmt.Errorf("%s attribute not found", identityAttribute)
 	}
 
-	if scopes, err = GetScopes(target.(string)); err != nil {
+	if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {
 		return nil, err
 	}
 

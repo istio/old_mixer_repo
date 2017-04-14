@@ -58,7 +58,8 @@ type Manager struct {
 	validate      validateFunc
 
 	// attribute around which scopes and subjects are organized.
-	identityAttribute string
+	identityAttribute       string
+	identityAttributeDomain string
 
 	ticker         *time.Ticker
 	lastFetchIndex int
@@ -82,15 +83,17 @@ type Manager struct {
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
 func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
-	findAspects AdapterToAspectMapper, store KeyValueStore, loopDelay time.Duration, identityAttribute string) *Manager {
+	findAspects AdapterToAspectMapper, store KeyValueStore, loopDelay time.Duration, identityAttribute string,
+	identityAttributeDomain string) *Manager {
 	m := &Manager{
-		eval:              eval,
-		aspectFinder:      aspectFinder,
-		builderFinder:     builderFinder,
-		findAspects:       findAspects,
-		loopDelay:         loopDelay,
-		store:             store,
-		identityAttribute: identityAttribute,
+		eval:                    eval,
+		aspectFinder:            aspectFinder,
+		builderFinder:           builderFinder,
+		findAspects:             findAspects,
+		loopDelay:               loopDelay,
+		store:                   store,
+		identityAttribute:       identityAttribute,
+		identityAttributeDomain: identityAttributeDomain,
 		validate: func(cfg map[string]string) (*Validated, descriptor.Finder, *adapter.ConfigErrors) {
 			v := newValidator(aspectFinder, builderFinder, findAspects, true, eval)
 			rt, ce := v.validate(cfg)
@@ -166,7 +169,7 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 	c.lastFetchIndex = index
 	vd.shas = shas
 	c.lastValidated = vd
-	return newRuntime(vd, c.eval, c.identityAttribute), finder, nil
+	return newRuntime(vd, c.eval, c.identityAttribute, c.identityAttributeDomain), finder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed

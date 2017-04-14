@@ -24,7 +24,6 @@ import (
 
 // NewCompatFSStore creates and returns an fsStore using old style
 // This should be removed once we migrate all configs to new style configs.
-// globalConfig and serviceConfig
 func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (KeyValueStore, error) {
 	// no configURL, but serviceConfig and globalConfig are specified.
 	// provides compatibility

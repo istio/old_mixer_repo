@@ -28,6 +28,7 @@ import (
 
 const (
 	keyTargetService = "target.service"
+	keyServiceDomain = "svc.cluster.local"
 )
 
 type mtest struct {
@@ -85,7 +86,8 @@ func TestConfigManager(t *testing.T) {
 			if mt.errStr != "" {
 				store.err = errors.New(mt.errStr)
 			}
-			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc, store, loopDelay, keyTargetService)
+			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc,
+				store, loopDelay, keyTargetService, keyServiceDomain)
 			testConfigManager(t, ma, mt, loopDelay, idx)
 		})
 	}
@@ -95,7 +97,8 @@ func TestManager_FetchError(t *testing.T) {
 	loopDelay := time.Millisecond * 50
 	errStr := "TestManager_FetchError"
 	store := newFakeStore("{}", "{}")
-	mgr := NewManager(nil, nil, nil, nil, store, loopDelay, keyTargetService)
+	mgr := NewManager(nil, nil, nil, nil,
+		store, loopDelay, keyTargetService, keyServiceDomain)
 
 	mgr.validate = func(cfg map[string]string) (rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors) {
 		ce = ce.Appendf("ABC", errStr)

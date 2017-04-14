@@ -43,21 +43,22 @@ import (
 )
 
 type serverArgs struct {
-	maxMessageSize          uint
-	maxConcurrentStreams    uint
-	apiWorkerPoolSize       int
-	adapterWorkerPoolSize   int
-	port                    uint16
-	configAPIPort           uint16
-	singleThreaded          bool
-	compressedPayload       bool
-	enableTracing           bool
-	serverCertFile          string
-	serverKeyFile           string
-	clientCertFiles         string
-	configStoreURL          string
-	configFetchIntervalSec  uint
-	configIdentityAttribute string
+	maxMessageSize                uint
+	maxConcurrentStreams          uint
+	apiWorkerPoolSize             int
+	adapterWorkerPoolSize         int
+	port                          uint16
+	configAPIPort                 uint16
+	singleThreaded                bool
+	compressedPayload             bool
+	enableTracing                 bool
+	serverCertFile                string
+	serverKeyFile                 string
+	clientCertFiles               string
+	configStoreURL                string
+	configFetchIntervalSec        uint
+	configIdentityAttribute       string
+	configIdentityAttributeDomain string
 
 	// @deprecated
 	serviceConfigFile string
@@ -108,15 +109,26 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
+
+	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
+	// These parameters ensure that rest of the mixer makes no assumptions about specific identity attribute.
+	// Rules selection is based on scopes.
 	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
 		"Attribute that is used to identify applicable scopes.")
+	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
+		fatalf("unable to hide: %s", err.Error())
+	}
+	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttributeDomain, "configIdentityAttributeDomain", "", "svc.cluster.local",
+		"The domain to which all values of the configIdentityAttribute belong. For kubernetes services it is svc.cluster.local")
+	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttributeDomain"); err != nil {
+		fatalf("unable to hide: %s", err.Error())
+	}
 
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "", "Global Config")
 
 	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
-
 	return &serverCmd
 }
 
@@ -161,7 +173,8 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
 		adapterMgr.SupportedKinds,
 		store, time.Second*time.Duration(sa.configFetchIntervalSec),
-		sa.configIdentityAttribute)
+		sa.configIdentityAttribute,
+		sa.configIdentityAttributeDomain)
 
 	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
 		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
