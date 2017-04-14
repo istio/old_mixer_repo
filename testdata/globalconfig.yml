@@ -69,9 +69,7 @@ metrics:
       response_code: 2 # INT64
 quotas:
   - name: RequestCount
-    max_amount: 5
-    expiration:
-      seconds: 1
+    rate_limit: true
 logs:
   - name: accesslog.common
     display_name: Apache Common Log Format
