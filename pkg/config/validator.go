@@ -200,13 +200,16 @@ func (a adapterKey) String() string {
 }
 
 // FIXME post alpha
+// create new messages of type
+// message MetricList {
+//   repeated metrics = 1;
+// }
+// One for each type of descriptor
+// Those messages can be parsed directly using proto.jsonp.
+// At present globalConfig.Adapters contains `struct` that prevents us from using proto.jsonp
+
 // compatfilterConfig
-// create new containing messages one for each type of descriptor
-// Those messages can be parsed straight thru jsonp.
-// At present m.Adapters contains `struct` that prevents us from
-// using jsonp
-// compatfilter
-// given a yaml file filter specific keys from it
+// given a yaml file, filter specific keys from it
 // globalConfig contains descriptors and adapters which will be split shortly.
 func compatfilterConfig(cfg string, shouldSelect func(string) bool) (data []byte, err error) {
 	var m = map[string]interface{}{}
