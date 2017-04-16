@@ -96,7 +96,7 @@ func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.Validator, df
 		ce = ce.Extend(validateLabels(fmt.Sprintf("Quotas[%s].Labels", desc.Name), quota.Labels, desc.Labels, v, df))
 
 		if _, err := quotaDefinitionFromProto(desc); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation with err: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation : %v", err)
 		}
 	}
 	return
@@ -112,7 +112,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 
 	labels, err := evalAll(info.labels, attrs, mapper)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
+		msg := fmt.Sprintf("Unable to evaluate labels for quota '%s' : %v", qma.Quota, err)
 		glog.Error(msg)
 		return status.WithInvalidArgument(msg), nil
 	}
@@ -164,7 +164,7 @@ func quotaDefinitionFromProto(desc *dpb.QuotaDescriptor) (*adapter.QuotaDefiniti
 	for name, labelType := range desc.Labels {
 		l, err := valueTypeToLabelType(labelType)
 		if err != nil {
-			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
+			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto : %v",
 				desc.Name, name, labelType, err)
 		}
 		labels[name] = l
@@ -172,7 +172,7 @@ func quotaDefinitionFromProto(desc *dpb.QuotaDescriptor) (*adapter.QuotaDefiniti
 
 	dur, err := ptypes.DurationFromProto(desc.Expiration)
 	if err != nil {
-		return nil, fmt.Errorf("descriptor '%s' failed to parse duration from proto with err: %v", desc.Name, err)
+		return nil, fmt.Errorf("descriptor '%s' failed to parse duration from proto : %v", desc.Name, err)
 	}
 	return &adapter.QuotaDefinition{
 		MaxAmount:   desc.MaxAmount,

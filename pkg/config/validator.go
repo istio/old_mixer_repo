@@ -204,7 +204,7 @@ func (a adapterKey) String() string {
 func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.ConfigErrors) {
 	var m = &pb.GlobalConfig{}
 	if err := yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
+		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto : %v", err)
 	}
 	p.validated.descriptor[key] = m
 	return
@@ -215,7 +215,7 @@ func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.Con
 func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.ConfigErrors) {
 	var m = &pb.GlobalConfig{}
 	if err := yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
+		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto : %v", err)
 	}
 
 	var acfg adapter.Config
@@ -224,7 +224,7 @@ func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.Config
 	p.validated.adapterByName = make(map[adapterKey]*pb.Adapter)
 	for _, aa := range m.GetAdapters() {
 		if acfg, err = convertAdapterParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
-			ce = ce.Appendf("Adapter: "+aa.Impl, "failed to convert aspect params to proto with err: %v", err)
+			ce = ce.Appendf("Adapter: "+aa.Impl, "failed to convert aspect params to proto : %v", err)
 			continue
 		}
 		aa.Params = acfg
@@ -262,7 +262,7 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
 			if acfg, err = convertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict, p.descriptorFinder); err != nil {
-				ce = ce.Appendf(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), "failed to parse params with err: %v", err)
+				ce = ce.Appendf(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), "failed to parse params : %v", err)
 				continue
 			}
 			aa.Params = acfg
@@ -370,7 +370,7 @@ func (p *validator) validateServiceConfig(pk rulesKey, cfg string, validatePrese
 	m := &pb.ServiceConfig{}
 	var numAspects int
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto with err: %v", err)
+		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto : %v", err)
 	}
 
 	if numAspects, ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
@@ -403,10 +403,10 @@ func convertAdapterParams(f BuilderValidatorFinder, name string, params interfac
 
 	ac = avl.DefaultConfig()
 	if err := decode(params, ac, strict); err != nil {
-		return nil, ce.Appendf(name, "failed to decode adapter params with err: %v", err)
+		return nil, ce.Appendf(name, "failed to decode adapter params : %v", err)
 	}
 	if err := avl.ValidateConfig(ac); err != nil {
-		return nil, ce.Appendf(name, "adapter validation failed with err: %v", err)
+		return nil, ce.Appendf(name, "adapter validation failed : %v", err)
 	}
 	return ac, nil
 }
@@ -428,10 +428,10 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 
 	ap := avl.DefaultConfig()
 	if err := decode(params, ap, strict); err != nil {
-		return nil, ce.Appendf(name, "failed to decode aspect params with err: %v", err)
+		return nil, ce.Appendf(name, "failed to decode aspect params : %v", err)
 	}
 	if err := avl.ValidateConfig(ap, expr.NewCEXLEvaluator(), df); err != nil {
-		return nil, ce.Appendf(name, "aspect validation failed with err: %v", err)
+		return nil, ce.Appendf(name, "aspect validation failed : %v", err)
 	}
 	return ap, nil
 }
@@ -441,11 +441,11 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 func decode(src interface{}, dst proto.Message, strict bool) error {
 	ba, err := json.Marshal(src)
 	if err != nil {
-		return fmt.Errorf("failed to marshal config into json with err: %v", err)
+		return fmt.Errorf("failed to marshal config into json : %v", err)
 	}
 	um := jsonpb.Unmarshaler{AllowUnknownFields: !strict}
 	if err := um.Unmarshal(bytes.NewReader(ba), dst); err != nil {
-		return fmt.Errorf("failed to unmarshal config into proto with err: %v", err)
+		return fmt.Errorf("failed to unmarshal config into proto : %v", err)
 	}
 	return nil
 }
