@@ -36,7 +36,9 @@ type redisQuota struct {
 
 	redisError error
 
-	// algorithm for rate-limiting, fixed-window or rolling-window
+	// algorithm for rate-limiting: either fixed-window or rolling-window.
+	// The fixed-window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
+	// Even though rolling-window is less lenient , it consumes more memory in redis.
 	rateLimit string
 }
 
@@ -144,37 +146,54 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Qu
 		// For rate-limiting use only, and no release for now.
 		if rq.rateLimit == "rolling-window" {
 			// Subsequent commands between MULTI and EXEC will be queued for atomic execution.
-			// The queued commands will not produce any real response until EXEC.
+			// The queued commands will not produce any real response ('QUEUED' is the response here) until EXEC.
 			conn.pipeAppend("MULTI")
-			resp, _ := conn.pipeResponse()
+			if _, err := conn.pipeResponse(); err != nil {
+				rq.common.Logger.Warningf("Could not push commands into execution queue: %v", err)
+				return 0, time.Time{}, 0
+			}
 
 			// Remove members in the sorted set which are out of the current window
-			now := int(currentTime.UnixNano())
-			exp := now - int(d.Expiration.Nanoseconds())
-			conn.pipeAppend("ZREMRANGEBYSCORE", key, 0, strconv.Itoa(exp))
-			resp, _ = conn.pipeResponse()
+			exp := currentTime.Add(-d.Expiration)
+			conn.pipeAppend("ZREMRANGEBYSCORE", key, 0, strconv.Itoa(int(exp.UnixNano())))
+			if _, err := conn.pipeResponse(); err != nil {
+				rq.common.Logger.Warningf("Could not push commands into execution queue: %v", err)
+				return 0, time.Time{}, 0
+			}
 
 			// Add the current request in the format of (member, score) to the sorted set, use timestamp as score here.
+			now := int(currentTime.UnixNano())
+			timestamp := strconv.Itoa(now)
 			for i := 0; i < int(result); i++ {
-				conn.pipeAppend("ZADD", key, strconv.Itoa(now), strconv.Itoa(now+i))
-				resp, _ = conn.pipeResponse()
+				conn.pipeAppend("ZADD", key, timestamp, strconv.Itoa(now+i))
+				if _, err := conn.pipeResponse(); err != nil {
+					rq.common.Logger.Warningf("Could not push commands into execution queue: %v", err)
+					return 0, time.Time{}, 0
+				}
 			}
 
 			// Get the cardinality of the sorted set with key.
 			conn.pipeAppend("ZCARD", key)
-			resp, _ = conn.pipeResponse()
+			if _, err := conn.pipeResponse(); err != nil {
+				rq.common.Logger.Warningf("Could not push commands into execution queue: %v", err)
+				return 0, time.Time{}, 0
+			}
 
 			// Atomic execution of all the previous commands, starting from "MULTI"
 			conn.pipeAppend("EXEC")
 			// This will be the actual response to EXEC.
-			resp, err = conn.pipeResponse()
+			resp, err := conn.pipeResponse()
 			if err != nil {
 				rq.common.Logger.Warningf("Could not execute command on redis for expiring keys: %v", err)
 				return 0, time.Time{}, 0
 			}
 
 			// The responses of previous commands are in an Array.
-			info, _ := resp.response.Array()
+			info, err := resp.response.Array()
+			if err != nil {
+				rq.common.Logger.Warningf("Could not get array response after execution: %v", err)
+				return 0, time.Time{}, 0
+			}
 			var lastElem int
 			for i := range info {
 				res, _ := info[i].Int()
