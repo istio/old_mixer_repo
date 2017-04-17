@@ -18,12 +18,6 @@ git_repository(
 
 load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
-git_repository(
-    name = "istio_toolbox",
-    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4", # Mar 29 2017 (no releases)
-    remote = "https://github.com/istio/toolbox.git",
-)
-
 proto_repositories()
 
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
@@ -273,4 +267,15 @@ new_go_repository(
     name = "com_github_emicklei_go_restful",
     commit = "1d2cd46e1ac9ce6036f014a33a3706f989578de6",  # March 17, 2017 (no releases)
     importpath = "github.com/emicklei/go-restful",
+)
+
+
+##
+## Testing
+##
+
+git_repository(
+    name = "istio_test_infra",
+    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",
+    remote = "https://github.com/istio/test-infra.git",
 )
