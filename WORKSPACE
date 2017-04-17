@@ -184,7 +184,7 @@ load("//:repositories.bzl", "new_git_or_local_repository")
 new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
-    commit = "48fe05c75bcdb5c3413111d3c8d232368404b310",  # Mar 22, 2017 (no releases)
+    commit = "961bac244413edb2bfac754534a2cb621fa00af2",  # Apr 12, 2017 (no releases)
     path = "../api",
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
@@ -259,12 +259,18 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_mini_redis",
-    commit = "6265f4c3f102457d1648b4d69d04bc39befab9cf",  # Apr 12, 2017 (no releases)
-    importpath = "github.com/chowchow316/miniredis",
+    commit = "e9169f14d501184b6cc94e270e5a93e4bab203d7",  # release 2.0.0, 4/15/2017
+    importpath = "github.com/alicebob/miniredis",
 )
 
 new_go_repository(
     name = "com_github_bsm_redeo",
     commit = "1ce09fc76693fb3c1ca9b529c66f38920beb6fb8",  # Aug 17, 2016 (no releases)
     importpath = "github.com/bsm/redeo",
+)
+
+new_go_repository(
+    name = "com_github_emicklei_go_restful",
+    commit = "1d2cd46e1ac9ce6036f014a33a3706f989578de6",  # March 17, 2017 (no releases)
+    importpath = "github.com/emicklei/go-restful",
 )

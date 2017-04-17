@@ -1,12 +1,38 @@
 subject: namespace:ns
 revision: "2022"
 rules:
-- selector: true
+        #- selector: service.name == “*”
+        #- selector: service.name == "myservice"
+- selector: target.service == "myservice.*"
+  aspects:
+  - kind: access-logs
+    params:
+      logName: access_log
+      log:
+        descriptor_name: accesslog.common # COMMON
+        template_expressions:
+           originIp: origin.ip
+           sourceUser: '"user"'
+           timestamp: request.time
+           method: '"thismethod"'
+           url: '"/abcd"'
+           protocol: '"ftp://"'
+           responseCode: "403"
+           responseSize: "60029"
+        labels:
+           originIp: origin.ip
+           sourceUser: origin.user
+           timestamp: request.time
+           method: request.method
+           url: request.path
+           protocol: request.scheme
+           responseCode: response.code
+           responseSize: response.size
+
+- selector: target.service != "myservice.*"
   aspects:
   - kind: quotas
     params:
-      quotas:
-      - descriptor_name: RequestCount
   - kind: metrics
     adapter: prometheus
     params:
@@ -21,7 +47,7 @@ rules:
           method: api.method | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_latency
-        value: response.duration | "0ms"
+        value: response.latency | "0ms"
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
@@ -32,7 +58,7 @@ rules:
     params:
       logName: access_log
       log:
-        descriptor_name: accesslog.common
+        descriptor_name: accesslog.common # COMMON
         template_expressions:
            originIp: origin.ip
            sourceUser: origin.user
