@@ -121,8 +121,8 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 			informer := &fakeInformer{store: v.store}
 
 			c := &controllerImpl{
-				pods:   informer,
-				logger: test.NewEnv(t).Logger(),
+				pods: informer,
+				env:  test.NewEnv(t),
 			}
 
 			got, err := c.GetPod(v.key)
@@ -142,7 +142,7 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 func TestClusterInfoCache_Run(t *testing.T) {
 	informer := &fakeInformer{}
 	c := &controllerImpl{
-		logger:        test.NewEnv(t).Logger(),
+		env:           test.NewEnv(t),
 		pods:          informer,
 		mutationsChan: make(chan resourceMutation),
 	}

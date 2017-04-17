@@ -39,7 +39,7 @@ type (
 
 	controllerImpl struct {
 		clientset     kubernetes.Interface
-		logger        adapter.Logger
+		env           adapter.Env
 		pods          cache.SharedInformer
 		mutationsChan chan resourceMutation
 	}
@@ -74,10 +74,10 @@ const errorDelay = 1 * time.Second
 // Responsible for setting up the cacheController, based on the supplied client.
 // It configures the index informer to list/watch pods and send update events
 // to a mutations channel for processing (in this case, logging).
-func newCacheController(clientset *kubernetes.Clientset, namespace string, refreshDuration time.Duration, logger adapter.Logger) cacheController {
+func newCacheController(clientset *kubernetes.Clientset, namespace string, refreshDuration time.Duration, env adapter.Env) cacheController {
 	c := &controllerImpl{
 		clientset:     clientset,
-		logger:        logger,
+		env:           env,
 		mutationsChan: make(chan resourceMutation, mutationBufferSize),
 	}
 
@@ -95,7 +95,8 @@ func newCacheController(clientset *kubernetes.Clientset, namespace string, refre
 		cache.Indexers{},
 	)
 
-	// log all events, for debug
+	// log all events
+	// TODO: add verbosity-level information to env
 	eventErr := c.pods.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -113,7 +114,7 @@ func newCacheController(clientset *kubernetes.Clientset, namespace string, refre
 	)
 
 	if eventErr != nil {
-		c.logger.Warningf("could not add logging event handlers: %v", eventErr)
+		c.env.Logger().Warningf("could not add logging event handlers: %v", eventErr)
 	}
 
 	return c
@@ -121,11 +122,17 @@ func newCacheController(clientset *kubernetes.Clientset, namespace string, refre
 
 // Run starts the logger and the controller for the pod cache.
 func (c *controllerImpl) Run(stop <-chan struct{}) {
-	go c.runLogger(stop)
-	go c.pods.Run(stop)
-	c.logger.Infof("cluster cache started")
+	//if glog.V(4) {
+	c.env.ScheduleDaemon(func() {
+		c.runLogger(stop)
+	})
+	//}
+	c.env.ScheduleDaemon(func() {
+		c.pods.Run(stop)
+		c.env.Logger().Infof("cluster cache started")
+	})
 	<-stop
-	c.logger.Infof("cluster cache updating terminated")
+	c.env.Logger().Infof("cluster cache updating terminated")
 }
 
 // runLogger is responsible for pulling event updates off of the mutations
@@ -136,11 +143,11 @@ func (c *controllerImpl) runLogger(stop <-chan struct{}) {
 		case mutation := <-c.mutationsChan:
 			err := c.log(mutation.obj, mutation.kind)
 			if err != nil {
-				c.logger.Infof("event logging failed, will retry: %v", err)
+				c.env.Logger().Infof("event logging failed, will retry: %v", err)
 				time.Sleep(errorDelay)
 			}
 		case <-stop:
-			c.logger.Infof("cluster cache logging worker terminated")
+			c.env.Logger().Infof("cluster cache logging worker terminated")
 			return
 		}
 	}
@@ -158,10 +165,10 @@ func (c *controllerImpl) log(obj interface{}, kind eventType) error {
 	}
 	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		c.logger.Infof("could not retrieve key for object: %v", err)
+		c.env.Logger().Infof("could not retrieve key for object: %v", err)
 		return nil
 	}
-	c.logger.Infof("%s object with key: '%#v'", kind, k)
+	c.env.Logger().Infof("%s object with key: '%#v'", kind, k)
 	return nil
 }
 

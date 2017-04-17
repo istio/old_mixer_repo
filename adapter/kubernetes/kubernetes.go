@@ -51,7 +51,7 @@ type (
 	}
 
 	// used strictly for testing purposes
-	controllerFactoryFn func(kubeconfigPath string, refreshDuration time.Duration, logger adapter.Logger) (cacheController, error)
+	controllerFactoryFn func(kubeconfigPath string, refreshDuration time.Duration, env adapter.Env) (cacheController, error)
 )
 
 const (
@@ -173,13 +173,13 @@ func (b *builder) BuildAttributesGenerator(env adapter.Env, c adapter.Config) (a
 	paramsProto := c.(*config.Params)
 	b.once.Do(func() {
 		refresh := paramsProto.CacheRefreshDuration
-		controller, err := b.newCacheControllerFn(paramsProto.KubeconfigPath, refresh, env.Logger())
+		controller, err := b.newCacheControllerFn(paramsProto.KubeconfigPath, refresh, env)
 		if err != nil {
 			clientErr = err
 			return
 		}
 		b.pods = controller
-		go b.pods.Run(b.stopChan)
+		env.ScheduleDaemon(func() { b.pods.Run(b.stopChan) })
 		// ensure that any request is only handled after
 		// a sync has occurred
 		cache.WaitForCacheSync(b.stopChan, b.pods.HasSynced)
@@ -195,19 +195,19 @@ func (b *builder) BuildAttributesGenerator(env adapter.Env, c adapter.Config) (a
 	return kg, nil
 }
 
-func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, log adapter.Logger) (cacheController, error) {
-	log.Infof("getting kubeconfig from: %#v", kubeconfigPath)
+func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, env adapter.Env) (cacheController, error) {
+	env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
 	config, err := getRESTConfig(kubeconfigPath)
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
-	log.Infof("getting k8s client with %#v", config)
+	env.Logger().Infof("getting k8s client with %#v", config)
 	clientset, err := k8s.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create clientset for k8s: %v", err)
 	}
-	log.Infof("building new cache controller")
-	return newCacheController(clientset, "", refreshDuration, log), nil
+	env.Logger().Infof("building new cache controller")
+	return newCacheController(clientset, "", refreshDuration, env), nil
 }
 
 func getRESTConfig(kubeconfigPath string) (*rest.Config, error) {

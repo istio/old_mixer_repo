@@ -53,11 +53,11 @@ func (f fakeCache) GetPod(pod string) (*v1.Pod, error) {
 	return p, nil
 }
 
-func errorStartingPodCache(ignored string, empty time.Duration, log adapter.Logger) (cacheController, error) {
+func errorStartingPodCache(ignored string, empty time.Duration, e adapter.Env) (cacheController, error) {
 	return nil, errors.New("cache build error")
 }
 
-func fakePodCache(ignored string, empty time.Duration, log adapter.Logger) (cacheController, error) {
+func fakePodCache(ignored string, empty time.Duration, e adapter.Env) (cacheController, error) {
 	return &fakeCache{}, nil
 }
 
