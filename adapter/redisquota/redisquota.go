@@ -36,9 +36,7 @@ type redisQuota struct {
 
 	redisError error
 
-	// algorithm for rate-limiting: either fixed-window or rolling-window.
-	// The fixed-window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
-	// Even though rolling-window is less lenient , it consumes more memory in redis.
+	// rate-limiting algorithm: either fixed-window or rolling-window.
 	rateLimit string
 }
 
