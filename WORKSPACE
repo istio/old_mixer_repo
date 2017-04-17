@@ -276,6 +276,6 @@ new_go_repository(
 
 git_repository(
     name = "istio_test_infra",
-    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",
+    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",  # Apr 13, 2017 (no releases)
     remote = "https://github.com/istio/test-infra.git",
 )
