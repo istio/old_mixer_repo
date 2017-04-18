@@ -98,7 +98,9 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []
 // attributes and kindset based on resolution of unconditional rules. That is,
 // it only attempts to find aspects in rules that have an empty selector. This
 // method is primarily used for pre-process aspect configuration retrieval.
-func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*pb.Combined, err error) {
+// If strict is true, resolution will fail if any selector evaluations fail; otherwise it will log errors and return
+// as much config as we were able to resolve.
+func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet, strict bool) (out []*pb.Combined, err error) {
 	if glog.V(2) {
 		glog.Infof("unconditionally resolving for kinds: %s", set)
 		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, out) }()
@@ -111,7 +113,7 @@ func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*p
 		true, /* unconditional resolve */
 		r.identityAttribute,
 		r.identityAttributeDomain,
-		true /* enable strict eval; doesn't matter since selectors are "" */)
+		strict)
 }
 
 // Make this a reasonable number so that we don't reallocate slices often.

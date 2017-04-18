@@ -459,7 +459,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 		}
 		rt := newRuntime(v, fe, keyTargetService, keyServiceDomain)
 
-		al, err := rt.ResolveUnconditional(bag, kinds)
+		al, err := rt.ResolveUnconditional(bag, kinds, true)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}

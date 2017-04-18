@@ -36,7 +36,7 @@ type Resolver interface {
 	Resolve(bag attribute.Bag, kindSet KindSet, strict bool) ([]*pb.Combined, error)
 	// ResolveUnconditional resolves configuration for unconditioned rules.
 	// Unconditioned rules are those rules with the empty selector ("").
-	ResolveUnconditional(bag attribute.Bag, kindSet KindSet) ([]*pb.Combined, error)
+	ResolveUnconditional(bag attribute.Bag, kindSet KindSet, strict bool) ([]*pb.Combined, error)
 }
 
 // ChangeListener listens for config change notifications.

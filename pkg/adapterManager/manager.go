@@ -183,13 +183,11 @@ func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreproce
 		return nil, errors.New("configuration is not yet available")
 	}
 
-	var configs []*cpb.Combined
-	var err error
+	resolveFn := cfg.Resolve
 	if isPreprocess {
-		configs, err = cfg.ResolveUnconditional(attrs, ks)
-	} else {
-		configs, err = cfg.Resolve(attrs, ks, strict)
+		resolveFn = cfg.ResolveUnconditional
 	}
+	configs, err := resolveFn(attrs, ks, strict)
 	if err != nil {
 		return nil, fmt.Errorf("unable to resolve config: %v", err)
 	}
@@ -202,7 +200,8 @@ func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreproce
 // Preprocess dispatches to the set of aspects that must run before any other
 // configured aspects.
 func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	configs, err := m.loadConfigs(requestBag, m.preprocessKindSet, true, true /* fail if unable to eval all selectors */)
+	// We may be missing attributes used in selectors, so we must be non-strict during evaluation.
+	configs, err := m.loadConfigs(requestBag, m.preprocessKindSet, true, false)
 	if err != nil {
 		glog.Error(err)
 		return status.WithError(err)
