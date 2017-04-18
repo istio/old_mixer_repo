@@ -59,7 +59,7 @@ func newRuntime(v *Validated, evaluator expr.PredicateEvaluator, identityAttribu
 // ordering of scopes is from least specific to most specific.
 func GetScopes(attr string, domain string, scopes []string) ([]string, error) {
 	if !strings.HasSuffix(attr, domain) {
-		return scopes, fmt.Errorf("interal error: scope %s not in %s", attr, domain)
+		return scopes, fmt.Errorf("internal error: scope %s not in %s", attr, domain)
 	}
 	scopes = append(scopes, global)
 	for idx := len(attr) - (len(domain) + 2); idx >= 0; idx-- {
@@ -123,6 +123,14 @@ const resolveSize = 50
 func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
 	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string, strictSelectorEval bool) (dlist []*pb.Combined, err error) {
 	scopes := make([]string, 0, 10)
+	if glog.V(2) {
+		pfx := ""
+		if onlyEmptySelectors {
+			pfx = "unconditionally "
+		}
+		glog.Infof("%sresolving for kinds: %s", pfx, kindSet)
+		defer func() { glog.Infof("%sresolved configs (err=%v): %s", pfx, err, dlist) }()
+	}
 
 	attr, _ := bag.Get(identityAttribute)
 	if attr == nil {
@@ -150,6 +158,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 			key := rulesKey{scope, subject}
 			rule := rules[key]
 			if rule == nil {
+				glog.V(2).Infof("no rules for %s", key)
 				continue
 			}
 			// empty the slice, do not re allocate
