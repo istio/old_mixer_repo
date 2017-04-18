@@ -66,6 +66,7 @@ func (e *Env) Errorf(format string, args ...interface{}) error {
 	return fmt.Errorf(s)
 }
 
+// VerbosityLevel return true for test envs (all verbosity levels enabled).
 func (e *Env) VerbosityLevel(level adapter.VerbosityLevel) bool {
 	return true
 }
