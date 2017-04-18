@@ -17,7 +17,6 @@ package aspect
 import (
 	"fmt"
 
-	ptypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
@@ -56,45 +55,19 @@ func newQuotasManager() QuotaManager {
 func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
-	// TODO: get this from config
-	if len(params.Quotas) == 0 {
-		params = &aconfig.QuotasParams{
-			Quotas: []*aconfig.QuotasParams_Quota{
-				{DescriptorName: "RequestCount"},
-			},
-		}
-	}
+	metadata := make(map[string]*quotaInfo, len(params.Quotas))
+	defs := make(map[string]*adapter.QuotaDefinition, len(params.Quotas))
+	for _, quota := range params.Quotas {
+		// We don't check the err because ValidateConfig ensures we have all the descriptors we need and that
+		// they can be transformed into their adapter representation.
+		def, _ := quotaDefinitionFromProto(df.GetQuota(quota.DescriptorName))
+		def.MaxAmount = quota.MaxAmount
+		def.Expiration = quota.Expiration
 
-	// TODO: get this from config
-	desc := []dpb.QuotaDescriptor{
-		{
-			Name:       "RequestCount",
-			MaxAmount:  5,
-			Expiration: &ptypes.Duration{Seconds: 1},
-		},
-	}
-
-	metadata := make(map[string]*quotaInfo, len(desc))
-	defs := make(map[string]*adapter.QuotaDefinition, len(desc))
-	for _, d := range desc {
-		quota := findQuota(params.Quotas, d.Name)
-		if quota == nil {
-			env.Logger().Warningf("No quota found for descriptor %s, skipping it", d.Name)
-			continue
-		}
-
-		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
-		// if it cannot be converted into a QuotaDefinition, so we should never have to handle the error case.
-		def, err := quotaDefinitionFromProto(&d)
-		if err != nil {
-			_ = env.Logger().Errorf("Failed to convert quota descriptor '%s' to definition with err: %s; skipping it.", d.Name, err)
-			continue
-		}
-
-		defs[d.Name] = def
-		metadata[d.Name] = &quotaInfo{
-			labels:     quota.Labels,
+		defs[def.Name] = def
+		metadata[def.Name] = &quotaInfo{
 			definition: def,
+			labels:     quota.Labels,
 		}
 	}
 
@@ -113,7 +86,37 @@ func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env
 
 func (*quotasManager) Kind() config.Kind                  { return config.QuotasKind }
 func (*quotasManager) DefaultConfig() config.AspectParams { return &aconfig.QuotasParams{} }
-func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
+
+func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+	cfg := c.(*aconfig.QuotasParams)
+	for _, quota := range cfg.Quotas {
+		desc := df.GetQuota(quota.DescriptorName)
+		if desc == nil {
+			ce = ce.Appendf("Quotas", "could not find a descriptor for the quota '%s'", quota.DescriptorName)
+			continue // we can't do any other validation without the descriptor
+		}
+		ce = ce.Extend(validateLabels(fmt.Sprintf("Quotas[%s].Labels", desc.Name), quota.Labels, desc.Labels, v, df))
+
+		if _, err := quotaDefinitionFromProto(desc); err != nil {
+			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)
+		}
+
+		if quota.MaxAmount < 0 {
+			ce = ce.Appendf("MaxAmount", "must be >= 0")
+		}
+
+		if quota.Expiration < 0 {
+			ce = ce.Appendf("Expiration", "cannot be less than 0")
+		}
+
+		if desc.RateLimit {
+			if quota.Expiration == 0 {
+				ce = ce.Appendf("Expiration", "must be > 0 for rate limit quotas")
+			}
+		} else if quota.Expiration != 0 {
+			ce = ce.Appendf("Expiration", "must be 0 for allocation quotas")
+		}
+	}
 	return
 }
 
@@ -127,7 +130,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 
 	labels, err := evalAll(info.labels, attrs, mapper)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
+		msg := fmt.Sprintf("Unable to evaluate labels for quota '%s': %v", qma.Quota, err)
 		glog.Error(msg)
 		return status.WithInvalidArgument(msg), nil
 	}
@@ -142,7 +145,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 	var qr adapter.QuotaResult
 
 	if glog.V(2) {
-		glog.Info("Invoking adapter %s for quota %s with amount %d", w.adapter, qa.Definition.Name, qa.QuotaAmount)
+		glog.Infof("Invoking adapter %s for quota %s with amount %d, labels %v", w.adapter, qa.Definition.Name, qa.QuotaAmount, qa.Labels)
 	}
 
 	if qma.BestEffort {
@@ -163,7 +166,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 	}
 
 	if glog.V(2) {
-		glog.Infof("Allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
+		glog.Infof("Allocated %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
 	}
 
 	qmr := QuotaMethodResp(qr)
@@ -174,30 +177,18 @@ func (w *quotasExecutor) Close() error {
 	return w.aspect.Close()
 }
 
-func findQuota(quotas []*aconfig.QuotasParams_Quota, name string) *aconfig.QuotasParams_Quota {
-	for _, q := range quotas {
-		if q.DescriptorName == name {
-			return q
-		}
-	}
-	return nil
-}
-
 func quotaDefinitionFromProto(desc *dpb.QuotaDescriptor) (*adapter.QuotaDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
-	for _, label := range desc.Labels {
-		l, err := valueTypeToLabelType(label.ValueType)
+	for name, labelType := range desc.Labels {
+		l, err := valueTypeToLabelType(labelType)
 		if err != nil {
-			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
-				desc.Name, label.Name, label.ValueType, err)
+			return nil, fmt.Errorf("descriptor '%s' label '%v' failed to convert label type value '%v' from proto: %v",
+				desc.Name, name, labelType, err)
 		}
-		labels[label.Name] = l
+		labels[name] = l
 	}
 
-	dur, _ := ptypes.DurationFromProto(desc.Expiration)
 	return &adapter.QuotaDefinition{
-		MaxAmount:   desc.MaxAmount,
-		Expiration:  dur,
 		Description: desc.Description,
 		DisplayName: desc.DisplayName,
 		Name:        desc.Name,

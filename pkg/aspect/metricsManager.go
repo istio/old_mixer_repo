@@ -73,7 +73,7 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, e
 	b := a.(adapter.MetricsBuilder)
 	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v' and err: %s", c, err)
+		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v': %v", c, err)
 	}
 	return &metricsExecutor{b.Name(), asp, metadata}, nil
 }
@@ -90,37 +90,14 @@ func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, d
 			continue // we can't do any other validation without the descriptor
 		}
 
-		if valueType, err := v.TypeCheck(metric.Value, df); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "typechecking the value expression failed with err: %v", err)
-		} else if valueType != desc.Value {
-			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "expected type %v for the value, but evaluated to type %v", desc.Value, valueType)
+		if err := v.AssertType(metric.Value, df, desc.Value); err != nil {
+			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "error type checking label %s: %v", err)
 		}
-
-		ce = ce.Extend(validateLabels(metric.Labels, desc, v, df))
+		ce = ce.Extend(validateLabels(fmt.Sprintf("Metrics[%s].Labels", desc.Name), metric.Labels, desc.Labels, v, df))
 
 		// TODO: this doesn't feel like quite the right spot to do this check, but it's the best we have ¯\_(ツ)_/¯
 		if _, err := metricDefinitionFromProto(desc); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation with err: %v", err)
-		}
-	}
-	return
-}
-
-func validateLabels(labels map[string]string, desc *dpb.MetricDescriptor, v expr.Validator, df expr.AttributeDescriptorFinder) (ce *adapter.ConfigErrors) {
-	for name, exp := range labels {
-		label := findLabel(name, desc.Labels)
-		if label == nil {
-			ce = ce.Appendf(fmt.Sprintf("Metrics[%s].Labels", desc.Name), "wrong dimensions: extra label named %s", name)
-			continue
-		}
-
-		ltype, err := v.TypeCheck(exp, df)
-		if err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Metrics[%s].Labels", desc.Name), "failed to evaluate type label %s with err: %v", name, err)
-			continue
-		}
-		if ltype != label.ValueType {
-			ce = ce.Appendf(fmt.Sprintf("Metrics[%s].Labels", desc.Name), "label %s has evaluated type %v, expected type %v", name, ltype, label.ValueType)
+			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)
 		}
 	}
 	return
@@ -133,12 +110,12 @@ func (w *metricsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rp
 	for name, md := range w.metadata {
 		metricValue, err := mapper.Eval(md.value, attrs)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to eval metric value for metric '%s' with err: %s", name, err))
+			result = multierror.Append(result, fmt.Errorf("failed to eval metric value for metric '%s': %v", name, err))
 			continue
 		}
 		labels, err := evalAll(md.labels, attrs, mapper)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to eval labels for metric '%s' with err: %s", name, err))
+			result = multierror.Append(result, fmt.Errorf("failed to eval labels for metric '%s': %v", name, err))
 			continue
 		}
 
@@ -155,7 +132,7 @@ func (w *metricsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rp
 	}
 
 	if err := w.aspect.Record(values); err != nil {
-		result = multierror.Append(result, fmt.Errorf("failed to record all values with err: %s", err))
+		result = multierror.Append(result, fmt.Errorf("failed to record all values: %v", err))
 	}
 
 	if glog.V(4) {
@@ -174,33 +151,19 @@ func (w *metricsExecutor) Close() error {
 	return w.aspect.Close()
 }
 
-func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
-	result := &multierror.Error{}
-	labels := make(map[string]interface{}, len(expressions))
-	for label, texpr := range expressions {
-		val, err := eval.Eval(texpr, attrs)
-		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s' with err: %s", label, err))
-			continue
-		}
-		labels[label] = val
-	}
-	return labels, result.ErrorOrNil()
-}
-
 func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
-	for _, label := range desc.Labels {
-		l, err := valueTypeToLabelType(label.ValueType)
+	for name, labelType := range desc.Labels {
+		l, err := valueTypeToLabelType(labelType)
 		if err != nil {
-			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
-				desc.Name, label.Name, label.ValueType, err)
+			return nil, fmt.Errorf("descriptor '%s' label '%v' failed to convert label type value '%v' from proto: %v",
+				desc.Name, name, labelType, err)
 		}
-		labels[label.Name] = l
+		labels[name] = l
 	}
 	kind, err := metricKindFromProto(desc.Kind)
 	if err != nil {
-		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto with err: %s",
+		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto: %v",
 			desc.Name, desc.Kind, err)
 	}
 	return &adapter.MetricDefinition{
@@ -210,13 +173,4 @@ func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefin
 		Kind:        kind,
 		Labels:      labels,
 	}, nil
-}
-
-func findLabel(name string, labels []*dpb.LabelDescriptor) *dpb.LabelDescriptor {
-	for _, l := range labels {
-		if l.Name == name {
-			return l
-		}
-	}
-	return nil
 }

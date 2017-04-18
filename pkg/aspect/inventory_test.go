@@ -23,6 +23,10 @@ func TestInventory(t *testing.T) {
 	// and that we get something back...
 	inventory := Inventory()
 
+	if len(inventory.Preprocess) == 0 {
+		t.Error("Got 0 PreprocessManagers, wanted positive number")
+	}
+
 	if len(inventory.Check) == 0 {
 		t.Error("Expecting some managers for Check, got 0")
 	}

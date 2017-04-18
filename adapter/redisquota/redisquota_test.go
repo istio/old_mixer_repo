@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis"
-	ptypes "github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/adapter/redisquota/config"
 	"istio.io/mixer/pkg/adapter"
@@ -43,10 +42,15 @@ func TestAllocAndRelease(t *testing.T) {
 		Expiration: 0,
 	}
 
+	definitions["Q3"] = &adapter.QuotaDefinition{
+		MaxAmount:  10,
+		Expiration: time.Second * 2,
+	}
+
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
 	c.RedisServerUrl = s.Addr()
-	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 3600}
+	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {
@@ -74,6 +78,15 @@ func TestAllocAndRelease(t *testing.T) {
 		{"Q1", "5", 0, 0, true, 0, 0, 0, 0},
 		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
 		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
+		{"Q1", "5c", 0, 0, false, 0, 0, 15, 5},
+
+		{"Q3", "6", 10, 10, false, time.Second * 2, 0, 0, 0},
+		{"Q3", "7", 10, 0, false, 0, 1, 0, 0},
+		{"Q3", "8", 10, 10, false, time.Second * 2, 3, 0, 0},
+		{"Q3", "9", 100, 10, true, time.Second * 2, 5, 0, 0},
+		{"Q3", "10", 10, 0, false, 0, 6, 10, 10},
+		{"Q3", "11", 0, 0, false, 0, 7, 1000, 0},
+		{"Q3", "11", 0, 0, false, 0, 7, 1000, 0},
 	}
 
 	labels := make(map[string]interface{})
@@ -95,7 +108,7 @@ func TestAllocAndRelease(t *testing.T) {
 				Labels:          labels,
 			}
 
-			asp.getTime = func() time.Time {
+			asp.common.GetTime = func() time.Time {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
@@ -137,6 +150,16 @@ func TestAllocAndRelease(t *testing.T) {
 				t.Errorf("Expecting %d, got %d", c.releaseResult, amount)
 			}
 		})
+
+		// To simulate time proceed for mock redis.
+		if i == 9 || i == 12 || i == 13 {
+			s.FastForward(time.Second)
+
+		}
+		if i == 10 || i == 11 {
+			s.FastForward(time.Second * 2)
+
+		}
 	}
 
 	if err := a.Close(); err != nil {
@@ -185,7 +208,7 @@ func TestBadAmount(t *testing.T) {
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
 	c.RedisServerUrl = s.Addr()
-	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 3600}
+	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {
@@ -242,12 +265,12 @@ func TestBadConfig(t *testing.T) {
 	c := b.DefaultConfig().(*config.Params)
 	c.RedisServerUrl = s.Addr()
 
-	c.MinDeduplicationDuration = &ptypes.Duration{}
+	c.MinDeduplicationDuration = 0
 	if err := b.ValidateConfig(c); err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
-	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}
+	c.MinDeduplicationDuration = time.Duration(-1)
 	if err := b.ValidateConfig(c); err == nil {
 		t.Error("Expecting failure, got success")
 	}

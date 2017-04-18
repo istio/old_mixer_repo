@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-397cafe')
+@Library('testutils@stable-cd138c4')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -16,13 +16,21 @@ mainFlow(utils) {
     gitUtils.initialize()
     bazel.setVars()
   }
-
+  // PR on master branch
   if (utils.runStage('PRESUBMIT')) {
     presubmit(gitUtils, bazel, utils)
   }
-
+  // Postsubmit from master branch
   if (utils.runStage('POSTSUBMIT')) {
     postsubmit(gitUtils, bazel, utils)
+  }
+  // PR from master to stable branch for qualification
+  if (utils.runStage('STABLE_PRESUBMIT')) {
+    stablePresubmit(gitUtils, bazel, utils)
+  }
+  // Postsubmit form stable branch, post qualification
+  if (utils.runStage('STABLE_POSTSUBMIT')) {
+    stablePostsubmit(gitUtils, bazel, utils)
   }
 }
 
@@ -41,24 +49,53 @@ def presubmit(gitUtils, bazel, utils) {
       sh('bin/racetest.sh')
     }
     stage('Code Coverage') {
-      sh('bin/codecov.sh')
+      sh('bin/codecov.sh > codecov.report')
+      sh('bazel-bin/bin/toolbox/presubmit/package_coverage_check')
       utils.publishCodeCoverage('MIXER_CODECOV_TOKEN')
     }
     stage('Docker Test Push') {
       def images = 'mixer'
-      def tags = gitUtils.GIT_SHA
+      def tags = env.GIT_SHA
       utils.publishDockerImagesToContainerRegistry(images, tags)
     }
   }
 }
 
 def postsubmit(gitUtils, bazel, utils) {
-  buildNode(gitUtils) {
+  goBuildNode(gitUtils, 'istio.io/mixer') {
+    bazel.updateBazelRc()
+    stage('Code Coverage') {
+      bazel.fetch('-k //...')
+      bazel.build('//...')
+      sh('bin/bazel_to_go.py')
+      bazel.test('//...')
+      sh('bin/codecov.sh')
+      utils.publishCodeCoverage('MIXER_CODECOV_TOKEN')
+    }
+    utils.fastForwardStable('mixer')
+  }
+}
+
+def stablePresubmit(gitUtils, bazel, utils) {
+  goBuildNode(gitUtils, 'istio.io/mixer') {
+    bazel.updateBazelRc()
     stage('Docker Push') {
-      bazel.updateBazelRc()
+      def images = 'mixer'
+      def tags = env.GIT_SHA
+      utils.publishDockerImagesToContainerRegistry(images, tags)
+    }
+  }
+}
+
+def stablePostsubmit(gitUtils, bazel, utils) {
+  goBuildNode(gitUtils, 'istio.io/mixer') {
+    bazel.updateBazelRc()
+    stage('Docker Push') {
+      def date = new Date().format("YYYY-MM-dd-HH.mm.ss")
       def images = 'mixer,mixer_debug'
-      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
-      utils.publishDockerImages(images, tags)
+      def tags = "${env.GIT_SHORT_SHA},${date},latest"
+      utils.publishDockerImagesToDockerHub(images, tags)
+      utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
     }
   }
 }

@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
-	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/mixer/adapter/statsd/config"
@@ -51,7 +50,7 @@ var (
 	defaultConf = &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushDuration:             &types.Duration{Nanos: int32(300 * time.Millisecond)},
+		FlushDuration:             time.Duration(300) * time.Millisecond,
 		FlushBytes:                512,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: make(map[string]string),
@@ -69,11 +68,7 @@ func newBuilder() *builder {
 
 func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
-	flushDuration, err := types.DurationFromProto(params.FlushDuration)
-	if err != nil {
-		ce = ce.Append("FlushDuration", err)
-	}
-	if flushDuration < time.Duration(0) {
+	if params.FlushDuration < time.Duration(0) {
 		ce = ce.Appendf("FlushDuration", "flush duration must be >= 0")
 	}
 	if params.FlushBytes < 0 {
@@ -84,7 +79,7 @@ func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 	for metricName, s := range params.MetricNameTemplateStrings {
 		if _, err := template.New(metricName).Parse(s); err != nil {
-			ce = ce.Appendf("MetricNameTemplateStrings", "failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err)
+			ce = ce.Appendf("MetricNameTemplateStrings", "failed to parse template '%s' for metric '%s': %v", s, metricName, err)
 		}
 	}
 	return
@@ -100,8 +95,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics ma
 		flushBytes = defaultFlushBytes
 	}
 
-	flushDuration, _ := types.DurationFromProto(params.FlushDuration)
-	client, _ := statsd.NewBufferedClient(params.Address, params.Prefix, flushDuration, flushBytes)
+	client, _ := statsd.NewBufferedClient(params.Address, params.Prefix, params.FlushDuration, flushBytes)
 
 	templates := make(map[string]*template.Template)
 	for metricName, s := range params.MetricNameTemplateStrings {
@@ -114,7 +108,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics ma
 		t, _ := template.New(metricName).Parse(s)
 		if err := t.Execute(ioutil.Discard, def.Labels); err != nil {
 			env.Logger().Warningf(
-				"skipping custom statsd metric name for metric '%s', could not satisfy template '%s' with labels '%v' with err: %s",
+				"skipping custom statsd metric name for metric '%s', could not satisfy template '%s' with labels '%v': %v",
 				metricName, s, def.Labels, err)
 			continue
 		}
@@ -153,14 +147,14 @@ func (a *aspect) record(value adapter.Value) error {
 	case adapter.Gauge:
 		v, err := value.Int64()
 		if err != nil {
-			return fmt.Errorf("could not record gauge '%s' with err: %s", mname, err)
+			return fmt.Errorf("could not record gauge '%s': %v", mname, err)
 		}
 		result = a.client.Gauge(mname, v, a.rate)
 
 	case adapter.Counter:
 		v, err := value.Int64()
 		if err != nil {
-			return fmt.Errorf("could not record counter '%s' with err: %s", mname, err)
+			return fmt.Errorf("could not record counter '%s': %v", mname, err)
 		}
 		result = a.client.Inc(mname, v, a.rate)
 	}

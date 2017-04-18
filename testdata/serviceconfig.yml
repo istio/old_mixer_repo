@@ -1,12 +1,27 @@
 subject: namespace:ns
 revision: "2022"
 rules:
-        #- selector: service.name == “*”
-        #- selector: service.name == "myservice"
-- selector: true
+- selector: # must be empty for preprocessing adapters
   aspects:
+  - kind: attributes
+    params:
+      input_expressions:
+        sourceUID: source.uid | ""
+        targetUID: target.uid | ""
+        originUID: origin.uid | ""
+      attribute_bindings:
+        source.ip: sourcePodIp
+        source.service: sourceService
+        source.name: sourcePodName
+        source.namespace: sourceNamespace
+        source.labels: sourceLabels
+        source.serviceAccount: sourceServiceAccountName
   - kind: quotas
     params:
+      quotas:
+      - descriptor_name: RequestCount
+        max_amount: 5
+        expiration: 1s
   - kind: metrics
     adapter: prometheus
     params:
@@ -21,7 +36,7 @@ rules:
           method: api.method | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_latency
-        value: response.latency | "0ms"
+        value: response.duration | "0ms"
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
@@ -30,10 +45,10 @@ rules:
           response_code: response.code | 200
   - kind: access-logs
     params:
-      logName: "access_log"
+      logName: access_log
       log:
-        logFormat: 1 # COMMON
-        templateExpressions:
+        descriptor_name: accesslog.common
+        template_expressions:
            originIp: origin.ip
            sourceUser: origin.user
            timestamp: request.time

@@ -375,9 +375,12 @@ func processFunc(fn *Function, args []ast.Expr) (err error) {
 func Parse(src string) (ex *Expression, err error) {
 	a, err := parser.ParseExpr(src)
 	if err != nil {
-		return nil, fmt.Errorf("parse error: %s %s", src, err)
+		return nil, fmt.Errorf("unable to parse expression '%s': %v", src, err)
 	}
-	glog.V(2).Infof("%s : %s", src, a)
+	if glog.V(4) {
+		glog.Infof("Parsed expression '%s' into '%s'", src, a)
+	}
+
 	ex = &Expression{}
 	if err = process(a, ex); err != nil {
 		return nil, err
@@ -429,9 +432,18 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (config.ValueType, error) {
 	v, err := Parse(expr)
 	if err != nil {
-		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s' with err: %v", expr, err)
+		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
 	}
 	return v.TypeCheck(attrFinder, e.fMap)
+}
+
+func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType config.ValueType) error {
+	if t, err := e.TypeCheck(expr, finder); err != nil {
+		return err
+	} else if t != expectedType {
+		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)
+	}
+	return nil
 }
 
 // Validate validates expression for syntactic correctness.
@@ -444,8 +456,9 @@ func (e *cexl) Validate(s string) (err error) {
 		return err
 	}
 	// TODO call ex.TypeCheck() when vocabulary is available
-
-	glog.V(2).Infof("%s --> %s", s, ex)
+	if glog.V(4) {
+		glog.Infof("%s --> %s", s, ex)
+	}
 	return nil
 }
 
