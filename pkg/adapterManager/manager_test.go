@@ -112,7 +112,7 @@ type (
 	}
 )
 
-func (f *fakeResolver) Resolve(bag attribute.Bag, kindSet config.KindSet) ([]*cpb.Combined, error) {
+func (f *fakeResolver) Resolve(bag attribute.Bag, kindSet config.KindSet, strict bool) ([]*cpb.Combined, error) {
 	return f.ret, f.err
 }
 
