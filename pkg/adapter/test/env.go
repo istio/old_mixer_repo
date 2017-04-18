@@ -66,6 +66,10 @@ func (e *Env) Errorf(format string, args ...interface{}) error {
 	return fmt.Errorf(s)
 }
 
+func (e *Env) VerbosityLevel(level adapter.VerbosityLevel) bool {
+	return true
+}
+
 // GetLogs returns a snapshot of all logs that've been written to this environment
 func (e *Env) GetLogs() []string {
 	e.lock.Lock()
