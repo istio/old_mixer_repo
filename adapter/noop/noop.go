@@ -17,6 +17,7 @@ package noop
 import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	"istio.io/mixer/adapter/noop/config"
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -39,7 +40,7 @@ func Register(r adapter.Registrar) {
 func (builder) Name() string                                          { return "no-op" }
 func (builder) Close() error                                          { return nil }
 func (builder) Description() string                                   { return "an adapter that does nothing" }
-func (builder) DefaultConfig() (c adapter.Config)                     { return nil }
+func (builder) DefaultConfig() (c adapter.Config)                     { return &config.Params{} }
 func (builder) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
 
 func (aspect) Close() error { return nil }

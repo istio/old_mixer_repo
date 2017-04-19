@@ -8,6 +8,7 @@ go_library(
         "noop.go",
     ],
     deps = [
+        "//adapter/noop/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
