@@ -339,26 +339,28 @@ func canonicalName(service, namespace, clusterDomain string) (string, error) {
 	splits := strings.SplitN(service, ":", 2)
 	s := splits[0]
 	if len(s) == 0 {
-		return "", errors.New("invalid service name: starts with ':'")
+		return "", fmt.Errorf("invalid service name '%s': starts with ':'", service)
 	}
 	// error on ip addresses for now
 	if ip := net.ParseIP(s); ip != nil {
 		return "", errors.New("invalid service name: cannot canonicalize ip addresses at this time")
 	}
-	parts := strings.SplitN(s, ".", 5)
+	parts := strings.SplitN(s, ".", 3)
 	if len(parts) == 1 {
 		return fmt.Sprintf("%s.%s.%s", parts[0], namespace, clusterDomain), nil
 	}
 	if len(parts) == 2 {
 		return fmt.Sprintf("%s.%s", s, clusterDomain), nil
 	}
-	if len(parts) == 3 {
-		dom := strings.SplitAfterN(clusterDomain, ".", 2)
-		return fmt.Sprintf("%s.%s", s, dom[1]), nil
+
+	domParts := strings.Split(clusterDomain, ".")
+	nameParts := strings.Split(parts[2], ".")
+
+	if len(nameParts) >= len(domParts) {
+		return s, nil
 	}
-	if len(parts) == 4 {
-		dom := strings.SplitAfterN(clusterDomain, ".", 3)
-		return fmt.Sprintf("%s.%s", s, dom[2]), nil
+	for i := len(nameParts); i < len(domParts); i++ {
+		s = fmt.Sprintf("%s.%s", s, domParts[i])
 	}
 	return s, nil
 }
