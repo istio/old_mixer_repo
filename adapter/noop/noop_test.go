@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-syntax = "proto3";
+package noop
 
-package adapter.noop.config;
+import (
+	"testing"
 
-import "gogoproto/gogo.proto";
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapterManager"
+	"istio.io/mixer/pkg/config"
+)
 
-option go_package = "config";
-option (gogoproto.goproto_getters_all) = false;
-option (gogoproto.equal_all) = false;
-option (gogoproto.gostring_all) = false;
+func TestRegisteredForAllAspects(t *testing.T) {
+	builders := adapterManager.BuilderMap([]adapter.RegisterFn{Register})
 
-message Params {}
+	name := builder{}.Name()
+	noop := builders[name]
+
+	var i uint
+	for i = 0; i < uint(config.NumKinds); i++ {
+		k := config.Kind(i)
+		if !noop.Kinds.IsSet(k) {
+			t.Errorf("%s is not registered for kind %s", name, k)
+		}
+	}
+}

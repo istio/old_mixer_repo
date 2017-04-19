@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package noop is an empty adapter implementing every aspect.
+// WARNING: Not intended for actual use. This is a stand-in adapter used in benchmarking the Mixer framework.
 package noop
 
 import (
+	"github.com/gogo/protobuf/types"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/adapter/noop/config"
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -40,7 +42,7 @@ func Register(r adapter.Registrar) {
 func (builder) Name() string                                          { return "no-op" }
 func (builder) Close() error                                          { return nil }
 func (builder) Description() string                                   { return "an adapter that does nothing" }
-func (builder) DefaultConfig() (c adapter.Config)                     { return &config.Params{} }
+func (builder) DefaultConfig() (c adapter.Config)                     { return &types.Empty{} }
 func (builder) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
 
 func (aspect) Close() error { return nil }
