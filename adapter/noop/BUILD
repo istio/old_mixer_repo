@@ -8,8 +8,21 @@ go_library(
         "noop.go",
     ],
     deps = [
-        "//adapter/noop/config:go_default_library",
         "//pkg/adapter:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
+    ],
+)
+
+go_test(
+    name = "small_tests",
+    size = "small",
+    srcs = [
+        "noop_test.go",
+    ],
+    library = ":go_default_library",
+    deps = [
+        "//pkg/adapterManager:go_default_library",
+        "//pkg/config:go_default_library",
     ],
 )
