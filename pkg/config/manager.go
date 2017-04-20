@@ -188,7 +188,7 @@ func (c *Manager) fetchAndNotify() {
 		return
 	}
 
-	glog.Infof("Loaded new config %s ", c.store)
+	glog.Infof("Loaded new config %s", c.store)
 	for _, cl := range c.cl {
 		cl.ConfigChange(rt, df)
 	}

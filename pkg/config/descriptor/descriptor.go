@@ -55,6 +55,7 @@ type Finder interface {
 
 type dname string
 
+// NOTE: Update this list when new fields are added to the GlobalConfig message.
 const (
 	logs               dname = "logs"
 	metrics                  = "metrics"
@@ -75,22 +76,45 @@ type finder struct {
 }
 
 // typeMap maps descriptor types to example messages of those types.
-// Add example descriptors for all here instead of empty ones.
 var typeMap = map[dname]proto.Message{
-	logs:               &dpb.LogEntryDescriptor{},
-	metrics:            &dpb.MetricDescriptor{},
+	logs: &dpb.LogEntryDescriptor{
+		Name:        "accesslog.common",
+		DisplayName: "Apache Common Log Format",
+		LogTemplate: `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}}`,
+		Labels: map[string]dpb.ValueType{
+			"sourceUser": dpb.STRING,
+			"timestamp":  dpb.TIMESTAMP,
+			"originIp":   dpb.IP_ADDRESS,
+		},
+	},
+	metrics: &dpb.MetricDescriptor{
+		Kind:        dpb.COUNTER,
+		Value:       dpb.DURATION,
+		Description: "request latency by source, target, and service",
+		Labels: map[string]dpb.ValueType{
+			"source":        dpb.STRING,
+			"target":        dpb.STRING,
+			"service":       dpb.STRING,
+			"response_code": dpb.INT64,
+		},
+	},
+	// Add example for monitoredResources, principals descriptors.
 	monitoredResources: &dpb.MonitoredResourceDescriptor{},
 	principals:         &dpb.PrincipalDescriptor{},
 	quotas: &dpb.QuotaDescriptor{
-		Name:        "testQuota",
-		DisplayName: "The big Quota",
-		Description: "The very big Quota",
+		Name:        "RateLimitByService",
+		DisplayName: "RateLimit",
+		Description: "RateLimit By Service",
 		Labels: map[string]dpb.ValueType{
-			"n1": dpb.BOOL,
+			"target": dpb.STRING,
 		},
-		RateLimit: false,
+		RateLimit: true,
 	},
-	manifests: &dpb.AttributeDescriptor{},
+	manifests: &dpb.AttributeDescriptor{
+		Name:        "target.service",
+		ValueType:   dpb.STRING,
+		Description: "Intended destination of a request",
+	},
 }
 
 // Parse parses a descriptor config into its parts.

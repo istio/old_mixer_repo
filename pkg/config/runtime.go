@@ -123,14 +123,6 @@ const resolveSize = 50
 func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
 	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string, strictSelectorEval bool) (dlist []*pb.Combined, err error) {
 	scopes := make([]string, 0, 10)
-	if glog.V(2) {
-		pfx := ""
-		if onlyEmptySelectors {
-			pfx = "unconditionally "
-		}
-		glog.Infof("%sresolving for kinds: %s", pfx, kindSet)
-		defer func() { glog.Infof("%sresolved configs (err=%v): %s", pfx, err, dlist) }()
-	}
 
 	attr, _ := bag.Get(identityAttribute)
 	if attr == nil {
@@ -140,6 +132,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 		if onlyEmptySelectors {
 			scopes = []string{global}
 		} else {
+			glog.Warningf("%s attribute not found in %p", identityAttribute, bag)
 			return nil, fmt.Errorf("%s attribute not found", identityAttribute)
 		}
 	} else if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {
