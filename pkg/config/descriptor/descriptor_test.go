@@ -226,7 +226,7 @@ func TestParse_BadInput(t *testing.T) {
 
 	t.Run("NonJsonInput", func(t *testing.T) {
 		nonjson := make(chan int)
-		err := updateMsg("bad", nonjson, nil, nil)
+		err := updateMsg("bad", nonjson, nil, nil, false)
 		checkError(err, "unsupported type", t)
 	})
 }
