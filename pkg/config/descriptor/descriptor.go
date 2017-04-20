@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -51,6 +52,18 @@ type Finder interface {
 	GetQuota(name string) *dpb.QuotaDescriptor
 }
 
+type dname string
+
+const (
+	logs               dname = "logs"
+	metrics                  = "metrics"
+	monitoredResources       = "monitoredResources"
+	principals               = "principals"
+	quotas                   = "quotas"
+	manifests                = "manifests"
+	attributes               = "attributes"
+)
+
 type finder struct {
 	logs               map[string]*dpb.LogEntryDescriptor
 	metrics            map[string]*dpb.MetricDescriptor
@@ -60,54 +73,79 @@ type finder struct {
 	attributes         map[string]*dpb.AttributeDescriptor
 }
 
-type newMsg func() (message proto.Message)
-
-var typeMap = map[string]newMsg{
-	"logs":               func() proto.Message { return &dpb.LogEntryDescriptor{} },
-	"metrics":            func() proto.Message { return &dpb.MetricDescriptor{} },
-	"monitoredResources": func() proto.Message { return &dpb.MonitoredResourceDescriptor{} },
-	"principals":         func() proto.Message { return &dpb.PrincipalDescriptor{} },
-	"quotas":             func() proto.Message { return &dpb.QuotaDescriptor{} },
-	"manifests":          func() proto.Message { return &dpb.AttributeDescriptor{} },
+// typeMap maps descriptor types to example messages of those types.
+// Add example descriptors for all here instead of empty ones.
+var typeMap = map[dname]proto.Message{
+	logs:               &dpb.LogEntryDescriptor{},
+	metrics:            &dpb.MetricDescriptor{},
+	monitoredResources: &dpb.MonitoredResourceDescriptor{},
+	principals:         &dpb.PrincipalDescriptor{},
+	quotas: &dpb.QuotaDescriptor{
+		Name:        "testQuota",
+		DisplayName: "The big Quota",
+		Description: "The very big Quota",
+		Labels: map[string]dpb.ValueType{
+			"n1": dpb.BOOL,
+		},
+		RateLimit: false,
+	},
+	manifests: &dpb.AttributeDescriptor{},
 }
 
-// Parse parses a descriptor config in its parts.
+// Parse parses a descriptor config into its parts.
+// This entire function is equivalent to jsonpb.Unmarshal()
+// It provides better error reporting about which specific
+// object has the error
 func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 	m := map[string]interface{}{}
 	var err error
-
 	if err = yaml.Unmarshal([]byte(cfg), &m); err != nil {
 		return nil, ce.Append("DescriptorConfig", err)
 	}
-	dcfg = &pb.GlobalConfig{}
 	var cerr *adapter.ConfigErrors
-	var oarr interface{}
+	var oarr reflect.Value
+
+	basemsg := map[string]interface{}{}
+	// copy unhandled keys into basemsg
+	for kk, v := range m {
+		if typeMap[dname(kk)] == nil {
+			basemsg[kk] = v
+		}
+	}
+
+	dcfg = &pb.GlobalConfig{}
+
+	ce = ce.Extend(updateMsg("DescriptorConfig", basemsg, dcfg, nil))
 
 	//flatten manifest
-	k := "manifests"
-	val := m[k]
+	var k dname = manifests
+	val := m[string(k)]
 	if val != nil {
 		mani := []*pb.AttributeManifest{}
-		for _, msft := range val.([]interface{}) {
+		for midx, msft := range val.([]interface{}) {
+			mname := fmt.Sprintf("%s[%d]", k, midx)
 			manifest := msft.(map[string]interface{})
-			attr := manifest["attributes"].([]interface{})
-			if oarr, cerr = processArray(fmt.Sprintf("%s/%v", k, manifest["name"]), attr, typeMap[k]); cerr != nil {
+			attr := manifest[attributes].([]interface{})
+			delete(manifest, attributes)
+			ma := &pb.AttributeManifest{}
+			if cerr = updateMsg(mname, manifest, ma, typeMap[k]); cerr != nil {
+				ce = ce.Extend(cerr)
+			}
+			if oarr, cerr = processArray(mname+"."+attributes, attr, typeMap[k]); cerr != nil {
 				ce = ce.Extend(cerr)
 				continue
 			}
-
-			mani = append(mani, &pb.AttributeManifest{
-				Attributes: oarr.([]*dpb.AttributeDescriptor),
-			})
+			ma.Attributes = oarr.Interface().([]*dpb.AttributeDescriptor)
+			mani = append(mani, ma)
 		}
 		dcfg.Manifests = mani
 	}
 
 	for k, kfn := range typeMap {
-		if k == "manifests" {
+		if k == manifests {
 			continue
 		}
-		val = m[k]
+		val = m[string(k)]
 		if val == nil {
 			if glog.V(2) {
 				glog.Warningf("%s missing", k)
@@ -115,48 +153,59 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 			continue
 		}
 
-		if oarr, cerr = processArray(k, val.([]interface{}), kfn); cerr != nil {
+		if oarr, cerr = processArray(string(k), val.([]interface{}), kfn); cerr != nil {
 			ce = ce.Extend(cerr)
 			continue
 		}
-		switch k {
-		case "logs":
-			dcfg.Logs = oarr.([]*dpb.LogEntryDescriptor)
-		case "metrics":
-			dcfg.Metrics = oarr.([]*dpb.MetricDescriptor)
-		case "quotas":
-			dcfg.Quotas = oarr.([]*dpb.QuotaDescriptor)
+		fld := reflect.ValueOf(dcfg).Elem().FieldByName(strings.Title(string(k)))
+		if !fld.IsValid() {
+			continue
 		}
+		fld.Set(oarr)
 	}
 
-	return
+	return dcfg, ce
+}
+
+// updateMsg updates a proto.Message using a json message
+// of type []interface{} or map[string]interface{}
+// obj must be previously obtained from a json.Unmarshal
+func updateMsg(ctx string, obj interface{}, dm proto.Message, example proto.Message) (ce *adapter.ConfigErrors) {
+	var enc []byte
+	var err error
+
+	if enc, err = json.Marshal(obj); err != nil {
+		return ce.Append(ctx, err)
+	}
+	if err = jsonpb.Unmarshal(bytes.NewReader(enc), dm); err != nil {
+		um := &jsonpb.Marshaler{}
+		example, _ := um.MarshalToString(example)
+		return ce.Append(ctx, fmt.Errorf("%s: %s, example: %s", err.Error(), string(enc),
+			example,
+		))
+	}
+
+	return nil
 }
 
 // processArray and return typed array
-func processArray(name string, arr []interface{}, newMessage newMsg) (interface{}, *adapter.ConfigErrors) {
-	var enc []byte
-	var err error
+func processArray(name string, arr []interface{}, nm proto.Message) (reflect.Value, *adapter.ConfigErrors) {
 	var ce *adapter.ConfigErrors
-	nm := newMessage()
 	ptrType := reflect.TypeOf(nm)
 	valType := (reflect.Indirect(reflect.ValueOf(nm))).Type()
 	outarr := reflect.MakeSlice(reflect.SliceOf(ptrType), 0, len(arr))
 	for idx, attr := range arr {
-		if enc, err = json.Marshal(attr); err != nil {
-			ce = ce.Append(fmt.Sprintf("%s[%d]", name, idx), err)
-			continue
-		}
 		dm := reflect.New(valType).Elem().Addr().Interface().(proto.Message)
 
-		if err = jsonpb.Unmarshal(bytes.NewReader(enc), dm); err != nil {
-			ce = ce.Append(fmt.Sprintf("%s[%d]", name, idx), fmt.
-				Errorf("%s: %s", err.Error(), fmt.Sprintf(string(enc))))
+		if cerr := updateMsg(fmt.Sprintf("%s[%d]", name, idx),
+			attr, dm, nm); cerr != nil {
+			ce = ce.Extend(cerr)
 			continue
-
 		}
+
 		outarr = reflect.Append(outarr, reflect.ValueOf(dm))
 	}
-	return outarr.Interface(), ce
+	return outarr, ce
 }
 
 // NewFinder constructs a new Finder for the provided global config.
