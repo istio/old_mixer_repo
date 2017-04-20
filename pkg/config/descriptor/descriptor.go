@@ -17,6 +17,7 @@ package descriptor
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -115,7 +116,7 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 
 	dcfg = &pb.GlobalConfig{}
 
-	ce = ce.Extend(updateMsg("DescriptorConfig", basemsg, dcfg, nil))
+	ce = ce.Extend(updateMsg("DescriptorConfig", basemsg, dcfg, nil, true))
 
 	//flatten manifest
 	var k dname = manifests
@@ -128,7 +129,7 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 			attr := manifest[attributes].([]interface{})
 			delete(manifest, attributes)
 			ma := &pb.AttributeManifest{}
-			if cerr = updateMsg(mname, manifest, ma, typeMap[k]); cerr != nil {
+			if cerr = updateMsg(mname, manifest, ma, typeMap[k], false); cerr != nil {
 				ce = ce.Extend(cerr)
 			}
 			if oarr, cerr = processArray(mname+"."+attributes, attr, typeMap[k]); cerr != nil {
@@ -170,19 +171,22 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 // updateMsg updates a proto.Message using a json message
 // of type []interface{} or map[string]interface{}
 // obj must be previously obtained from a json.Unmarshal
-func updateMsg(ctx string, obj interface{}, dm proto.Message, example proto.Message) (ce *adapter.ConfigErrors) {
+func updateMsg(ctx string, obj interface{}, dm proto.Message, example proto.Message, allowUnknownFields bool) (ce *adapter.ConfigErrors) {
 	var enc []byte
 	var err error
 
 	if enc, err = json.Marshal(obj); err != nil {
 		return ce.Append(ctx, err)
 	}
-	if err = jsonpb.Unmarshal(bytes.NewReader(enc), dm); err != nil {
-		um := &jsonpb.Marshaler{}
-		example, _ := um.MarshalToString(example)
-		return ce.Append(ctx, fmt.Errorf("%s: %s, example: %s", err.Error(), string(enc),
-			example,
-		))
+	um := &jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownFields}
+	if err = um.Unmarshal(bytes.NewReader(enc), dm); err != nil {
+		msg := fmt.Sprintf("%v: [%s]", err, string(enc))
+		if example != nil {
+			um := &jsonpb.Marshaler{}
+			example, _ := um.MarshalToString(example)
+			msg += ", example: " + example
+		}
+		return ce.Append(ctx, errors.New(msg))
 	}
 
 	return nil
@@ -198,7 +202,7 @@ func processArray(name string, arr []interface{}, nm proto.Message) (reflect.Val
 		dm := reflect.New(valType).Elem().Addr().Interface().(proto.Message)
 
 		if cerr := updateMsg(fmt.Sprintf("%s[%d]", name, idx),
-			attr, dm, nm); cerr != nil {
+			attr, dm, nm, false); cerr != nil {
 			ce = ce.Extend(cerr)
 			continue
 		}
