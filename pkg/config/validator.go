@@ -211,19 +211,23 @@ func (a adapterKey) String() string {
 // compatfilterConfig
 // given a yaml file, filter specific keys from it
 // globalConfig contains descriptors and adapters which will be split shortly.
-func compatfilterConfig(cfg string, shouldSelect func(string) bool) (data []byte, m map[string]interface{}, err error) {
-	m = map[string]interface{}{}
+func compatfilterConfig(cfg string, shouldSelect func(string) bool) ([]byte, map[string]interface{}, error) {
+	//data []byte, m map[string]interface{}, err error
+	var m map[string]interface{}
+	var data []byte
+	var err error
 
 	if err = yaml.Unmarshal([]byte(cfg), &m); err != nil {
-		return
+		return data, nil, err
 	}
+
 	for k := range m {
 		if !shouldSelect(k) {
 			delete(m, k)
 		}
 	}
 	data, err = json.Marshal(m)
-	return
+	return data, m, err
 }
 
 // validateDescriptors
