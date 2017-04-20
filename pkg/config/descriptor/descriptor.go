@@ -183,8 +183,8 @@ func updateMsg(ctx string, obj interface{}, dm proto.Message, example proto.Mess
 		msg := fmt.Sprintf("%v: [%s]", err, string(enc))
 		if example != nil {
 			um := &jsonpb.Marshaler{}
-			example, _ := um.MarshalToString(example)
-			msg += ", example: " + example
+			exampleStr, _ := um.MarshalToString(example)
+			msg += ", example: " + exampleStr
 		}
 		return ce.Append(ctx, errors.New(msg))
 	}
