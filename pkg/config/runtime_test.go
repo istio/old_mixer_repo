@@ -117,7 +117,7 @@ func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver {
 }
 
 func (fr *fakeresolver) rrf(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
-	dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
+	dlist []*pb.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pb.Combined, error) {
 	if fr.resolveError != nil {
 		return nil, fr.resolveError
 	}
@@ -161,7 +161,8 @@ func TestResolve(t *testing.T) {
 		err          error
 		resolveError error
 		// check if the aspect is from the correct scope
-		assertions map[string]string
+		assertions         map[string]string
+		onlyEmptySelectors bool
 	}{
 		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
@@ -170,7 +171,7 @@ func TestResolve(t *testing.T) {
 			nil, nil,
 			map[string]string{
 				"metric0": "global/global",
-			},
+			}, false,
 		},
 		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1"),
@@ -181,7 +182,7 @@ func TestResolve(t *testing.T) {
 			nil, nil,
 			map[string]string{
 				"metric0": "global/ns1.svc.cluster.local",
-			},
+			}, false,
 		},
 		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1"),
@@ -194,7 +195,7 @@ func TestResolve(t *testing.T) {
 			map[string]string{
 				"metric0": "global/ns1.svc.cluster.local",
 				"metric1": "global/svc1.ns1.svc.cluster.local",
-			},
+			}, false,
 		},
 		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
@@ -203,7 +204,16 @@ func TestResolve(t *testing.T) {
 			errors.New("attribute not found"), nil,
 			map[string]string{
 				"metric0": "global/global",
-			},
+			}, false,
+		},
+		{"svc1.ns1.svc.cluster.local", []*fakeRule{
+			fP("global", "global", "metric0", "metric1")},
+			[]string{"metric0"},
+			false,
+			nil, nil,
+			map[string]string{
+				"metric0": "global/global",
+			}, true,
 		},
 		{"svc1", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
@@ -212,7 +222,7 @@ func TestResolve(t *testing.T) {
 			errors.New("interal error: scope"), nil,
 			map[string]string{
 				"metric0": "global/global",
-			},
+			}, false,
 		},
 		{"svc1.ns1.svc.cluster.local", []*fakeRule{
 			fP("global", "global", "metric0", "metric1")},
@@ -221,7 +231,7 @@ func TestResolve(t *testing.T) {
 			errors.New("unable to resolve"), errors.New("unable to resolve"),
 			map[string]string{
 				"metric0": "global/global",
-			},
+			}, false,
 		},
 	}
 
@@ -235,7 +245,7 @@ func TestResolve(t *testing.T) {
 			b := &bag{attrs}
 			var ks KindSet = 0xff
 			fr := newFakeResolver(tt.kinds, ks, tt.resolveError)
-			dl, err := resolve(b, ks, rules, fr.rrf, false, keyTargetService, keyServiceDomain)
+			dl, err := resolve(b, ks, rules, fr.rrf, tt.onlyEmptySelectors, keyTargetService, keyServiceDomain, true)
 			if err != nil {
 				if tt.err == nil {
 					t1.Fatal("Unexpected Error", err)
@@ -244,6 +254,10 @@ func TestResolve(t *testing.T) {
 					return
 				}
 				t1.Fatalf("got %s\nwant %s", err, tt.err)
+			} else {
+				if tt.err != nil {
+					t1.Fatalf("got %s\nwant %s", err, tt.err)
+				}
 			}
 			byKind := map[string][]*pb.Combined{}
 			for _, dd := range dl {
@@ -339,7 +353,7 @@ func TestRuntime(t *testing.T) {
 		}
 		rt := newRuntime(v, fe, keyTargetService, keyServiceDomain)
 
-		al, err := rt.Resolve(bag, kinds)
+		al, err := rt.Resolve(bag, kinds, true)
 
 		if tt.err != nil {
 			if err != tt.err {
@@ -445,7 +459,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 		}
 		rt := newRuntime(v, fe, keyTargetService, keyServiceDomain)
 
-		al, err := rt.ResolveUnconditional(bag, kinds)
+		al, err := rt.ResolveUnconditional(bag, kinds, true)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
