@@ -342,12 +342,6 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_opencontainers_go_digest",
-    commit = "aa2ec055abd10d26d539eb630a92241b781ce4bc",  # Jan 31, 2017 (v1.0.0-rc0)
-    importpath = "github.com/opencontainers/go-digest",
-)
-
-new_go_repository(
     name = "com_github_blang_semver",
     commit = "b38d23b8782a487059e8fc8773e9a5b228a77cb6",  # Jan 30, 2017 (v3.5.0)
     importpath = "github.com/blang/semver",
