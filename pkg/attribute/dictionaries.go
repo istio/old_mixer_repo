@@ -38,8 +38,8 @@ type refCountedDictionary struct {
 
 // dictionaries provides a thread safe interning solution for
 // attribute dictionaries. This allows identical dictionaries
-// to be shared within M, which reduces memory consumption and
-// improves processor cache efficiency.
+// to be shared within Mixer, which reduces memory consumption
+// and improves processor cache efficiency.
 type dictionaries struct {
 	sync.Mutex
 	entries []refCountedDictionary
