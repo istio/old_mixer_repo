@@ -21,6 +21,7 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -67,7 +68,7 @@ func (aspect) Log([]adapter.LogEntry) error { return nil }
 func (builder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
 	return &aspect{}, nil
 }
-func (aspect) Deny() rpc.Status { return rpc.Status{} }
+func (aspect) Deny() rpc.Status { return status.New(rpc.FAILED_PRECONDITION) }
 
 func (builder) NewListsAspect(adapter.Env, adapter.Config) (adapter.ListsAspect, error) {
 	return &aspect{}, nil
