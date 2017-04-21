@@ -1,0 +1,80 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.attribute.v1;
+
+// An `Attribute` represents a small piece of metadata about an activity on a
+// network service, such as `origin.ip` of an API request.
+//
+// The Istio system will use the attributes to communicate across different
+// components to provide various functionality to services. For example, the
+// Proxy sends various attributes about API requests to the Mixer, and the
+// Mixer performs various business logics on the attributes:
+//
+// - Log or audit certain attributes.
+// - Generate metrics from attributes.
+// - Enforce policies on attributes, such as "(origin.user != null)".
+// - Enforce rate limiting on attributes, such as "1/{origin.ip}/s".
+//
+// Each `Attribute` has a name and a string value. Each name must be
+// declared in the global namespace using the AttributeDescriptor. The
+// attribute value must conform to the `value_type` in the descriptor.
+// For example, { name: "origin.ip", value: "127.0.0.1" }.
+//
+// The Istio system will declare and support a rich set of standard
+// attributes. Individual services may declare their custom attributes
+// in their service configurations.
+//
+message Attribute {
+  // The attribute name. It must have the following format:
+  //
+  //     Name = IDENT { "." IDENT } ;
+  //
+  // The `IDENT` must match regular expression `[a-z][a-z0-9]+`.
+  //
+  string name = 1;
+
+  // The attribute value, which must conform to the associated
+  // attribute value type.
+  string value = 2;
+}
+
+// An `AttributeDescriptor` declares an attribute schema.
+message AttributeDescriptor {
+  // The attribute name.
+  string name = 1;
+
+  // The attribute value type.
+  ValueType value_type = 2;
+
+  // A human-readable description for the label. Maximum size is 255 bytes.
+  string description = 3;
+
+  enum ValueType {
+    // The value is a valid UTF-8 string.
+    STRING = 0;
+    // The value is a 64-bit integer printed as a decial number.
+    INT64 = 1;
+    // The value is a 64-bit double printed in JSON number format.
+    DOUBLE = 2;
+    // The value is a google.protobuf.Timestamp printed as a string.
+    TIMESTAMP = 3;
+    // The value is an IP address printed as a string.
+    IP_ADDRESS = 4;
+    // The value is a valid JSON string.
+    JSON = 5;
+  };
+}
