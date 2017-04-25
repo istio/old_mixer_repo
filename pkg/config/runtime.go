@@ -132,7 +132,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 		if onlyEmptySelectors {
 			scopes = []string{global}
 		} else {
-			glog.Warningf("%s attribute not found in %p", identityAttribute, bag)
+			glog.Warningf("%s attribute not found in %v", identityAttribute, bag)
 			return nil, fmt.Errorf("%s attribute not found", identityAttribute)
 		}
 	} else if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {

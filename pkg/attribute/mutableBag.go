@@ -57,7 +57,14 @@ var mutableBags = sync.Pool{
 // When you are done using the mutable bag, call the Done method to recycle it.
 func GetMutableBag(parent Bag) *MutableBag {
 	mb := mutableBags.Get().(*MutableBag)
-
+	var pid int64 = -1
+	p, _ := parent.(*MutableBag)
+	if p != nil {
+		pid = p.id
+	}
+	if pid == mb.id {
+		panic(fmt.Sprintf("INTERNAL ERROR: bag %v was used after freeing", mb))
+	}
 	mb.parent = parent
 	if parent == nil {
 		mb.parent = empty

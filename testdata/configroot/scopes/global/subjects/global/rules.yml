@@ -6,27 +6,27 @@ rules:
   # when running local without a kubeconfig file specified in globalconfig,
   # this aspect should be commented out. It is only needed when the attributes
   # it produces are needed elsewhere in the config.
-  - kind: attributes
-    params:
-      input_expressions:
-        sourceUID: source.uid | ""
-        targetUID: target.uid | ""
-        originUID: origin.uid | ""
-        targetService: request.headers["authority"] | request.host | ""
-      attribute_bindings:
-        source.ip: sourcePodIp
-        source.service: sourceService
-        source.name: sourcePodName
-        source.namespace: sourceNamespace
-        source.labels: sourceLabels
-        source.serviceAccount: sourceServiceAccountName
-        target.service: targetService
-        target.labels: targetLabels
-        target.ip: targetPodIp
-        target.service: targetService
-        target.name: targetPodName
-        target.namespace: targetNamespace
-        target.serviceAccount: targetServiceAccountName
+#  - kind: attributes
+#    params:
+#      input_expressions:
+#        sourceUID: source.uid | ""
+#        targetUID: target.uid | ""
+#        originUID: origin.uid | ""
+#        targetService: request.headers["authority"] | request.host | ""
+#      attribute_bindings:
+#        source.ip: sourcePodIp
+#        source.service: sourceService
+#        source.name: sourcePodName
+#        source.namespace: sourceNamespace
+#        source.labels: sourceLabels
+#        source.serviceAccount: sourceServiceAccountName
+#        target.service: targetService
+#        target.labels: targetLabels
+#        target.ip: targetPodIp
+#        target.service: targetService
+#        target.name: targetPodName
+#        target.namespace: targetNamespace
+#        target.serviceAccount: targetServiceAccountName
   - kind: quotas
     params:
       quotas:
