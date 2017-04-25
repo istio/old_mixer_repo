@@ -1,36 +1,32 @@
 subject: namespace:ns
 revision: "2022"
 rules:
-        #- selector: service.name == “*”
-        #- selector: service.name == "myservice"
-- selector: target.service == "myservice.*"
+- selector: # must be empty for preprocessing adapters
   aspects:
-  - kind: access-logs
+  # when running local without a kubeconfig file specified in globalconfig,
+  # this aspect should be commented out. It is only needed when the attributes
+  # it produces are needed elsewhere in the config.
+  - kind: attributes
     params:
-      logName: access_log
-      log:
-        descriptor_name: accesslog.common # COMMON
-        template_expressions:
-           originIp: origin.ip
-           sourceUser: '"user"'
-           timestamp: request.time
-           method: '"thismethod"'
-           url: '"/abcd"'
-           protocol: '"ftp://"'
-           responseCode: "403"
-           responseSize: "60029"
-        labels:
-           originIp: origin.ip
-           sourceUser: origin.user
-           timestamp: request.time
-           method: request.method
-           url: request.path
-           protocol: request.scheme
-           responseCode: response.code
-           responseSize: response.size
-
-- selector: target.service != "myservice.*"
-  aspects:
+      input_expressions:
+        sourceUID: source.uid | ""
+        targetUID: target.uid | ""
+        originUID: origin.uid | ""
+        targetService: request.headers["authority"] | request.host | ""
+      attribute_bindings:
+        source.ip: sourcePodIp
+        source.service: sourceService
+        source.name: sourcePodName
+        source.namespace: sourceNamespace
+        source.labels: sourceLabels
+        source.serviceAccount: sourceServiceAccountName
+        target.service: targetService
+        target.labels: targetLabels
+        target.ip: targetPodIp
+        target.service: targetService
+        target.name: targetPodName
+        target.namespace: targetNamespace
+        target.serviceAccount: targetServiceAccountName
   - kind: quotas
     params:
       quotas:
@@ -45,24 +41,24 @@ rules:
         # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
         value: "1"
         labels:
-          source: source.name | "unknown"
-          target: target.name | "unknown"
-          service: api.name | "unknown"
-          method: api.method | "unknown"
+          source: source.service | "unknown"
+          target: target.service | "unknown"
+          service: api.name | target.labels["app"] | "unknown"
+          method: api.method | request.path | "unknown"
           response_code: response.code | 200
-      - descriptor_name:  request_latency
-        value: response.duration | "0ms"
+      - descriptor_name:  request_duration
+        value: response.latency | response.duration | "0ms"
         labels:
-          source: source.name | "unknown"
-          target: target.name | "unknown"
-          service: api.name | "unknown"
-          method: api.method | "unknown"
+          source: source.service | "unknown"
+          target: target.service | "unknown"
+          service: api.name | target.labels["app"] | "unknown"
+          method: api.method | request.path | "unknown"
           response_code: response.code | 200
   - kind: access-logs
     params:
       logName: access_log
       log:
-        descriptor_name: accesslog.common # COMMON
+        descriptor_name: accesslog.common
         template_expressions:
            originIp: origin.ip
            sourceUser: origin.user
