@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,6 +42,8 @@ type testServer struct {
 	errOnStart bool
 
 	errOnIntRet bool
+
+	sync.Mutex
 }
 
 func (t *testServer) Start() (*miniredis.Miniredis, *redeo.Server, error) {
@@ -478,7 +481,9 @@ func TestBadConfig(t *testing.T) {
 
 func TestErrorResponse(t *testing.T) {
 	mockredis := testServer{errOnStart: false, errOnIntRet: true}
+	mockredis.Mutex.Lock()
 	_, f, _ := mockredis.Start()
+	mockredis.Mutex.Unlock()
 	defer mockredis.Close()
 
 	definitions := make(map[string]*adapter.QuotaDefinition)
