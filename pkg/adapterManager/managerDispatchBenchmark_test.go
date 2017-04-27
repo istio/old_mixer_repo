@@ -151,7 +151,7 @@ func (f *fakeNoopAdapter) Record(vals []adapter.Value) error {
 }
 func (*fakeNoopAdapter) Close() error { return nil }
 
-func createYamlConfigs(srvcCnfgAspectFromat string, configRepeatCount int) (declarativeSrvcCnfg *os.File, declaredGlobalCnfg *os.File) {
+func createYamlConfigs(srvcCnfgAspect string, configRepeatCount int) (declarativeSrvcCnfg *os.File, declaredGlobalCnfg *os.File) {
 	srvcCnfgFile, _ := ioutil.TempFile("", "managerDispatchBenchmarkTest")
 	globalCnfgFile, _ := ioutil.TempFile("", "managerDispatchBenchmarkTest")
 
@@ -161,7 +161,7 @@ func createYamlConfigs(srvcCnfgAspectFromat string, configRepeatCount int) (decl
 	var srvcCnfgBuffer bytes.Buffer
 	srvcCnfgBuffer.WriteString(srvcCnfgConstInitialSection)
 	for i := 0; i < configRepeatCount; i++ {
-		srvcCnfgBuffer.WriteString(strings.Replace(srvcCnfgAspectFromat, "$s", strconv.FormatInt(int64(i), 10), 1))
+		srvcCnfgBuffer.WriteString(srvcCnfgAspect)
 	}
 	_, _ = srvcCnfgFile.Write([]byte(srvcCnfgBuffer.String()))
 	_ = srvcCnfgFile.Close()
