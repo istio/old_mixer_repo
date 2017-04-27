@@ -121,16 +121,21 @@ func TestBag(t *testing.T) {
 }
 
 func TestBagReuse(t *testing.T) {
-	rb := GetMutableBag(nil)
-	rb.Done()
-
-	ans := withPanic(func() { rb.Child() })
-
-	sans, _ := ans.(string)
+	var sans string
 	want := "INTERNAL ERROR"
-	if !strings.Contains(sans, want) {
-		t.Errorf("got %s\nwant %s", sans, want)
+
+	for i := 0; i < 10; i++ {
+		rb := GetMutableBag(nil)
+		rb.Done()
+
+		ans := withPanic(func() { rb.Child() })
+
+		sans, _ = ans.(string)
+		if strings.Contains(sans, want) {
+			return
+		}
 	}
+	t.Errorf("got %s\nwant %s", sans, want)
 }
 
 func withPanic(f func()) (ret interface{}) {
