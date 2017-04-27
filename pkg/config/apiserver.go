@@ -124,7 +124,7 @@ func (a *API) register(c *restful.Container) {
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
 		Param(ws.PathParameter("ruleid", "rule id").DataType("string")))
 
-    // Creates or replaces a named adapter configuration
+	// Creates or replaces a named adapter configuration
 	ws.Route(ws.
 		PUT("/scopes/{scope}/adapters/{adapter_name}/{config_name}").
 		To(a.putAdapter).
@@ -296,7 +296,6 @@ func (a *API) getDescriptor(req *restful.Request, resp *restful.Response) {
 func (a *API) putDescriptor(req *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "put descriptor not implemented", resp) // TODO
 }
-
 
 // a subset of restful.Response
 type response interface {

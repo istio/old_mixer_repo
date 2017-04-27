@@ -145,7 +145,6 @@ func TestAPI_getScopes(t *testing.T) {
 	}
 }
 
-
 func TestAPI_createPolicy(t *testing.T) {
 
 	for _, ctx := range []struct {
@@ -153,14 +152,13 @@ func TestAPI_createPolicy(t *testing.T) {
 		body   []byte
 		status int
 	}{
-		{"/scopes/global/subjects/newTestSubject", 
-		 []byte(`{"scope":"global","subject":"subject001","revision":"some-uuid","rules":[]}`),
-		 http.StatusNotImplemented}, // TODO expect http.StatusCreated
+		{"/scopes/global/subjects/newTestSubject",
+			[]byte(`{"scope":"global","subject":"subject001","revision":"some-uuid","rules":[]}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
 	} {
 		t.Run(ctx.key, func(t *testing.T) {
 			store := &fakeMemStore{
-				data: map[string]string{
-				},
+				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
 				nil, nil, store)
@@ -183,13 +181,12 @@ func TestAPI_putAspect(t *testing.T) {
 		status int
 	}{
 		{"/scopes/global/subjects/subject001/rules/rule001/aspects/aspect001",
-		 []byte(`{"scope":"global","subject":"subject001","ruleid":"rule001","aspect":"aspect001","revision":"some-uuid","aspects":[]}`),
-		 http.StatusNotImplemented}, // TODO expect http.StatusCreated
+			[]byte(`{"scope":"global","subject":"subject001","ruleid":"rule001","aspect":"aspect001","revision":"some-uuid","aspects":[]}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
 	} {
 		t.Run(ctx.key, func(t *testing.T) {
 			store := &fakeMemStore{
-				data: map[string]string{
-				},
+				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
 				nil, nil, store)
@@ -238,13 +235,12 @@ func TestAPI_putAdapter(t *testing.T) {
 		status int
 	}{
 		{"/scopes/global/adapters/adapter001/config001",
-		[]byte(`{"params":{}}`),
-		http.StatusNotImplemented}, // TODO expect http.StatusCreated
+			[]byte(`{"params":{}}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
 	} {
 		t.Run(ctx.key, func(t *testing.T) {
 			store := &fakeMemStore{
-				data: map[string]string{
-				},
+				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
 				nil, nil, store)
@@ -294,13 +290,12 @@ func TestAPI_putDescriptor(t *testing.T) {
 		status int
 	}{
 		{"/scopes/global/descriptors/type001/descriptor001",
-		[]byte(`{}`),
-		http.StatusNotImplemented}, // TODO expect http.StatusCreated
+			[]byte(`{}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
 	} {
 		t.Run(ctx.key, func(t *testing.T) {
 			store := &fakeMemStore{
-				data: map[string]string{
-				},
+				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
 				nil, nil, store)
