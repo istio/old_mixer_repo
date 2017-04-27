@@ -123,6 +123,9 @@ func copyValue(v interface{}) interface{} {
 func (mb *MutableBag) Done() {
 	mb.Reset()
 	mb.parent = nil
+	if glog.V(3) {
+		glog.Infof("%d Released bag with id: %d", getGID(), mb.id)
+	}
 	mutableBags.Put(mb)
 	if glog.V(3) {
 		glog.Infof("%d Released bag with 			id: %d", getGID(), mb.id)

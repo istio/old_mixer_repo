@@ -2,8 +2,8 @@
 
 # Applies requisite code formatters to the source tree
 
-sed --version > /dev/null 2>&1
 SED="gnu"
+sed --version > /dev/null 2>&1
 if [[ $? -ne 0 ]];then
 	SED="mac"
 fi
