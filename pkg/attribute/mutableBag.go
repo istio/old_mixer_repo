@@ -42,9 +42,13 @@ type MutableBag struct {
 var id int64
 var mutableBags = sync.Pool{
 	New: func() interface{} {
+		bid := atomic.AddInt64(&id, 1)
+		if glog.V(3) {
+			glog.Infof("Created bad %d", bid)
+		}
 		return &MutableBag{
 			values: make(map[string]interface{}),
-			id:     atomic.AddInt64(&id, 1),
+			id:     bid,
 		}
 	},
 }
