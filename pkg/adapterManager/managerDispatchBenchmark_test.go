@@ -17,8 +17,14 @@ package adapterManager
 import (
 	"bytes"
 	"context"
-	"github.com/gogo/protobuf/types"
 	"io/ioutil"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/gogo/protobuf/types"
+	"github.com/googleapis/googleapis/google/rpc"
+
 	"istio.io/mixer/pkg/adapter"
 	pkgAdapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
@@ -26,12 +32,6 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
-	"os"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
-	"github.com/googleapis/googleapis/google/rpc"
 )
 
 /*
@@ -140,9 +140,11 @@ rules:
 func registerNoopAdapter(r adapter.Registrar) {
 	r.RegisterMetricsBuilder(&fakeNoopAdapter{adapter.NewDefaultBuilder("noopMetricKindAdapter", "Publishes metrics", &types.Empty{})})
 }
+
 type fakeNoopAdapter struct {
 	adapter.DefaultBuilder
 }
+
 func (f *fakeNoopAdapter) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return &fakeNoopAdapter{}, nil
 }
@@ -170,6 +172,7 @@ func createYamlConfigs(srvcCnfgAspect string, configRepeatCount int) (declarativ
 }
 
 var rpcStatus google_rpc.Status
+
 func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath string, declaredGlobalCnfgFilePath string) {
 	apiPoolSize := 1024
 	adapterPoolSize := 1024

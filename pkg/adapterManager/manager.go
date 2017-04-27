@@ -133,6 +133,7 @@ func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, re
 			return cw.Execute(requestBag, evaluator)
 		})
 }
+
 // Check dispatches to the set of aspects associated with the Check API method
 func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	configs, err := m.loadConfigs(requestBag, m.checkKindSet, false, true /* fail if unable to eval all selectors */)
