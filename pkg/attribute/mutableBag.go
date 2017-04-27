@@ -17,6 +17,8 @@ package attribute
 import (
 	"bytes"
 	"fmt"
+	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -39,12 +41,22 @@ type MutableBag struct {
 	id     int64 // strictly for use in diagnostic messages
 }
 
+// get Go routine ID
+func getGID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
+}
+
 var id int64
 var mutableBags = sync.Pool{
 	New: func() interface{} {
 		bid := atomic.AddInt64(&id, 1)
 		if glog.V(3) {
-			glog.Infof("Created bad %d", bid)
+			glog.Infof("%d Created bag %d", getGID(), bid)
 		}
 		return &MutableBag{
 			values: make(map[string]interface{}),
@@ -112,6 +124,9 @@ func (mb *MutableBag) Done() {
 	mb.Reset()
 	mb.parent = nil
 	mutableBags.Put(mb)
+	if glog.V(3) {
+		glog.Infof("%d Released bag with 			id: %d", getGID(), mb.id)
+	}
 }
 
 // Get returns an attribute value.
