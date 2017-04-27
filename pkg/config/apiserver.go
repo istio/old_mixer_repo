@@ -105,17 +105,7 @@ func (a *API) register(c *restful.Container) {
 		Reads(&pb.ServiceConfig{}).
 		Writes(APIResponse{}))
 
-	// Creates or replaces a rule's list of aspects
-	ws.Route(ws.
-		PUT("/scopes/{scope}/subjects/{subject}/rules/{ruleid}/aspects/{aspect}").
-		To(a.putAspect).
-		Doc("Creates or replaces a rule’s list of aspects.").
-		Param(ws.PathParameter("scope", "scope").DataType("string")).
-		Param(ws.PathParameter("subject", "subject").DataType("string")).
-		Param(ws.PathParameter("aspect", "aspect").DataType("string")).
-		Reads(&pb.Aspect{}).
-		Writes(APIResponse{}))
-
+	// Delete a rule
 	ws.Route(ws.
 		DELETE("/scopes/{scope}/subjects/{subject}/rules/{ruleid}").
 		To(a.deleteRule).
@@ -123,6 +113,18 @@ func (a *API) register(c *restful.Container) {
 		Param(ws.PathParameter("scope", "scope").DataType("string")).
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
 		Param(ws.PathParameter("ruleid", "rule id").DataType("string")))
+
+	// Creates or replaces a rule's list of aspects
+	ws.Route(ws.
+		PUT("/scopes/{scope}/subjects/{subject}/rules/{ruleid}/aspects/{aspect}").
+		To(a.putAspect).
+		Doc("Creates or replaces a rule’s list of aspects.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Param(ws.PathParameter("ruleid", "rule id").DataType("string")).
+		Param(ws.PathParameter("aspect", "aspect").DataType("string")).
+		Reads(&pb.Aspect{}).
+		Writes(APIResponse{}))
 
 	// Creates or replaces a named adapter configuration
 	ws.Route(ws.
