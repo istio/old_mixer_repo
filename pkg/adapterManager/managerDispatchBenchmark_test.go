@@ -217,28 +217,28 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 
 func BenchmarkOneSimpleAspect(b *testing.B) {
 	sc, gsc := createYamlConfigs(srvcCnfgSimpleAspect, 1)
-	defer os.Remove(sc.Name())
-	defer os.Remove(gsc.Name())
 	benchmarkAdapterManagerDispatch(b, sc.Name(), gsc.Name())
+	_ = os.Remove(sc.Name())
+	_ = os.Remove(gsc.Name())
 }
 
 func Benchmark50SimpleAspect(b *testing.B) {
 	sc, gsc := createYamlConfigs(srvcCnfgSimpleAspect, 50)
-	defer os.Remove(sc.Name())
-	defer os.Remove(gsc.Name())
 	benchmarkAdapterManagerDispatch(b, sc.Name(), gsc.Name())
+	_ = os.Remove(sc.Name())
+	_ = os.Remove(gsc.Name())
 }
 
 func BenchmarkOneComplexAspect(b *testing.B) {
 	sc, gsc := createYamlConfigs(srvcCnfgComplexAspect, 1)
-	defer os.Remove(sc.Name())
-	defer os.Remove(gsc.Name())
 	benchmarkAdapterManagerDispatch(b, sc.Name(), gsc.Name())
+	_ = os.Remove(sc.Name())
+	_ = os.Remove(gsc.Name())
 }
 
 func Benchmark50ComplexAspect(b *testing.B) {
 	sc, gsc := createYamlConfigs(srvcCnfgComplexAspect, 50)
-	defer os.Remove(sc.Name())
-	defer os.Remove(gsc.Name())
 	benchmarkAdapterManagerDispatch(b, sc.Name(), gsc.Name())
+	_ = os.Remove(sc.Name())
+	_ = os.Remove(gsc.Name())
 }
