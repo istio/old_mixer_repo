@@ -51,6 +51,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//adapter:go_default_library",
+        "//adapter/noop:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

@@ -22,10 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-	"github.com/googleapis/googleapis/google/rpc"
+	google_rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/adapter/noop"
 	pkgAdapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -59,9 +58,9 @@ const (
 subject: namespace:ns
 revision: "2022"
 adapters:
-  - name: noopMetricKindAdapter
+  - name: no-op
     kind: metrics
-    impl: noopMetricKindAdapter
+    impl: no-op
 
 manifests:
   - name: istio-proxy
@@ -108,7 +107,7 @@ rules:
 `
 	srvcCnfgSimpleAspect = `
   - kind: metrics
-    adapter: noopMetricKindAdapter
+    adapter: no-op
     params:
       metrics:
       - descriptorName: request_count
@@ -123,7 +122,7 @@ rules:
 
 	srvcCnfgComplexAspect = `
   - kind: metrics
-    adapter: noopMetricKindAdapter
+    adapter: no-op
     params:
       metrics:
       - descriptorName: request_count
@@ -136,22 +135,6 @@ rules:
           response_code: response.code | response.code | response.code | response.code | response.code | response.code | response.code | response.code | 111
 `
 )
-
-func registerNoopAdapter(r adapter.Registrar) {
-	r.RegisterMetricsBuilder(&fakeNoopAdapter{adapter.NewDefaultBuilder("noopMetricKindAdapter", "Publishes metrics", &types.Empty{})})
-}
-
-type fakeNoopAdapter struct {
-	adapter.DefaultBuilder
-}
-
-func (f *fakeNoopAdapter) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	return &fakeNoopAdapter{}, nil
-}
-func (f *fakeNoopAdapter) Record(vals []adapter.Value) error {
-	return nil
-}
-func (*fakeNoopAdapter) Close() error { return nil }
 
 func createYamlConfigs(srvcCnfgAspect string, configRepeatCount int) (declarativeSrvcCnfg *os.File, declaredGlobalCnfg *os.File) {
 	srvcCnfgFile, _ := ioutil.TempFile("", "managerDispatchBenchmarkTest")
@@ -192,7 +175,7 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := NewManager([]pkgAdapter.RegisterFn{
-		registerNoopAdapter,
+		noop.Register,
 	}, aspect.Inventory(), eval, gp, adapterGP)
 	store, _ := config.NewCompatFSStore(declaredGlobalCnfgFilePath, declarativeSrvcCnfgFilePath)
 
