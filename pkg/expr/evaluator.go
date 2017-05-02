@@ -42,9 +42,6 @@ type (
 
 	// Validator validates a given expression
 	Validator interface {
-		// Validate ensures that the given expression is syntactically correct
-		Validate(expr string) error
-
 		// TypeCheck produces the type of an expression or an error if the type cannot be evaluated.
 		// TODO: we probably want to use a golang type rather than pb.ValueType (a proto).
 		TypeCheck(expr string, finder AttributeDescriptorFinder) (pb.ValueType, error)

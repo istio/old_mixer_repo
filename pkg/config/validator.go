@@ -36,6 +36,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
@@ -302,12 +303,12 @@ func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.Config
 }
 
 // ValidateSelector ensures that the selector is valid per expression language.
-func (p *validator) validateSelector(selector string) (err error) {
+func (p *validator) validateSelector(selector string, df expr.AttributeDescriptorFinder) (err error) {
 	// empty selector always selects
 	if len(selector) == 0 {
 		return nil
 	}
-	return p.exprValidator.Validate(selector)
+	return p.exprValidator.AssertType(selector, df, dpb.BOOL)
 }
 
 // validateAspectRules validates the recursive configuration data structure.
@@ -315,7 +316,7 @@ func (p *validator) validateSelector(selector string) (err error) {
 func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (numAspects int, ce *adapter.ConfigErrors) {
 	var acfg adapter.Config
 	for _, rule := range rules {
-		if err := p.validateSelector(rule.GetSelector()); err != nil {
+		if err := p.validateSelector(rule.GetSelector(), p.descriptorFinder); err != nil {
 			ce = ce.Append(path+":Selector "+rule.GetSelector(), err)
 		}
 		var err *adapter.ConfigErrors

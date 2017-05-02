@@ -16,6 +16,7 @@ package expr
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 
@@ -224,6 +225,86 @@ func TestAssertType(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCacheHit(t *testing.T) {
+	cexl := &cexl{
+		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+	}
+	str1 := "a.b"
+	exprNew, err := cexl.cacheGetExpression(str1)
+	if err != nil || exprNew == nil {
+		t.Errorf("Parsing of expression '%s failed with error '%v'", str1, err)
+		return
+	}
+
+	str2 := "a.b"
+	exprCacheHit, _ := cexl.cacheGetExpression(str2)
+
+	if exprNew != exprCacheHit || len(cexl.exprCache) != 1 {
+		t.Errorf("Expected cache hit for expressions '%s' and '%s', and cache size to be 1. Istead cache content is %v.", str1, str2, cexl.exprCache)
+	}
+}
+
+func TestCacheMiss(t *testing.T) {
+	cexl := &cexl{
+		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+	}
+	str1 := "a.b"
+	exprNew, err := cexl.cacheGetExpression(str1)
+	if err != nil || exprNew == nil {
+		t.Errorf("Parsing of expression '%s failed with error '%v'", str1, err)
+		return
+	}
+	str2 := "a | b"
+	exprCacheMiss, _ := cexl.cacheGetExpression(str2)
+
+	if exprNew == exprCacheMiss || len(cexl.exprCache) != 2 {
+		t.Errorf("Expected cache miss for expressions '%s' and '%s', and cache size to be 2. Istead cache content is %v.", str1, str2, cexl.exprCache)
+	}
+}
+
+func TestCacheGetWithParseError(t *testing.T) {
+	cexl := &cexl{
+		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+	}
+	str1 := "a.b."
+	_, err := cexl.cacheGetExpression(str1)
+	if err == nil {
+		t.Errorf("Expected error when parsing '%s', instead got <nil> error.", str1)
+	}
+	if len(cexl.exprCache) != 0 {
+		t.Errorf("Expected empty cache after parsing error expression '%s', instead of cache %v.", str1, cexl.exprCache)
+	}
+}
+
+func TestConcurrencyWithCache(t *testing.T) {
+	cexl := &cexl{
+		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+	}
+
+	exprs := []string{"a.b", "a | b", "a.b | 0", "a | 0"}
+	done := make(chan bool)
+	loopCount := 100
+	for i := 0; i < loopCount; i++ {
+		go func() {
+			exprStr := exprs[rand.Intn(len(exprs))]
+			_, err := cexl.cacheGetExpression(exprStr)
+			if err != nil {
+				t.Errorf("Parsing of expression '%s failed with error '%v'", exprStr, err)
+			}
+			done <- true
+		}()
+	}
+
+	for i := 0; i < loopCount; i++ {
+		<-done
+	}
+
+	if len(cexl.exprCache) != len(exprs) {
+		t.Errorf("For %d calls to expressions %v: expected cache size %d, instead got %d with content %v.",
+			loopCount, exprs, len(exprs), len(cexl.exprCache), cexl.exprCache)
 	}
 }
 

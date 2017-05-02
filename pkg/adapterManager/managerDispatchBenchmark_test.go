@@ -44,11 +44,11 @@ How to run the test:
 Command:
 go test -run XXXX -bench .
 
-Output: (2017-04-27)
-BenchmarkOneSimpleAspect-12     	   10000	    113880 ns/op
-Benchmark50SimpleAspect-12      	    1000	   1410848 ns/op
-BenchmarkOneComplexAspect-12    	   10000	    157771 ns/op
-Benchmark50ComplexAspect-12     	     500	   2757074 ns/op
+Output: (2017-05-03)
+BenchmarkOneSimpleAspect-12     	   30000	     48608 ns/op
+Benchmark50SimpleAspect-12      	    3000	    484072 ns/op
+BenchmarkOneComplexAspect-12    	   30000	     56900 ns/op
+Benchmark50ComplexAspect-12     	    2000	    830746 ns/op
 PASS
 ok  	istio.io/mixer/pkg/adapterManager	6.202s
 */

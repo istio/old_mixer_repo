@@ -404,7 +404,6 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 	return false, UnboundVariable(mapExpression)
 }
 
-func (e *fakeExpr) Validate(expression string) error { return e.err }
 func (e *fakeExpr) TypeCheck(string, expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
 	return dpb.VALUE_TYPE_UNSPECIFIED, e.err
 }
