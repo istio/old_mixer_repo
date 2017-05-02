@@ -230,9 +230,22 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 
 type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status
 
+// runAsync runs a given invokeFunc thru scheduler.
+func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
+	cfg *cpb.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
+	df, _ := m.df.Load().(descriptor.Finder)
+	m.gp.ScheduleWork(func() {
+		out := m.execute(ctx, cfg, requestBag, responseBag, df, invokeFunc)
+		// free request bag before returning results
+		// resultChan is drained to ensure that all child bags are
+		// accounted for.
+		requestBag.Done()
+		resultChan <- result{cfg, out, responseBag}
+	})
+}
+
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
 func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
-	df, _ := m.df.Load().(descriptor.Finder)
 	numCfgs := len(cfgs)
 
 	// TODO: consider implementing a fast path when there is only a single config.
@@ -245,19 +258,9 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 
 	// schedule all the work that needs to happen
 	for idx := range cfgs {
-		c := cfgs[idx]
 		// When switching goroutines, *do not* pass bags directly
 		// pass Child(). Child is a way to refcount the parent
-		childRequestBag := requestBag.Child()
-		childResponseBag := responseBag.Child()
-		m.gp.ScheduleWork(func() {
-			out := m.execute(ctx, c, childRequestBag, childResponseBag, df, invokeFunc)
-			// free request bag before returning results
-			// resultChan is drained to ensure that all child bags are
-			// accounted for.
-			childRequestBag.Done()
-			resultChan <- result{c, out, childResponseBag}
-		})
+		m.runAsync(ctx, requestBag.Child(), responseBag.Child(), cfgs[idx], invokeFunc, resultChan)
 	}
 
 	requestBag = nil
