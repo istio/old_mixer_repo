@@ -61,18 +61,18 @@ var mutableBags = sync.Pool{
 //
 // When you are done using the mutable bag, call the Done method to recycle it.
 func GetMutableBag(parent Bag) *MutableBag {
+	mb := mutableBags.Get().(*MutableBag)
+	mb.doneScheduled = false
+	mb.parent = empty
+
 	pp, _ := parent.(*MutableBag)
 	if pp != nil {
 		pp.Lock()
 		pp.children++
+		mb.parent = pp
 		pp.Unlock()
 	}
-	mb := mutableBags.Get().(*MutableBag)
-	mb.parent = parent
-	if parent == nil {
-		mb.parent = empty
-	}
-	mb.doneScheduled = false
+
 	return mb
 }
 
