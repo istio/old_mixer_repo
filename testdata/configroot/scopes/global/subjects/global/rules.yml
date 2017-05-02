@@ -15,17 +15,16 @@ rules:
         targetService: request.headers["authority"] | request.host | ""
       attribute_bindings:
         source.ip: sourcePodIp
-        source.service: sourceService
+        source.labels: sourceLabels
         source.name: sourcePodName
         source.namespace: sourceNamespace
-        source.labels: sourceLabels
+        source.service: sourceService
         source.serviceAccount: sourceServiceAccountName
-        target.service: targetService
-        target.labels: targetLabels
         target.ip: targetPodIp
-        target.service: targetService
+        target.labels: targetLabels
         target.name: targetPodName
         target.namespace: targetNamespace
+        target.service: targetService
         target.serviceAccount: targetServiceAccountName
   - kind: quotas
     params:
