@@ -128,7 +128,7 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 
 func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			cw := executor.(aspect.CheckExecutor)
 			return cw.Execute(requestBag, evaluator)
 		})
@@ -146,7 +146,7 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 
 func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
 		})
@@ -175,7 +175,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.
 	}
 
 	o := m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
 			o, qmr = qw.Execute(requestBag, evaluator, qma)
@@ -215,7 +215,7 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 		return status.WithError(err)
 	}
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, eval expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, eval expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			ppw := executor.(aspect.PreprocessExecutor)
 			result, rpcStatus := ppw.Execute(requestBag, eval)
 			if status.IsOK(rpcStatus) {
@@ -228,13 +228,10 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 		})
 }
 
-type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status
+type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status
 
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
 func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
-	// get a new context with the attribute bag attached
-	ctx = attribute.NewContext(ctx, requestBag)
-
 	df, _ := m.df.Load().(descriptor.Finder)
 	numCfgs := len(cfgs)
 
@@ -247,23 +244,30 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	resultChan := make(chan result, numCfgs)
 
 	// schedule all the work that needs to happen
-	for _, cfg := range cfgs {
-		c := cfg // ensure proper capture in the worker func below
+	for idx := range cfgs {
+		c := cfgs[idx]
+		// When switching goroutines, *do not* pass bags directly
+		// pass Child(). Child is a way to refcount the parent
+		childRequestBag := requestBag.Child()
+		childResponseBag := responseBag.Child()
 		m.gp.ScheduleWork(func() {
-			childRequestBag := requestBag.Child()
-			childResponseBag := responseBag.Child()
-
 			out := m.execute(ctx, c, childRequestBag, childResponseBag, df, invokeFunc)
-			resultChan <- result{c, out, childResponseBag}
-
+			// free request bag before returning results
+			// resultChan is drained to ensure that all child bags are
+			// accounted for.
 			childRequestBag.Done()
+			resultChan <- result{c, out, childResponseBag}
 		})
 	}
+
+	requestBag = nil
 
 	// wait for all the work to be done or the context to be cancelled
 	for i := 0; i < numCfgs; i++ {
 		select {
 		case <-ctx.Done():
+			// ensure that all bags are back
+			go drainChannelOnError(i, resultChan, results)
 			if ctx.Err() == context.Canceled {
 				return status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))
 			}
@@ -289,6 +293,17 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	}
 
 	return combineResults(results)
+}
+
+// drainChannelOnError fromidx has *not* been drained.
+func drainChannelOnError(fromidx int, resultChan chan result, results []result) {
+	for i := 0; i < fromidx; i++ {
+		results[i].responseBag.Done()
+	}
+	for i := fromidx; i < len(results); i++ {
+		r := <-resultChan
+		r.responseBag.Done()
+	}
 }
 
 // Combines a bunch of distinct result structs and turns 'em into one single rpc.Status
@@ -361,7 +376,7 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag, re
 	// TODO: plumb ctx through asp.Execute
 	_ = ctx
 
-	return invokeFunc(executor, m.mapper)
+	return invokeFunc(executor, m.mapper, requestBag, responseBag)
 }
 
 // cacheKey is used to cache fully constructed aspects

@@ -37,6 +37,11 @@ type MutableBag struct {
 	parent Bag
 	values map[string]interface{}
 	id     int64 // strictly for use in diagnostic messages
+	// number of children of this bag. will not be reclaimed until children count == 0
+	children int
+	// done has been called on this bag
+	doneScheduled bool
+	sync.Mutex
 }
 
 var id int64
@@ -56,13 +61,18 @@ var mutableBags = sync.Pool{
 //
 // When you are done using the mutable bag, call the Done method to recycle it.
 func GetMutableBag(parent Bag) *MutableBag {
+	pp, _ := parent.(*MutableBag)
+	if pp != nil {
+		pp.Lock()
+		pp.children++
+		pp.Unlock()
+	}
 	mb := mutableBags.Get().(*MutableBag)
-
 	mb.parent = parent
 	if parent == nil {
 		mb.parent = empty
 	}
-
+	mb.doneScheduled = false
 	return mb
 }
 
@@ -96,10 +106,52 @@ func copyValue(v interface{}) interface{} {
 	return v
 }
 
+// Child allocates a derived mutable bag.
+//
+// Mutating a child doesn't affect the parent's state, all mutations are deltas.
+func (mb *MutableBag) Child() *MutableBag {
+	// if code tries to create a child after Done
+	// is scheduled or called
+	if mb.doneScheduled || mb.parent == nil {
+		panic(fmt.Errorf("bag used after scheduled destruction %#v", mb))
+	}
+	return GetMutableBag(mb)
+}
+
+// childDone indicates that a child bag has been reclaimed.
+func (mb *MutableBag) childDone() {
+	mb.Lock()
+	mb.children--
+	// if this bag was already scheduled for done()
+	// then perform the operation.
+	if mb.doneScheduled && mb.children == 0 {
+		mb.done()
+	}
+	mb.Unlock()
+}
+
 // Done indicates the bag can be reclaimed.
 func (mb *MutableBag) Done() {
+	mb.Lock()
+	mb.doneScheduled = true
+	if mb.children == 0 {
+		mb.done()
+	}
+	mb.Unlock()
+}
+
+// done reclaims the bag. always called under a lock to the bag
+func (mb *MutableBag) done() {
 	mb.Reset()
+	mbparent, _ := mb.parent.(*MutableBag)
+	if mbparent != nil {
+		mbparent.childDone()
+	}
 	mb.parent = nil
+	mb.doneScheduled = false
+	if glog.V(3) {
+		glog.Infof("freed bag: %#v", mb)
+	}
 	mutableBags.Put(mb)
 }
 
@@ -168,13 +220,6 @@ func (mb *MutableBag) Merge(bags ...*MutableBag) error {
 	}
 
 	return nil
-}
-
-// Child allocates a derived mutable bag.
-//
-// Mutating a child doesn't affect the parent's state, all mutations are deltas.
-func (mb *MutableBag) Child() *MutableBag {
-	return GetMutableBag(mb)
 }
 
 // Ensure that all dictionary indices are valid and that all values
