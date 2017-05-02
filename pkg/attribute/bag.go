@@ -25,9 +25,6 @@ type Bag interface {
 
 	// Names return the names of all the attributes known to this bag.
 	Names() []string
-
-	// Done indicates the bag can be reclaimed.
-	Done()
 }
 
 // The key type is unexported to prevent collisions with context keys defined in

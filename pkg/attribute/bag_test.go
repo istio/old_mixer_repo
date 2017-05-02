@@ -250,7 +250,7 @@ func TestMutableBag_Child(t *testing.T) {
 	c2 := mb.Child()
 	c3 := mb.Child()
 	c31 := c3.Child()
-	mb.Done()
+	mb.doneInternal()
 
 	if mb.parent == nil {
 		t.Errorf("Unexpectedly freed bag with children %#v", mb)
@@ -259,13 +259,13 @@ func TestMutableBag_Child(t *testing.T) {
 	if c1.parent != mb {
 		t.Errorf("not the correct parent. got %#v\nwant %#v", c1.parent, mb)
 	}
-	c1.Done()
+	c1.doneInternal()
 	if c1.parent != nil {
 		t.Errorf("did not free bag c1 %#v", c1)
 	}
-	c2.Done()
-	c3.Done()
-	c31.Done()
+	BagDone(&c2)
+	BagDone(&c3)
+	BagDone(&c31)
 	if mb.parent != nil {
 		t.Errorf("did not free bag parent %#v", mb)
 	}

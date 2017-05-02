@@ -79,7 +79,7 @@ func getTracker(dictionaries *dictionaries) *tracker {
 
 func (at *tracker) Done() {
 	for k, b := range at.contexts {
-		b.Done()
+		b.doneInternal()
 		delete(at.contexts, k)
 	}
 

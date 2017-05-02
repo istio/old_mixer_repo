@@ -239,7 +239,7 @@ func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribu
 		// free request bag before returning results
 		// resultChan is drained to ensure that all child bags are
 		// accounted for.
-		requestBag.Done()
+		attribute.BagDone(&requestBag)
 		resultChan <- result{cfg, out, responseBag}
 	})
 }
@@ -291,8 +291,9 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 		return status.WithError(err)
 	}
 
-	for _, b := range bags {
-		b.Done()
+	for idx := range bags {
+		b := bags[idx]
+		attribute.BagDone(&b)
 	}
 
 	return combineResults(results)
@@ -301,11 +302,11 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 // drainChannelOnError fromidx has *not* been drained.
 func drainChannelOnError(fromidx int, resultChan chan result, results []result) {
 	for i := 0; i < fromidx; i++ {
-		results[i].responseBag.Done()
+		attribute.BagDone(&results[i].responseBag)
 	}
 	for i := fromidx; i < len(results); i++ {
 		r := <-resultChan
-		r.responseBag.Done()
+		attribute.BagDone(&r.responseBag)
 	}
 }
 

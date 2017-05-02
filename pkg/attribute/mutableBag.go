@@ -128,8 +128,21 @@ func (mb *MutableBag) childDone() {
 	mb.Unlock()
 }
 
-// Done indicates the bag can be reclaimed.
-func (mb *MutableBag) Done() {
+// BagDone releases a bag
+// calling thread should not use it afterwards.
+// Sets the underlying pointer to nil after releasing.
+// This ensures that use after free results in a hard failure.
+func BagDone(bPtr **MutableBag) {
+	if bPtr == nil {
+		return
+	}
+	mb := *bPtr
+	mb.doneInternal()
+	*bPtr = nil
+}
+
+// doneInternal indicates the bag can be reclaimed.
+func (mb *MutableBag) doneInternal() {
 	mb.Lock()
 	mb.doneScheduled = true
 	if mb.children == 0 {

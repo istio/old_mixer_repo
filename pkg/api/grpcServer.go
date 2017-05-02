@@ -177,8 +177,8 @@ func (s *grpcServer) dispatch(stream grpc.Stream, methodName string, getState st
 				glog.Errorf("Unable to send gRPC response message: %v", err)
 			}
 
-			requestBag.Done()
-			responseBag.Done()
+			attribute.BagDone(&requestBag)
+			attribute.BagDone(&responseBag)
 
 			span.LogFields(log.Object("gRPC response", dState.response))
 			span.Finish()
