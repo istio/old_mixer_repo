@@ -58,8 +58,9 @@ var mutableBags = sync.Pool{
 //
 // Bags can be chained in a parent/child relationship. You can pass nil if the
 // bag has no parent.
-//
 // When you are done using the mutable bag, call the Done method to recycle it.
+// attempting to create a child after Done is scheduled or called
+// results in a panic
 func GetMutableBag(parent Bag) *MutableBag {
 	mb := mutableBags.Get().(*MutableBag)
 	mb.doneScheduled = false
@@ -68,9 +69,13 @@ func GetMutableBag(parent Bag) *MutableBag {
 	pp, _ := parent.(*MutableBag)
 	if pp != nil {
 		pp.Lock()
+		defer pp.Unlock()
+
+		if pp.doneScheduled || pp.parent == nil {
+			panic(fmt.Errorf("bag used after scheduled destruction %#v", mb))
+		}
 		pp.children++
 		mb.parent = pp
-		pp.Unlock()
 	}
 
 	return mb
@@ -107,14 +112,7 @@ func copyValue(v interface{}) interface{} {
 }
 
 // Child allocates a derived mutable bag.
-//
-// Mutating a child doesn't affect the parent's state, all mutations are deltas.
 func (mb *MutableBag) Child() *MutableBag {
-	// if code tries to create a child after Done
-	// is scheduled or called
-	if mb.doneScheduled || mb.parent == nil {
-		panic(fmt.Errorf("bag used after scheduled destruction %#v", mb))
-	}
 	return GetMutableBag(mb)
 }
 
