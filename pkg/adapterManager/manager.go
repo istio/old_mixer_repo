@@ -126,8 +126,8 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 	return mg
 }
 
-func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, configs,
+func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, requestBag, _ *attribute.MutableBag) rpc.Status {
+	return m.dispatch(ctx, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			cw := executor.(aspect.CheckExecutor)
 			return cw.Execute(requestBag, evaluator)
@@ -141,11 +141,11 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 		glog.Error(err)
 		return status.WithError(err)
 	}
-	return m.dispatchCheck(ctx, configs, requestBag, responseBag)
+	return m.dispatchCheck(ctx, configs, requestBag, nil)
 }
 
-func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, configs,
+func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag, _ *attribute.MutableBag) rpc.Status {
+	return m.dispatch(ctx, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
@@ -153,13 +153,17 @@ func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, r
 }
 
 // Report dispatches to the set of aspects associated with the Report API method
-func (m *Manager) Report(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) Report(ctx context.Context, requestBag, _ *attribute.MutableBag) rpc.Status {
 	configs, err := m.loadConfigs(requestBag, m.reportKindSet, false, false /* carry on if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
 		return status.WithError(err)
 	}
-	return m.dispatchReport(ctx, configs, requestBag, responseBag)
+	return m.dispatch(ctx, configs,
+		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+			rw := executor.(aspect.ReportExecutor)
+			return rw.Execute(requestBag, evaluator)
+		})
 }
 
 // Quota dispatches to the set of aspects associated with the Quota API method
@@ -174,7 +178,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.
 		return qmr, status.WithError(err)
 	}
 
-	o := m.dispatch(ctx, requestBag, responseBag, configs,
+	o := m.dispatch(ctx, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
@@ -214,7 +218,7 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 		glog.Error(err)
 		return status.WithError(err)
 	}
-	return m.dispatch(ctx, requestBag, responseBag, configs,
+	return m.dispatch(ctx, configs,
 		func(executor aspect.Executor, eval expr.Evaluator) rpc.Status {
 			ppw := executor.(aspect.PreprocessExecutor)
 			result, rpcStatus := ppw.Execute(requestBag, eval)
@@ -231,9 +235,7 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status
 
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
-func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
-	// get a new context with the attribute bag attached
-	ctx = attribute.NewContext(ctx, requestBag)
+func (m *Manager) dispatch(ctx context.Context, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
 
 	df, _ := m.df.Load().(descriptor.Finder)
 	numCfgs := len(cfgs)
@@ -250,13 +252,8 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	for _, cfg := range cfgs {
 		c := cfg // ensure proper capture in the worker func below
 		m.gp.ScheduleWork(func() {
-			childRequestBag := requestBag.Child()
-			childResponseBag := responseBag.Child()
-
-			out := m.execute(ctx, c, childRequestBag, childResponseBag, df, invokeFunc)
-			resultChan <- result{c, out, childResponseBag}
-
-			childRequestBag.Done()
+			out := m.execute(ctx, c, df, invokeFunc)
+			resultChan <- result{c, out}
 		})
 	}
 
@@ -272,22 +269,6 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 			results[i] = res
 		}
 	}
-
-	// TODO: look into having a pool of these to avoid frequent allocs
-	bags := make([]*attribute.MutableBag, numCfgs)
-	for i, r := range results {
-		bags[i] = r.responseBag
-	}
-
-	if err := responseBag.Merge(bags...); err != nil {
-		glog.Errorf("Unable to merge response attributes: %v", err)
-		return status.WithError(err)
-	}
-
-	for _, b := range bags {
-		b.Done()
-	}
-
 	return combineResults(results)
 }
 
@@ -320,13 +301,12 @@ func combineResults(results []result) rpc.Status {
 
 // result holds the values returned by the execution of an adapter
 type result struct {
-	cfg         *cpb.Combined
-	status      rpc.Status
-	responseBag *attribute.MutableBag
+	cfg    *cpb.Combined
+	status rpc.Status
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag, responseBag *attribute.MutableBag,
+func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined,
 	df descriptor.Finder, invokeFunc invokeExecutorFunc) (out rpc.Status) {
 	var mgr aspect.Manager
 	var found bool

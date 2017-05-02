@@ -598,7 +598,7 @@ func TestExecute(t *testing.T) {
 		}
 		m.cfg.Store(&fakeResolver{cfg, nil})
 
-		o := m.dispatch(context.Background(), nil, nil, cfg,
+		o := m.dispatch(context.Background(), cfg,
 			func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 				return status.OK
 			})
@@ -631,10 +631,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	}
 	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	reqBag := attribute.GetMutableBag(nil)
-	respBag := attribute.GetMutableBag(nil)
-
-	if out := m.dispatch(ctx, reqBag, respBag, cfg, nil); status.IsOK(out) {
+	if out := m.dispatch(ctx, cfg, nil); status.IsOK(out) {
 		t.Error("m.dispatch(canceledContext, ...) = _, nil; wanted any err")
 	}
 
