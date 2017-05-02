@@ -167,7 +167,7 @@ func (m *Manager) Report(ctx context.Context, requestBag, _ *attribute.MutableBa
 }
 
 // Quota dispatches to the set of aspects associated with the Quota API method
-func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
+func (m *Manager) Quota(ctx context.Context, requestBag, _ *attribute.MutableBag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	var qmr *aspect.QuotaMethodResp

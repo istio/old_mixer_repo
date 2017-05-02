@@ -127,9 +127,6 @@ func (mb *MutableBag) Done() {
 		glog.Infof("%d Released bag with id: %d", getGID(), mb.id)
 	}
 	mutableBags.Put(mb)
-	if glog.V(3) {
-		glog.Infof("%d Released bag with 			id: %d", getGID(), mb.id)
-	}
 }
 
 // Get returns an attribute value.
