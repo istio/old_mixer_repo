@@ -62,7 +62,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_google_grpc",
-    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
+    commit = "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",  # April 28, 2017 (v1.3.0)
     importpath = "google.golang.org/grpc",
 )
 
@@ -141,6 +141,20 @@ filegroup(
 filegroup(
     name = "code_proto",
     srcs = [ "google/rpc/code.proto" ],
+)
+
+filegroup(
+    name = "label_proto",
+    srcs = [
+        "google/api/label.proto",
+    ],
+)
+
+filegroup(
+    name = "metric_proto",
+    srcs = [
+        "google/api/metric.proto",
+    ],
 )
 """
 
@@ -520,7 +534,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_google_genproto",
-    commit = "411e09b969b1170a9f0c467558eb4c4c110d9c77",  # Apr 4, 2017 (no release)
+    commit = "aa2eb687b4d3e17154372564ad8d6bf11c3cf21f",  # June 1, 2017 (no releases)
     importpath = "google.golang.org/genproto",
 )
 
