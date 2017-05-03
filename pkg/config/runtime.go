@@ -81,7 +81,7 @@ func GetScopes(attr string, domain string, scopes []string) ([]string, error) {
 func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []*pb.Combined, err error) {
 	if glog.V(4) {
 		glog.Infof("resolving for kinds: %s", set)
-		defer func() { glog.Infof("resolved configs (err=%v): %s", err, dlist) }()
+		defer func() { glog.Infof("resolved %d configs (err=%v)", len(dlist), err) }()
 	}
 	return resolve(
 		bag,
@@ -103,7 +103,7 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet, strict bool) (out []*pb.Combined, err error) {
 	if glog.V(2) {
 		glog.Infof("unconditionally resolving for kinds: %s", set)
-		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, out) }()
+		defer func() { glog.Infof("unconditionally resolved %d configs (err=%v)", len(out), err) }()
 	}
 	return resolve(
 		bag,

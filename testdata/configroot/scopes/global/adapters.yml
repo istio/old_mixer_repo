@@ -11,7 +11,13 @@ adapters:
   - name: prometheus
     kind: metrics
     impl: prometheus
+  - name: stackdriver
+    kind: metrics
+    impl: stackdriver
     params:
+      # Must be supplied for the stackdriver adapter to work
+      projectId: ""
+      appCredentials:
   - name: default
     impl: denyChecker
   - name: default

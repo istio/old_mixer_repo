@@ -57,7 +57,7 @@ package(default_visibility = ["//visibility:public"])
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 go_prefix("github.com/googleapis/googleapis")
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library", "gogo_proto_library")
 
 gogoslick_proto_library(
     name = "google/rpc",
@@ -77,6 +77,30 @@ gogoslick_proto_library(
         "@com_github_google_protobuf//:well_known_protos",
     ],
     deps = [
+        "@com_github_gogo_protobuf//types:go_default_library",
+    ],
+    verbose = 0,
+)
+
+# We cannot use gogoslick because it renames enums, causing a conflict between the enums declared in metric and label.
+gogo_proto_library(
+    name = "google/api",
+    protos = [
+        "google/api/label.proto",
+        "google/api/metric.proto",
+    ],
+    importmap = {
+        "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
+        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
+    },
+    imports = [
+        "../../external/com_github_google_protobuf/src",
+    ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
+    deps = [
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
     verbose = 0,
@@ -104,6 +128,14 @@ filegroup(
     name = "code_proto",
     srcs = [ "google/rpc/code.proto" ],
 )
+
+filegroup(
+    name = "api_protos",
+    srcs = [
+        "google/api/label.proto",
+        "google/api/metric.proto",
+    ],
+)
 """
 
 new_git_repository(
@@ -115,8 +147,14 @@ new_git_repository(
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
+    commit = "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",  # April 28, 2017 (v1.3.0)
     importpath = "google.golang.org/grpc",
+)
+
+new_go_repository(
+    name = "org_golang_x_net",
+    commit = "3da985ce5951d99de868be4385f21ea6c2b22f24",  # May 27, 2017 (no releases)
+    importpath = "golang.org/x/net",
 )
 
 new_go_repository(
@@ -454,6 +492,24 @@ new_go_repository(
     name = "com_github_grpcecosystem_prometheus",
     commit = "2500245aa6110c562d17020fb31a2c133d737799",  # Mar 30, 2017 (only 1 release)
     importpath = "github.com/grpc-ecosystem/go-grpc-prometheus",
+)
+
+new_go_repository(
+    name = "com_google_cloud_go",
+    commit = "c5613c5ec734393db859ada71638d6fba0629d63",  # March 10, 2017 (v0.7.0)
+    importpath = "cloud.google.com/go",
+)
+
+new_go_repository(
+    name = "org_golang_google_api",
+    commit = "a0507f02e2daf3e7dddb22a8781b76b9070dc987",  # May 18, 2017 (no releases)
+    importpath = "google.golang.org/api",
+)
+
+new_go_repository(
+    name = "org_golang_google_genproto",
+    commit = "aa2eb687b4d3e17154372564ad8d6bf11c3cf21f",  # June 1, 2017 (no releases)
+    importpath = "google.golang.org/genproto",
 )
 
 ##
