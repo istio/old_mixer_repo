@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	lrucache "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
@@ -390,9 +390,11 @@ func Parse(src string) (ex *Expression, err error) {
 	return ex, nil
 }
 
+const DefaultCacheSize = 1024
+
 // Evaluator for a c-like expression language.
 type cexl struct {
-	cache *lrucache.Cache
+	cache *lru.Cache
 	// function Map
 	fMap map[string]FuncBase
 }
@@ -473,7 +475,7 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 
 // NewCEXLEvaluator returns a new Evaluator of this type.
 func NewCEXLEvaluator(cacheSize int) (Evaluator, error) {
-	cache, err := lrucache.New(cacheSize)
+	cache, err := lru.New(cacheSize)
 	if err != nil {
 		return nil, err
 	}

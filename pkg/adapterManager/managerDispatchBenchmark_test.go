@@ -173,7 +173,7 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 	adapterGP.AddWorkers(adapterPoolSize)
 	defer adapterGP.Close()
 
-	eval, err := expr.NewCEXLEvaluator(1024)
+	eval, err := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	if err != nil {
 		b.Errorf("Failed to create expression evaluator: %v", err)
 	}

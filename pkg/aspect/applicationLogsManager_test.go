@@ -275,7 +275,7 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := expr.NewCEXLEvaluator(1024)
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 			if err := (&applicationLogsManager{}).ValidateConfig(tt.cfg, eval, tt.df); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("Foo = '%s', wanted no err", err.Error())

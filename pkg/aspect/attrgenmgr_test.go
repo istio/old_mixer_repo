@@ -35,7 +35,7 @@ func TestAttributeGeneratorManager(t *testing.T) {
 	if m.Kind() != config.AttributesKind {
 		t.Errorf("m.Kind() = %s; wanted %s", m.Kind(), config.AttributesKindName)
 	}
-	eval, _ := expr.NewCEXLEvaluator(1024)
+	eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	if err := m.ValidateConfig(m.DefaultConfig(), eval, nil); err != nil {
 		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			eval, _ := expr.NewCEXLEvaluator(1024)
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 			err := m.ValidateConfig(v.params, eval, dfind)
 			if err != nil && !v.wantErr {
 				t.Errorf("Unexpected error '%v' for config: %#v", err, v.params)

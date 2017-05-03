@@ -188,7 +188,7 @@ func TestTypeCheck(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			ev, er := NewCEXLEvaluator(1024)
+			ev, er := NewCEXLEvaluator(DefaultCacheSize)
 			if er != nil {
 				t.Errorf("Failed to create expression evaluator: %v", er)
 			}
@@ -225,7 +225,7 @@ func TestAssertType(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			ev, er := NewCEXLEvaluator(1024)
+			ev, er := NewCEXLEvaluator(DefaultCacheSize)
 			if er != nil {
 				t.Errorf("Failed to create expression evaluator: %v", er)
 			}
@@ -241,7 +241,7 @@ func TestAssertType(t *testing.T) {
 }
 
 func TestCacheContent(t *testing.T) {
-	cache, _ := lru.New(1024)
+	cache, _ := lru.New(DefaultCacheSize)
 	cexl := &cexl{
 		fMap: FuncMap(), cache: cache,
 	}
@@ -257,12 +257,12 @@ func TestCacheContent(t *testing.T) {
 	cachedEx := exFromCache.(*Expression)
 
 	if !reflect.DeepEqual(cachedEx, expectedEx) {
-		t.Errorf("Cache contains invalid data: expected=%v, actual=%v", expectedEx, cachedEx)
+		t.Errorf("Output of Parse(%s) != cexl.cache.Get(%s); %v != %v. Expected data to be the same", str1, str1, cachedEx, expectedEx)
 	}
 }
 
 func TestCacheHit(t *testing.T) {
-	cache, _ := lru.New(1024)
+	cache, _ := lru.New(DefaultCacheSize)
 	cexl := &cexl{
 		fMap: FuncMap(), cache: cache,
 	}
@@ -272,17 +272,16 @@ func TestCacheHit(t *testing.T) {
 		t.Errorf("Parsing of expression '%s' failed with error '%v'", str1, err)
 		return
 	}
-
-	str2 := "a.b"
-	exprCacheHit, _ := cexl.cacheGetExpression(str2)
+	exprCacheHit, _ := cexl.cacheGetExpression(str1)
 
 	if exprNew != exprCacheHit || cexl.cache.Len() != 1 {
-		t.Errorf("Expected cache hit for expressions '%s' and '%s', and cache size to be 1. Istead cache content is %v.", str1, str2, cexl.cache.Keys())
+		t.Errorf("No hit for second call to cacheGetExpression(%s); Got cache size of %d with entries %v; "+
+			"expected cache size of 1 with single entry of %s", str1, cexl.cache.Len(), cexl.cache.Keys(), str1)
 	}
 }
 
 func TestCacheMiss(t *testing.T) {
-	cache, _ := lru.New(1024)
+	cache, _ := lru.New(DefaultCacheSize)
 	cexl := &cexl{
 		fMap: FuncMap(), cache: cache,
 	}
@@ -296,27 +295,29 @@ func TestCacheMiss(t *testing.T) {
 	exprCacheMiss, _ := cexl.cacheGetExpression(str2)
 
 	if exprNew == exprCacheMiss || cexl.cache.Len() != 2 {
-		t.Errorf("Expected cache miss for expressions '%s' and '%s', and cache size to be 2. Istead cache content is %v.", str1, str2, cexl.cache.Keys())
+		t.Errorf("Invalid cache after cacheGetExpression(%s) and cacheGetExpression(%s); Got cache size of %d with entries %v; "+
+			"expected cache size of 2 with entry for %s and %s", str1, str2, cexl.cache.Len(), cexl.cache.Keys(), str1, str2)
 	}
 }
 
 func TestCacheGetWithParseError(t *testing.T) {
-	cache, _ := lru.New(1024)
+	cache, _ := lru.New(DefaultCacheSize)
 	cexl := &cexl{
 		fMap: FuncMap(), cache: cache,
 	}
-	str1 := "a.b."
+	str1 := "a.invalid."
 	_, err := cexl.cacheGetExpression(str1)
 	if err == nil {
 		t.Errorf("Expected error when parsing '%s', instead got <nil> error.", str1)
 	}
 	if cexl.cache.Len() != 0 {
-		t.Errorf("Expected empty cache after parsing error expression '%s', instead of cache %v.", str1, cexl.cache.Keys())
+		t.Errorf("Invalid cache after cacheGetExpression(%s); Got cache with entries %v; "+
+			"expected empty cache", str1, cexl.cache.Keys())
 	}
 }
 
 func TestConcurrencyWithCache(t *testing.T) {
-	cache, _ := lru.New(1024)
+	cache, _ := lru.New(DefaultCacheSize)
 	cexl := &cexl{
 		fMap: FuncMap(), cache: cache,
 	}
@@ -340,8 +341,8 @@ func TestConcurrencyWithCache(t *testing.T) {
 	}
 
 	if cexl.cache.Len() != len(exprs) {
-		t.Errorf("For %d calls to expressions %v: expected cache size %d, instead got %d with content %v.",
-			loopCount, exprs, len(exprs), cexl.cache.Len(), cexl.cache.Keys())
+		t.Errorf("Invalid cache after %d calls to expressions %v: Got cache size %d with content %v; Expected cache size %d with entries for %v",
+			loopCount, exprs, cexl.cache.Len(), cexl.cache.Keys(), len(exprs), exprs)
 	}
 }
 

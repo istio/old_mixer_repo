@@ -491,7 +491,7 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 	if err := decode(params, ap, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode aspect params: %v", err)
 	}
-	eval, err := expr.NewCEXLEvaluator(1024)
+	eval, err := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	if err != nil {
 		return nil, ce.Appendf(name, "failed to create expression evaluator: %v", err)
 	}

@@ -40,7 +40,7 @@ func TestListsManager(t *testing.T) {
 	if lm.Kind() != config.ListsKind {
 		t.Errorf("m.Kind() = %s wanted %s", lm.Kind(), config.ListsKind)
 	}
-	eval, _ := expr.NewCEXLEvaluator(1024)
+	eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	if err := lm.ValidateConfig(lm.DefaultConfig(), eval, dfind); err != nil {
 		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestListsManager_ValidateConfig(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := expr.NewCEXLEvaluator(1024)
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 			if errs := (&listsManager{}).ValidateConfig(tt.cfg, eval, dfind); errs != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.dfind) = '%s', wanted no err", errs.Error())

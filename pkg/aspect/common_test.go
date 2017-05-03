@@ -104,7 +104,7 @@ func TestValidateLabels(t *testing.T) {
 	})
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := expr.NewCEXLEvaluator(1024)
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 			if err := validateLabels(tt.name, tt.labels, tt.descs, eval, dfind); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("validateLabels() = '%s', wanted no err", err.Error())
@@ -135,7 +135,7 @@ func TestValidateTemplateExpressions(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := expr.NewCEXLEvaluator(1024)
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 			if err := validateTemplateExpressions(tt.name, tt.exprs, eval, dfind); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("validateTemplateExpressions() = '%s', wanted no err", err.Error())

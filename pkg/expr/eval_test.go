@@ -308,7 +308,7 @@ func TestCEXLEval(tt *testing.T) {
 			true, "unresolved attribute", stringType,
 		},
 	}
-	ev, er := NewCEXLEvaluator(1024)
+	ev, er := NewCEXLEvaluator(DefaultCacheSize)
 	if er != nil {
 		tt.Errorf("Failed to create expression evaluator: %v", er)
 	}
