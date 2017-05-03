@@ -192,14 +192,14 @@ func TestTypeCheck(t *testing.T) {
 			if er != nil {
 				t.Errorf("Failed to create expression evaluator: %v", er)
 			}
-			vt, err := ev.TypeCheck(tt.in, af)
+			vt, err := ev.EvalType(tt.in, af)
 			if tt.err != "" || err != nil {
 				if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("TypeCheck(%s, adf) = %v, wanted err %v", tt.in, err, tt.err)
+					t.Fatalf("EvalType(%s, adf) = %v, wanted err %v", tt.in, err, tt.err)
 				}
 			}
 			if vt != tt.out {
-				t.Fatalf("TypeCheck(%s, adf) = %v, wanted type %v", tt.in, vt, tt.out)
+				t.Fatalf("EvalType(%s, adf) = %v, wanted type %v", tt.in, vt, tt.out)
 			}
 		})
 	}

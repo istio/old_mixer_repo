@@ -82,7 +82,7 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, e
 func (*metricsManager) Kind() config.Kind                  { return config.MetricsKind }
 func (*metricsManager) DefaultConfig() config.AspectParams { return &aconfig.MetricsParams{} }
 
-func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.MetricsParams)
 	for _, metric := range cfg.Metrics {
 		desc := df.GetMetric(metric.DescriptorName)

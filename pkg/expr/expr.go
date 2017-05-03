@@ -93,7 +93,7 @@ type AttributeDescriptorFinder interface {
 	GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo
 }
 
-// TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
+// EvalType an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
 func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
@@ -222,7 +222,7 @@ func (f *Function) String() string {
 	return s
 }
 
-// TypeCheck Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
+// EvalType Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
 func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	fn := fMap[f.Name]
 	if fn == nil {
@@ -456,7 +456,7 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
 }
 
-func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
+func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
 	v, err := e.cacheGetExpression(expr)
 	if err != nil {
 		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
@@ -465,7 +465,7 @@ func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (dpb
 }
 
 func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType dpb.ValueType) error {
-	if t, err := e.TypeCheck(expr, finder); err != nil {
+	if t, err := e.EvalType(expr, finder); err != nil {
 		return err
 	} else if t != expectedType {
 		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)

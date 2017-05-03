@@ -69,7 +69,7 @@ func (listsManager) DefaultConfig() config.AspectParams {
 	}
 }
 
-func (listsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (listsManager) ValidateConfig(c config.AspectParams, v expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.ListsParams)
 	if cfg.CheckExpression == "" {
 		ce = ce.Appendf("checkExpression", "no expression provided")

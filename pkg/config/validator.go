@@ -55,7 +55,7 @@ type (
 		DefaultConfig() (c AspectParams)
 
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(c AspectParams, validator expr.Validator, finder descriptor.Finder) *adapter.ConfigErrors
+		ValidateConfig(c AspectParams, validator expr.TypeChecker, finder descriptor.Finder) *adapter.ConfigErrors
 	}
 
 	// BuilderValidatorFinder is used to find specific underlying validators.
@@ -75,7 +75,7 @@ type (
 
 // newValidator returns a validator given component validators.
 func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderValidatorFinder,
-	findAspects AdapterToAspectMapper, strict bool, exprValidator expr.Validator) *validator {
+	findAspects AdapterToAspectMapper, strict bool, exprValidator expr.TypeChecker) *validator {
 	return &validator{
 		managerFinder: managerFinder,
 		adapterFinder: adapterFinder,
@@ -100,7 +100,7 @@ type (
 		findAspects      AdapterToAspectMapper
 		descriptorFinder descriptor.Finder
 		strict           bool
-		exprValidator    expr.Validator
+		exprValidator    expr.TypeChecker
 		validated        *Validated
 	}
 

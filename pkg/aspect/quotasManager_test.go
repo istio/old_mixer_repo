@@ -224,7 +224,7 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *aconfig.QuotasParams
-		v    expr.Validator
+		v    expr.TypeChecker
 		df   descriptor.Finder
 		err  string
 	}{

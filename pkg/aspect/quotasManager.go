@@ -87,7 +87,7 @@ func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env
 func (*quotasManager) Kind() config.Kind                  { return config.QuotasKind }
 func (*quotasManager) DefaultConfig() config.AspectParams { return &aconfig.QuotasParams{} }
 
-func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.QuotasParams)
 	for _, quota := range cfg.Quotas {
 		desc := df.GetQuota(quota.DescriptorName)

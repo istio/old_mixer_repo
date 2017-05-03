@@ -31,7 +31,7 @@ type (
 
 		PredicateEvaluator
 
-		Validator
+		TypeChecker
 	}
 
 	// PredicateEvaluator evaluates a predicate to true or false
@@ -41,10 +41,10 @@ type (
 	}
 
 	// Validator validates a given expression
-	Validator interface {
-		// TypeCheck produces the type of an expression or an error if the type cannot be evaluated.
+	TypeChecker interface {
+		// EvalType produces the type of an expression or an error if the type cannot be evaluated.
 		// TODO: we probably want to use a golang type rather than pb.ValueType (a proto).
-		TypeCheck(expr string, finder AttributeDescriptorFinder) (pb.ValueType, error)
+		EvalType(expr string, finder AttributeDescriptorFinder) (pb.ValueType, error)
 
 		// AssertType evaluates the type of expr using the attribute set; if the evaluated type is equal to
 		// the expected type we return nil, and return an error otherwise.

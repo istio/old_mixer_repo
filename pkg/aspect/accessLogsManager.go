@@ -84,7 +84,7 @@ func (accessLogsManager) DefaultConfig() config.AspectParams {
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.LogName == "" {
 		ce = ce.Appendf("logName", "no log name provided")

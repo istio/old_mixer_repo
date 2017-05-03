@@ -108,7 +108,7 @@ func (applicationLogsManager) DefaultConfig() config.AspectParams {
 }
 
 // TODO: validation of timestamp format
-func (applicationLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (applicationLogsManager) ValidateConfig(c config.AspectParams, v expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.ApplicationLogsParams)
 	if cfg.LogName == "" {
 		ce = ce.Appendf("logName", "no log name provided")

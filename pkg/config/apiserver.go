@@ -162,7 +162,7 @@ func (a *API) register(c *restful.Container) {
 }
 
 // NewAPI creates a new API server
-func NewAPI(version string, port uint16, eval expr.Validator, aspectFinder AspectValidatorFinder,
+func NewAPI(version string, port uint16, eval expr.TypeChecker, aspectFinder AspectValidatorFinder,
 	builderFinder BuilderValidatorFinder, findAspects AdapterToAspectMapper, store KeyValueStore) *API {
 	c := restful.NewContainer()
 	a := &API{

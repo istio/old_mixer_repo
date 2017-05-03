@@ -211,7 +211,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *aconfig.MetricsParams
-		v    expr.Validator
+		v    expr.TypeChecker
 		df   descriptor.Finder
 		err  string
 	}{
