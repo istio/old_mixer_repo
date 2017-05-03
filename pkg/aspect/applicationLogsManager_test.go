@@ -367,7 +367,7 @@ func TestLogExecutor_Execute(t *testing.T) {
 			l := &test.Logger{}
 			tt.exec.aspect = l
 
-			if out := tt.exec.Execute(tt.bag, tt.mapper); !status.IsOK(out) {
+			if out := tt.exec.Execute(tt.bag, tt.mapper, nil); !status.IsOK(out) {
 				t.Fatalf("Execute(): should not have received error for %s (%v)", tt.name, out)
 			}
 			if l.EntryCount != len(tt.wantEntries) {
@@ -443,7 +443,7 @@ func TestLogExecutor_ExecuteFailures(t *testing.T) {
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if out := tt.exec.Execute(tt.bag, tt.mapper); status.IsOK(out) {
+			if out := tt.exec.Execute(tt.bag, tt.mapper, nil); status.IsOK(out) {
 				t.Fatalf("Execute(): should have received error for %s", tt.name)
 			}
 		})

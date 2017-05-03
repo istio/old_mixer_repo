@@ -54,9 +54,14 @@ message AccessLogsParams {
 
     // Describes how attributes must be evaluated to produce values for a log message.
     message AccessLog {
+        // Next field number: 6
+
         // Only used if log_format is CUSTOM. Links this AccessLog to a LogEntryDescriptor
         // that describes the log's template.
         string descriptor_name = 2;
+
+        // The name of the monitored resource descriptor to use when attaching metrics to a monitored resource.
+        string monitored_resource_descriptor_name = 5;
 
         // Map of template variable name to expression for the descriptor's log_template. At
         // run time each expression will be evaluated, and together they will provide values
