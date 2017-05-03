@@ -22,10 +22,10 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
+	lrucache "github.com/hashicorp/golang-lru"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
@@ -391,9 +391,7 @@ func Parse(src string) (ex *Expression, err error) {
 
 // Evaluator for a c-like expression language.
 type cexl struct {
-	lock      sync.RWMutex
-	exprCache map[string]*Expression
-
+	cache *lrucache.Cache
 	// function Map
 	fMap map[string]FuncBase
 }
@@ -402,12 +400,8 @@ func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
 
 	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
 
-	e.lock.RLock()
-	ex, found := e.exprCache[exprStr]
-	e.lock.RUnlock()
-
-	if found {
-		return ex, nil
+	if v, found := e.cache.Get(exprStr); found {
+		return v.(*Expression), nil
 	}
 
 	if glog.V(4) {
@@ -422,14 +416,7 @@ func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
 		glog.Infof("caching expression for '%s''", exprStr)
 	}
 
-	e.lock.Lock()
-	// Check if someone else already cached before we reached here.
-	if cachedExpr, found := e.exprCache[exprStr]; found {
-		ex = cachedExpr
-	} else {
-		e.exprCache[exprStr] = ex
-	}
-	e.lock.Unlock()
+	_ = e.cache.Add(exprStr, ex)
 	return ex, nil
 }
 
@@ -484,8 +471,12 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 }
 
 // NewCEXLEvaluator returns a new Evaluator of this type.
-func NewCEXLEvaluator() Evaluator {
-	return &cexl{
-		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+func NewCEXLEvaluator(cacheSize int) (Evaluator, error) {
+	cache, err := lrucache.New(cacheSize)
+	if err != nil {
+		return nil, err
 	}
+	return &cexl{
+		fMap: FuncMap(), cache: cache,
+	}, nil
 }

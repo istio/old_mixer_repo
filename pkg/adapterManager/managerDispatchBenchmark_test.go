@@ -45,10 +45,10 @@ Command:
 go test -run XXXX -bench .
 
 Output: (2017-05-03)
-BenchmarkOneSimpleAspect-12     	   30000	     48608 ns/op
-Benchmark50SimpleAspect-12      	    3000	    484072 ns/op
-BenchmarkOneComplexAspect-12    	   30000	     56900 ns/op
-Benchmark50ComplexAspect-12     	    2000	    830746 ns/op
+BenchmarkOneSimpleAspect-12     	   30000	     49453 ns/op
+Benchmark50SimpleAspect-12      	    2000	    520312 ns/op
+BenchmarkOneComplexAspect-12    	   30000	     54129 ns/op
+Benchmark50ComplexAspect-12     	    2000	    611826 ns/op
 PASS
 ok  	istio.io/mixer/pkg/adapterManager	6.202s
 */
@@ -173,7 +173,10 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 	adapterGP.AddWorkers(adapterPoolSize)
 	defer adapterGP.Close()
 
-	eval := expr.NewCEXLEvaluator()
+	eval, err := expr.NewCEXLEvaluator(1024)
+	if err != nil {
+		b.Errorf("Failed to create expression evaluator: %v", err)
+	}
 	adapterMgr := NewManager([]pkgAdapter.RegisterFn{
 		noop.Register,
 	}, aspect.Inventory(), eval, gp, adapterGP)

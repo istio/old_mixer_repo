@@ -308,7 +308,10 @@ func TestCEXLEval(tt *testing.T) {
 			true, "unresolved attribute", stringType,
 		},
 	}
-	ev := NewCEXLEvaluator()
+	ev, er := NewCEXLEvaluator(1024)
+	if er != nil {
+		tt.Errorf("Failed to create expression evaluator: %v", er)
+	}
 	var ret interface{}
 	var err error
 	for idx, tst := range tests {

@@ -168,7 +168,7 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
 		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
 	})
-	v := expr.NewCEXLEvaluator()
+	v, _ := expr.NewCEXLEvaluator(1024)
 
 	validParam := aconfig.QuotasParams_Quota{
 		DescriptorName: quotaWithLabels.Name,

@@ -151,7 +151,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
 	}
 	f := test.NewDescriptorFinder(descs)
-	v := expr.NewCEXLEvaluator()
+	v, _ := expr.NewCEXLEvaluator(1024)
 
 	// matches request count desc
 	validParam := aconfig.MetricsParams_Metric{

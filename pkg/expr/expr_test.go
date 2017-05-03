@@ -17,8 +17,11 @@ package expr
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
@@ -184,7 +187,11 @@ func TestTypeCheck(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			vt, err := NewCEXLEvaluator().TypeCheck(tt.in, af)
+			ev, er := NewCEXLEvaluator(1024)
+			if er != nil {
+				t.Errorf("Failed to create expression evaluator: %v", er)
+			}
+			vt, err := ev.TypeCheck(tt.in, af)
 			if tt.err != "" || err != nil {
 				if !strings.Contains(err.Error(), tt.err) {
 					t.Fatalf("TypeCheck(%s, adf) = %v, wanted err %v", tt.in, err, tt.err)
@@ -217,7 +224,11 @@ func TestAssertType(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if err := NewCEXLEvaluator().AssertType(tt.expr, af, tt.expected); tt.err != "" || err != nil {
+			ev, er := NewCEXLEvaluator(1024)
+			if er != nil {
+				t.Errorf("Failed to create expression evaluator: %v", er)
+			}
+			if err := ev.AssertType(tt.expr, af, tt.expected); tt.err != "" || err != nil {
 				if tt.err == "" {
 					t.Fatalf("AssertType(%s, af, %v) = %v, wanted no err", tt.expr, tt.expected, err)
 				} else if !strings.Contains(err.Error(), tt.err) {
@@ -228,63 +239,88 @@ func TestAssertType(t *testing.T) {
 	}
 }
 
-func TestCacheHit(t *testing.T) {
+func TestCacheContent(t *testing.T) {
+	cache, _ := lru.New(1024)
 	cexl := &cexl{
-		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+		fMap: FuncMap(), cache: cache,
+	}
+	str1 := "a.b"
+	_, err := cexl.cacheGetExpression(str1)
+	if err != nil {
+		t.Errorf("Parsing of expression '%s' failed with error '%v'", str1, err)
+		return
+	}
+	expectedEx, _ := Parse(str1)
+
+	exFromCache, _ := cexl.cache.Get(str1)
+	cachedEx := exFromCache.(*Expression)
+
+	if !reflect.DeepEqual(cachedEx, expectedEx) {
+		t.Errorf("Cache contains invalid data: expected=%v, actual=%v", expectedEx, cachedEx)
+	}
+}
+
+func TestCacheHit(t *testing.T) {
+	cache, _ := lru.New(1024)
+	cexl := &cexl{
+		fMap: FuncMap(), cache: cache,
 	}
 	str1 := "a.b"
 	exprNew, err := cexl.cacheGetExpression(str1)
 	if err != nil || exprNew == nil {
-		t.Errorf("Parsing of expression '%s failed with error '%v'", str1, err)
+		t.Errorf("Parsing of expression '%s' failed with error '%v'", str1, err)
 		return
 	}
 
 	str2 := "a.b"
 	exprCacheHit, _ := cexl.cacheGetExpression(str2)
 
-	if exprNew != exprCacheHit || len(cexl.exprCache) != 1 {
-		t.Errorf("Expected cache hit for expressions '%s' and '%s', and cache size to be 1. Istead cache content is %v.", str1, str2, cexl.exprCache)
+	if exprNew != exprCacheHit || cexl.cache.Len() != 1 {
+		t.Errorf("Expected cache hit for expressions '%s' and '%s', and cache size to be 1. Istead cache content is %v.", str1, str2, cexl.cache.Keys())
 	}
 }
 
 func TestCacheMiss(t *testing.T) {
+	cache, _ := lru.New(1024)
 	cexl := &cexl{
-		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+		fMap: FuncMap(), cache: cache,
 	}
 	str1 := "a.b"
 	exprNew, err := cexl.cacheGetExpression(str1)
 	if err != nil || exprNew == nil {
-		t.Errorf("Parsing of expression '%s failed with error '%v'", str1, err)
+		t.Errorf("Parsing of expression '%s' failed with error '%v'", str1, err)
 		return
 	}
 	str2 := "a | b"
 	exprCacheMiss, _ := cexl.cacheGetExpression(str2)
 
-	if exprNew == exprCacheMiss || len(cexl.exprCache) != 2 {
-		t.Errorf("Expected cache miss for expressions '%s' and '%s', and cache size to be 2. Istead cache content is %v.", str1, str2, cexl.exprCache)
+	if exprNew == exprCacheMiss || cexl.cache.Len() != 2 {
+		t.Errorf("Expected cache miss for expressions '%s' and '%s', and cache size to be 2. Istead cache content is %v.", str1, str2, cexl.cache.Keys())
 	}
 }
 
 func TestCacheGetWithParseError(t *testing.T) {
+	cache, _ := lru.New(1024)
 	cexl := &cexl{
-		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+		fMap: FuncMap(), cache: cache,
 	}
 	str1 := "a.b."
 	_, err := cexl.cacheGetExpression(str1)
 	if err == nil {
 		t.Errorf("Expected error when parsing '%s', instead got <nil> error.", str1)
 	}
-	if len(cexl.exprCache) != 0 {
-		t.Errorf("Expected empty cache after parsing error expression '%s', instead of cache %v.", str1, cexl.exprCache)
+	if cexl.cache.Len() != 0 {
+		t.Errorf("Expected empty cache after parsing error expression '%s', instead of cache %v.", str1, cexl.cache.Keys())
 	}
 }
 
 func TestConcurrencyWithCache(t *testing.T) {
+	cache, _ := lru.New(1024)
 	cexl := &cexl{
-		fMap: FuncMap(), exprCache: make(map[string]*Expression),
+		fMap: FuncMap(), cache: cache,
 	}
 
-	exprs := []string{"a.b", "a | b", "a.b | 0", "a | 0"}
+	exprs := []string{"a.b", "c | d", "p.q | 0", "x | 0"}
 	done := make(chan bool)
 	loopCount := 100
 	for i := 0; i < loopCount; i++ {
@@ -292,7 +328,7 @@ func TestConcurrencyWithCache(t *testing.T) {
 			exprStr := exprs[rand.Intn(len(exprs))]
 			_, err := cexl.cacheGetExpression(exprStr)
 			if err != nil {
-				t.Errorf("Parsing of expression '%s failed with error '%v'", exprStr, err)
+				t.Errorf("Parsing of expression '%s' failed with error '%v'", exprStr, err)
 			}
 			done <- true
 		}()
@@ -302,9 +338,9 @@ func TestConcurrencyWithCache(t *testing.T) {
 		<-done
 	}
 
-	if len(cexl.exprCache) != len(exprs) {
+	if cexl.cache.Len() != len(exprs) {
 		t.Errorf("For %d calls to expressions %v: expected cache size %d, instead got %d with content %v.",
-			loopCount, exprs, len(exprs), len(cexl.exprCache), cexl.exprCache)
+			loopCount, exprs, len(exprs), cexl.cache.Len(), cexl.cache.Keys())
 	}
 }
 
