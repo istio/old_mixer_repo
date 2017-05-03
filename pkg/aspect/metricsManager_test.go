@@ -211,7 +211,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *aconfig.MetricsParams
-		v    expr.TypeChecker
+		tc   expr.TypeChecker
 		df   descriptor.Finder
 		err  string
 	}{
@@ -228,7 +228,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			errs := (&metricsManager{}).ValidateConfig(tt.cfg, tt.v, tt.df)
+			errs := (&metricsManager{}).ValidateConfig(tt.cfg, tt.tc, tt.df)
 			if errs != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", errs.Error())

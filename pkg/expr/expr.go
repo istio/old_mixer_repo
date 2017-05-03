@@ -93,8 +93,8 @@ type AttributeDescriptorFinder interface {
 	GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo
 }
 
-// EvalType an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
+// EvalType Function an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
+func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
@@ -105,7 +105,7 @@ func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]
 		}
 		return ad.ValueType, nil
 	}
-	return e.Fn.TypeCheck(attrs, fMap)
+	return e.Fn.EvalType(attrs, fMap)
 }
 
 // Eval returns value of the contained variable or error
@@ -223,7 +223,7 @@ func (f *Function) String() string {
 }
 
 // EvalType Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
+func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	fn := fMap[f.Name]
 	if fn == nil {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
@@ -240,7 +240,7 @@ func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Fu
 	tmplType := dpb.VALUE_TYPE_UNSPECIFIED
 	// check arg types with fn args
 	for idx = 0; idx < len(f.Args) && idx < len(argTypes); idx++ {
-		argType, err = f.Args[idx].TypeCheck(attrs, fMap)
+		argType, err = f.Args[idx].EvalType(attrs, fMap)
 		if err != nil {
 			return valueType, err
 		}
@@ -390,6 +390,7 @@ func Parse(src string) (ex *Expression, err error) {
 	return ex, nil
 }
 
+// DefaultCacheSize is the default size for the expression cache.
 const DefaultCacheSize = 1024
 
 // Evaluator for a c-like expression language.
@@ -461,7 +462,7 @@ func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.
 	if err != nil {
 		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
 	}
-	return v.TypeCheck(attrFinder, e.fMap)
+	return v.EvalType(attrFinder, e.fMap)
 }
 
 func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType dpb.ValueType) error {

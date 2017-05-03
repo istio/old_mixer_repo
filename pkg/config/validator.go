@@ -75,13 +75,13 @@ type (
 
 // newValidator returns a validator given component validators.
 func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderValidatorFinder,
-	findAspects AdapterToAspectMapper, strict bool, exprValidator expr.TypeChecker) *validator {
+	findAspects AdapterToAspectMapper, strict bool, typeChecker expr.TypeChecker) *validator {
 	return &validator{
 		managerFinder: managerFinder,
 		adapterFinder: adapterFinder,
 		findAspects:   findAspects,
 		strict:        strict,
-		exprValidator: exprValidator,
+		typeChecker:   typeChecker,
 		validated: &Validated{
 			adapterByName: make(map[adapterKey]*pb.Adapter),
 			rule:          make(map[rulesKey]*pb.ServiceConfig),
@@ -100,7 +100,7 @@ type (
 		findAspects      AdapterToAspectMapper
 		descriptorFinder descriptor.Finder
 		strict           bool
-		exprValidator    expr.TypeChecker
+		typeChecker      expr.TypeChecker
 		validated        *Validated
 	}
 
@@ -308,7 +308,7 @@ func (p *validator) validateSelector(selector string, df expr.AttributeDescripto
 	if len(selector) == 0 {
 		return nil
 	}
-	return p.exprValidator.AssertType(selector, df, dpb.BOOL)
+	return p.typeChecker.AssertType(selector, df, dpb.BOOL)
 }
 
 // validateAspectRules validates the recursive configuration data structure.

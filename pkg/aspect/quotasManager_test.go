@@ -224,7 +224,7 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *aconfig.QuotasParams
-		v    expr.TypeChecker
+		tc   expr.TypeChecker
 		df   descriptor.Finder
 		err  string
 	}{
@@ -239,7 +239,7 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if errs := (&quotasManager{}).ValidateConfig(tt.cfg, tt.v, tt.df); errs != nil || tt.err != "" {
+			if errs := (&quotasManager{}).ValidateConfig(tt.cfg, tt.tc, tt.df); errs != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", errs.Error())
 				} else if !strings.Contains(errs.Error(), tt.err) {

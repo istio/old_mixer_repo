@@ -94,7 +94,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
 	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
 	// TODO: what is the right default value for expressionEvalCacheSize.
-	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", 1024, "Number of entries in the expression cache")
+	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", expr.DefaultCacheSize, "Number of entries in the expression cache")
 	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run Mixer in single-threaded mode (useful "+
 		"for debugging)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")

@@ -40,7 +40,7 @@ type (
 		EvalPredicate(expr string, attrs attribute.Bag) (bool, error)
 	}
 
-	// Validator validates a given expression
+	// TypeChecker validates a given expression for type safety.
 	TypeChecker interface {
 		// EvalType produces the type of an expression or an error if the type cannot be evaluated.
 		// TODO: we probably want to use a golang type rather than pb.ValueType (a proto).

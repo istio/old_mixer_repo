@@ -376,7 +376,7 @@ func TestInternalTypeCheck(t *testing.T) {
 				t.Fatalf("unexpected error %s", err)
 			}
 
-			retType, err = ex.TypeCheck(newAF(c.ds), fMap)
+			retType, err = ex.EvalType(newAF(c.ds), fMap)
 			if err != nil {
 				if !strings.Contains(err.Error(), c.err) {
 					t.Errorf("unexpected error got %s want %s", err.Error(), c.err)
