@@ -10,6 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/attribute:go_default_library",
+        "//pkg/config/proto:go_default_library",
         "//pkg/pool:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_golang_lru//:go_default_library",
