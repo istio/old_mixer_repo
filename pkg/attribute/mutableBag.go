@@ -17,6 +17,8 @@ package attribute
 import (
 	"bytes"
 	"fmt"
+	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -39,12 +41,26 @@ type MutableBag struct {
 	id     int64 // strictly for use in diagnostic messages
 }
 
+// get Go routine ID
+func getGID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
+}
+
 var id int64
 var mutableBags = sync.Pool{
 	New: func() interface{} {
+		bid := atomic.AddInt64(&id, 1)
+		if glog.V(3) {
+			glog.Infof("%d Created bag %d", getGID(), bid)
+		}
 		return &MutableBag{
 			values: make(map[string]interface{}),
-			id:     atomic.AddInt64(&id, 1),
+			id:     bid,
 		}
 	},
 }
@@ -57,7 +73,14 @@ var mutableBags = sync.Pool{
 // When you are done using the mutable bag, call the Done method to recycle it.
 func GetMutableBag(parent Bag) *MutableBag {
 	mb := mutableBags.Get().(*MutableBag)
-
+	var pid int64 = -1
+	p, _ := parent.(*MutableBag)
+	if p != nil {
+		pid = p.id
+	}
+	if pid == mb.id {
+		panic(fmt.Sprintf("INTERNAL ERROR: bag %v was used after freeing", mb))
+	}
 	mb.parent = parent
 	if parent == nil {
 		mb.parent = empty
@@ -100,6 +123,9 @@ func copyValue(v interface{}) interface{} {
 func (mb *MutableBag) Done() {
 	mb.Reset()
 	mb.parent = nil
+	if glog.V(3) {
+		glog.Infof("%d Released bag with id: %d", getGID(), mb.id)
+	}
 	mutableBags.Put(mb)
 }
 

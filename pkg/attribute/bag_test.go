@@ -120,6 +120,33 @@ func TestBag(t *testing.T) {
 	}
 }
 
+func TestBagReuse(t *testing.T) {
+	var sans string
+	want := "INTERNAL ERROR"
+
+	for i := 0; i < 10; i++ {
+		rb := GetMutableBag(nil)
+		rb.Done()
+
+		ans := withPanic(func() { rb.Child() })
+
+		sans, _ = ans.(string)
+		if strings.Contains(sans, want) {
+			return
+		}
+	}
+	t.Errorf("got %s\nwant %s", sans, want)
+}
+
+func withPanic(f func()) (ret interface{}) {
+	defer func() {
+		ret = recover()
+	}()
+
+	f()
+	return ret
+}
+
 func TestStringMapEdgeCase(t *testing.T) {
 	// ensure coverage for some obscure logging paths
 

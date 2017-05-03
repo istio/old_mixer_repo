@@ -2,7 +2,14 @@
 
 # Applies requisite code formatters to the source tree
 
+SED="gnu"
+sed --version > /dev/null 2>&1
+if [[ $? -ne 0 ]];then
+	SED="mac"
+fi
+
 set -e
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 source $SCRIPTPATH/use_bazel_go.sh
 
@@ -15,7 +22,7 @@ UX=$(uname)
 
 #remove blank lines so gofmt / goimports can do their job
 for fl in ${GO_FILES}; do
-	if [[ ${UX} == "Darwin" ]];then
+	if [[ ${SED} == "mac" ]];then
 		sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
 	else
 		sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
