@@ -37,7 +37,7 @@ type MutableBag struct {
 	parent Bag
 	values map[string]interface{}
 	id     int64 // strictly for use in diagnostic messages
-	// number of children of this bag. will not be reclaimed until children count == 0
+	// number of children of this bag. It will not be recycled unless children count == 0
 	children int
 	sync.Mutex
 }
@@ -112,13 +112,6 @@ func (mb *MutableBag) Child() *MutableBag {
 	return GetMutableBag(mb)
 }
 
-// childDone indicates that a child bag has been reclaimed.
-func (mb *MutableBag) childDone() {
-	mb.Lock()
-	mb.children--
-	mb.Unlock()
-}
-
 // Done indicates the bag can be reclaimed.
 func (mb *MutableBag) Done() {
 	mb.Lock()
@@ -135,10 +128,12 @@ func (mb *MutableBag) done() {
 	mb.Reset()
 	mbparent, _ := mb.parent.(*MutableBag)
 	if mbparent != nil {
-		mbparent.childDone()
+		mbparent.Lock()
+		mbparent.children--
+		mbparent.Unlock()
 	}
 	mb.parent = nil
-	if glog.V(3) {
+	if glog.V(4) {
 		glog.Infof("freed bag: %#v", mb)
 	}
 	mutableBags.Put(mb)

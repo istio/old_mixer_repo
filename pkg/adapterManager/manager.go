@@ -267,7 +267,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	// TODO: look into having a pool of these to avoid frequent allocs
 	bags := make([]*attribute.MutableBag, numCfgs)
 
-	// wait for all the work to be done or the context to be cancelled
+	// wait for all the work to be done
 	for i := 0; i < numCfgs; i++ {
 		results[i] = <-resultChan
 		bags[i] = results[i].responseBag
@@ -279,7 +279,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 		}
 	}()
 
-	// context is checked
+	// check context and return cancellation errors.
 	if err := ctx.Err(); err != nil {
 		if err == context.Canceled {
 			return status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))
