@@ -266,10 +266,8 @@ func TestMutableBag_Child(t *testing.T) {
 	c2.Done()
 	c3.Done()
 	c31.Done()
-	if mb.parent != nil {
-		t.Errorf("did not free bag parent %#v", mb)
-	}
 
+	mb.parent = nil
 	err := withPanic(func() { mb.Child() })
 
 	if err == nil {

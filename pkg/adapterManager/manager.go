@@ -264,26 +264,27 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	}
 
 	requestBag = nil
+	// TODO: look into having a pool of these to avoid frequent allocs
+	bags := make([]*attribute.MutableBag, numCfgs)
 
 	// wait for all the work to be done or the context to be cancelled
 	for i := 0; i < numCfgs; i++ {
-		select {
-		case <-ctx.Done():
-			// ensure that all bags are back
-			go drainChannelOnError(i, resultChan, results)
-			if ctx.Err() == context.Canceled {
-				return status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))
-			}
-			return status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results: %v", ctx.Err()))
-		case res := <-resultChan:
-			results[i] = res
-		}
+		results[i] = <-resultChan
+		bags[i] = results[i].responseBag
 	}
+	// always cleanup bags regardless of how we exit
+	defer func() {
+		for _, b := range bags {
+			b.Done()
+		}
+	}()
 
-	// TODO: look into having a pool of these to avoid frequent allocs
-	bags := make([]*attribute.MutableBag, numCfgs)
-	for i, r := range results {
-		bags[i] = r.responseBag
+	// context is checked
+	if err := ctx.Err(); err != nil {
+		if err == context.Canceled {
+			return status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))
+		}
+		return status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results: %v", ctx.Err()))
 	}
 
 	if err := responseBag.Merge(bags...); err != nil {
@@ -291,22 +292,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 		return status.WithError(err)
 	}
 
-	for _, b := range bags {
-		b.Done()
-	}
-
 	return combineResults(results)
-}
-
-// drainChannelOnError fromidx has *not* been drained.
-func drainChannelOnError(fromidx int, resultChan chan result, results []result) {
-	for i := 0; i < fromidx; i++ {
-		results[i].responseBag.Done()
-	}
-	for i := fromidx; i < len(results); i++ {
-		r := <-resultChan
-		r.responseBag.Done()
-	}
 }
 
 // Combines a bunch of distinct result structs and turns 'em into one single rpc.Status
