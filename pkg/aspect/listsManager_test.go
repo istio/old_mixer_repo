@@ -27,31 +27,32 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/config"
-	cpb "istio.io/mixer/pkg/config/proto"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
 func TestListsManager(t *testing.T) {
 	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"source.ip": &dpb.AttributeDescriptor{Name: "source.ip", ValueType: dpb.STRING},
+		"source.ip": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
 	})
 
 	lm := newListsManager()
 	if lm.Kind() != config.ListsKind {
 		t.Errorf("m.Kind() = %s wanted %s", lm.Kind(), config.ListsKind)
 	}
-	if err := lm.ValidateConfig(lm.DefaultConfig(), expr.NewCEXLEvaluator(), dfind); err != nil {
+	eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+	if err := lm.ValidateConfig(lm.DefaultConfig(), eval, dfind); err != nil {
 		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
 	}
-	if err := lm.ValidateConfig(&aconfig.ListsParams{}, expr.NewCEXLEvaluator(), dfind); err == nil {
+	if err := lm.ValidateConfig(&aconfig.ListsParams{}, eval, dfind); err == nil {
 		t.Error("ValidateConfig(ListsParams{}) should produce an error.")
 	}
 }
 
 func TestListsManager_ValidateConfig(t *testing.T) {
 	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"string": &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
-		"int64":  &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"string": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
+		"int64":  &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	})
 
 	tests := []struct {
@@ -67,7 +68,8 @@ func TestListsManager_ValidateConfig(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if errs := (&listsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), dfind); errs != nil || tt.err != "" {
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+			if errs := (&listsManager{}).ValidateConfig(tt.cfg, eval, dfind); errs != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.dfind) = '%s', wanted no err", errs.Error())
 				} else if !strings.Contains(errs.Error(), tt.err) {
@@ -95,9 +97,9 @@ func (t testListsBuilder) NewListsAspect(env adapter.Env, c adapter.Config) (ada
 }
 
 func TestListsManager_NewCheckExecutor(t *testing.T) {
-	defaultCfg := &cpb.Combined{
-		Builder: &cpb.Adapter{Params: &aconfig.ListsParams{}},
-		Aspect:  &cpb.Aspect{Params: &aconfig.ListsParams{}, Inputs: map[string]string{}},
+	defaultCfg := &cfgpb.Combined{
+		Builder: &cfgpb.Adapter{Params: &aconfig.ListsParams{}},
+		Aspect:  &cfgpb.Aspect{Params: &aconfig.ListsParams{}},
 	}
 
 	lm := newListsManager()
@@ -107,9 +109,9 @@ func TestListsManager_NewCheckExecutor(t *testing.T) {
 }
 
 func TestListsManager_NewCheckExecutorErrors(t *testing.T) {
-	defaultCfg := &cpb.Combined{
-		Builder: &cpb.Adapter{Params: &aconfig.ListsParams{}},
-		Aspect:  &cpb.Aspect{Params: &aconfig.ListsParams{}, Inputs: map[string]string{}},
+	defaultCfg := &cfgpb.Combined{
+		Builder: &cfgpb.Adapter{Params: &aconfig.ListsParams{}},
+		Aspect:  &cfgpb.Aspect{Params: &aconfig.ListsParams{}},
 	}
 
 	lm := newListsManager()

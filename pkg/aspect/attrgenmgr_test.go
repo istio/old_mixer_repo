@@ -1,4 +1,4 @@
-// Copyright 2017 the Istio Authors.
+// Copyright 2017 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 	atest "istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
-	cpb "istio.io/mixer/pkg/config/proto"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -35,10 +35,11 @@ func TestAttributeGeneratorManager(t *testing.T) {
 	if m.Kind() != config.AttributesKind {
 		t.Errorf("m.Kind() = %s; wanted %s", m.Kind(), config.AttributesKindName)
 	}
-	if err := m.ValidateConfig(m.DefaultConfig(), expr.NewCEXLEvaluator(), nil); err != nil {
+	eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+	if err := m.ValidateConfig(m.DefaultConfig(), eval, nil); err != nil {
 		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
 	}
-	if err := m.ValidateConfig(&apb.AttributesGeneratorParams{}, expr.NewCEXLEvaluator(), df); err != nil {
+	if err := m.ValidateConfig(&apb.AttributesGeneratorParams{}, eval, df); err != nil {
 		t.Error("ValidateConfig(AttributeGeneratorsParams{}) should not produce an error.")
 	}
 }
@@ -46,9 +47,9 @@ func TestAttributeGeneratorManager(t *testing.T) {
 func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 
 	dfind := atest.NewDescriptorFinder(map[string]interface{}{
-		"int64":     &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
-		"duration":  &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
-		"source_ip": &dpb.AttributeDescriptor{Name: "source_ip"},
+		"int64":     &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
+		"duration":  &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
+		"source_ip": &cfgpb.AttributeManifest_AttributeInfo{},
 	})
 
 	validExpr := &apb.AttributesGeneratorParams{
@@ -87,7 +88,8 @@ func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			err := m.ValidateConfig(v.params, expr.NewCEXLEvaluator(), dfind)
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+			err := m.ValidateConfig(v.params, eval, dfind)
 			if err != nil && !v.wantErr {
 				t.Errorf("Unexpected error '%v' for config: %#v", err, v.params)
 			}
@@ -133,9 +135,9 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 	}
 
 	m := newAttrGenMgr()
-	c := &cpb.Combined{
-		Builder: &cpb.Adapter{Params: &apb.AttributesGeneratorParams{}},
-		Aspect: &cpb.Aspect{Params: &apb.AttributesGeneratorParams{
+	c := &cfgpb.Combined{
+		Builder: &cfgpb.Adapter{Params: &apb.AttributesGeneratorParams{}},
+		Aspect: &cfgpb.Aspect{Params: &apb.AttributesGeneratorParams{
 			AttributeBindings: map[string]string{"service_found": "found", "source_service": "srcSvc"},
 		}},
 	}

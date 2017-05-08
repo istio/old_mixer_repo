@@ -25,9 +25,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	lru "github.com/hashicorp/golang-lru"
 
-	config "istio.io/api/mixer/v1/config/descriptor"
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/pool"
 )
 
@@ -70,11 +72,11 @@ var tMap = map[token.Token]string{
 	token.LBRACK: "INDEX",
 }
 
-var typeMap = map[token.Token]config.ValueType{
-	token.INT:    config.INT64,
-	token.FLOAT:  config.DOUBLE,
-	token.CHAR:   config.STRING,
-	token.STRING: config.STRING,
+var typeMap = map[token.Token]dpb.ValueType{
+	token.INT:    dpb.INT64,
+	token.FLOAT:  dpb.DOUBLE,
+	token.CHAR:   dpb.STRING,
+	token.STRING: dpb.STRING,
 }
 
 // Expression is a simplified expression AST
@@ -88,11 +90,11 @@ type Expression struct {
 // AttributeDescriptorFinder finds attribute descriptors.
 type AttributeDescriptorFinder interface {
 	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
-	GetAttribute(name string) *config.AttributeDescriptor
+	GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo
 }
 
-// TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType config.ValueType, err error) {
+// EvalType Function an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
+func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
@@ -103,7 +105,7 @@ func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]
 		}
 		return ad.ValueType, nil
 	}
-	return e.Fn.TypeCheck(attrs, fMap)
+	return e.Fn.EvalType(attrs, fMap)
 }
 
 // Eval returns value of the contained variable or error
@@ -146,21 +148,21 @@ func (e *Expression) String() string {
 }
 
 // newConstant converts literals recognized by parser (ie. int and string) to
-// `config.ValueType`s, building a typed *Constant.
-func newConstant(v string, vType config.ValueType) (*Constant, error) {
+// `dpb.ValueType`s, building a typed *Constant.
+func newConstant(v string, vType dpb.ValueType) (*Constant, error) {
 	var typedVal interface{}
 	var err error
 	switch vType {
-	case config.INT64:
+	case dpb.INT64:
 		if typedVal, err = strconv.ParseInt(v, 10, 64); err != nil {
 			return nil, err
 		}
-	case config.DOUBLE:
+	case dpb.DOUBLE:
 		if typedVal, err = strconv.ParseFloat(v, 64); err != nil {
 			return nil, err
 		}
 	default: // string
-		// Several `config.ValueType`s are parsed as strings, so
+		// Several `dpb.ValueType`s are parsed as strings, so
 		// they must be parse separately as those value types
 		// (and the appropriate vType must be set).
 		var unquoted string
@@ -168,10 +170,10 @@ func newConstant(v string, vType config.ValueType) (*Constant, error) {
 			return nil, err
 		}
 		if typedVal, err = time.ParseDuration(unquoted); err == nil {
-			vType = config.DURATION
+			vType = dpb.DURATION
 			break
 		}
-		// TODO: add support for other config ValueTypes serialized
+		// TODO: add support for other dpb ValueTypes serialized
 		// as string
 		typedVal = unquoted
 	}
@@ -182,7 +184,7 @@ func newConstant(v string, vType config.ValueType) (*Constant, error) {
 type Constant struct {
 	StrValue string
 	Value    interface{}
-	Type     config.ValueType
+	Type     dpb.ValueType
 }
 
 func (c *Constant) String() string {
@@ -220,8 +222,8 @@ func (f *Function) String() string {
 	return s
 }
 
-// TypeCheck Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType config.ValueType, err error) {
+// EvalType Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
+func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	fn := fMap[f.Name]
 	if fn == nil {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
@@ -234,17 +236,17 @@ func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Fu
 		return valueType, fmt.Errorf("%s arity mismatch. Got %d arg(s), expected %d arg(s)", f, len(f.Args), len(argTypes))
 	}
 
-	var argType config.ValueType
-	tmplType := config.VALUE_TYPE_UNSPECIFIED
+	var argType dpb.ValueType
+	tmplType := dpb.VALUE_TYPE_UNSPECIFIED
 	// check arg types with fn args
 	for idx = 0; idx < len(f.Args) && idx < len(argTypes); idx++ {
-		argType, err = f.Args[idx].TypeCheck(attrs, fMap)
+		argType, err = f.Args[idx].EvalType(attrs, fMap)
 		if err != nil {
 			return valueType, err
 		}
 		expectedType := argTypes[idx]
-		if expectedType == config.VALUE_TYPE_UNSPECIFIED {
-			if tmplType == config.VALUE_TYPE_UNSPECIFIED {
+		if expectedType == dpb.VALUE_TYPE_UNSPECIFIED {
+			if tmplType == dpb.VALUE_TYPE_UNSPECIFIED {
 				// all future args must be of this type.
 				tmplType = argType
 				continue
@@ -259,7 +261,7 @@ func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Fu
 	// TODO check if we have excess args, only works when Fn is Variadic
 
 	retType := fn.ReturnType()
-	if retType == config.VALUE_TYPE_UNSPECIFIED {
+	if retType == dpb.VALUE_TYPE_UNSPECIFIED {
 		// if return type is unspecified, you the discovered type
 		retType = tmplType
 	}
@@ -306,7 +308,7 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			if lv == "false" {
 				typedVal = false
 			}
-			tgt.Const = &Constant{StrValue: lv, Type: config.BOOL, Value: typedVal}
+			tgt.Const = &Constant{StrValue: lv, Type: dpb.BOOL, Value: typedVal}
 		} else {
 			tgt.Var = &Variable{Name: v.Name}
 		}
@@ -388,17 +390,43 @@ func Parse(src string) (ex *Expression, err error) {
 	return ex, nil
 }
 
+// DefaultCacheSize is the default size for the expression cache.
+const DefaultCacheSize = 1024
+
 // Evaluator for a c-like expression language.
 type cexl struct {
-	//TODO add ast cache
+	cache *lru.Cache
 	// function Map
 	fMap map[string]FuncBase
 }
 
+func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
+
+	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
+
+	if v, found := e.cache.Get(exprStr); found {
+		return v.(*Expression), nil
+	}
+
+	if glog.V(4) {
+		glog.Infof("expression cache miss for '%s'", exprStr)
+	}
+
+	ex, err = Parse(exprStr)
+	if err != nil {
+		return nil, err
+	}
+	if glog.V(4) {
+		glog.Infof("caching expression for '%s''", exprStr)
+	}
+
+	_ = e.cache.Add(exprStr, ex)
+	return ex, nil
+}
+
 func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error) {
 	var ex *Expression
-	// TODO check ast cache
-	if ex, err = Parse(s); err != nil {
+	if ex, err = e.cacheGetExpression(s); err != nil {
 		return
 	}
 	return ex.Eval(attrs, e.fMap)
@@ -429,16 +457,16 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
 }
 
-func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (config.ValueType, error) {
-	v, err := Parse(expr)
+func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
+	v, err := e.cacheGetExpression(expr)
 	if err != nil {
-		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
+		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
 	}
-	return v.TypeCheck(attrFinder, e.fMap)
+	return v.EvalType(attrFinder, e.fMap)
 }
 
-func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType config.ValueType) error {
-	if t, err := e.TypeCheck(expr, finder); err != nil {
+func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType dpb.ValueType) error {
+	if t, err := e.EvalType(expr, finder); err != nil {
 		return err
 	} else if t != expectedType {
 		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)
@@ -446,25 +474,13 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 	return nil
 }
 
-// Validate validates expression for syntactic correctness.
-// TODO check if all functions and attributes in the expression are defined.
-// at present this violates the contract with Func.Call that ensures
-// arity and arg types. It is upto the policy author to write correct policies.
-func (e *cexl) Validate(s string) (err error) {
-	var ex *Expression
-	if ex, err = Parse(s); err != nil {
-		return err
-	}
-	// TODO call ex.TypeCheck() when vocabulary is available
-	if glog.V(4) {
-		glog.Infof("%s --> %s", s, ex)
-	}
-	return nil
-}
-
 // NewCEXLEvaluator returns a new Evaluator of this type.
-func NewCEXLEvaluator() Evaluator {
-	return &cexl{
-		fMap: FuncMap(),
+func NewCEXLEvaluator(cacheSize int) (Evaluator, error) {
+	cache, err := lru.New(cacheSize)
+	if err != nil {
+		return nil, err
 	}
+	return &cexl{
+		fMap: FuncMap(), cache: cache,
+	}, nil
 }
