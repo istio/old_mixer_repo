@@ -17,6 +17,7 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	_ "expvar"
 	"fmt"
 	"io/ioutil"
 	"net"
