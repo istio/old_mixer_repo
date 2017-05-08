@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	_ "expvar" // For /debug/vars registration. Note: temporary, NOT for general use
+	_ "net/http/pprof" // For debug purpose
 	"fmt"
 	"io/ioutil"
 	"net"
