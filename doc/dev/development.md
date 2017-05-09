@@ -300,7 +300,10 @@ passed both unit and integration tests. We only merges pull requests when
 
 ## Using Mixer
 
-Once you've built the source base, you can run Mixer in a basic mode using:
+You will probably need to edit `testdata/configroot/scopes/global/adapters.yml`
+to setup kubeconfig per the instructions at the end of the file
+
+Then and once you've built the source base, you can run Mixer in a basic mode using:
 
 ```shell
 ./bazel-bin/cmd/server/mixs server \
@@ -311,5 +314,7 @@ Once you've built the source base, you can run Mixer in a basic mode using:
 You can also run a simple client to interact with the server:
 
 ```shell
-./bazel-bin/cmd/client/mixc check -a target.service=f.default.svc.cluster.local
+./bazel-bin/cmd/client/mixc check -a target.service=f.default.svc.cluster.local \
+  --string_attributes source.uid=kubernetes://xyz.default
+Check RPC returned OK
 ```
