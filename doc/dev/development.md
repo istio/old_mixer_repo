@@ -300,14 +300,15 @@ passed both unit and integration tests. We only merges pull requests when
 
 ## Using Mixer
 
-You will probably need to edit `testdata/configroot/scopes/global/adapters.yml`
+You will need to edit
+[`testdata/configroot/scopes/global/adapters.yml`](../../testdata/configroot/scopes/global/adapters.yml)
 to setup kubeconfig per the instructions at the end of the file
 
-Then and once you've built the source base, you can run Mixer in a basic mode using:
+Then and once you've built the source tree, you can run Mixer in a basic mode using:
 
 ```shell
 ./bazel-bin/cmd/server/mixs server \
-  --configStoreURL=fs://$(pwd)/testdata/configRoot \
+  --configStoreURL=fs://$(pwd)/testdata/configroot \
   --alsologtostderr
 ```
 
