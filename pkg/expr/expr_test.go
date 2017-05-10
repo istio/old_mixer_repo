@@ -19,8 +19,8 @@ import (
 	"math/rand"
 	"reflect"
 	"strings"
-	"testing"
 	"sync"
+	"testing"
 
 	lru "github.com/hashicorp/golang-lru"
 
@@ -340,7 +340,6 @@ func TestConcurrencyWithCache(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-
 
 	if cexl.cache.Len() != len(exprs) {
 		t.Errorf("Invalid cache after %d calls to expressions %v: Got cache size %d with content %v; Expected cache size %d with entries for %v",
