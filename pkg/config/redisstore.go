@@ -24,43 +24,59 @@ import (
 
 type redisStore struct {
 	client *redis.Client
-	url    *url.URL
+
+	// The URL connecting to the database.
+	url *url.URL
+
+	// listLength caches the number of keys returned for List() to
+	// reduce the number of allocations for similar quries.
+	listLength int
 }
 
-func setupConnection(client *redis.Client, u *url.URL) error {
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			resp := client.Cmd("AUTH", pass)
-			if resp.Err != nil {
-				return fmt.Errorf("failed to authenticate with password %s: %v", pass, resp.Err)
-			}
+func setupConnection(client *redis.Client, password string, dbNum uint64) error {
+	if len(password) > 0 {
+		resp := client.Cmd("AUTH", password)
+		if resp.Err != nil {
+			return fmt.Errorf("failed to authenticate with password %s: %v", password, resp.Err)
 		}
-	}
-	if len(u.Path) > 1 {
-		dbNum, err := strconv.ParseInt(u.Path[1:], 10, 0)
-		if err != nil {
-			return fmt.Errorf("failed to parse dbNum \"%s\", it should be an integer", u.Path[1:])
-		}
-		if dbNum < 0 {
-			return fmt.Errorf("dbNum \"%s\" should be a positive integer", u.Path[1:])
-		}
-		client.Cmd("SELECT", dbNum)
 	}
 
 	// Invoke PING to make sure the client can emit commands properly.
-	resp := client.Cmd("PING")
-	return resp.Err
+	if resp := client.Cmd("PING"); resp.Err != nil {
+		return resp.Err
+	}
+
+	if dbNum != 0 {
+		// SELECT always returns okay, do not have to check the response.
+		// See https://redis.io/commands/select
+		client.Cmd("SELECT", dbNum)
+	}
+	return nil
 }
 
-func newRedisStore(u *url.URL) (*redisStore, error) {
+func newRedisStore(u *url.URL) (rs *redisStore, err error) {
+	var dbNum uint64
+	if len(u.Path) > 1 {
+		dbNum, err = strconv.ParseUint(u.Path[1:], 10, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse dbNum \"%s\", it should be an integer", u.Path[1:])
+		}
+	}
+
 	client, err := redis.Dial("tcp", u.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't connect to the redis server %v: %v", u, err)
 	}
-	if err := setupConnection(client, u); err != nil {
+
+	var password string
+	if u.User != nil {
+		password, _ = u.User.Password()
+	}
+
+	if err := setupConnection(client, password, dbNum); err != nil {
 		return nil, err
 	}
-	return &redisStore{client, u}, nil
+	return &redisStore{client, u, 0}, nil
 }
 
 func (rs *redisStore) String() string {
@@ -71,6 +87,7 @@ func (rs *redisStore) Get(key string) (value string, index int, found bool) {
 	resp := rs.client.Cmd("GET", key)
 	index = indexNotSupported
 	if resp.Err != nil {
+
 		return "", index, false
 	}
 	s, err := resp.Str()
@@ -89,6 +106,7 @@ func (rs *redisStore) Set(key, value string) (index int, err error) {
 }
 
 func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, err error) {
+	keys = make([]string, rs.listLength)
 	keyPattern := key
 	if key[len(key)-1] != '/' {
 		keyPattern += "/"
@@ -129,6 +147,9 @@ func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, 
 		if cursor == 0 {
 			break
 		}
+	}
+	if err != nil {
+		rs.listLength = len(keys)
 	}
 	return keys, indexNotSupported, err
 }

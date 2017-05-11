@@ -15,6 +15,7 @@ package config
 
 import (
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/alicebob/miniredis"
@@ -120,27 +121,23 @@ func TestDBNum(t *testing.T) {
 }
 
 func TestInvalidDBNum(t *testing.T) {
-	s, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("unable to start mini redis: %v", err)
-	}
-	defer s.Close()
-
 	for _, ustr := range []string{
-		"redis://" + s.Addr() + "/-1",
-		"redis://" + s.Addr() + "/deadbeef",
-		"redis://" + s.Addr() + "/123abc",
-		"redis://" + s.Addr() + "/123abc",
-		"redis://" + s.Addr() + "/0x10",
+		"redis://localhost:6379/-1",
+		"redis://localhost:6379/deadbeef",
+		"redis://localhost:6379/123abc",
+		"redis://localhost:6379/0x10",
 	} {
 		u, err := url.Parse(ustr)
 		if err != nil {
 			t.Errorf("failed to parse URL %s: %v", ustr, err)
+			continue
 		}
 		rs, err := newRedisStore(u)
 		if err == nil {
 			t.Errorf("expected to fail, but successfully connected to %s", ustr)
 			rs.Close()
+		} else if !strings.Contains(err.Error(), "dbNum") {
+			t.Errorf("unexpected error \"%v\", message should contain \"dbNum\", target %s", err, ustr)
 		}
 	}
 }

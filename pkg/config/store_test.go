@@ -17,23 +17,15 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/alicebob/miniredis"
 )
 
 func TestNewStore(t *testing.T) {
-	r, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("unable to start mini redis: %v", err)
-	}
-	defer r.Close()
-
 	for _, tt := range []struct {
 		url string
 		err error
 	}{
 		{"fs:///tmp/testdata/configroot", nil},
-		{"redis://" + r.Addr(), nil},
+		{"redis://:passwd@localhost:6379/1", errors.New("getsockopt")}, // connection error to the server
 		{"etcd:///tmp/testdata/configroot", errors.New("unknown")},
 		{"/tmp/testdata/configroot", errors.New("unknown")},
 	} {
