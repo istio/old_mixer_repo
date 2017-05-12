@@ -333,10 +333,10 @@ func httpStatusToRPC(httpStatus int) (code rpc.Code) {
 
 // httpStatusToRpc limited mapping from proto documentation.
 var httpStatusToRPCMap = map[int]rpc.Code{
-	http.StatusOK:                 rpc.OK,
-	http.StatusNotFound:           rpc.NOT_FOUND,
-	http.StatusConflict:           rpc.ALREADY_EXISTS,
-	http.StatusForbidden:          rpc.PERMISSION_DENIED,
-	http.StatusUnauthorized:       rpc.UNAUTHENTICATED,
-	http.StatusBadRequest:         rpc.FAILED_PRECONDITION,
+	http.StatusOK:           rpc.OK,
+	http.StatusNotFound:     rpc.NOT_FOUND,
+	http.StatusConflict:     rpc.ALREADY_EXISTS,
+	http.StatusForbidden:    rpc.PERMISSION_DENIED,
+	http.StatusUnauthorized: rpc.UNAUTHENTICATED,
+	http.StatusBadRequest:   rpc.FAILED_PRECONDITION,
 }
