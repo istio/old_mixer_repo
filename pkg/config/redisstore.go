@@ -106,7 +106,7 @@ func (rs *redisStore) Set(key, value string) (index int, err error) {
 }
 
 func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, err error) {
-	keys = make([]string, rs.listLength)
+	keys = make([]string, 0, rs.listLength)
 	keyPattern := key
 	if key[len(key)-1] != '/' {
 		keyPattern += "/"
@@ -148,7 +148,7 @@ func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, 
 			break
 		}
 	}
-	if err != nil {
+	if err == nil {
 		rs.listLength = len(keys)
 	}
 	return keys, indexNotSupported, err

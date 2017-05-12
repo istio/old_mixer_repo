@@ -79,6 +79,17 @@ func testStore(t *testing.T, kvMgrfn func() *KVMgr) {
 			if !reflect.DeepEqual(k, tt.listKeys) {
 				t.Errorf("Got %s\nWant %s\n", k, tt.listKeys)
 			}
+
+			// Get the same list again, to make sure the cache of lists
+			// are not broken.
+			k, _, err = s.List(tt.listPrefix, true)
+			if err != nil {
+				t.Error("Unexpected error", err)
+			}
+			if !reflect.DeepEqual(k, tt.listKeys) {
+				t.Errorf("Got %s\nWant %s\n", k, tt.listKeys)
+			}
+
 			err = s.Delete(k[1])
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
