@@ -17,6 +17,7 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	_ "expvar" // For /debug/vars registration. Note: temporary, NOT for general use
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -44,6 +45,11 @@ import (
 	"istio.io/mixer/pkg/version"
 )
 
+const (
+	metricsPath = "/metrics"
+	versionPath = "/version"
+)
+
 type serverArgs struct {
 	maxMessageSize                uint
 	maxConcurrentStreams          uint
@@ -63,8 +69,6 @@ type serverArgs struct {
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
 	monitoringPort                uint16
-	metricsPath                   string
-	versionPath                   string
 
 	// @deprecated
 	serviceConfigFile string
@@ -93,10 +97,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 	}
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for Mixer's gRPC API")
+	serverCmd.PersistentFlags().Uint16Var(&sa.monitoringPort, "monitoringPort", 9093, "HTTP port to use for the exposing mixer self-monitoring information")
 	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")
-	serverCmd.PersistentFlags().Uint16Var(&sa.monitoringPort, "monitoringPort", 1337, "HTTP port to use for the exposing mixer self-monitoring information")
-	serverCmd.PersistentFlags().StringVar(&sa.metricsPath, "metricsPath", "/metrics", "Request path for metrics data for mixer self-monitoring")
-	serverCmd.PersistentFlags().StringVar(&sa.versionPath, "versionPath", "/version", "Request path for version info for mixer self-monitoring")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
@@ -273,14 +275,13 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	// for mixer. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how mixer reports its own metrics.
-	srvMux := http.NewServeMux()
-	srvMux.Handle(sa.metricsPath, promhttp.Handler())
-	srvMux.HandleFunc(sa.versionPath, func(out http.ResponseWriter, req *http.Request) {
+	http.Handle(metricsPath, promhttp.Handler())
+	http.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, verErr := out.Write([]byte(version.Info.String())); verErr != nil {
 			printf("error printing version info: %v", verErr)
 		}
 	})
-	monitoring := &http.Server{Addr: fmt.Sprintf(":%d", sa.monitoringPort), Handler: srvMux}
+	monitoring := &http.Server{Addr: fmt.Sprintf(":%d", sa.monitoringPort)}
 	printf("Starting self-monitoring on port %d", sa.monitoringPort)
 	go func() {
 		if monErr := monitoring.Serve(monitoringListener.(*net.TCPListener)); monErr != nil {
