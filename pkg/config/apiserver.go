@@ -339,4 +339,5 @@ var httpStatusToRPCMap = map[int]rpc.Code{
 	http.StatusForbidden:          rpc.PERMISSION_DENIED,
 	http.StatusUnauthorized:       rpc.UNAUTHENTICATED,
 	http.StatusPreconditionFailed: rpc.FAILED_PRECONDITION,
+	http.StatusBadRequest:         rpc.INVALID_ARGUMENT,
 }
