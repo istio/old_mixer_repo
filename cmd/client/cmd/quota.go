@@ -74,24 +74,33 @@ func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, amou
 		fatalf("Quota RPC failed: %v", err)
 	}
 
+	sem := make(chan bool, rootArgs.concurrency)
+	t := time.Now()
+
 	salt := time.Now().Nanosecond()
+	go func() {
+		for i := 0; i < rootArgs.repeat; i++ {
+			dedup := strconv.Itoa(salt + i)
+
+			// send the request
+			request := mixerpb.QuotaRequest{
+				RequestIndex:    int64(i),
+				AttributeUpdate: *attrs,
+				Quota:           name,
+				Amount:          amount,
+				DeduplicationId: dedup,
+				BestEffort:      bestEffort,
+			}
+
+			if err = stream.Send(&request); err != nil {
+				fatalf("Failed to send Quota RPC: %v", err)
+			}
+
+			sem <- true
+		}
+	}()
+
 	for i := 0; i < rootArgs.repeat; i++ {
-		dedup := strconv.Itoa(salt + i)
-
-		// send the request
-		request := mixerpb.QuotaRequest{
-			RequestIndex:    int64(i),
-			AttributeUpdate: *attrs,
-			Quota:           name,
-			Amount:          amount,
-			DeduplicationId: dedup,
-			BestEffort:      bestEffort,
-		}
-
-		if err = stream.Send(&request); err != nil {
-			fatalf("Failed to send Quota RPC: %v", err)
-		}
-
 		var response *mixerpb.QuotaResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
@@ -100,16 +109,21 @@ func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, amou
 			fatalf("Failed to receive a response from Quota RPC: %v", err)
 		}
 
-		printf("Quota RPC returned %s, amount %v, expiration %v",
-			decodeStatus(response.Result),
-			response.Amount,
-			response.Expiration)
-		dumpAttributes(printf, fatalf, response.AttributeUpdate)
+		<-sem
+
+		if rootArgs.repeat < 10 {
+			printf("Quota RPC returned %s, amount %v, expiration %v",
+				decodeStatus(response.Result),
+				response.Amount,
+				response.Expiration)
+			dumpAttributes(printf, fatalf, response.AttributeUpdate)
+		}
 	}
 
 	if err = stream.CloseSend(); err != nil {
 		fatalf("Failed to close gRPC stream: %v", err)
 	}
+	println("Done in ", time.Since(t), " avg=", (time.Since(t).Nanoseconds()/1000)/int64(rootArgs.repeat))
 
 	span.Finish()
 }

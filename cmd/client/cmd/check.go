@@ -21,6 +21,8 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
+	"time"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/cmd/shared"
 )
@@ -53,22 +55,34 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	}
 	defer deleteAPIClient(cs)
 
+	// TODO: one span for each request - not sure what we can get from the per-stream span.
 	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Check", ext.SpanKindRPCClient)
 	_, ctx = cs.tracer.PropagateSpan(ctx, span)
 
+	t := time.Now()
+
+	sem := make(chan bool, rootArgs.concurrency)
+
+	// start the stream
 	var stream mixerpb.Mixer_CheckClient
 	if stream, err = cs.client.Check(ctx); err != nil {
 		fatalf("Check RPC failed: %v", err)
 	}
+	// send requests in background, using the sem channel to limit the concurrency
+	// TODO: use a timer, like wrk
+	go func() {
+		for i := 0; i < rootArgs.repeat; i++ {
+			request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
 
-	for i := 0; i < rootArgs.repeat; i++ {
-		// send the request
-		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
-
-		if err = stream.Send(&request); err != nil {
-			fatalf("Failed to send Check RPC: %v", err)
+			if err = stream.Send(&request); err != nil {
+				fatalf("Failed to send Check RPC: %v", err)
+			}
+			sem <- true
 		}
+	}()
 
+	// Read responses.
+	for i := 0; i < rootArgs.repeat; i++ {
 		var response *mixerpb.CheckResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
@@ -77,13 +91,18 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 			fatalf("Failed to receive a response from Check RPC: %v", err)
 		}
 
-		printf("Check RPC returned %s", decodeStatus(response.Result))
-		dumpAttributes(printf, fatalf, response.AttributeUpdate)
-	}
+		<-sem
 
+		// To limit verbosity, only show responses for small repeat counts (otherwise logging slows down the test)
+		if rootArgs.repeat < 10 {
+			printf("Check RPC returned %s", decodeStatus(response.Result))
+			dumpAttributes(printf, fatalf, response.AttributeUpdate)
+		}
+	}
 	if err = stream.CloseSend(); err != nil {
 		fatalf("Failed to close gRPC stream: %v", err)
 	}
 
+	println("Done in ", time.Since(t), " avg(ms)=", (time.Since(t).Nanoseconds()/1000)/int64(rootArgs.repeat))
 	span.Finish()
 }
