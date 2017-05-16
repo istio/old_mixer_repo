@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/il"
+	"istio.io/mixer/pkg/il/interpreter"
 )
 
 // run micro benchmark using expression evaluator.
@@ -65,12 +67,52 @@ func dff(a attribute.Bag) (bool, error) {
 	return false, nil
 }
 
+var ilCode = `
+fn eval () bool
+	resolve_i "a"
+	ieq_i 20
+	jz LeftFalse
+	ipush_b true
+	ret
+LeftFalse:
+	resolve_r "request.header"
+	ilookup "host"
+	ieq_s "abc"
+	ret
+end
+`
+var program il.Program = buildProgram()
+
+func buildProgram() il.Program {
+	p, err := il.ReadText(ilCode)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+var i *interpreter.Interpreter = buildVM()
+
+var fnID = program.Functions.IDOf("eval")
+
+func buildVM() *interpreter.Interpreter {
+	return interpreter.New(program, map[string]interpreter.Extern{})
+}
+
+func ilf(a attribute.Bag) (interpreter.Result, error) {
+	return i.EvalFnID(fnID, a)
+}
+
 func BenchmarkExpressionAST(b *testing.B) {
 	benchmarkExpression(b, "AST")
 }
 
 func BenchmarkExpressionDirect(b *testing.B) {
 	benchmarkExpression(b, "Direct")
+}
+
+func BenchmarkExpressionVM(b *testing.B) {
+	benchmarkExpression(b, "VM")
 }
 
 func benchmarkExpression(b *testing.B, stype string) {
@@ -87,27 +129,28 @@ func benchmarkExpression(b *testing.B, stype string) {
 		err    string
 		df     exprFunc
 		ex     *Expression
+		il     func(attribute.Bag) (interpreter.Result, error)
 	}{
 		{"ok_1st", map[string]interface{}{
 			"a": int64(20),
 			"request.header": map[string]string{
 				"host": "abc",
 			},
-		}, true, success, dff, exf,
+		}, true, success, dff, exf, ilf,
 		},
 		{"ok_2nd", map[string]interface{}{
 			"a": int64(2),
 			"request.header": map[string]string{
 				"host": "abc",
 			},
-		}, true, success, dff, exf,
+		}, true, success, dff, exf, ilf,
 		},
 		{"ok_notfound", map[string]interface{}{
 			"a": int64(2),
 			"request.header": map[string]string{
 				"host": "abcd",
 			},
-		}, false, success, dff, exf,
+		}, false, success, dff, exf, ilf,
 		},
 	}
 
@@ -141,7 +184,7 @@ func benchmarkExpression(b *testing.B, stype string) {
 					_, _ = tst.ex.Eval(attrs, fm)
 				}
 			})
-		} else {
+		} else if stype == "Direct" {
 			ii, err := tst.df(attrs)
 			assertNoError(err, tst.err, ii, tst.result, b)
 			b.Run(tst.name+"Direct", func(bb *testing.B) {
@@ -149,7 +192,18 @@ func benchmarkExpression(b *testing.B, stype string) {
 					_, _ = tst.df(attrs)
 				}
 			})
-
+		} else {
+			ii, err := tst.il(attrs)
+			var iii bool
+			if err == nil {
+				iii = ii.Bool()
+			}
+			assertNoError(err, tst.err, iii, tst.result, b)
+			b.Run(tst.name+"VM", func(bb *testing.B) {
+				for n := 0; n < bb.N; n++ {
+					_, _ = tst.il(attrs)
+				}
+			})
 		}
 	}
 }
