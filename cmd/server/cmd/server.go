@@ -53,6 +53,7 @@ const (
 
 type serverArgs struct {
 	maxMessageSize                uint
+	maxConcurrentStreams          uint
 	apiWorkerPoolSize             int
 	adapterWorkerPoolSize         int
 	expressionEvalCacheSize       int
@@ -100,6 +101,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().Uint16Var(&sa.monitoringPort, "monitoringPort", 9093, "HTTP port to use for the exposing mixer self-monitoring information")
 	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
+	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
 	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
 	// TODO: what is the right default value for expressionEvalCacheSize.
@@ -228,6 +230,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	// construct the gRPC options
 
 	var grpcOptions []grpc.ServerOption
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(sa.maxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(sa.maxMessageSize)))
 
 	if sa.compressedPayload {
