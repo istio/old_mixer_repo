@@ -21,6 +21,8 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
+	"time"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/cmd/shared"
 )
@@ -61,14 +63,21 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 		fatalf("Report RPC failed: %v", err)
 	}
 
-	for i := 0; i < rootArgs.repeat; i++ {
-		// send the request
-		request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: *attrs}
+	sem := make(chan bool, rootArgs.concurrency)
+	t := time.Now()
 
-		if err = stream.Send(&request); err != nil {
-			fatalf("Failed to send Report RPC: %v", err)
+	go func() {
+		for i := 0; i < rootArgs.repeat; i++ {
+			// send the request
+			request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: *attrs}
+
+			if err = stream.Send(&request); err != nil {
+				fatalf("Failed to send Report RPC: %v", err)
+			}
+			sem <- true
 		}
-
+	}()
+	for i := 0; i < rootArgs.repeat; i++ {
 		var response *mixerpb.ReportResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
@@ -76,14 +85,17 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 		} else if err != nil {
 			fatalf("Failed to receive a response from Report RPC: %v", err)
 		}
-
-		printf("Report RPC returned %s", decodeStatus(response.Result))
-		dumpAttributes(printf, fatalf, response.AttributeUpdate)
+		<-sem
+		if rootArgs.repeat < 10 {
+			printf("Report RPC returned %s", decodeStatus(response.Result))
+			dumpAttributes(printf, fatalf, response.AttributeUpdate)
+		}
 	}
 
 	if err = stream.CloseSend(); err != nil {
 		fatalf("Failed to close gRPC stream: %v", err)
 	}
+	println("Done in ", time.Since(t), " avg=", (time.Since(t).Nanoseconds()/1000)/int64(rootArgs.repeat))
 
 	span.Finish()
 }
