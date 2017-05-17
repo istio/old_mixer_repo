@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
@@ -52,9 +53,7 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	}
 	defer deleteAPIClient(cs)
 
-	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Check", ext.SpanKindRPCClient)
-	_, ctx = cs.tracer.PropagateSpan(ctx, span)
-
+	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Check", ext.SpanKindRPCClient)
 	for i := 0; i < rootArgs.repeat; i++ {
 		request := mixerpb.CheckRequest{Attributes: *attrs}
 		response, err := cs.client.Check(ctx, &request)
