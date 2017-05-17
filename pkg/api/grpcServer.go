@@ -31,14 +31,12 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
-	"istio.io/mixer/pkg/tracing"
 )
 
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
 		aspectDispatcher adapterManager.AspectDispatcher
-		tracer           tracing.Tracer
 		gp               *pool.GoroutinePool
 
 		// replaceable sendMsg so we can inject errors in tests
@@ -66,10 +64,9 @@ type (
 )
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, tracer tracing.Tracer, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	return &grpcServer{
 		aspectDispatcher: aspectDispatcher,
-		tracer:           tracer,
 		gp:               gp,
 		sendMsg: func(stream grpc.Stream, m proto.Message) error {
 			return stream.SendMsg(m)

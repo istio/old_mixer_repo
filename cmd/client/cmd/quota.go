@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"time"
 
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
@@ -65,9 +66,7 @@ func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, amou
 	}
 	defer deleteAPIClient(cs)
 
-	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Quota", ext.SpanKindRPCClient)
-	_, ctx = cs.tracer.PropagateSpan(ctx, span)
-
+	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Quota", ext.SpanKindRPCClient)
 	salt := time.Now().Nanosecond()
 
 	for i := 0; i < rootArgs.repeat; i++ {
