@@ -438,6 +438,12 @@ new_go_repository(
     importpath = "github.com/hashicorp/golang-lru",
 )
 
+new_go_repository(
+    name = "com_github_grpcecosystem_opentracing",
+    commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf", #
+    importpath = "github.com/grpc-ecosystem/grpc-opentracing",
+)
+
 ##
 ## Testing
 ##
