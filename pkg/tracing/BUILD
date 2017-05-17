@@ -6,10 +6,13 @@ go_library(
     name = "go_default_library",
     srcs = [
         "basictracing.go",
+        "tracing.go",
     ],
     deps = [
         "@com_github_golang_glog//:go_default_library",
         "@com_github_opentracing_basictracer//:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+        "@com_github_opentracing_opentracing_go//log:go_default_library",
     ],
 )
 

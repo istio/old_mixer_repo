@@ -36,6 +36,7 @@ import (
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
+	"istio.io/mixer/pkg/tracing"
 )
 
 // AspectDispatcher executes aspects associated with individual API methods
@@ -233,9 +234,11 @@ type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator,
 // runAsync runs a given invokeFunc thru scheduler.
 func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
 	cfg *cpb.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
+	tracing.Record(ctx, cfg.Builder.Name, "Running adapter %s", cfg.Builder.Name)
 	df, _ := m.df.Load().(descriptor.Finder)
 	m.gp.ScheduleWork(func() {
 		out := m.execute(ctx, cfg, requestBag, responseBag, df, invokeFunc)
+		tracing.Record(ctx, cfg.Builder.Name+" finished", "Finished processing adapter %s", cfg.Builder.Name)
 		// free request bag before returning results
 		// resultChan is drained to ensure that all child bags are
 		// accounted for.
@@ -247,6 +250,7 @@ func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribu
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
 func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
 	numCfgs := len(cfgs)
+	tracing.Record(ctx, "Dispatch", "Dispatching %d adapters", numCfgs)
 
 	// TODO: consider implementing a fast path when there is only a single config.
 	//       we don't need to schedule goroutines, we could use the incoming attribute
