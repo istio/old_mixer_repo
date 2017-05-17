@@ -17,11 +17,10 @@ package cmd
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
-
-	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/cmd/shared"
