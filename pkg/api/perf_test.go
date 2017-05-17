@@ -29,7 +29,6 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
-	"istio.io/mixer/pkg/tracing"
 )
 
 type benchState struct {
@@ -63,7 +62,7 @@ func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
 	bs.gp = pool.NewGoroutinePool(32, false)
 	bs.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(bs, tracing.DisabledTracer(), bs.gp)
+	ms := NewGRPCServer(bs, bs.gp)
 	bs.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(bs.gs, bs.s)
 
