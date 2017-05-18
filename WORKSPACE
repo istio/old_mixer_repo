@@ -433,6 +433,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_opentracing_opentracing_go",
+    commit = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38", # April 26, 2017 (1.0.2)
+    importpath = "github.com/opentracing/opentracing-go",
+)
+
+new_go_repository(
     name = "com_github_grpcecosystem_opentracing",
     commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf", #
     importpath = "github.com/grpc-ecosystem/grpc-opentracing",
@@ -470,12 +476,6 @@ new_go_repository(
     name = "com_github_go_logfmt_logfmt",
     commit = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5", # Nov 15, 2016 (0.3.0)
     importpath = "github.com/go-logfmt/logfmt"
-)
-
-new_go_repository(
-    name = "com_github_opentracing_opentracing_go",
-    commit = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38", # April 26, 2017 (1.0.2)
-    importpath = "github.com/opentracing/opentracing-go",
 )
 
 new_go_repository(
@@ -659,7 +659,7 @@ go_library(
 
 """
 
-ZIPKIN_COMMIT_SHA="6022d4d3ed39632fad842942bda1813a9b4f63c8" # Oct 21, 2016 (only release pre-dates sha)
+ZIPKIN_COMMIT_SHA="6022d4d3ed39632fad842942bda1813a9b4f63c8" # February 3, 2017 (0.2.3)
 
 new_git_repository(
     name = "com_github_openzipkin_zipkin_go_opentracing_zipkincore",

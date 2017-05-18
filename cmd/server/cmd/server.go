@@ -248,16 +248,18 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 
 	if sa.traceOutput != "" {
 		var tracer ot.Tracer
-		if strings.ToUpper(sa.traceOutput) == "STDOUT" {
+		switch strings.ToUpper(sa.traceOutput) {
+		case "STDOUT":
 			if tracer, err = zipkin.NewTracer(tz.IORecorder(os.Stdout)); err != nil {
 				fatalf("Failed to construct a stdout zipkin tracer: %v", err)
 			}
-		} else {
+		default:
 			col, err := zipkin.NewHTTPCollector(sa.traceOutput)
 			if err != nil {
 				fatalf("Unable to create zipkin http collector: %v", err)
 			}
-			if tracer, err = zipkin.NewTracer(zipkin.NewRecorder(col, false, fmt.Sprintf("0.0.0.0:%d", sa.port), "Mixer")); err != nil {
+			tracer, err = zipkin.NewTracer(zipkin.NewRecorder(col, false, fmt.Sprintf("0.0.0.0:%d", sa.port), "Mixer"))
+			if err != nil {
 				fatalf("Failed to construct zipkin tracer targeting address %s: %v", sa.traceOutput, err)
 			}
 		}
