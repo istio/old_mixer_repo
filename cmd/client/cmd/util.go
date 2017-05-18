@@ -32,7 +32,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/tracing"
+	tb "istio.io/mixer/pkg/tracing/basictracing"
 )
 
 type clientState struct {
@@ -46,7 +46,7 @@ func createAPIClient(port string, enableTracing bool) (*clientState, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 	if enableTracing {
-		tracer := bt.New(tracing.IORecorder(os.Stdout))
+		tracer := bt.New(tb.IORecorder(os.Stdout))
 		ot.InitGlobalTracer(tracer)
 		opts = append(opts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 	}

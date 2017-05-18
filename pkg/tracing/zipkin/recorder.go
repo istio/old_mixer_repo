@@ -42,27 +42,27 @@
 //
 // TODO: Vet with lawyers what we need to do when we depend on BSD-3 licensed codebases.
 
-package tracing
+package basictracing
 
 import (
 	"fmt"
 	"io"
 
 	"github.com/golang/glog"
-	bt "github.com/opentracing/basictracer-go"
+	zipkin "github.com/openzipkin/zipkin-go-opentracing"
 )
 
 type loggingRecorder struct{}
 
 // LoggingRecorder returns a SpanRecorder which logs writes its spans to glog.
-func LoggingRecorder() bt.SpanRecorder {
+func LoggingRecorder() zipkin.SpanRecorder {
 	return loggingRecorder{}
 }
 
 // RecordSpan writes span to glog.Info.
 //
 // TODO: allow a user to specify trace log level.
-func (l loggingRecorder) RecordSpan(span bt.RawSpan) {
+func (l loggingRecorder) RecordSpan(span zipkin.RawSpan) {
 	glog.Info(spanToString(span))
 }
 
@@ -71,17 +71,17 @@ type ioRecorder struct {
 }
 
 // IORecorder returns a SpanRecorder which writes its spans to the provided io.Writer.
-func IORecorder(w io.Writer) bt.SpanRecorder {
+func IORecorder(w io.Writer) zipkin.SpanRecorder {
 	return ioRecorder{w}
 }
 
 // RecordSpan writes span to stdout.
-func (s ioRecorder) RecordSpan(span bt.RawSpan) {
+func (s ioRecorder) RecordSpan(span zipkin.RawSpan) {
 	/* #nosec */
 	_, _ = fmt.Fprintln(s.sink, spanToString(span))
 }
 
-func spanToString(span bt.RawSpan) string {
+func spanToString(span zipkin.RawSpan) string {
 	return fmt.Sprintf("%v %s %v trace: %d; span: %d; parent: %d; tags: %v; logs: %v",
-		span.Start, span.Operation, span.Duration, span.Context.TraceID, span.Context.SpanID, span.ParentSpanID, span.Tags, span.Logs)
+		span.Start, span.Operation, span.Duration, span.Context.TraceID, span.Context.SpanID, span.Context.ParentSpanID, span.Tags, span.Logs)
 }
