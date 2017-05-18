@@ -160,5 +160,7 @@ func (rs *redisStore) Delete(key string) (err error) {
 }
 
 func (rs *redisStore) Close() {
-	rs.client.Close()
+	if err := rs.client.Close(); err != nil {
+		glog.Warningf("failed to close the connection: %v", err)
+	}
 }

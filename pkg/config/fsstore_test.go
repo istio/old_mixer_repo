@@ -22,10 +22,6 @@ import (
 	"testing"
 )
 
-func getContents(key string) string {
-	return key
-}
-
 func TestFSStore(t *testing.T) {
 	testStore(t, func() *kvMgr {
 		fsroot, _ := ioutil.TempDir("/tmp/", "fsStore")
