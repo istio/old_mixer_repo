@@ -27,11 +27,11 @@ func getContents(key string) string {
 }
 
 func TestFSStore(t *testing.T) {
-	testStore(t, func() *KVMgr {
+	testStore(t, func() *kvMgr {
 		fsroot, _ := ioutil.TempDir("/tmp/", "fsStore")
 		f := newFSStore(fsroot)
 		_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
-		return &KVMgr{f, func() {
+		return &kvMgr{f, func() {
 			_ = os.RemoveAll(fsroot)
 		}}
 	})

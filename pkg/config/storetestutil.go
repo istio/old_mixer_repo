@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package config
 
 import (
@@ -18,17 +19,19 @@ import (
 	"testing"
 )
 
-type KVMgr struct {
+// nolint: deadcode
+type kvMgr struct {
 	Store   KeyValueStore
 	cleanup func()
 }
 
-func (k *KVMgr) Cleanup() {
+func (k *kvMgr) Cleanup() {
 	k.Store.Close()
 	k.cleanup()
 }
 
-func testStore(t *testing.T, kvMgrfn func() *KVMgr) {
+// nolint: deadcode
+func testStore(t *testing.T, kvMgrfn func() *kvMgr) {
 	GOODKEYS := []string{
 		"/scopes/global/adapters",
 		"/scopes/global/descriptors",

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package config
 
 import (
@@ -119,20 +120,20 @@ func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, 
 			err = resp.Err
 			break
 		}
-		resps, err2 := resp.Array()
-		if err2 != nil {
-			err = err2
+		resps, rerr := resp.Array()
+		if rerr != nil {
+			err = rerr
 			break
 		}
-		if nextCursor, err2 := resps[0].Int(); err2 != nil {
-			err = err2
+		if nextCursor, cerr := resps[0].Int(); cerr != nil {
+			err = cerr
 			break
 		} else {
 			cursor = nextCursor
 		}
-		respKeys, err2 := resps[1].Array()
-		if err2 != nil {
-			err = err2
+		respKeys, aerr := resps[1].Array()
+		if aerr != nil {
+			err = aerr
 			break
 		}
 		for i, rk := range respKeys {

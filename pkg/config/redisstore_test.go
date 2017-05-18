@@ -22,7 +22,7 @@ import (
 )
 
 func TestRedisStore(t *testing.T) {
-	testStore(t, func() *KVMgr {
+	testStore(t, func() *kvMgr {
 		s, err := miniredis.Run()
 		if err != nil {
 			t.Fatalf("unable to start mini redis: %v", err)
@@ -32,7 +32,7 @@ func TestRedisStore(t *testing.T) {
 			s.Close()
 			t.Fatalf("unable to connect to the mini redis server: %v", err)
 		}
-		return &KVMgr{rs, func() { s.Close() }}
+		return &kvMgr{rs, func() { s.Close() }}
 	})
 }
 
