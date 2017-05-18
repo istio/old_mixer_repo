@@ -16,10 +16,10 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strconv"
 
+	"github.com/golang/glog"
 	"github.com/mediocregopher/radix.v2/redis"
 )
 
@@ -139,7 +139,7 @@ func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, 
 		for i, rk := range respKeys {
 			// TODO: check recurse flag for filitering keys.
 			if key, err2 := rk.Str(); err2 != nil {
-				log.Printf("illformed responses %d-th value for cursor %d isn't a string (%v)", i, cursor, rk)
+				glog.Warningf("illformed responses %d-th value for cursor %d isn't a string (%v)", i, cursor, rk)
 				continue
 			} else {
 				keys = append(keys, key)
