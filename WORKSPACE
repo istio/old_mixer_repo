@@ -162,12 +162,6 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_opentracing_opentracing_go",
-    commit = "0c3154a3c2ce79d3271985848659870599dfb77c",  # Sep 26, 2016 (v1.0.0)
-    importpath = "github.com/opentracing/opentracing-go",
-)
-
-new_go_repository(
     name = "com_github_opentracing_basictracer",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",  # Sep 29, 2016 (no releases)
     importpath = "github.com/opentracing/basictracer-go",
@@ -439,6 +433,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_opentracing_opentracing_go",
+    commit = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38", # April 26, 2017 (1.0.2)
+    importpath = "github.com/opentracing/opentracing-go",
+)
+
+new_go_repository(
     name = "com_github_grpcecosystem_opentracing",
     commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf", #
     importpath = "github.com/grpc-ecosystem/grpc-opentracing",
@@ -454,3 +454,255 @@ git_repository(
     remote = "https://github.com/istio/test-infra.git",
 )
 
+##
+## Zipkin opentracing implementation. Apparently bazel refuses to synthesize BUILD files
+## for directories with an underscore ("_thrift" in our case), so we have to manually create
+## every single file for the entire zipkin repo.
+##
+
+new_go_repository(
+    name = "com_github_Shopify_sarama",
+    commit = "c01858abb625b73a3af51d0798e4ad42c8147093", # May 8, 2017 (1.12.0)
+    importpath = "github.com/Shopify/sarama"
+)
+
+new_go_repository(
+    name = "com_github_apache_thrift",
+    commit = "b2a4d4ae21c789b689dd162deb819665567f481c", # Jan 6, 2017 (0.10.0)
+    importpath = "github.com/apache/thrift"
+)
+
+new_go_repository(
+    name = "com_github_go_logfmt_logfmt",
+    commit = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5", # Nov 15, 2016 (0.3.0)
+    importpath = "github.com/go-logfmt/logfmt"
+)
+
+new_go_repository(
+    name = "com_github_eapache_queue",
+    commit = "ded5959c0d4e360646dc9e9908cff48666781367", # June 6, 2017 (1.0.2)
+    importpath = "github.com/eapache/queue",
+)
+
+new_go_repository(
+    name = "com_github_eapache_go_resiliency",
+    commit = "6800482f2c813e689c88b7ed3282262385011890", # Feb 13, 2015 (1.0.0)
+    importpath = "github.com/eapache/go-resiliency",
+)
+
+new_go_repository(
+    name = "com_github_eapache_go_xerial_snappy",
+    commit = "bb955e01b9346ac19dc29eb16586c90ded99a98c", # June 9, 2016 (no releases)
+    importpath = "github.com/eapache/go-xerial-snappy",
+)
+
+new_go_repository(
+    name = "com_github_rcrowley_go_metrics",
+    commit = "1f30fe9094a513ce4c700b9a54458bbb0c96996c", # Nov 28, 2016 (no releases)
+    importpath = "github.com/rcrowley/go-metrics",
+)
+
+new_go_repository(
+    name = "com_github_davecgh_go_spew",
+    commit = "346938d642f2ec3594ed81d874461961cd0faa76", # Nov 14, 2016 (1.1.0)
+    importpath = "github.com/davecgh/go-spew",
+)
+
+new_go_repository(
+    name = "com_github_pierrec_lz4",
+    commit = "88df27974e3644957507a1ca1866edc8e98d4897", # May 11, 2017 (no releases)
+    importpath = "github.com/pierrec/lz4",
+)
+
+new_go_repository(
+    name = "com_github_pierrec_xxHash",
+    commit = "f051bb7f1d1aaf1b5a665d74fb6b0217712c69f7", # March 20, 2016 (0.1.1)
+    importpath = "github.com/pierrec/xxHash",
+)
+
+new_go_repository(
+    name = "com_github_golang_snappy",
+    commit = "553a641470496b2327abcac10b36396bd98e45c9", # Feb 15, 2017 (no releases)
+    importpath = "github.com/golang/snappy",
+)
+
+ZIPKIN_ROOT_BUILD="""
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix", "go_test")
+
+go_prefix("github.com/openzipkin/zipkin-go-opentracing")
+
+go_library(
+    name = "go_default_library",
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_openzipkin_zipkin_go_opentracing_scribe//:go_default_library",
+        "@com_github_openzipkin_zipkin_go_opentracing_zipkincore//:go_default_library",
+        "@com_github_openzipkin_zipkin_go_opentracing_flag//:go_default_library",
+        "@com_github_openzipkin_zipkin_go_opentracing_types//:go_default_library",
+        "@com_github_openzipkin_zipkin_go_opentracing_wire//:go_default_library",
+        "@com_github_Shopify_sarama//:go_default_library",
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+        "@com_github_go_logfmt_logfmt//:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+        "@com_github_opentracing_opentracing_go//ext:go_default_library",
+        "@com_github_opentracing_opentracing_go//log:go_default_library",
+    ],
+)
+"""
+
+ZIPKIN_FLAG_BUILD="""
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix", "go_test")
+
+go_prefix("github.com/openzipkin/zipkin-go-opentracing/flag")
+
+go_library(
+    name = "go_default_library",
+    srcs = glob(
+        include = ["flag/*.go"],
+        exclude = ["flag/*_test.go"],
+    ),
+    visibility = ["//visibility:public"],
+)
+"""
+
+ZIPKIN_EVENTS_BUILD="""
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix", "go_test")
+
+go_prefix("github.com/openzipkin/zipkin-go-opentracing/events")
+
+go_library(
+    name = "go_default_library",
+    srcs = glob(
+        include = ["events/*.go"],
+        exclude = ["events/*_test.go"],
+    ),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:go_default_library",
+        "@org_golang_x_net//trace:go_default_library",
+    ],
+)
+"""
+
+ZIPKIN_WIRE_BUILD="""
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix", "go_test")
+
+go_prefix("github.com/openzipkin/zipkin-go-opentracing/wire")
+
+go_library(
+    name = "go_default_library",
+    srcs = glob(
+        include = ["wire/*.go"],
+        exclude = ["wire/*_test.go"],
+    ),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@org_golang_x_net//trace:go_default_library",
+        "@com_github_openzipkin_zipkin_go_opentracing_flag//:go_default_library",
+        "@com_github_openzipkin_zipkin_go_opentracing_types//:go_default_library",
+    ],
+)
+
+"""
+
+ZIPKIN_TYPES_BUILD="""
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix", "go_test")
+
+go_prefix("github.com/openzipkin/zipkin-go-opentracing/types")
+
+go_library(
+    name = "go_default_library",
+    srcs = glob(
+        include = ["types/*.go"],
+        exclude = ["types/*_test.go"],
+    ),
+    visibility = ["//visibility:public"],
+)
+
+"""
+
+ZIPKIN_THRIFT_ZIPKINCORE_BUILD = """
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix")
+go_prefix("github.com/openzipkin/zipkin-go-opentracing/_thrift/gen-go/zipkincore")
+
+go_library(
+    name = "go_default_library",
+    srcs = glob([
+        "_thrift/gen-go/zipkincore/*.go",
+    ]),
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_apache_thrift//lib/go/thrift:go_default_library"],
+)
+
+"""
+
+ZIPKIN_THRIFT_SCRIBE_BUILD= """
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix")
+go_prefix("github.com/openzipkin/zipkin-go-opentracing/_thrift/gen-go/scribe")
+
+go_library(
+    name = "go_default_library",
+    srcs = glob(
+        include = ["_thrift/gen-go/scribe/*.go"],
+    ),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_apache_thrift//lib/go/thrift:go_default_library",
+    ],
+)
+
+"""
+
+ZIPKIN_COMMIT_SHA="6022d4d3ed39632fad842942bda1813a9b4f63c8" # February 3, 2017 (0.2.3)
+
+new_git_repository(
+    name = "com_github_openzipkin_zipkin_go_opentracing_zipkincore",
+    build_file_content = ZIPKIN_THRIFT_ZIPKINCORE_BUILD,
+    commit = ZIPKIN_COMMIT_SHA,
+    remote = "https://github.com/openzipkin/zipkin-go-opentracing.git",
+)
+
+new_git_repository(
+    name = "com_github_openzipkin_zipkin_go_opentracing_scribe",
+    build_file_content = ZIPKIN_THRIFT_SCRIBE_BUILD,
+    commit = ZIPKIN_COMMIT_SHA,
+    remote = "https://github.com/openzipkin/zipkin-go-opentracing.git",
+)
+
+new_git_repository(
+    name = "com_github_openzipkin_zipkin_go_opentracing_flag",
+    build_file_content = ZIPKIN_FLAG_BUILD,
+    commit = ZIPKIN_COMMIT_SHA,
+    remote = "https://github.com/openzipkin/zipkin-go-opentracing.git",
+)
+
+new_git_repository(
+    name = "com_github_openzipkin_zipkin_go_opentracing_types",
+    build_file_content = ZIPKIN_TYPES_BUILD,
+    commit = ZIPKIN_COMMIT_SHA,
+    remote = "https://github.com/openzipkin/zipkin-go-opentracing.git",
+)
+
+new_git_repository(
+    name = "com_github_openzipkin_zipkin_go_opentracing_wire",
+    build_file_content = ZIPKIN_WIRE_BUILD,
+    commit = ZIPKIN_COMMIT_SHA,
+    remote = "https://github.com/openzipkin/zipkin-go-opentracing.git",
+)
+
+new_git_repository(
+    name = "com_github_openzipkin_zipkin_go_opentracing",
+    build_file_content = ZIPKIN_ROOT_BUILD,
+    commit = ZIPKIN_COMMIT_SHA,
+    remote = "https://github.com/openzipkin/zipkin-go-opentracing.git",
+)
+
+##
+## End Zipkin madness.
+##

@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
-	bt "github.com/opentracing/basictracer-go"
 	ot "github.com/opentracing/opentracing-go"
+	zipkin "github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -40,7 +40,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
-	"istio.io/mixer/pkg/tracing"
+	tz "istio.io/mixer/pkg/tracing/zipkin"
 	"istio.io/mixer/pkg/version"
 )
 
@@ -54,7 +54,7 @@ type serverArgs struct {
 	configAPIPort                 uint16
 	singleThreaded                bool
 	compressedPayload             bool
-	enableTracing                 bool
+	traceOutput                   string
 	serverCertFile                string
 	serverKeyFile                 string
 	clientCertFiles               string
@@ -89,6 +89,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			runServer(sa, printf, fatalf)
 		},
 	}
+
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for Mixer's gRPC API")
 	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
@@ -111,7 +112,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
 
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
-	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
+	serverCmd.PersistentFlags().StringVarP(&sa.traceOutput, "traceOutput", "t", "",
+		"If the literal string 'STDOUT', traces will be produced and written to stdout. Otherwise the address is assumed to be a URL and HTTP zipkin traces are sent to that address.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
@@ -244,8 +246,23 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
-	if sa.enableTracing {
-		tracer := bt.New(tracing.IORecorder(os.Stdout))
+	if sa.traceOutput != "" {
+		var tracer ot.Tracer
+		switch strings.ToUpper(sa.traceOutput) {
+		case "STDOUT":
+			if tracer, err = zipkin.NewTracer(tz.IORecorder(os.Stdout)); err != nil {
+				fatalf("Failed to construct a stdout zipkin tracer: %v", err)
+			}
+		default:
+			col, err := zipkin.NewHTTPCollector(sa.traceOutput)
+			if err != nil {
+				fatalf("Unable to create zipkin http collector: %v", err)
+			}
+			tracer, err = zipkin.NewTracer(zipkin.NewRecorder(col, false, fmt.Sprintf("0.0.0.0:%d", sa.port), "Mixer"))
+			if err != nil {
+				fatalf("Failed to construct zipkin tracer targeting address %s: %v", sa.traceOutput, err)
+			}
+		}
 		ot.InitGlobalTracer(tracer)
 		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(tracer)))
 	}
