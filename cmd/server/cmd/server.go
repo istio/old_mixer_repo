@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof" // For debug purpose
 	"os"
 	"strings"
 	"time"
@@ -69,6 +70,8 @@ type serverArgs struct {
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
 	monitoringPort                uint16
+	initialWindow                 uint
+	initialConnWindow             uint
 
 	// @deprecated
 	serviceConfigFile string
@@ -123,6 +126,13 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
+
+	// Replaces the default of 64k. Doesn't need to be larger than TCP window size.
+	// Note that go grpc doesn't appear to adjust the window dynamically.
+	serverCmd.PersistentFlags().UintVarP(&sa.initialWindow, "window", "", 1024*1024, "Initial flow control window size for streams")
+	// Window size for the entire connection. For small unary calls the stream window doesn't need to be modified, the conWindow
+	// controls the flow.
+	serverCmd.PersistentFlags().UintVarP(&sa.initialConnWindow, "conWindow", "", 8*1024*1024, "Initial flow control window size for connections")
 
 	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
 	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
@@ -231,6 +241,8 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(sa.maxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(sa.maxMessageSize)))
+	grpcOptions = append(grpcOptions, grpc.InitialWindowSize(int32(sa.initialWindow)))
+	grpcOptions = append(grpcOptions, grpc.InitialConnWindowSize(int32(sa.initialConnWindow)))
 
 	if sa.compressedPayload {
 		grpcOptions = append(grpcOptions, grpc.RPCCompressor(grpc.NewGZIPCompressor()))
