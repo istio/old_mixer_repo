@@ -96,6 +96,15 @@ func (a *API) register(c *restful.Container) {
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
 		Writes(APIResponse{}))
 
+	// Delete the list of rules for a scope and subject
+	ws.Route(ws.
+		DELETE("/scopes/{scope}/subjects/{subject}/rules").
+		To(a.deleteRules).
+		Doc("Deletes rules associated with the given scope and subject").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Writes(APIResponse{}))
+
 	ws.Route(ws.
 		PUT("/scopes/{scope}/subjects/{subject}/rules").
 		To(a.putRules).
@@ -205,6 +214,20 @@ func (a *API) getRules(req *restful.Request, resp *restful.Response) {
 	writeResponse(st, msg, data, resp)
 }
 
+// deleteRules deletes the rules document for the scope and the subject.
+// "/scopes/{scope}/subjects/{subject}/rules"
+func (a *API) deleteRules(req *restful.Request, resp *restful.Response) {
+	funcPath := req.Request.URL.Path[len(a.rootPath):]
+	if err := a.store.Delete(funcPath); err != nil {
+		// This should only happen if user asks to delete
+		// rules that the store *could not* delete
+		writeErrorResponse(http.StatusInternalServerError, err.Error(), resp)
+		return
+	}
+
+	writeResponse(http.StatusOK, fmt.Sprintf("Deleted %s", funcPath), nil, resp)
+}
+
 func getRules(store KeyValueStore, path string) (statusCode int, msg string, data *pb.ServiceConfig) {
 	var val string
 	var found bool
@@ -250,7 +273,7 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	var cerr *adapter.ConfigErrors
 	if vd, _, cerr = a.validate(data); cerr != nil {
 		glog.Warningf("Validation failed with %s\n %s", cerr.Error(), val)
-		writeErrorResponse(http.StatusPreconditionFailed, cerr.Error(), resp)
+		writeErrorResponse(http.StatusBadRequest, cerr.Error(), resp)
 		return
 	}
 
@@ -339,4 +362,5 @@ var httpStatusToRPCMap = map[int]rpc.Code{
 	http.StatusForbidden:          rpc.PERMISSION_DENIED,
 	http.StatusUnauthorized:       rpc.UNAUTHENTICATED,
 	http.StatusPreconditionFailed: rpc.FAILED_PRECONDITION,
+	http.StatusBadRequest:         rpc.INVALID_ARGUMENT,
 }
