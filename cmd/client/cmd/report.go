@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
@@ -62,21 +61,14 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 		fatalf("Report RPC failed: %v", err)
 	}
 
-	sem := make(chan bool, rootArgs.concurrency)
-	t := time.Now()
-
-	go func() {
-		for i := 0; i < rootArgs.repeat; i++ {
-			// send the request
-			request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: *attrs}
-
-			if err = stream.Send(&request); err != nil {
-				fatalf("Failed to send Report RPC: %v", err)
-			}
-			sem <- true
-		}
-	}()
 	for i := 0; i < rootArgs.repeat; i++ {
+		// send the request
+		request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: *attrs}
+
+		if err = stream.Send(&request); err != nil {
+			fatalf("Failed to send Report RPC: %v", err)
+		}
+
 		var response *mixerpb.ReportResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
@@ -84,17 +76,14 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 		} else if err != nil {
 			fatalf("Failed to receive a response from Report RPC: %v", err)
 		}
-		<-sem
-		if rootArgs.repeat < 10 {
-			printf("Report RPC returned %s", decodeStatus(response.Result))
-			dumpAttributes(printf, fatalf, response.AttributeUpdate)
-		}
+
+		printf("Report RPC returned %s", decodeStatus(response.Result))
+		dumpAttributes(printf, fatalf, response.AttributeUpdate)
 	}
 
 	if err = stream.CloseSend(); err != nil {
 		fatalf("Failed to close gRPC stream: %v", err)
 	}
-	println("Done in ", time.Since(t), " avg=", (time.Since(t).Nanoseconds()/1000)/int64(rootArgs.repeat))
 
 	span.Finish()
 }
