@@ -59,9 +59,6 @@ type rootArgs struct {
 
 	// # times to repeat the operation
 	repeat int
-
-	// # number of goroutine repeating the operation
-	concurrency int
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -96,8 +93,6 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Address and port of a running Mixer instance")
 	rootCmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
 		"Sends the specified number of requests in quick succession")
-	rootCmd.PersistentFlags().IntVarP(&rootArgs.concurrency, "concurrency", "c", 1,
-		"Number of concurrent requests")
 
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
 		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
