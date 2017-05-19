@@ -148,13 +148,17 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 }
 
 func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
+
+	testConf := conf
+	testConf.KubeconfigPath = "please/override"
+
 	tests := []struct {
 		name    string
 		testFn  controllerFactoryFn
 		conf    adapter.Config
 		wantErr bool
 	}{
-		{"success", fakePodCache, conf, false},
+		{"success", fakePodCache, testConf, false},
 	}
 
 	wantPath := "/want/kubeconfig"
