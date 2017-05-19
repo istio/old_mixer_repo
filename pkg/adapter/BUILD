@@ -4,20 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "accessLogs.go",
-        "adapter.go",
-        "applicationLogs.go",
-        "attributes.go",
-        "builder.go",
-        "configError.go",
-        "denials.go",
-        "labels.go",
-        "lists.go",
-        "metrics.go",
-        "quotas.go",
-        "registrar.go",
-    ],
+    srcs = glob(
+        ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     deps = [
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
@@ -28,11 +18,6 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = [
-        "applicationLogs_test.go",
-        "builder_test.go",
-        "configError_test.go",
-        "metrics_test.go",
-    ],
+    srcs = glob(["*_test.go"]),
     library = ":go_default_library",
 )

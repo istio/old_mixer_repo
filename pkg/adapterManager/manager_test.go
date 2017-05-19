@@ -134,7 +134,7 @@ func (f *fakeCheckExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) 
 }
 func (f *fakeCheckExecutor) Close() error { return nil }
 
-func (f *fakeReportExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (output rpc.Status) {
+func (f *fakeReportExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, _ aspect.MonitoredResourceFinder) (output rpc.Status) {
 	f.called++
 	return
 }

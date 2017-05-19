@@ -271,7 +271,7 @@ func TestAccessLoggerExecutor_Execute(t *testing.T) {
 			l := &test.Logger{}
 			v.exec.aspect = l
 
-			if out := v.exec.Execute(v.bag, v.mapper); !status.IsOK(out) {
+			if out := v.exec.Execute(v.bag, v.mapper, nil); !status.IsOK(out) {
 				t.Fatalf("Execute(): should not have received error for %s (%v)", v.name, out)
 			}
 			if l.EntryCount != len(v.wantEntries) {
@@ -320,7 +320,7 @@ func TestAccessLoggerExecutor_ExecuteFailures(t *testing.T) {
 
 	for idx, v := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if out := v.exec.Execute(v.bag, v.mapper); status.IsOK(out) {
+			if out := v.exec.Execute(v.bag, v.mapper, nil); status.IsOK(out) {
 				t.Fatalf("Execute(): expected error for %s", v.name)
 			}
 		})

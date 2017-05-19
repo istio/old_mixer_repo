@@ -1,0 +1,41 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pkg.aspect.config;
+
+import "gogoproto/gogo.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+message MonitoredResources {
+    message MonitoredResource {
+        // Must match the name of some metric_descriptor in the global config.
+        string descriptor_name = 1;
+
+        // Attribute expression to evaluate to determine the name for this monitored resource;
+        // e.g. the name of the pod you're monitoring.
+        string name_expression = 2;
+
+        // Map of MonitoredResourceDescriptor label name to attribute expression. At run time each
+        // expression will be evaluated to determine the value provided to the aspect. The result
+        // of evaluating the expression must match the ValueType of the label in the MonitoredResourceDescriptor.
+        map<string, string> labels = 3;
+    }
+    repeated MonitoredResource resources = 1;
+}

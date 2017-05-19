@@ -29,8 +29,13 @@ message ApplicationLogsParams {
     string log_name = 1;
 
     message ApplicationLog {
+        // Next field number: 8
+
         // Must match the name of some LogEntryDescriptor.
         string descriptor_name = 1;
+
+        // The name of the monitored resource descriptor to use when attaching metrics to a monitored resource.
+        string monitored_resource_descriptor_name = 7;
 
         // The expression to evaluate to determine this log's severity at runtime.
         string severity = 2;

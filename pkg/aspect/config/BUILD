@@ -21,6 +21,7 @@ gogoslick_proto_library(
         "denials.proto",
         "lists.proto",
         "metrics.proto",
+        "monitoredResource.proto",
         "quotas.proto",
     ],
     verbose = 0,

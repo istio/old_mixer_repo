@@ -148,7 +148,8 @@ func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, r
 	return m.dispatch(ctx, requestBag, responseBag, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
-			return rw.Execute(requestBag, evaluator)
+			// TODO: figure out wiring of the monitored resource finder.
+			return rw.Execute(requestBag, evaluator, nil)
 		})
 }
 
