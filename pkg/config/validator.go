@@ -360,7 +360,7 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 // classifyKeys classifies keys of cfg into rules, adapters, and descriptors.
 func classifyKeys(cfg map[string]string) map[string][]string {
 	keymap := map[string][]string{}
-	for key, _ := range cfg {
+	for key := range cfg {
 		kk := strings.Split(key, "/")
 		var k string
 		switch kk[len(kk)-1] {
