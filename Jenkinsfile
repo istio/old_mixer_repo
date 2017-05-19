@@ -16,7 +16,7 @@ ISTIO_VERSION_URL = 'https://raw.githubusercontent.com/istio/istio/master/istio.
 
 def setVersions() {
   def version = sh(returnStdout: true, script: "curl ${ISTIO_VERSION_URL}").trim()
-  if (version !=~ /[0-9]+\.[0-9]+\.[0-9]+/) {
+  if (!(version  ==~ /[0-9]+\.[0-9]+\.[0-9]+/)) {
     error('Could not parse version')
   }
   def v = version.tokenize('.')
