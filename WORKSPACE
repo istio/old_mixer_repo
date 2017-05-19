@@ -16,6 +16,13 @@ git_repository(
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
+# Apparently, it must be before proto_repositories - or an older default will be picked.
+new_go_repository(
+    name = "org_golang_x_net",
+    commit = "513929065c19401a1c7b76ecd942f9f86a0c061b", # May 18, needed for latest grpc (frame reuse)
+    importpath = "golang.org/x/net",
+)
+
 load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
 proto_repositories()
@@ -113,9 +120,17 @@ new_git_repository(
     remote = "https://github.com/googleapis/googleapis.git",
 )
 
+# Dependency for org_golang_google_grpc
+new_go_repository(
+    name = "org_golang_google_genproto",
+    commit = "bb3573be0c484136831138976d444b8754777aff",
+    importpath = "google.golang.org/genproto",
+)
+
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "cdee119ee21e61eef7093a41ba148fa83585e143",  # Mar 14, 2017 (v1.2.0)
+    #commit = "cdee119ee21e61eef7093a41ba148fa83585e143",  # Mar 14, 2017 (v1.2.0)
+    commit = "11d93ecdb918872ee841ba3a2dc391aa6d4f57c3", # Head as of May 17, to pick window sizes
     importpath = "google.golang.org/grpc",
 )
 
