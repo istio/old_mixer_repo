@@ -1,4 +1,6 @@
 # Mixer
+
+[![Join the chat at https://gitter.im/istio/mixer](https://badges.gitter.im/istio/mixer.svg)](https://gitter.im/istio/mixer?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 ![Mixer](doc/logo.png)
 
 [![GoDoc](https://godoc.org/github.com/istio/mixer?status.svg)](https://godoc.org/github.com/istio/mixer)
