@@ -129,7 +129,6 @@ new_go_repository(
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    #commit = "cdee119ee21e61eef7093a41ba148fa83585e143",  # Mar 14, 2017 (v1.2.0)
     commit = "11d93ecdb918872ee841ba3a2dc391aa6d4f57c3", # Head as of May 17, to pick window sizes
     importpath = "google.golang.org/grpc",
 )
