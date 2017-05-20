@@ -63,8 +63,9 @@ type rootArgs struct {
 	// # number of goroutine repeating the operation
 	concurrency int
 
-	// Number of sockets between client and mixs
-	sockets int
+	// Number of grpc clients between client and mixs. Typically each client will use at least one socket,
+	// for unary calls grpc may create additional sockets if needed.
+	clients int
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -98,11 +99,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
 		"Address and port of a running Mixer instance")
 	rootCmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
-		"Sends the specified number of requests in quick succession")
+		"Sends the specified number of requests in quick succession. Concurency flag limits the number of outstanding requests.")
 	rootCmd.PersistentFlags().IntVarP(&rootArgs.concurrency, "concurrency", "c", 1,
 		"Number of concurrent requests")
-	rootCmd.PersistentFlags().IntVarP(&rootArgs.sockets, "sockets", "", 1,
-		"Number of sockets (grpc connections)")
+	rootCmd.PersistentFlags().IntVarP(&rootArgs.clients, "clients", "", 1,
+		"Number of grpc clients to use. Each client will send 'repeat' requests, and will respect concurrency flag.")
 
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
 		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")

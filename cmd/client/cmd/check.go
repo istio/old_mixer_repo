@@ -55,9 +55,9 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	t := time.Now()
 
 	var wg sync.WaitGroup
-	wg.Add(rootArgs.sockets)
+	wg.Add(rootArgs.clients)
 
-	for s := 0; s < rootArgs.sockets; s++ {
+	for s := 0; s < rootArgs.clients; s++ {
 		go func() {
 			sem := make(chan bool, rootArgs.concurrency)
 
@@ -103,6 +103,7 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 					printf("Check RPC returned %s", decodeStatus(response.Result))
 					dumpAttributes(printf, fatalf, response.AttributeUpdate)
 				}
+				// Some progress indication, 100k seems to avoid verbosity.
 				if i%100000 == 0 {
 					print(".")
 				}
@@ -117,8 +118,6 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	wg.Wait()
 	d := time.Since(t)
 
-	println("Done in ", d, " avg(ms)=", (d.Nanoseconds()/1000)/int64(rootArgs.repeat*rootArgs.sockets))
-	if int64(d.Seconds()) > 0 {
-		println("Qps=", int64(rootArgs.repeat)/int64(d.Seconds()))
-	}
+	totalRequests := int64(rootArgs.repeat * rootArgs.clients)
+	printf("Completed %v in %v, avg:%v\n", totalRequests, d, time.Duration(int64(d)/totalRequests))
 }
