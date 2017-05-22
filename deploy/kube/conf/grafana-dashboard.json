@@ -1061,7 +1061,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Response Size by Source",
+          "title": "Response Size by Source and Version",
           "tooltip": {
             "shared": true,
             "sort": 0,
