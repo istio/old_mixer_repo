@@ -8,6 +8,7 @@ pkg_tar(
     extension = "tar.gz",
     files = [
         "//cmd/server:mixs",
+        "//cmd/importer",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
