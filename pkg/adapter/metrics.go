@@ -64,6 +64,7 @@ type (
 	// MetricsBuilder builds instances of the Metrics aspect.
 	MetricsBuilder interface {
 		Builder
+
 		// NewMetricsAspect returns a new instance of the Metrics aspect.
 		NewMetricsAspect(env Env, config Config, metrics map[string]*MetricDefinition) (MetricsAspect, error)
 	}
