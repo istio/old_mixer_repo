@@ -252,7 +252,7 @@ func (a *API) getScopes(req *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "Listing scopes not implemented", resp)
 }
 
-// getConfig returns the rules document for the scope and the subject.
+// getRules returns the rules document for the scope and the subject.
 // "/scopes/{scope}/subjects/{subject}/rules"
 func (a *API) getRules(req *restful.Request, resp *restful.Response) {
 	a.getConfig(req, resp, &pb.ServiceConfig{})
@@ -340,7 +340,7 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	})
 }
 
-// putAdaptersOrDescriptors creates or replaces adapter configurations.
+// putAdaptersOrDescriptors creates or replaces specified configurations.
 // "/scopes/{scope}/adapters"
 // "/scopes/{scope}/descriptors"
 func (a *API) putAdaptersOrDescriptors(req *restful.Request, resp *restful.Response) {
@@ -355,7 +355,7 @@ func (a *API) putAdaptersOrDescriptors(req *restful.Request, resp *restful.Respo
 	})
 }
 
-// getAdaptersOrDescriptors gets an adapter configurations.
+// getAdaptersOrDescriptors gets specified configurations.
 // "/scopes/{scope}/adapters"
 // "/scopes/{scope}/descriptors"
 func (a *API) getAdaptersOrDescriptors(req *restful.Request, resp *restful.Response) {
@@ -363,11 +363,11 @@ func (a *API) getAdaptersOrDescriptors(req *restful.Request, resp *restful.Respo
 	a.getConfig(req, resp, &ret)
 }
 
-// deleteAdapters gets an adapter configurations.
+// deleteAdaptersOrDescriptors deletes specified configurations.
 // "/scopes/{scope}/adapters"
 // "/scopes/{scope}/descriptors
 func (a *API) deleteAdaptersOrDescriptors(req *restful.Request, resp *restful.Response) {
-	writeErrorResponse(http.StatusNotImplemented, "delete adapters not implemented", resp) // TODO
+	writeErrorResponse(http.StatusNotImplemented, "delete not implemented", resp) // TODO
 }
 
 // from api spec
