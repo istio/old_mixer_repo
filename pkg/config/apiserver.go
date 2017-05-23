@@ -278,12 +278,12 @@ func (a *API) getConfig(req *restful.Request, resp *restful.Response, m interfac
 	var found bool
 
 	if val, _, found = a.store.Get(path); !found {
-		writeErrorResponse(http.StatusNotFound, fmt.Sprintf("no rules for %s", path), resp)
+		writeErrorResponse(http.StatusNotFound, fmt.Sprintf("no config for %s", path), resp)
 		return
 	}
 
 	if err := yaml.Unmarshal([]byte(val), m); err != nil {
-		msg := fmt.Sprintf("unable to parse rules at '%s': %v", path, err)
+		msg := fmt.Sprintf("unable to parse config at '%s': %v", path, err)
 		glog.Warning(msg)
 		writeErrorResponse(http.StatusInternalServerError, msg, resp)
 		return
