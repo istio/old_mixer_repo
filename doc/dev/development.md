@@ -81,7 +81,7 @@ for how to do this for your platform.
 
 ### Setting up personal access token
 
-Since Istio requires two-factor authentication, you must setup personal access
+Since Istio requires two-factor authentication, you must setup a personal access
 token to enable push via HTTPS. Please follow [these
 instructions](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 for how to create a token.
