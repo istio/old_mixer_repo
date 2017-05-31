@@ -241,10 +241,8 @@ func (s *grpcServer) preprocess(dispatch dispatchFn) dispatchFn {
 }
 
 func statusString(status rpc.Status) string {
-	var ok bool
-	var name string
-	if name, ok = rpc.Code_name[status.Code]; !ok {
-		name = rpc.Code_name[int32(rpc.UNKNOWN)]
+	if name, ok := rpc.Code_name[status.Code]; ok {
+		return fmt.Sprintf("%s %s", name, status.Message)
 	}
-	return fmt.Sprintf("%s %s", name, status.Message)
+	return "Unknown " + status.Message
 }
