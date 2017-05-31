@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/golang/glog"
@@ -178,6 +179,8 @@ func (s *grpcServer) Quota(ctx context2.Context, req *mixerpb.QuotaRequest) (*mi
 func (s *grpcServer) handleCheck(ctx context.Context, args dispatchArgs) rpc.Status {
 	resp := args.response.(*mixerpb.CheckResponse)
 
+	glog.Info("Dispatching Check")
+
 	out := s.aspectDispatcher.Check(ctx, args.requestBag, args.responseBag)
 
 	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
@@ -185,11 +188,15 @@ func (s *grpcServer) handleCheck(ctx context.Context, args dispatchArgs) rpc.Sta
 	//       30s TTL but a whitelist check has got a 120s TTL)
 	resp.Expiration = 5 * time.Second
 
+	glog.Info("Check returned with: ", statusString(out))
 	return out
 }
 
 func (s *grpcServer) handleReport(ctx context.Context, args dispatchArgs) rpc.Status {
-	return s.aspectDispatcher.Report(ctx, args.requestBag, args.responseBag)
+	glog.Info("Dispatching Report")
+	out := s.aspectDispatcher.Report(ctx, args.requestBag, args.responseBag)
+	glog.Info("Report returned with: ", statusString(out))
+	return out
 }
 
 func (s *grpcServer) handleQuota(ctx context.Context, args dispatchArgs) rpc.Status {
@@ -203,13 +210,14 @@ func (s *grpcServer) handleQuota(ctx context.Context, args dispatchArgs) rpc.Sta
 		BestEffort:      req.BestEffort,
 	}
 
+	glog.Info("Dispatching Report")
 	qmr, out := s.aspectDispatcher.Quota(ctx, args.requestBag, args.responseBag, qma)
 
 	if qmr != nil {
 		resp.Amount = qmr.Amount
 		resp.Expiration = qmr.Expiration
 	}
-
+	glog.Infof("Report returned with status '%v' and quota response '%v'", statusString(out), qmr)
 	return out
 }
 
@@ -230,4 +238,13 @@ func (s *grpcServer) preprocess(dispatch dispatchFn) dispatchFn {
 
 		return dispatch(ctx, args)
 	}
+}
+
+func statusString(status rpc.Status) string {
+	var ok bool
+	var name string
+	if name, ok = rpc.Code_name[status.Code]; !ok {
+		name = rpc.Code_name[int32(rpc.UNKNOWN)]
+	}
+	return fmt.Sprintf("%s %s", name, status.Message)
 }

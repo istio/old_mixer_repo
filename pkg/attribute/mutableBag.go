@@ -15,6 +15,7 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ import (
 	me "github.com/hashicorp/go-multierror"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/pool"
 )
 
 // MutableBag is a generic mechanism to read and write a set of attributes.
@@ -302,53 +304,80 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 
 	// TODO: fail if the proto carries multiple attributes by the same name (but different types)
 
+	var buf *bytes.Buffer
+	if glog.V(2) {
+		buf = pool.GetBuffer()
+		log(buf, "Creating bag from wire attributes:\n")
+	}
+
+	log(buf, "  updating string attributes:\n")
 	for k, v := range attrs.Strings {
 		name, e = lookup(k, e, globalDict, messageDict)
 		value, e = lookup(v, e, globalDict, messageDict)
+		log(buf, "    %s -> '%s'\n", name, value)
 		mb.values[name] = value
 	}
 
+	log(buf, "  updating int64 attributes:\n")
 	for k, v := range attrs.Int64S {
 		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%d'\n", name, value)
 		mb.values[name] = v
 	}
 
+	log(buf, "  updating double attributes:\n")
 	for k, v := range attrs.Doubles {
 		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%f'\n", name, value)
 		mb.values[name] = v
 	}
 
+	log(buf, "  updating bool attributes:\n")
 	for k, v := range attrs.Bools {
 		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%t'\n", name, value)
 		mb.values[name] = v
 	}
 
+	log(buf, "  updating timestamp attributes:\n")
 	for k, v := range attrs.Timestamps {
 		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%v'\n", name, value)
 		mb.values[name] = v
 	}
 
+	log(buf, "  updating duration attributes:\n")
 	for k, v := range attrs.Durations {
 		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%v'\n", name, value)
 		mb.values[name] = v
 	}
 
+	log(buf, "  updating bytes attributes:\n")
 	for k, v := range attrs.Bytes {
 		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%v'\n", name, value)
 		mb.values[name] = v
 	}
 
 	for k, v := range attrs.StringMaps {
 		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "  updating stringmap attribute %s:\n", name)
 		sm := make(map[string]string, len(v.Entries))
 		for k2, v2 := range v.Entries {
 			var name2 string
 			var value2 string
 			name2, e = lookup(k2, e, globalDict, messageDict)
 			value2, e = lookup(v2, e, globalDict, messageDict)
+			log(buf, "    %s -> '%v'\n", name, value)
 			sm[name2] = value2
 		}
 		mb.values[name] = sm
+	}
+
+	if buf != nil {
+		glog.Info(buf.String())
+		pool.PutBuffer(buf)
 	}
 
 	if e != nil {
@@ -371,4 +400,10 @@ func lookup(index int32, err error, globalDict []string, messageDict []string) (
 	}
 
 	return globalDict[index], err
+}
+
+func log(w *bytes.Buffer, format string, args ...interface{}) {
+	if w != nil {
+		fmt.Fprintf(w, format, args...)
+	}
 }
