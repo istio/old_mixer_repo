@@ -6,8 +6,6 @@ first which uses Mixer as the example component.
 
 After which here are other Mixer specific docs you should look at:
 
-- [Project conventions](./conventions.md)
-- [Creating fast and lean code](./performance.md)
 - [Writing Mixer adapters](./adapters.md)
 
 ## Using Mixer
