@@ -210,7 +210,7 @@ func (s *grpcServer) handleQuota(ctx context.Context, args dispatchArgs) rpc.Sta
 		BestEffort:      req.BestEffort,
 	}
 
-	glog.Info("Dispatching Report")
+	glog.Info("Dispatching Quota")
 	qmr, out := s.aspectDispatcher.Quota(ctx, args.requestBag, args.responseBag, qma)
 
 	if qmr != nil {
