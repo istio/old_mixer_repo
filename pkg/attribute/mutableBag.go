@@ -17,6 +17,7 @@ package attribute
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -402,7 +403,7 @@ func lookup(index int32, err error, globalDict []string, messageDict []string) (
 	return globalDict[index], err
 }
 
-func log(w *bytes.Buffer, format string, args ...interface{}) {
+func log(w io.Writer, format string, args ...interface{}) {
 	if w != nil {
 		fmt.Fprintf(w, format, args...)
 	}

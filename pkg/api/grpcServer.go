@@ -186,7 +186,7 @@ func (s *grpcServer) handleCheck(ctx context.Context, args dispatchArgs) rpc.Sta
 	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
 	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
 	//       30s TTL but a whitelist check has got a 120s TTL)
-	resp.Expiration = 5 * time.Second
+	resp.ExpirationDuration = 5 * time.Second
 
 	glog.Info("Check returned with: ", statusString(out))
 	return out
