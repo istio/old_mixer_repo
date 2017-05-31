@@ -322,42 +322,42 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 	log(buf, "  updating int64 attributes:\n")
 	for k, v := range attrs.Int64S {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%d'\n", name, value)
+		log(buf, "    %s -> '%d'\n", name, v)
 		mb.values[name] = v
 	}
 
 	log(buf, "  updating double attributes:\n")
 	for k, v := range attrs.Doubles {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%f'\n", name, value)
+		log(buf, "    %s -> '%f'\n", name, v)
 		mb.values[name] = v
 	}
 
 	log(buf, "  updating bool attributes:\n")
 	for k, v := range attrs.Bools {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%t'\n", name, value)
+		log(buf, "    %s -> '%t'\n", name, v)
 		mb.values[name] = v
 	}
 
 	log(buf, "  updating timestamp attributes:\n")
 	for k, v := range attrs.Timestamps {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%v'\n", name, value)
+		log(buf, "    %s -> '%v'\n", name, v)
 		mb.values[name] = v
 	}
 
 	log(buf, "  updating duration attributes:\n")
 	for k, v := range attrs.Durations {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%v'\n", name, value)
+		log(buf, "    %s -> '%v'\n", name, v)
 		mb.values[name] = v
 	}
 
 	log(buf, "  updating bytes attributes:\n")
 	for k, v := range attrs.Bytes {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%v'\n", name, value)
+		log(buf, "    %s -> '%s'\n", name, v)
 		mb.values[name] = v
 	}
 
@@ -370,7 +370,7 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 			var value2 string
 			name2, e = lookup(k2, e, globalDict, messageDict)
 			value2, e = lookup(v2, e, globalDict, messageDict)
-			log(buf, "    %s -> '%v'\n", name, value)
+			log(buf, "    %s -> '%v'\n", name2, value2)
 			sm[name2] = value2
 		}
 		mb.values[name] = sm
