@@ -366,11 +366,11 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 		log(buf, "  updating stringmap attribute %s:\n", name)
 		sm := make(map[string]string, len(v.Entries))
 		for k2, v2 := range v.Entries {
-			var name2 string
-			var value2 string
-			name2, e = lookup(k2, e, globalDict, messageDict)
-			value2, e = lookup(v2, e, globalDict, messageDict)
-			log(buf, "    %s -> '%v'\n", name, value)
+			var entryName string
+			var entryValue string
+			entryName, e = lookup(k2, e, globalDict, messageDict)
+			entryValue, e = lookup(v2, e, globalDict, messageDict)
+			log(buf, "    %s -> '%v'\n", entryName, entryValue)
 			sm[name2] = value2
 		}
 		mb.values[name] = sm
