@@ -31,7 +31,7 @@ go_library(
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",
-        "@com_github_redis_client//pool:go_default_library",
+        "@com_github_redis_client//pubsub:go_default_library",
         "@com_github_redis_client//redis:go_default_library",
     ],
 )

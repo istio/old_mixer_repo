@@ -15,8 +15,11 @@ package config
 
 import (
 	"net/url"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis"
 )
@@ -139,5 +142,127 @@ func TestInvalidDBNum(t *testing.T) {
 		} else if !strings.Contains(err.Error(), "dbNum") {
 			t.Errorf("unexpected error \"%v\", message should contain \"dbNum\", target %s", err, ustr)
 		}
+	}
+}
+
+func TestRedisConfigValues(t *testing.T) {
+	for _, tt := range []struct {
+		value string
+		avail bool
+	}{
+		{"AKE", true},
+		{"AK", false},
+		{"AE", true},
+		{"Eg$", true},
+		{"Kg$", false},
+		{"Eg", false},
+		{"", false},
+	} {
+		avail := doesRedisConfigSupportsChangeNotifications(tt.value)
+		if avail != tt.avail {
+			t.Errorf("config value %s expected %v got %v", tt.value, tt.avail, avail)
+		}
+	}
+}
+
+type testStoreListener struct {
+	lastCalledIndex int
+}
+
+func (l *testStoreListener) NotifyStoreChanged(idx int) {
+	l.lastCalledIndex = idx
+}
+
+// This test case does not run by default, since this requires a real redis server;
+// miniredis does not support pub/sub nor keyspace notifications. To run the test
+// code, you need to manually specify the redis:// URL through REDIS_SERVER environment
+// variable when running the test, like
+//   % bazel test pkg/config/... --action_env=REDIS_SERVER=redis://localhost:6379/
+//
+// TODO: introduce some mocks to allow running this without a real server.
+func TestNotifications(t *testing.T) {
+	const wait = time.Millisecond * 10
+
+	redisServer := os.Getenv("REDIS_SERVER")
+	if redisServer == "" {
+		return
+	}
+	u, err := url.Parse(redisServer)
+	if err != nil {
+		t.Fatalf("failed to parse %s: %v", redisServer, err)
+	}
+
+	// cstore keeps the 'controller' client.
+	cstore, err := newRedisStore(u)
+	if err != nil {
+		t.Fatalf("failed: %v", err)
+	}
+	// controller controls the target redis database outside of the testing redisstore
+	// instance, for verifying that it receives updates independently.
+	controller := cstore.client
+	defer func() {
+		// clear the test data in the db.
+		controller.Cmd("FLUSHDB")
+		cstore.Close()
+	}()
+
+	// Update the config in the DB to support the change updates.
+	if resp := controller.Cmd("CONFIG", "SET", keyspaceEventsConfigKey, "AKE"); resp.Err != nil {
+		t.Fatalf("failed to configure: %v", resp.Err)
+	}
+
+	// rs is the actual redisstore instance we want to test.
+	rs, err := newRedisStore(u)
+	if err != nil {
+		t.Fatalf("failed to create redisstore instance: %v", err)
+	}
+	defer rs.Close()
+	if !rs.IsStoreChangeAvailable() {
+		t.Fatalf("server does not support updates")
+	}
+	if i := rs.index(0); i != 0 {
+		t.Fatalf("initial index: expected 0, got %v", i)
+	}
+
+	l := &testStoreListener{}
+	rs.RegisterStoreChangeListener(l)
+
+	controller.Cmd("SET", "foo", "foo")
+	controller.Cmd("SET", "bar", "bar")
+	controller.Cmd("GET", "foo")
+
+	time.Sleep(wait)
+	if l.lastCalledIndex != 2 {
+		t.Fatalf("index expected 2, got %d", l.lastCalledIndex)
+	}
+
+	c, err := rs.ReadChangeLog(0)
+	if err != nil {
+		t.Fatalf("failed to read changes: %v", err)
+	}
+	if len(c) != 2 {
+		t.Fatalf("unexpected changes: %v", c)
+	}
+
+	controller.Cmd("DEL", "foo")
+	time.Sleep(wait)
+	if l.lastCalledIndex != 3 {
+		t.Fatalf("index expected 3, got %d", l.lastCalledIndex)
+	}
+	c, err = rs.ReadChangeLog(2)
+	if err != nil {
+		t.Fatalf("failed to read changes: %v", err)
+	}
+	if !reflect.DeepEqual(c, []Change{{"foo", Delete, 3}}) {
+		t.Fatalf("unexpected changes: %v", c)
+	}
+
+	rs.Close()
+
+	time.Sleep(wait)
+	controller.Cmd("SET", "buzz", "buzz")
+	time.Sleep(wait)
+	if l.lastCalledIndex != 3 {
+		t.Fatalf("index expected 3, got %d", l.lastCalledIndex)
 	}
 }

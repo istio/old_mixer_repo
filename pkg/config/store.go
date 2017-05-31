@@ -78,6 +78,10 @@ type ChangeNotifier interface {
 	// The client should issue ReadChangeLog to see what has changed if the call is available.
 	// else it should re-read the store, perform diff and apply changes.
 	RegisterStoreChangeListener(s StoreListener)
+
+	// IsStoreChangeAvailable returns true only when the backend store is configured
+	// to emit change notifications.
+	IsStoreChangeAvailable() bool
 }
 
 // StoreListener listens for calls from the store that some keys have changed.
