@@ -81,7 +81,10 @@ for how to do this for your platform.
 
 ### Setting up personal access token
 
-Since Istio requires two-factor authentication, you must setup a personal access
+This is only necessary for core contributors / to push changes to the main repo. 
+You can make PRs without it but the additional security is recomended for everyone.
+
+Istio organization requires two-factor authentication, you must setup a personal access
 token to enable push via HTTPS. Please follow [these
 instructions](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 for how to create a token.
