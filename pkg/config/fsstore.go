@@ -53,9 +53,11 @@ type mkdirAllFunc func(path string, perm os.FileMode) error
 type removeFunc func(name string) error
 
 func newFSStore(root string) (KeyValueStore, error) {
-	if finfo, err := os.Stat(root); err != nil {
+	finfo, err := os.Stat(root)
+	if err != nil {
 		return nil, err
-	} else if !finfo.IsDir() {
+	}
+	if !finfo.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", root)
 	}
 	s := &fsStore{

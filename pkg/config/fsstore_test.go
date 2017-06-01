@@ -43,7 +43,7 @@ func TestFSStore_FailToCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create a tempfile for the test: %v", err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	_, err = newFSStore(tmpfile.Name())
 	if err == nil {
