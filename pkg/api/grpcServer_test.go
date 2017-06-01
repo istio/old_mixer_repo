@@ -153,12 +153,14 @@ func TestCheck(t *testing.T) {
 	defer ts.cleanupTestState()
 
 	request := mixerpb.CheckRequest{}
-	_, err = ts.client.Check(context.Background(), &request)
+	response, err := ts.client.Check(context.Background(), &request)
 
-	if err == nil {
+	if err != nil {
+		t.Error("Got %v, expected success", err)
+	} else if status.IsOK(response.Status) {
 		t.Error("Got success, expected error")
-	} else if !strings.Contains(err.Error(), "Not Implemented") {
-		t.Errorf("'%s' doesn't contain 'Not Implemented'", err.Error())
+	} else if !strings.Contains(response.Status.Message, "Not Implemented") {
+		t.Errorf("'%s' doesn't contain 'Not Implemented'", response.Status.Message)
 	}
 }
 

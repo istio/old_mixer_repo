@@ -311,7 +311,7 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 		log(buf, "Creating bag from wire attributes:\n")
 	}
 
-	log(buf, "  updating string attributes:\n")
+	log(buf, "  setting string attributes:\n")
 	for k, v := range attrs.Strings {
 		name, e = lookup(k, e, globalDict, messageDict)
 		value, e = lookup(v, e, globalDict, messageDict)
@@ -319,51 +319,53 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 		mb.values[name] = value
 	}
 
-	log(buf, "  updating int64 attributes:\n")
+	log(buf, "  setting int64 attributes:\n")
 	for k, v := range attrs.Int64S {
 		name, e = lookup(k, e, globalDict, messageDict)
 		log(buf, "    %s -> '%d'\n", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  updating double attributes:\n")
+	log(buf, "  setting double attributes:\n")
 	for k, v := range attrs.Doubles {
 		name, e = lookup(k, e, globalDict, messageDict)
 		log(buf, "    %s -> '%f'\n", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  updating bool attributes:\n")
+	log(buf, "  setting bool attributes:\n")
 	for k, v := range attrs.Bools {
 		name, e = lookup(k, e, globalDict, messageDict)
 		log(buf, "    %s -> '%t'\n", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  updating timestamp attributes:\n")
+	log(buf, "  setting timestamp attributes:\n")
 	for k, v := range attrs.Timestamps {
 		name, e = lookup(k, e, globalDict, messageDict)
 		log(buf, "    %s -> '%v'\n", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  updating duration attributes:\n")
+	log(buf, "  setting duration attributes:\n")
 	for k, v := range attrs.Durations {
 		name, e = lookup(k, e, globalDict, messageDict)
 		log(buf, "    %s -> '%v'\n", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  updating bytes attributes:\n")
+	log(buf, "  setting bytes attributes:\n")
 	for k, v := range attrs.Bytes {
 		name, e = lookup(k, e, globalDict, messageDict)
 		log(buf, "    %s -> '%s'\n", name, v)
 		mb.values[name] = v
 	}
 
+	log(buf, "  setting string map attributes:\n")
 	for k, v := range attrs.StringMaps {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "  updating stringmap attribute %s:\n", name)
+		log(buf, "  %s\n", name)
+
 		sm := make(map[string]string, len(v.Entries))
 		for k2, v2 := range v.Entries {
 			var name2 string

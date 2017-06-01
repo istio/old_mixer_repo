@@ -24,6 +24,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	bt "github.com/opentracing/basictracer-go"
 	ot "github.com/opentracing/opentracing-go"
@@ -221,6 +222,19 @@ func decodeError(err error) string {
 	msg := grpc.ErrorDesc(err)
 	if msg != "" {
 		result = result + " (" + msg + ")"
+	}
+
+	return result
+}
+
+func decodeStatus(status rpc.Status) string {
+	result, ok := rpc.Code_name[status.Code]
+	if !ok {
+		result = fmt.Sprintf("Code %d", status.Code)
+	}
+
+	if status.Message != "" {
+		result = result + " (" + status.Message + ")"
 	}
 
 	return result
