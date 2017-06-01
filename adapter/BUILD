@@ -4,9 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "inventory.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     deps = [
         "//adapter/denyChecker:go_default_library",
         "//adapter/genericListChecker:go_default_library",

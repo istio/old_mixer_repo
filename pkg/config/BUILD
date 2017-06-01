@@ -4,17 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "apiserver.go",
-        "compatStore.go",
-        "fsstore.go",
-        "kind.go",
-        "manager.go",
-        "redisstore.go",
-        "runtime.go",
-        "store.go",
-        "validator.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
@@ -39,17 +32,7 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = [
-        "apiserver_test.go",
-        "fsstore_test.go",
-        "kind_test.go",
-        "manager_test.go",
-        "redisstore_test.go",
-        "runtime_test.go",
-        "store_test.go",
-        "storetestutil.go",
-        "validator_test.go",
-    ],
+    srcs = glob(["*_test.go"]),
     library = ":go_default_library",
     deps = [
         "//pkg/aspect/config:go_default_library",

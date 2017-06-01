@@ -4,9 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_binary(
     name = "mixc",
-    srcs = [
-        "main.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     linkstamp = "istio.io/mixer/pkg/version",
     visibility = ["//visibility:public"],
     deps = [

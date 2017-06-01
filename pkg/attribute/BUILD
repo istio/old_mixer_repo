@@ -4,14 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "bag.go",
-        "dictionaries.go",
-        "emptyBag.go",
-        "manager.go",
-        "mutableBag.go",
-        "tracker.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     deps = [
         "//pkg/pool:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
@@ -24,12 +20,7 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = [
-        "bag_test.go",
-        "dictionaries_test.go",
-        "manager_test.go",
-        "tracker_test.go",
-    ],
+    srcs = glob(["*_test.go"]),
     library = ":go_default_library",
     deps = [
         "@com_github_gogo_protobuf//types:go_default_library",

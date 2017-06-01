@@ -4,9 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_binary")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "main.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     deps = [
         "//example/servicegraph:go_default_library",
         "//example/servicegraph/dot:go_default_library",
