@@ -4,11 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "inventory.go",
-        "root.go",
-        "server.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     visibility = ["//cmd:__subpackages__"],
     deps = [
         "//adapter:go_default_library",

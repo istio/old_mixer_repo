@@ -5,13 +5,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     testonly = 1,
-    srcs = [
-        "bag.go",
-        "descriptor.go",
-        "env.go",
-        "evaluator.go",
-        "logger.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",

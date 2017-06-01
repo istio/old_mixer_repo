@@ -4,12 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "env.go",
-        "logger.go",
-        "manager.go",
-        "registry.go",
-    ],
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"],
+    ),
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
