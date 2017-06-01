@@ -52,7 +52,12 @@ type readFileFunc func(filename string) ([]byte, error)
 type mkdirAllFunc func(path string, perm os.FileMode) error
 type removeFunc func(name string) error
 
-func newFSStore(root string) KeyValueStore {
+func newFSStore(root string) (KeyValueStore, error) {
+	if finfo, err := os.Stat(root); err != nil {
+		return nil, err
+	} else if !finfo.IsDir() {
+		return nil, fmt.Errorf("%s is not a directory", root)
+	}
 	s := &fsStore{
 		root:     root,
 		tmpdir:   root + "/TMP",
@@ -69,7 +74,7 @@ func newFSStore(root string) KeyValueStore {
 		f, err = ioutil.TempFile(s.tmpdir, "fsStore")
 		return f, err
 	}
-	return s
+	return s, nil
 }
 
 func (f *fsStore) String() string {
