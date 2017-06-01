@@ -98,6 +98,9 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			runServer(sa, printf, fatalf)
 		},
 	}
+
+	// TODO: need to pick appropriate defaults for all these settings below
+
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for Mixer's gRPC API")
 	serverCmd.PersistentFlags().Uint16Var(&sa.monitoringPort, "monitoringPort", 9093, "HTTP port to use for the exposing mixer self-monitoring information")
 	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")

@@ -302,7 +302,8 @@ func TestProtoBag(t *testing.T) {
 			mb.Set(n, v)
 		}
 
-		mb.ToProto(&attrs, revGlobalDict)
+		var a2 mixerpb.Attributes
+		mb.ToProto(&a2, revGlobalDict)
 
 		pb.Done()
 	}

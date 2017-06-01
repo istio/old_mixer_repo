@@ -53,7 +53,7 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	}
 	defer deleteAPIClient(cs)
 
-	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Check", ext.SpanKindRPCClient)
+	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Report", ext.SpanKindRPCClient)
 
 	for i := 0; i < rootArgs.repeat; i++ {
 		request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{*attrs}}
