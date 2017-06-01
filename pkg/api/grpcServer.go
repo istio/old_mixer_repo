@@ -152,6 +152,9 @@ func (s *grpcServer) Report(ctx context2.Context, req *mixerpb.ReportRequest) (*
 			req.Attributes[i].Words = req.DefaultWords
 		}
 
+		// TODO: need to implement delta compression between elements in the
+		//       attribute array.
+
 		dState := dispatchState{
 			inAttrs:  &req.Attributes[i],
 			outAttrs: nil,

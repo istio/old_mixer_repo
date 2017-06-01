@@ -156,7 +156,7 @@ func TestCheck(t *testing.T) {
 	response, err := ts.client.Check(context.Background(), &request)
 
 	if err != nil {
-		t.Error("Got %v, expected success", err)
+		t.Errorf("Got %v, expected success", err)
 	} else if status.IsOK(response.Status) {
 		t.Error("Got success, expected error")
 	} else if !strings.Contains(response.Status.Message, "Not Implemented") {

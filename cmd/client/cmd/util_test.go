@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -155,6 +156,26 @@ func TestAttributeErrorHandling(t *testing.T) {
 			}
 			if err == nil {
 				t.Error("Got success, expected failure")
+			}
+		})
+	}
+}
+
+func TestDecodeStatus(t *testing.T) {
+	// just making sure all paths work properly
+	cases := []rpc.Status{
+		{Code: int32(rpc.ALREADY_EXISTS)},
+		{Code: 123456},
+
+		{Code: int32(rpc.ALREADY_EXISTS), Message: "FOO"},
+		{Code: 123456, Message: "FOO"},
+	}
+
+	for i, c := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			s := decodeStatus(c)
+			if s == "" {
+				t.Error("Got '', expecting a valid string")
 			}
 		})
 	}

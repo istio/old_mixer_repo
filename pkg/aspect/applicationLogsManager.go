@@ -148,6 +148,8 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 
 	buf := pool.GetBuffer()
 	for name, md := range e.metadata {
+		buf.Reset()
+
 		labels, err := evalAll(md.labels, attrs, mapper)
 		if err != nil {
 			result = multierror.Append(result, fmt.Errorf("failed to eval labels for log entry '%s': %v", name, err))
@@ -201,7 +203,6 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 			}
 		}
 		entries = append(entries, entry)
-		buf.Reset()
 	}
 	pool.PutBuffer(buf)
 
