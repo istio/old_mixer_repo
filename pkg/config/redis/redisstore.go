@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package redis
 
 import (
 	"fmt"
@@ -25,6 +25,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/mediocregopher/radix.v2/pubsub"
 	"github.com/mediocregopher/radix.v2/redis"
+
+	"istio.io/mixer/pkg/config/store"
 )
 
 const (
@@ -32,21 +34,21 @@ const (
 	keyspaceEventsConfigKey = "notify-keyspace-events"
 
 	// The timeout for receiving the next keyspace event (i.e. the next change on the DB).
-	redisSubscriberTimeout = time.Millisecond * 200
+	subscriberTimeout = 200 * time.Millisecond
 )
 
-type redisSubscriber struct {
+type subscriber struct {
 	client *pubsub.SubClient
 
 	lastIndex int
-	changes   []Change
+	changes   []store.Change
 	mu        sync.Mutex
-	listener  StoreListener
+	listener  store.Listener
 	running   bool
 }
 
 type redisStore struct {
-	*redisSubscriber
+	*subscriber
 
 	client *redis.Client
 
@@ -58,9 +60,12 @@ type redisStore struct {
 	listLength int
 }
 
-// doesRedisConfigSupportsChangeNotifications returns true when the passed string contains the
+var _ store.ChangeNotifier = &redisStore{}
+var _ store.ChangeLogReader = &redisStore{}
+
+// doesConfigSupportsChangeNotifications returns true when the passed string contains the
 // wanted value described in https://redis.io/topics/notifications#configuration
-func doesRedisConfigSupportsChangeNotifications(conf string) bool {
+func doesConfigSupportsChangeNotifications(conf string) bool {
 	// this use "keyevent" notifications.
 	if !strings.Contains(conf, "E") {
 		return false
@@ -84,10 +89,11 @@ func (rs *redisStore) getKeyspaceAvailability() bool {
 	if err != nil {
 		return false
 	}
-	return doesRedisConfigSupportsChangeNotifications(conf)
+	return doesConfigSupportsChangeNotifications(conf)
 }
 
-func setupRedisConnection(host, password string, dbNum uint64, timeout time.Duration) (client *redis.Client, err error) {
+// setupConnection sets up the connection to a redis server.
+func setupConnection(host, password string, dbNum uint64, timeout time.Duration) (client *redis.Client, err error) {
 	if timeout != time.Duration(0) {
 		client, err = redis.DialTimeout("tcp", host, timeout)
 	} else {
@@ -119,11 +125,12 @@ func setupRedisConnection(host, password string, dbNum uint64, timeout time.Dura
 	return client, nil
 }
 
-func newRedisStore(u *url.URL) (rs *redisStore, err error) {
+// newStore creates a new redisStore instance for the given url.
+func newStore(u *url.URL) (store.KeyValueStore, error) {
 	var dbNum uint64
 	if len(u.Path) > 1 {
-		dbNum, err = strconv.ParseUint(u.Path[1:], 10, 0)
-		if err != nil {
+		var err error
+		if dbNum, err = strconv.ParseUint(u.Path[1:], 10, 0); err != nil {
 			return nil, fmt.Errorf("failed to parse dbNum \"%s\", it should be an integer", u.Path[1:])
 		}
 	}
@@ -133,29 +140,29 @@ func newRedisStore(u *url.URL) (rs *redisStore, err error) {
 		password, _ = u.User.Password()
 	}
 
-	client, err := setupRedisConnection(u.Host, password, dbNum, 0)
+	client, err := setupConnection(u.Host, password, dbNum, 0)
 	if err != nil {
 		return nil, err
 	}
-	rs = &redisStore{
+	rs := &redisStore{
 		client: client,
 		url:    u,
 	}
 	if rs.getKeyspaceAvailability() {
 		// It's better to set the timeout for subscriber client, otherwise client.Recieve()
 		// will block forever. The time is currently static and unconfigurable.
-		sclient, err := setupRedisConnection(u.Host, password, dbNum, redisSubscriberTimeout)
+		sclient, err := setupConnection(u.Host, password, dbNum, subscriberTimeout)
 		if err != nil {
 			glog.Warningf("failed to set up subscriber: %v", err)
 			return rs, nil
 		}
-		sub := &redisSubscriber{
+		sub := &subscriber{
 			client: pubsub.NewSubClient(sclient),
 		}
-		if err := sub.startListening(dbNum); err != nil {
+		if err := sub.listen(dbNum); err != nil {
 			glog.Warningf("failed to start subscription: %v", err)
 		} else {
-			rs.redisSubscriber = sub
+			rs.subscriber = sub
 		}
 	}
 	return rs, nil
@@ -165,16 +172,21 @@ func (rs *redisStore) String() string {
 	return fmt.Sprintf("redisStore: %v", rs.url)
 }
 
+// index returns the current index increased by increase.
+// If the store does not listen any changes, it will return store.IndexNotSupported.
+// Note that the actual index value wouldn't change here, they should be updated
+// when the actual change event arrives to the subscriber.
 func (rs *redisStore) index(increase int) int {
-	if rs.redisSubscriber == nil {
-		return indexNotSupported
+	if rs.subscriber == nil {
+		return store.IndexNotSupported
 	}
-	rs.redisSubscriber.mu.Lock()
-	idx := rs.redisSubscriber.lastIndex + increase
-	rs.redisSubscriber.mu.Unlock()
+	rs.subscriber.mu.Lock()
+	idx := rs.subscriber.lastIndex + increase
+	rs.subscriber.mu.Unlock()
 	return idx
 }
 
+// Get implements a KeyValueStore method.
 func (rs *redisStore) Get(key string) (value string, index int, found bool) {
 	resp := rs.client.Cmd("GET", key)
 	index = rs.index(0)
@@ -189,6 +201,7 @@ func (rs *redisStore) Get(key string) (value string, index int, found bool) {
 	return s, index, true
 }
 
+// Set implements a KeyValueStore method.
 func (rs *redisStore) Set(key, value string) (index int, err error) {
 	index = rs.index(1)
 	resp := rs.client.Cmd("SET", key, value)
@@ -198,6 +211,7 @@ func (rs *redisStore) Set(key, value string) (index int, err error) {
 	return index, nil
 }
 
+// List implements a KeyValueStore method.
 func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, err error) {
 	index = rs.index(0)
 	keys = make([]string, 0, rs.listLength)
@@ -248,27 +262,34 @@ func (rs *redisStore) List(key string, recurse bool) (keys []string, index int, 
 	return keys, index, err
 }
 
+// Delete implements a KeyValueStore method.
 func (rs *redisStore) Delete(key string) (err error) {
 	return rs.client.Cmd("DEL", key).Err
 }
 
+// Close implements a KeyValueStore method.
 func (rs *redisStore) Close() {
 	if err := rs.client.Close(); err != nil {
 		glog.Warningf("failed to close the connection: %v", err)
 	}
-	if rs.redisSubscriber != nil {
-		rs.redisSubscriber.Close()
+	if rs.subscriber != nil {
+		rs.subscriber.Close()
 	}
 }
 
+// IsStoreChangeAvailable implements a ChangeNotifier method.
 func (rs *redisStore) IsStoreChangeAvailable() bool {
-	return rs.redisSubscriber != nil
+	return rs.subscriber != nil
 }
 
-func (sub *redisSubscriber) startListening(dbNum uint64) error {
+// listen initiates the subscription of the changes, and starts a goroutine to listen updates.
+func (sub *subscriber) listen(dbNum uint64) error {
 	pattern := fmt.Sprintf("__keyevent@%d__:*", dbNum)
 	resp := sub.client.PSubscribe(pattern)
 	if resp.Err != nil {
+		if err := sub.client.Client.Close(); err != nil {
+			glog.Warningf("failed to close the subscriber client: %v", err)
+		}
 		return resp.Err
 	}
 	sub.running = true
@@ -287,14 +308,14 @@ func (sub *redisSubscriber) startListening(dbNum uint64) error {
 			}
 			if resp.Type == pubsub.Message {
 				op := resp.Channel[strings.Index(resp.Channel, ":")+1:]
-				c := Change{
+				c := store.Change{
 					Index: sub.lastIndex + 1,
 					Key:   resp.Message,
 				}
 				if op == "set" {
-					c.Type = Update
+					c.Type = store.Update
 				} else if op == "del" {
-					c.Type = Delete
+					c.Type = store.Delete
 				} else {
 					continue
 				}
@@ -315,7 +336,8 @@ func (sub *redisSubscriber) startListening(dbNum uint64) error {
 	return nil
 }
 
-func (sub *redisSubscriber) Close() {
+// Close finishes the subscription.
+func (sub *subscriber) Close() {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
 	if sub.client == nil || !sub.running {
@@ -324,15 +346,15 @@ func (sub *redisSubscriber) Close() {
 	sub.running = false
 }
 
-func (sub *redisSubscriber) RegisterStoreChangeListener(s StoreListener) {
+// RegisterListener implements a ChangeNotifier method.
+func (sub *subscriber) RegisterListener(s store.Listener) {
 	sub.mu.Lock()
 	sub.listener = s
 	sub.mu.Unlock()
 }
 
-// ChangeLogReader implementation.
-
-func (sub *redisSubscriber) ReadChangeLog(index int) ([]Change, error) {
+// ReadChangeLog implements a ChangeLogReader method.
+func (sub *subscriber) ReadChangeLog(index int) ([]store.Change, error) {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
 	for i := len(sub.changes) - 1; i >= 0; i-- {
@@ -341,4 +363,8 @@ func (sub *redisSubscriber) ReadChangeLog(index int) ([]Change, error) {
 		}
 	}
 	return sub.changes, nil
+}
+
+func init() {
+	store.RegisterBuilder("redis", newStore)
 }

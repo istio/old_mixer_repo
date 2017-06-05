@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package config
+package redis
 
 import (
 	"net/url"
@@ -22,21 +22,37 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis"
+
+	"istio.io/mixer/pkg/config/store"
+	"istio.io/mixer/pkg/config/store/testutil"
 )
 
 func TestRedisStore(t *testing.T) {
-	testStore(t, func() *kvMgr {
+	testutil.RunStoreTest(t, func() *testutil.StoreManager {
 		s, err := miniredis.Run()
 		if err != nil {
 			t.Fatalf("unable to start mini redis: %v", err)
 		}
-		rs, err := newRedisStore(&url.URL{Scheme: "redis", Host: s.Addr(), Path: ""})
+		rs, err := newStore(&url.URL{Scheme: "redis", Host: s.Addr(), Path: ""})
 		if err != nil {
 			s.Close()
 			t.Fatalf("unable to connect to the mini redis server: %v", err)
 		}
-		return &kvMgr{rs, func() { s.Close() }}
+		return testutil.NewManager(rs, nil)
 	})
+}
+
+func TestNewStore(t *testing.T) {
+	// make sure store.NewStore can create a redis instance.
+	s, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("failed to start mini redis: %v", err)
+	}
+	defer s.Close()
+	_, err = store.NewStore("redis://" + s.Addr() + "/1")
+	if err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
 }
 
 func TestAuth(t *testing.T) {
@@ -63,7 +79,7 @@ func TestAuth(t *testing.T) {
 			t.Errorf("failed to parse URL %s: %v", tt.url, err)
 			continue
 		}
-		rs, err := newRedisStore(u)
+		rs, err := newStore(u)
 		if tt.success && err != nil {
 			t.Errorf("expected to success to establish the connection, but failed with %v", err)
 		} else if !tt.success && err == nil {
@@ -106,12 +122,12 @@ func TestDBNum(t *testing.T) {
 			t.Errorf("failed to parse URL %s: %v", tt.url, err)
 			continue
 		}
-		rs, err := newRedisStore(u)
+		rs, err := newStore(u)
 		if err != nil {
 			t.Errorf("failed to connect to the DB: %v", err)
 			continue
 		}
-		resp := rs.client.Cmd("GET", "dbnum")
+		resp := rs.(*redisStore).client.Cmd("GET", "dbnum")
 		if resp.Err != nil {
 			t.Errorf("can't find the dbnum in the connection: %v", resp.Err)
 		} else if num, err := resp.Int(); err != nil {
@@ -135,7 +151,7 @@ func TestInvalidDBNum(t *testing.T) {
 			t.Errorf("failed to parse URL %s: %v", ustr, err)
 			continue
 		}
-		rs, err := newRedisStore(u)
+		rs, err := newStore(u)
 		if err == nil {
 			t.Errorf("expected to fail, but successfully connected to %s", ustr)
 			rs.Close()
@@ -158,7 +174,7 @@ func TestRedisConfigValues(t *testing.T) {
 		{"Eg", false},
 		{"", false},
 	} {
-		avail := doesRedisConfigSupportsChangeNotifications(tt.value)
+		avail := doesConfigSupportsChangeNotifications(tt.value)
 		if avail != tt.avail {
 			t.Errorf("config value %s expected %v got %v", tt.value, tt.avail, avail)
 		}
@@ -193,13 +209,13 @@ func TestNotifications(t *testing.T) {
 	}
 
 	// cstore keeps the 'controller' client.
-	cstore, err := newRedisStore(u)
+	cstore, err := newStore(u)
 	if err != nil {
 		t.Fatalf("failed: %v", err)
 	}
 	// controller controls the target redis database outside of the testing redisstore
 	// instance, for verifying that it receives updates independently.
-	controller := cstore.client
+	controller := cstore.(*redisStore).client
 	defer func() {
 		// clear the test data in the db.
 		controller.Cmd("FLUSHDB")
@@ -212,12 +228,14 @@ func TestNotifications(t *testing.T) {
 	}
 
 	// rs is the actual redisstore instance we want to test.
-	rs, err := newRedisStore(u)
+	s, err := newStore(u)
 	if err != nil {
 		t.Fatalf("failed to create redisstore instance: %v", err)
 	}
-	defer rs.Close()
-	if !rs.IsStoreChangeAvailable() {
+	defer s.Close()
+	rs := s.(*redisStore)
+	cn := s.(store.ChangeNotifier)
+	if !cn.IsStoreChangeAvailable() {
 		t.Fatalf("server does not support updates")
 	}
 	if i := rs.index(0); i != 0 {
@@ -225,7 +243,7 @@ func TestNotifications(t *testing.T) {
 	}
 
 	l := &testStoreListener{}
-	rs.RegisterStoreChangeListener(l)
+	cn.RegisterListener(l)
 
 	controller.Cmd("SET", "foo", "foo")
 	controller.Cmd("SET", "bar", "bar")
@@ -236,7 +254,8 @@ func TestNotifications(t *testing.T) {
 		t.Fatalf("index expected 2, got %d", l.lastCalledIndex)
 	}
 
-	c, err := rs.ReadChangeLog(0)
+	cr := s.(store.ChangeLogReader)
+	c, err := cr.ReadChangeLog(0)
 	if err != nil {
 		t.Fatalf("failed to read changes: %v", err)
 	}
@@ -249,11 +268,11 @@ func TestNotifications(t *testing.T) {
 	if l.lastCalledIndex != 3 {
 		t.Fatalf("index expected 3, got %d", l.lastCalledIndex)
 	}
-	c, err = rs.ReadChangeLog(2)
+	c, err = cr.ReadChangeLog(2)
 	if err != nil {
 		t.Fatalf("failed to read changes: %v", err)
 	}
-	if !reflect.DeepEqual(c, []Change{{"foo", Delete, 3}}) {
+	if !reflect.DeepEqual(c, []store.Change{{"foo", store.Delete, 3}}) {
 		t.Fatalf("unexpected changes: %v", c)
 	}
 

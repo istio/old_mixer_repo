@@ -12,26 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package testutil
 
 import (
 	"reflect"
 	"testing"
+
+	"istio.io/mixer/pkg/config/store"
 )
 
-// nolint: deadcode
-type kvMgr struct {
-	Store   KeyValueStore
-	cleanup func()
+// StoreManager manages the data to run test cases.
+type StoreManager struct {
+	store       store.KeyValueStore
+	cleanupFunc func()
 }
 
-func (k *kvMgr) Cleanup() {
-	k.Store.Close()
-	k.cleanup()
+func (k *StoreManager) cleanup() {
+	k.store.Close()
+	if k.cleanupFunc != nil {
+		k.cleanupFunc()
+	}
 }
 
-// nolint: deadcode
-func testStore(t *testing.T, kvMgrfn func() *kvMgr) {
+// NewManager creates a new StoreManager.
+func NewManager(s store.KeyValueStore, cleanup func()) *StoreManager {
+	return &StoreManager{s, cleanup}
+}
+
+// RunStoreTest runs the test cases for a KeyValueStore implementation.
+func RunStoreTest(t *testing.T, newManagerFn func() *StoreManager) {
 	GOODKEYS := []string{
 		"/scopes/global/adapters",
 		"/scopes/global/descriptors",
@@ -53,8 +62,8 @@ func testStore(t *testing.T, kvMgrfn func() *kvMgr) {
 	}
 
 	for _, tt := range table {
-		km := kvMgrfn()
-		s := km.Store
+		km := newManagerFn()
+		s := km.store
 		t.Run(tt.desc, func(t1 *testing.T) {
 			var found bool
 			badkey := "a/b"
@@ -105,6 +114,6 @@ func testStore(t *testing.T, kvMgrfn func() *kvMgr) {
 
 		})
 		s.Close()
-		km.Cleanup()
+		km.cleanup()
 	}
 }

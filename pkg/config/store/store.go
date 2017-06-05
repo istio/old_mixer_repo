@@ -12,12 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package store
 
 import (
 	"fmt"
 	"net/url"
 )
+
+// IndexNotSupported will be used as the returned index value when
+// the KeyValueStore implementation does not support index.
+const IndexNotSupported = -1
+
+type builder func(u *url.URL) (KeyValueStore, error)
+
+var builders = map[string]builder{}
 
 // ChangeType denotes the type of a change
 type ChangeType int
@@ -77,15 +85,15 @@ type ChangeNotifier interface {
 	// KeyValueStore should call this method when there is a change
 	// The client should issue ReadChangeLog to see what has changed if the call is available.
 	// else it should re-read the store, perform diff and apply changes.
-	RegisterStoreChangeListener(s StoreListener)
+	RegisterListener(s Listener)
 
 	// IsStoreChangeAvailable returns true only when the backend store is configured
 	// to emit change notifications.
 	IsStoreChangeAvailable() bool
 }
 
-// StoreListener listens for calls from the store that some keys have changed.
-type StoreListener interface {
+// Listener listens for calls from the store that some keys have changed.
+type Listener interface {
 	// NotifyStoreChanged notify listener that a new change is available.
 	NotifyStoreChanged(index int)
 }
@@ -94,9 +102,13 @@ type StoreListener interface {
 const (
 	// example fs:///tmp/testdata/configroot
 	FSUrl = "fs"
-	// example redis://:password@hostname:port/db_number
-	RedisURL = "redis"
 )
+
+// RegisterBuilder registers a new builder. The registered builder can be used
+// by NewStore with the given scheme.
+func RegisterBuilder(scheme string, builder func(u *url.URL) (KeyValueStore, error)) {
+	builders[scheme] = builder
+}
 
 // NewStore create a new store based on the config URL.
 func NewStore(configURL string) (KeyValueStore, error) {
@@ -106,11 +118,11 @@ func NewStore(configURL string) (KeyValueStore, error) {
 		return nil, fmt.Errorf("invalid config URL %s %v", configURL, err)
 	}
 
-	switch u.Scheme {
-	case FSUrl:
+	if u.Scheme == FSUrl {
 		return newFSStore(u.Path)
-	case RedisURL:
-		return newRedisStore(u)
+	}
+	if builder, ok := builders[u.Scheme]; ok {
+		return builder(u)
 	}
 
 	return nil, fmt.Errorf("unknown config URL %s %v", configURL, u)
