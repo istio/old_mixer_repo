@@ -24,7 +24,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         ":go_default_library",
-        "//pkg/config/store/testutil:go_default_library",
         "@com_github_mini_redis//:go_default_library",
     ],
 )

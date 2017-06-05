@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "fsstore.go",
         "store.go",
+        "testutil.go",
     ],
     deps = [
         "@com_github_golang_glog//:go_default_library",
@@ -23,6 +24,5 @@ go_test(
     library = ":go_default_library",
     deps = [
         ":go_default_library",
-        "//pkg/config/store/testutil:go_default_library",
     ],
 )

@@ -12,35 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package testutil
+package store
 
 import (
 	"reflect"
 	"testing"
-
-	"istio.io/mixer/pkg/config/store"
 )
 
-// StoreManager manages the data to run test cases.
-type StoreManager struct {
-	store       store.KeyValueStore
+// TestManager manages the data to run test cases.
+type TestManager struct {
+	store       KeyValueStore
 	cleanupFunc func()
 }
 
-func (k *StoreManager) cleanup() {
+func (k *TestManager) cleanup() {
 	k.store.Close()
 	if k.cleanupFunc != nil {
 		k.cleanupFunc()
 	}
 }
 
-// NewManager creates a new StoreManager.
-func NewManager(s store.KeyValueStore, cleanup func()) *StoreManager {
-	return &StoreManager{s, cleanup}
+// NewTestManager creates a new StoreTestManager.
+func NewTestManager(s KeyValueStore, cleanup func()) *TestManager {
+	return &TestManager{s, cleanup}
 }
 
 // RunStoreTest runs the test cases for a KeyValueStore implementation.
-func RunStoreTest(t *testing.T, newManagerFn func() *StoreManager) {
+func RunStoreTest(t *testing.T, newManagerFn func() *TestManager) {
 	GOODKEYS := []string{
 		"/scopes/global/adapters",
 		"/scopes/global/descriptors",

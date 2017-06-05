@@ -19,16 +19,14 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"istio.io/mixer/pkg/config/store/testutil"
 )
 
 func TestFSStore(t *testing.T) {
-	testutil.RunStoreTest(t, func() *testutil.StoreManager {
+	RunStoreTest(t, func() *TestManager {
 		fsroot, _ := ioutil.TempDir("/tmp/", "fsStore")
 		f, _ := newFSStore(fsroot)
 		_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
-		return testutil.NewManager(f, func() {
+		return NewTestManager(f, func() {
 			_ = os.RemoveAll(fsroot)
 		})
 	})

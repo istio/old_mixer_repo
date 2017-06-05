@@ -24,11 +24,10 @@ import (
 	"github.com/alicebob/miniredis"
 
 	"istio.io/mixer/pkg/config/store"
-	"istio.io/mixer/pkg/config/store/testutil"
 )
 
 func TestRedisStore(t *testing.T) {
-	testutil.RunStoreTest(t, func() *testutil.StoreManager {
+	store.RunStoreTest(t, func() *store.TestManager {
 		s, err := miniredis.Run()
 		if err != nil {
 			t.Fatalf("unable to start mini redis: %v", err)
@@ -38,7 +37,7 @@ func TestRedisStore(t *testing.T) {
 			s.Close()
 			t.Fatalf("unable to connect to the mini redis server: %v", err)
 		}
-		return testutil.NewManager(rs, nil)
+		return store.NewTestManager(rs, nil)
 	})
 }
 
