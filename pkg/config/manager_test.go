@@ -191,6 +191,7 @@ type fakeMemStore struct {
 }
 
 var _ store.KeyValueStore = &fakeMemStore{}
+var _ store.ChangeNotifier = &fakeMemStore{}
 
 func (f *fakeMemStore) String() string {
 	return "fakeMemStore"
@@ -265,8 +266,12 @@ func (f *fakeMemStore) Delete(key string) error {
 func (f *fakeMemStore) Close() {
 }
 
-func (f *fakeMemStore) RegisterStoreChangeListener(s store.Listener) {
+func (f *fakeMemStore) RegisterListener(s store.Listener) {
 	f.cl = s
+}
+
+func (f *fakeMemStore) IsStoreChangeAvailable() bool {
+	return true
 }
 
 func newFakeStore(gc string, sc string) *fakeMemStore {
