@@ -277,11 +277,6 @@ func (rs *redisStore) Close() {
 	}
 }
 
-// IsStoreChangeAvailable implements a ChangeNotifier method.
-func (rs *redisStore) IsStoreChangeAvailable() bool {
-	return rs.subscriber != nil
-}
-
 // listen initiates the subscription of the changes, and starts a goroutine to listen updates.
 func (sub *subscriber) listen(dbNum uint64) error {
 	pattern := fmt.Sprintf("__keyevent@%d__:*", dbNum)
@@ -353,8 +348,8 @@ func (sub *subscriber) RegisterListener(s store.Listener) {
 	sub.mu.Unlock()
 }
 
-// ReadChangeLog implements a ChangeLogReader method.
-func (sub *subscriber) ReadChangeLog(index int) ([]store.Change, error) {
+// Read implements a ChangeLogReader method.
+func (sub *subscriber) Read(index int) ([]store.Change, error) {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
 	for i := len(sub.changes) - 1; i >= 0; i-- {

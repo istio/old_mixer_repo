@@ -233,16 +233,15 @@ func TestNotifications(t *testing.T) {
 	}
 	defer s.Close()
 	rs := s.(*redisStore)
-	cn := s.(store.ChangeNotifier)
-	if !cn.IsStoreChangeAvailable() {
-		t.Fatalf("server does not support updates")
+	if rs.subscriber == nil {
+		t.Fatalf("store does not start subscribing changes")
 	}
 	if i := rs.index(0); i != 0 {
 		t.Fatalf("initial index: expected 0, got %v", i)
 	}
 
 	l := &testStoreListener{}
-	cn.RegisterListener(l)
+	s.(store.ChangeNotifier).RegisterListener(l)
 
 	controller.Cmd("SET", "foo", "foo")
 	controller.Cmd("SET", "bar", "bar")
@@ -254,7 +253,7 @@ func TestNotifications(t *testing.T) {
 	}
 
 	cr := s.(store.ChangeLogReader)
-	c, err := cr.ReadChangeLog(0)
+	c, err := cr.Read(0)
 	if err != nil {
 		t.Fatalf("failed to read changes: %v", err)
 	}
@@ -267,7 +266,7 @@ func TestNotifications(t *testing.T) {
 	if l.lastCalledIndex != 3 {
 		t.Fatalf("index expected 3, got %d", l.lastCalledIndex)
 	}
-	c, err = cr.ReadChangeLog(2)
+	c, err = cr.Read(2)
 	if err != nil {
 		t.Fatalf("failed to read changes: %v", err)
 	}

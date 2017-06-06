@@ -270,10 +270,6 @@ func (f *fakeMemStore) RegisterListener(s store.Listener) {
 	f.cl = s
 }
 
-func (f *fakeMemStore) IsStoreChangeAvailable() bool {
-	return true
-}
-
 func newFakeStore(gc string, sc string) *fakeMemStore {
 	return &fakeMemStore{
 		data: newFakeMap(gc, sc),

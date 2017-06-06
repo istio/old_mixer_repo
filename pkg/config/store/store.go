@@ -75,8 +75,8 @@ type KeyValueStore interface {
 
 // ChangeLogReader read change log from the KV Store
 type ChangeLogReader interface {
-	// ReadChangeLog reads change events >= index
-	ReadChangeLog(index int) ([]Change, error)
+	// Read reads change events >= index
+	Read(index int) ([]Change, error)
 }
 
 // ChangeNotifier implements change notification machinery for the KeyValueStore.
@@ -86,10 +86,6 @@ type ChangeNotifier interface {
 	// The client should issue ReadChangeLog to see what has changed if the call is available.
 	// else it should re-read the store, perform diff and apply changes.
 	RegisterListener(s Listener)
-
-	// IsStoreChangeAvailable returns true only when the backend store is configured
-	// to emit change notifications.
-	IsStoreChangeAvailable() bool
 }
 
 // Listener listens for calls from the store that some keys have changed.
