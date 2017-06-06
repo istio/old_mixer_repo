@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package store provides the interface to the backend storage
+// for the config.
 package store
 
 import (
