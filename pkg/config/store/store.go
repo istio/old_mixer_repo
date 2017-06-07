@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package store provides the interface to the backend storage
-// for the config.
+// for the config and the default fsstore implementation.
 package store
 
 import (
