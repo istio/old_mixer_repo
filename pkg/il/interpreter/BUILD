@@ -1,0 +1,51 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "extern.go",
+        "interpreter.go",
+        "interpreterRun.go",
+        "result.go",
+        "stackFrame.go",
+        "stepper.go",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/attribute:go_default_library",
+        "//pkg/il:go_default_library",
+    ],
+)
+
+go_test(
+    name = "small_tests",
+    size = "small",
+    srcs = [
+        "fakebag.go",
+        "interpreter_test.go",
+    ],
+    library = ":go_default_library",
+    deps = [
+        "@com_github_gogo_protobuf//types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "benchmark_tests",
+    size = "small",
+    srcs = [
+        "interpreterBenchmark_test.go",
+        "fakebag.go",
+    ],
+    library = ":go_default_library",
+    deps = [
+        "//pkg/attribute:go_default_library",
+        "//pkg/config/descriptor:go_default_library",
+        "//pkg/config/proto:go_default_library",
+        "//pkg/expr:go_default_library",
+        "//pkg/il:go_default_library",
+        "//pkg/il/compiler:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",
+    ],
+)
