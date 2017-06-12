@@ -18,12 +18,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
@@ -383,29 +383,30 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 		impl: cfg.Builder.GetImpl(),
 	}
 
-	//TODO pre-compute shas and store with params
-	b := pool.GetBuffer()
-	// use gob encoding so that we don't rely on proto marshal
-	enc := gob.NewEncoder(b)
-
+	// TODO: investigate requesting a change to the proto.Marshal API so that we can provide the buffer to marshal
+	// in to; right now proto.Marshal chooses to alloc a new buffer every time. We could avoid this by pooling & an API change.
 	if cfg.Builder.Params != nil {
-		if err := enc.Encode(cfg.Builder.Params); err != nil {
-			pool.PutBuffer(b)
+		ppb, ok := cfg.Builder.Params.(proto.Message)
+		if !ok {
+			return nil, fmt.Errorf("non-proto cfg.Builder.Params: %v", cfg.Builder.Params)
+		}
+		b, err := proto.Marshal(ppb)
+		if err != nil {
 			return nil, err
 		}
-		ret.builderParamsSHA = sha1.Sum(b.Bytes())
+		ret.builderParamsSHA = sha1.Sum(b)
 	}
-	b.Reset()
 	if cfg.Aspect.Params != nil {
-		if err := enc.Encode(cfg.Aspect.Params); err != nil {
-			pool.PutBuffer(b)
+		ppb, ok := cfg.Aspect.Params.(proto.Message)
+		if !ok {
+			return nil, fmt.Errorf("non-proto cfg.Aspect.Params: %v", cfg.Aspect.Params)
+		}
+		b, err := proto.Marshal(ppb)
+		if err != nil {
 			return nil, err
 		}
-
-		ret.aspectParamsSHA = sha1.Sum(b.Bytes())
+		ret.aspectParamsSHA = sha1.Sum(b)
 	}
-	pool.PutBuffer(b)
-
 	return &ret, nil
 }
 
