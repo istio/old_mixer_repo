@@ -383,30 +383,34 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 		impl: cfg.Builder.GetImpl(),
 	}
 
-	// TODO: investigate requesting a change to the proto.Marshal API so that we can provide the buffer to marshal
-	// in to; right now proto.Marshal chooses to alloc a new buffer every time. We could avoid this by pooling & an API change.
+	b := pool.GetBuffer()
+	pbuf := proto.NewBuffer(b.Bytes())
 	if cfg.Builder.Params != nil {
 		ppb, ok := cfg.Builder.Params.(proto.Message)
 		if !ok {
+			pool.PutBuffer(b)
 			return nil, fmt.Errorf("non-proto cfg.Builder.Params: %v", cfg.Builder.Params)
 		}
-		b, err := proto.Marshal(ppb)
-		if err != nil {
+		if err := pbuf.Marshal(ppb); err != nil {
+			pool.PutBuffer(b)
 			return nil, err
 		}
-		ret.builderParamsSHA = sha1.Sum(b)
+		ret.builderParamsSHA = sha1.Sum(pbuf.Bytes())
 	}
+	pbuf.Reset()
 	if cfg.Aspect.Params != nil {
 		ppb, ok := cfg.Aspect.Params.(proto.Message)
 		if !ok {
+			pool.PutBuffer(b)
 			return nil, fmt.Errorf("non-proto cfg.Aspect.Params: %v", cfg.Aspect.Params)
 		}
-		b, err := proto.Marshal(ppb)
-		if err != nil {
+		if err := pbuf.Marshal(ppb); err != nil {
+			pool.PutBuffer(b)
 			return nil, err
 		}
-		ret.aspectParamsSHA = sha1.Sum(b)
+		ret.aspectParamsSHA = sha1.Sum(pbuf.Bytes())
 	}
+	pool.PutBuffer(b)
 	return &ret, nil
 }
 
