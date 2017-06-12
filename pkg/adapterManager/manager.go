@@ -382,7 +382,7 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 		kind: kind,
 		impl: cfg.Builder.GetImpl(),
 	}
-
+	// TODO: pre-compute shas and store with params
 	b := pool.GetBuffer()
 	pbuf := proto.NewBuffer(b.Bytes())
 	if cfg.Builder.Params != nil {
