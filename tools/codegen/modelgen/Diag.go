@@ -39,6 +39,8 @@ type (
 	// location represents the location of the Diag
 	location struct {
 		File string
+		// TODO: Currently Line is always set as UNKNOWN_LINE. Consider using proto's
+		// SourceCodeInfo to exactly point to the line number.
 		Line string
 	}
 )
