@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -22,90 +23,76 @@ import (
 	"testing"
 )
 
-func TestMetric(t *testing.T) {
-	test(t,
-		"testdata/MetricTemplate.proto",
-		"testdata/MetricTemplateProcessorInterface.go.baseline")
-}
+func TestWellKnownTemplate(t *testing.T) {
+	tests := []struct {
+		src      string
+		baseline string
+	}{
+		{"testdata/MetricTemplate.proto", "testdata/MetricTemplateProcessorInterface.go.baseline"},
+		{"testdata/MetricTemplate.proto", "testdata/MetricTemplateProcessorInterface.go.baseline"},
+		{"testdata/QuotaTemplate.proto", "testdata/QuotaTemplateProcessorInterface.go.baseline"},
+		{"testdata/LogTemplate.proto", "testdata/LogTemplateProcessorInterface.go.baseline"},
+		{"testdata/ListTemplate.proto", "testdata/ListTemplateProcessorInterface.go.baseline"},
+		{"testdata/NestedMessage.proto", "testdata/NestedMessageProcessor.go.baseline"},
+		{"testdata/ErrorTemplate.proto", "testdata/ErrorTemplate.baseline"},
+	}
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
+			outDir := path.Join("testdata", getBaseFileNameWithoutExt(t.Name()))
+			err := os.RemoveAll(outDir)
+			os.MkdirAll(outDir, os.ModePerm)
 
-func TestQuota(t *testing.T) {
-	test(t,
-		"testdata/QuotaTemplate.proto",
-		"testdata/QuotaTemplateProcessorInterface.go.baseline")
-}
+			outFDS := path.Join(outDir, "outFDS.pb")
+			defer os.Remove(outFDS)
+			err = generteFDSFileHacky(tt.src, outFDS)
+			if err != nil {
+				t.Errorf("Unable to generate file descriptor set %v", err)
+			}
 
-func TestLog(t *testing.T) {
-	test(t,
-		"testdata/LogTemplate.proto",
-		"testdata/LogTemplateProcessorInterface.go.baseline")
-}
+			outFilePath := path.Join(outDir, "Processor.go")
+			generator := Generator{outFilePath: outFilePath, importMapping: map[string]string{
+				"mixer/v1/config/descriptor/value_type.proto":                     "istio.io/api/mixer/v1/config/descriptor",
+				"mixer/tools/codegen/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/template_extension",
+				"google/protobuf/duration.proto":                                  "github.com/golang/protobuf/ptypes/duration",
+			}}
+			if err := generator.Generate(outFDS); err == nil {
+				/*
+					Below commented code is for testing if the generated code compiles correctly. Currently to test that, I have to
+					run protoc separately copy the generated pb.go in the tmp output folder (doing it via a separate script),
+					then uncomment the code and run the test. Need to find a cleaner automated way.
+				*/
+				// Generate *.pb.go file for the template and copy it into the outDir
+				err = generteGoPbFileForTmpl(tt.src, outDir)
+				if err != nil {
+					t.Errorf("Unable to generate go file for %s: %v", tt.src, err)
+				}
+				protocCmd := []string{
+					"build",
+				}
+				cmd := exec.Command("go", protocCmd...)
+				cmd.Dir = outDir
+				cmd.Stderr = os.Stderr // For debugging
+				err = cmd.Run()
+				if err != nil {
+					t.FailNow()
+					return
+				}
+			}
 
-func TestList(t *testing.T) {
-	test(t,
-		"testdata/ListTemplate.proto",
-		"testdata/ListTemplateProcessorInterface.go.baseline")
-}
+			diffCmd := exec.Command("diff", outFilePath, tt.baseline, "--ignore-all-space")
+			diffCmd.Stdout = os.Stdout
+			diffCmd.Stderr = os.Stderr
+			err = diffCmd.Run()
+			if err != nil {
+				t.Fatalf("Diff failed: %+v. Expected output is located at %s", err, outFilePath)
+				return
+			}
 
-func TestNestedMessage(t *testing.T) {
-	test(t,
-		"testdata/NestedMessage.proto",
-		"testdata/NestedMessageProcessor.go.baseline")
-}
-
-func test(t *testing.T, inputTemplateProto string, expected string) {
-	outDir := path.Join("testdata", t.Name())
-	_, _ = filepath.Abs(outDir)
-	err := os.RemoveAll(outDir)
-	os.MkdirAll(outDir, os.ModePerm)
-
-	outFDS := path.Join(outDir, "outFDS.pb")
-	defer os.Remove(outFDS)
-	err = generteFDSFileHacky(inputTemplateProto, outFDS)
-	if err != nil {
-		t.Errorf("Unable to generate file descriptor set %v", err)
+			// if the test succeeded, clean up
+			os.RemoveAll(outDir)
+		})
 	}
 
-	outFilePath := path.Join(outDir, "Processor.go")
-	generator := Generator{outFilePath: outFilePath, importMapping: map[string]string{
-		"mixer/v1/config/descriptor/value_type.proto":                     "istio.io/api/mixer/v1/config/descriptor",
-		"mixer/tools/codegen/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/template_extension",
-		"google/protobuf/duration.proto":                                  "github.com/golang/protobuf/ptypes/duration",
-	}}
-	generator.Generate(outFDS)
-
-	/*
-	Below commented code is for testing if the generated code compiles correctly. Currently to test that, I have to
-	run protoc separately copy the generated pb.go in the tmp output folder (doing it via a separate script),
-	then uncomment the code and run the test. Need to find a cleaner automated way.
-	*/
-	// Generate *.pb.go file for the template and copy it into the outDir
-	err = generteGoPbFileForTmpl(inputTemplateProto, outDir)
-	if err != nil {
-		t.Errorf("Unable to generate go file for %s: %v", inputTemplateProto, err)
-	}
-	protocCmd := []string{
-		"build",
-	}
-	cmd := exec.Command("go", protocCmd...)
-	cmd.Dir = outDir
-	cmd.Stderr = os.Stderr // For debugging
-	err = cmd.Run()
-	if err != nil {
-		t.FailNow()
-		return
-	}
-
-	diffCmd := exec.Command("diff", outFilePath, expected, "--ignore-all-space")
-	diffCmd.Stdout = os.Stdout
-	diffCmd.Stderr = os.Stderr
-	err = diffCmd.Run()
-	if err != nil {
-		t.Fatalf("Diff failed: %+v. Expected output is located at %s", err, outFilePath)
-		return
-	}
-
-	// if the test succeeded, clean up
-	os.RemoveAll(outDir)
 }
 
 // TODO: This is blocking the test to be enabled from Bazel.
@@ -156,7 +143,7 @@ func generteGoPbFileForTmpl(protoFile string, outDir string) error {
 	}
 
 	// Copy to the outDir
-	genGoFilePath := path.Join(path.Dir(protoFile), getBaseFileNameWithoutExt(protoFile) + ".pb.go")
+	genGoFilePath := path.Join(path.Dir(protoFile), getBaseFileNameWithoutExt(protoFile)+".pb.go")
 	// first do the magic replacement
 	sedCmd := exec.Command("sed", "-i", "-e", "s/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g", genGoFilePath)
 	sedCmd.Stdout = os.Stdout

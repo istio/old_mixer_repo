@@ -31,9 +31,9 @@ type Instance struct {
 
 type {{.Name}}Processor interface {
   Configure{{.Name}}(types map[string]*Type) error
-  {{if .Check -}}
-    {{- .VarietyName}}{{.Name}}(instances map[string]*Instance) (bool, error)
+  {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
+    Check{{.Name}}(instances map[string]*Instance) (bool, error)
   {{else -}}
-    {{- .VarietyName}}{{.Name}}(instances map[string]*Instance) error
+    Report{{.Name}}(instances map[string]*Instance) error
   {{end}}
 }

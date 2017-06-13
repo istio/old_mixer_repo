@@ -23,7 +23,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"istio.io/mixer/tools/codegen/model_generator"
+	"istio.io/mixer/tools/codegen/modelgen"
 )
 
 type Generator struct {
@@ -54,13 +54,14 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	parser, err := model_generator.CreateFileDescriptorSetParser(fds, g.importMapping)
+	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.importMapping)
 	if err != nil {
 		return err
 	}
 
-	model, err := model_generator.CreateModel(parser)
+	model, err := modelgen.Create(parser)
 	if err != nil {
+		f.WriteString(err.Error())
 		return err
 	}
 
