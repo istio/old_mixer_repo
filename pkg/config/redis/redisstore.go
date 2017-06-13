@@ -361,6 +361,9 @@ func (sub *subscriber) Read(index int) ([]store.Change, error) {
 	return sub.changes, nil
 }
 
-func init() {
+// Register registers this module as a config store.
+// Do not use 'init()' for automatic registration; linker will drop
+// the whole module because it looks unused.
+func Register() {
 	store.RegisterBuilder("redis", newStore)
 }

@@ -27,6 +27,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/config/redis"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 )
@@ -226,4 +227,8 @@ func (c *Manager) Start() {
 	// If it is not successful, we will continue to watch for changes.
 	c.ticker = time.NewTicker(c.loopDelay)
 	go c.loop()
+}
+
+func init() {
+	redis.Register()
 }

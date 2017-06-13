@@ -26,6 +26,10 @@ import (
 	"istio.io/mixer/pkg/config/store"
 )
 
+func init() {
+	Register()
+}
+
 func TestRedisStore(t *testing.T) {
 	store.RunStoreTest(t, func() *store.TestManager {
 		s, err := miniredis.Run()
