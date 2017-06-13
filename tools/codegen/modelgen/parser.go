@@ -28,7 +28,7 @@ TODO:
    paramters for it's codegen and pass to the protoc-gen-go plugin (invoking another protoc process).
 */
 
-package model_generator
+package modelgen
 
 import (
 	"fmt"
@@ -415,6 +415,9 @@ func (g *FileDescriptorSetParser) DefaultPackageName(obj Object) string {
 	// TODO if the protoc is not executed with --include_imports, this
 	// is guaranteed to throw NPE.
 	// Handle it.
+	if obj == nil {
+		return ""
+	}
 	pkg := obj.PackageName()
 	if pkg == g.packageName {
 		return ""
@@ -458,7 +461,7 @@ func (g *FileDescriptorSetParser) BuildTypeNameMap() {
 
 func (c *common) PackageName() string {
 	f := c.file
-	return goPackageName(*f.Package)
+	return goPackageName(f.GetPackage())
 }
 
 func (c *common) File() *descriptor.FileDescriptorProto { return c.file }

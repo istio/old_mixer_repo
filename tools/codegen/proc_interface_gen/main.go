@@ -30,8 +30,9 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 	rootCmd := cobra.Command{
 		Use: "procInterfaceGen <File descriptor set protobuf>",
 		Short: `
-Tool that parses a [Template](http://TODO) and generates go interface for adapters to implement.
-
+Tool that parses a [Template](http://TODO) and generates Go interface for adapters to implement.
+`,
+		Long: `
 Example: procInterfaceGen metricTemplateFileDescriptorSet.pb -o MetricProcessor.go
 `,
 
@@ -63,7 +64,7 @@ Example: procInterfaceGen metricTemplateFileDescriptorSet.pb -o MetricProcessor.
 		"location for generating the go file.")
 
 	rootCmd.PersistentFlags().StringArrayVarP(&mappings, "importmapping", "m", []string{}, "colon separated mapping of proto import to go package names."+
-		" Example -m google/protobuf/descriptor.proto:github.com/golang/protobuf/protoc-gen-go/descriptor -m mixer/v1/config/descriptor/value_type.proto:istio.io/api/mixer/v1/config/descriptor")
+		" -m google/protobuf/descriptor.proto:github.com/golang/protobuf/protoc-gen-go/descriptor")
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf("%v", err)

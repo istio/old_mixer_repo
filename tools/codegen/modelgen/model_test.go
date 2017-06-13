@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model_generator
+package modelgen
 
 import (
 	"fmt"
@@ -21,48 +21,36 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"testing"
-
 	"strings"
+	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
-func TestMissingPackageName(t *testing.T) {
-	testError(t,
-		"testdata/MissingPackageName.proto",
-		"package name missing")
-}
+func TestErrorInTemplate(t *testing.T) {
 
-func TestMissingTemplateNameExt(t *testing.T) {
-	testError(t,
-		"testdata/MissingTemplateNameExt.proto",
-		"has only one of the following two options")
-}
+	tests := []struct {
+		src           string
+		expectedError string
+	}{
+		{"testdata/MissingPackageName.proto", "package name missing"},
+		{"testdata/MissingTemplateNameExt.proto", "Contains only one of the following two options"},
+		{"testdata/MissingTemplateVarietyExt.proto", "Contains only one of the following two options"},
+		{"testdata/MissingBothRequiredExt.proto", "one proto file that has both extensions"},
+		{"testdata/MissingTypeMessage.proto", "message 'Type' not defined"},
+		{"testdata/MissingConstructorMessage.proto", "message 'Constructor' not defined"},
+	}
 
-func TestMissingTemplateVarietyExt(t *testing.T) {
-	testError(t,
-		"testdata/MissingTemplateVarietyExt.proto",
-		"has only one of the following two options")
-}
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
+			_, err := createTestModel(t, tt.src)
 
-func TestMissingBothRequriedExt(t *testing.T) {
-	testError(t,
-		"testdata/MissingBothRequiredExt.proto",
-		"one proto file that has both extensions")
-}
-
-func TestTypeMessage(t *testing.T) {
-	testError(t,
-		"testdata/MissingTypeMessage.proto",
-		"should have a message 'Type'")
-}
-
-func TestConstructorMessage(t *testing.T) {
-	testError(t,
-		"testdata/MissingConstructorMessage.proto",
-		"should have a message 'Constructor'")
+			if !strings.Contains(err.Error(), tt.expectedError) {
+				t.Errorf("CreateModel(%s) caused error '%v', \n wanted err that contains string `%v`", tt.src, err, fmt.Errorf(tt.expectedError))
+			}
+		})
+	}
 }
 
 func TestBasicTopLevelFields(t *testing.T) {
@@ -75,11 +63,8 @@ func TestBasicTopLevelFields(t *testing.T) {
 	if model.Name != "List" {
 		t.Fatalf("CreateModel(%s).Name = %v, wanted %s", testFilename, model.Name, "List")
 	}
-	if model.VarietyName != "Check" {
-		t.Fatalf("CreateModel(%s).VarietyName = %v, wanted %s", testFilename, model.VarietyName, "Check")
-	}
-	if model.Check != true {
-		t.Fatalf("CreateModel(%s).Check = %v, wanted %s", testFilename, model.Check, "true")
+	if model.VarietyName != "TEMPLATE_VARIETY_CHECK" {
+		t.Fatalf("CreateModel(%s).VarietyName = %v, wanted %s", testFilename, model.VarietyName, "TEMPLATE_VARIETY_CHECK")
 	}
 }
 
@@ -107,13 +92,13 @@ func TestConstructorDirRefAndImports(t *testing.T) {
 	testField(t, testFilename, model, "Submsgfield", "*ConstructorSubmessage")
 }
 
-func testField(t *testing.T, testFilename string, model Model, fldName string,  expectedFldType string){
+func testField(t *testing.T, testFilename string, model *Model, fldName string, expectedFldType string) {
 	found := false
 	for _, cf := range model.ConstructorFields {
 		if cf.Name == fldName {
 			found = true
 			if cf.Type.Name != expectedFldType {
-				t.Fatalf("CreateModel(%s).ConstructorFields[%s] = %s, wanted %s", testFilename, fldName, cf.Type.Name,expectedFldType)
+				t.Fatalf("CreateModel(%s).ConstructorFields[%s] = %s, wanted %s", testFilename, fldName, cf.Type.Name, expectedFldType)
 			}
 		}
 	}
@@ -121,18 +106,9 @@ func testField(t *testing.T, testFilename string, model Model, fldName string,  
 		t.Fatalf("CreateModel(%s).ConstructorFields = %v, wanted to contain field with name '%s'", testFilename, model.ConstructorFields, fldName)
 	}
 }
-func testError(t *testing.T, inputTemplateProto string, expectedError string) {
 
-	_, err := createTestModel(t, inputTemplateProto)
-
-	if !strings.Contains(err.Error(), expectedError) {
-		t.Fatalf("CreateModel(%s) = %v, \n wanted err that contains string `%v`", inputTemplateProto, err, fmt.Errorf(expectedError))
-	}
-}
-
-func createTestModel(t *testing.T, inputTemplateProto string) (Model, error) {
-	outDir := path.Join("testdata", t.Name())
-	_, _ = filepath.Abs(outDir)
+func createTestModel(t *testing.T, inputTemplateProto string) (*Model, error) {
+	outDir := path.Join("testdata", getBaseFileNameWithoutExt(t.Name()))
 	err := os.RemoveAll(outDir)
 	os.MkdirAll(outDir, os.ModePerm)
 	defer os.RemoveAll(outDir)
@@ -151,7 +127,7 @@ func createTestModel(t *testing.T, inputTemplateProto string) (Model, error) {
 	}
 
 	parser, err := CreateFileDescriptorSetParser(fds, map[string]string{})
-	return CreateModel(parser)
+	return Create(parser)
 }
 
 func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
@@ -172,9 +148,9 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 	// HACK HACK. Depending on dir structure is super fragile.
 	// Explore how to generate File Descriptor set in a better way.
 	protocCmd := []string{
-		path.Join("mixer/tools/codegen/model_generator", protoFile),
+		path.Join("mixer/tools/codegen/modelgen", protoFile),
 		"-o",
-		fmt.Sprintf("%s", path.Join("mixer/tools/codegen/model_generator", outputFDSFile)),
+		fmt.Sprintf("%s", path.Join("mixer/tools/codegen/modelgen", outputFDSFile)),
 		"-I=.",
 		"-I=api",
 		"--include_imports",
@@ -185,4 +161,9 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 	cmd.Stderr = os.Stderr // For debugging
 	err := cmd.Run()
 	return err
+}
+
+func getBaseFileNameWithoutExt(filePath string) string {
+	tmp := filepath.Base(filePath)
+	return tmp[0 : len(tmp)-len(filepath.Ext(tmp))]
 }
