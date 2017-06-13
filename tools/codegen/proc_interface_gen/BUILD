@@ -19,7 +19,7 @@ go_library(
 )
 
 go_binary(
-    name = "codegen",
+    name = "procInterfaceGen",
     srcs = [
         "main.go",
     ],
