@@ -28,6 +28,7 @@ _ "istio.io/mixer/tools/codegen/pkg/template_extension"
 
 
 type Instance struct {
+  Name string
 
   Dimensions map[string]interface{}
 
@@ -35,6 +36,6 @@ type Instance struct {
 
 type QuotaProcessor interface {
   ConfigureQuota(types map[string]*Type) error
-  ReportQuota(instances map[string]*Instance) error
+  ReportQuota(instances []*Instance) error
 
 }

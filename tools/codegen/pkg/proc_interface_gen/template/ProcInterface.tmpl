@@ -19,11 +19,14 @@ package {{.PackageName}}
 import (
 {{range .Imports}}
 {{.}}
-{{end}}
+{{end}}{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
+"istio.io/mixer/tools/codegen/pkg/adapter"
+{{- end}}
 )
 
 
 type Instance struct {
+  Name string
   {{range .ConstructorFields}}
   {{.Name}} {{.Type.Name}}
   {{end}}
@@ -32,8 +35,8 @@ type Instance struct {
 type {{.Name}}Processor interface {
   Configure{{.Name}}(types map[string]*Type) error
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-    Check{{.Name}}(instances map[string]*Instance) (bool, error)
+    Check{{.Name}}(instance *Instance) (bool, adapter.CacheabilityInfo, error)
   {{else -}}
-    Report{{.Name}}(instances map[string]*Instance) error
+    Report{{.Name}}(instances []*Instance) error
   {{end}}
 }

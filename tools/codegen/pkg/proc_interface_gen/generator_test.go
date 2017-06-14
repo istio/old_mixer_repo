@@ -51,9 +51,9 @@ func TestWellKnownTemplate(t *testing.T) {
 
 			outFilePath := path.Join(outDir, "Processor.go")
 			generator := Generator{OutFilePath: outFilePath, ImportMapping: map[string]string{
-				"mixer/v1/config/descriptor/value_type.proto":                     "istio.io/api/mixer/v1/config/descriptor",
+				"mixer/v1/config/descriptor/value_type.proto":                         "istio.io/api/mixer/v1/config/descriptor",
 				"mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/pkg/template_extension",
-				"google/protobuf/duration.proto":                                  "github.com/golang/protobuf/ptypes/duration",
+				"google/protobuf/duration.proto":                                      "github.com/golang/protobuf/ptypes/duration",
 			}}
 			if err := generator.Generate(outFDS); err == nil {
 				/*

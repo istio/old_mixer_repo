@@ -32,11 +32,11 @@ package modelgen
 
 import (
 	"fmt"
-	"strings"
-	"unicode"
-	"path"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"os"
+	"path"
+	"strings"
+	"unicode"
 )
 
 type FileDescriptorSetParser struct {
@@ -220,7 +220,7 @@ func (d *Descriptor) TypeName() []string {
 
 func newEnumDescriptor(desc *descriptor.EnumDescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto, index int) *EnumDescriptor {
 	ed := &EnumDescriptor{
-		common:          common{file},
+		common:              common{file},
 		EnumDescriptorProto: desc,
 		parent:              parent,
 	}
@@ -311,7 +311,7 @@ func (d *FileDescriptor) PackageName() string { return goPackageName(*d.FileDesc
 
 func (g *FileDescriptorSetParser) Fail(msgs ...string) {
 	s := strings.Join(msgs, " ")
-	fmt.Fprintln(os.Stderr,"model_generator: error:", s)
+	fmt.Fprintln(os.Stderr, "model_generator: error:", s)
 	os.Exit(1)
 }
 
@@ -397,7 +397,7 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 	if isRepeated(field) {
 		typ = "[]" + typ
 	} else if message != nil {
-			return
+		return
 	} else if field.OneofIndex != nil && message != nil {
 		g.Fail("oneof not supported ", field.GetName())
 		return
@@ -563,5 +563,3 @@ func badToUnderscore(r rune) rune {
 func goPackageName(pkg string) string {
 	return strings.Map(badToUnderscore, pkg)
 }
-
-
