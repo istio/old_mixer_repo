@@ -24,6 +24,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"istio.io/mixer/tools/codegen/pkg/modelgen"
+	"errors"
+	"bytes"
 )
 
 type Generator struct {
@@ -37,45 +39,56 @@ func (g *Generator) Generate(fdsFile string) error {
 	tmplPath := "template/ProcInterface.tmpl"
 	t, err := ioutil.ReadFile(tmplPath)
 	if err != nil {
-		panic(fmt.Errorf("cannot load template from path %s", tmplPath))
+		return errors.New(fmt.Sprintf("cannot read template file '%s'. %v", tmplPath, err))
 	}
 
 	tmpl, err := template.New("ProcInterface").Parse(string(t))
 	if err != nil {
-		panic(err)
-	}
-
-	f, err := os.Create(g.OutFilePath)
-	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("cannot load template from path '%s'. %v", tmplPath, err))
 	}
 
 	fds, err := getFileDescSet(fdsFile)
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err))
 	}
+
 	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping)
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err))
 	}
 
 	model, err := modelgen.Create(parser)
 	if err != nil {
-		f.WriteString(err.Error())
 		return err
 	}
 
-	return tmpl.Execute(f, model)
+	buf := new(bytes.Buffer)
+	err = tmpl.Execute(buf, model)
+	if err != nil {
+		return errors.New(fmt.Sprintf("cannot execute the template '%s' with the give data. %v", tmplPath, err))
+	}
+
+	// Now write to the file.
+	if f, err := os.Create(g.OutFilePath); err != nil {
+		return err
+	} else if _, err = f.Write(buf.Bytes()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
-	byts, err := ioutil.ReadFile(path)
+	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	fds := &descriptor.FileDescriptorSet{}
-	err = proto.Unmarshal(byts, fds)
+	err = proto.Unmarshal(bytes, fds)
+	if err != nil {
+		return nil, err
+	}
 
-	return fds, err
+	return fds, nil
 }

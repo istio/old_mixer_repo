@@ -17,3 +17,5 @@ go_library(
         "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
 )
+
+# TODO Add build rule for unit tests

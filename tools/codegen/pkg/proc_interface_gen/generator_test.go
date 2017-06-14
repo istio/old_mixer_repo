@@ -21,6 +21,7 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
+	"io/ioutil"
 )
 
 func TestWellKnownTemplate(t *testing.T) {
@@ -77,6 +78,8 @@ func TestWellKnownTemplate(t *testing.T) {
 					t.FailNow()
 					return
 				}
+			} else {
+				ioutil.WriteFile(outFilePath, []byte(err.Error()), 0644)
 			}
 
 			diffCmd := exec.Command("diff", outFilePath, tt.baseline, "--ignore-all-space")
