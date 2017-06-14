@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	bt "github.com/opentracing/basictracer-go"
 	ot "github.com/opentracing/opentracing-go"
@@ -258,10 +260,16 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
+	// setup server grpc interceptors for monitoring
+	grpc_prometheus.EnableHandlingTimeHistogram()
+
 	if sa.enableTracing {
 		tracer := bt.New(tracing.IORecorder(os.Stdout))
 		ot.InitGlobalTracer(tracer)
-		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(tracer)))
+		grpcOptions = append(grpcOptions,
+			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(otgrpc.OpenTracingServerInterceptor(tracer), grpc_prometheus.UnaryServerInterceptor)))
+	} else {
+		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
 	}
 
 	configManager.Register(adapterMgr)
