@@ -23,7 +23,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 
-	tmpl "istio.io/mixer/tools/codegen/template_extension"
+	tmpl "istio.io/mixer/tools/codegen/pkg/template_extension"
 )
 
 const FullNameOfExprMessage = "istio_mixer_v1_config_template.Expr"

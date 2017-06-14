@@ -23,7 +23,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"istio.io/mixer/tools/codegen/modelgen"
+	"istio.io/mixer/tools/codegen/pkg/modelgen"
 )
 
 type Generator struct {
