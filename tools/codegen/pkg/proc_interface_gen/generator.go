@@ -73,6 +73,9 @@ func (g *Generator) Generate(fdsFile string) error {
 		return err
 	} else if _, err = f.Write(buf.Bytes()); err != nil {
 		return err
+	} else {
+		// file successfully written, close it.
+		f.Close()
 	}
 
 	return nil
