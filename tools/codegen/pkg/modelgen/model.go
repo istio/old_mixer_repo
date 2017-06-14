@@ -26,8 +26,8 @@ import (
 	tmpl "istio.io/mixer/tools/codegen/pkg/template_extension"
 )
 
-const FullNameOfExprMessage = "istio_mixer_v1_config_template.Expr"
-const FullNameOfExprMessageWithPtr = "*" + FullNameOfExprMessage
+const fullNameOfExprMessage = "istio_mixer_v1_config_template.Expr"
+const fullNameOfExprMessageWithPtr = "*" + fullNameOfExprMessage
 
 type (
 	// Data model to be used to generate code for istio/mixer
@@ -192,7 +192,7 @@ func (m *Model) addInstanceFieldFromConstructor(parser *FileDescriptorSetParser,
 		}
 		typename := parser.GoType(cnstrDesc.DescriptorProto, fieldDesc)
 		// TODO : Can there be more than one expressions in a type for a field in Constructor ?
-		typename = strings.Replace(typename, FullNameOfExprMessageWithPtr, "interface{}", 1)
+		typename = strings.Replace(typename, fullNameOfExprMessageWithPtr, "interface{}", 1)
 		m.ConstructorFields = append(m.ConstructorFields, fieldInfo{Name: fieldName, Type: typeInfo{Name: typename}})
 	}
 }
@@ -229,10 +229,8 @@ func getRequiredMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
 			break
 		}
 	}
-	if cstrDesc == nil {
-		return nil, false
-	}
-	return cstrDesc, true
+
+	return cstrDesc, cstrDesc != nil
 }
 
 func getReferencedPackagesWithinType(parser *FileDescriptorSetParser, typDesc *Descriptor) []string {
@@ -250,7 +248,7 @@ func getReferencedPackagesByField(parser *FileDescriptorSetParser, fieldDesc *de
 	}
 	refDesc := parser.ObjectNamed(fieldDesc.GetTypeName())
 	if d, ok := refDesc.(*Descriptor); ok {
-		if fmt.Sprintf("%s.%s", d.PackageName(), d.GetName()) == FullNameOfExprMessage {
+		if fmt.Sprintf("%s.%s", d.PackageName(), d.GetName()) == fullNameOfExprMessage {
 			return
 		}
 	}
