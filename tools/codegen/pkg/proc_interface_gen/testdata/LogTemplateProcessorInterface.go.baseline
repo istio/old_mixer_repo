@@ -20,7 +20,7 @@ import (
 
 _ "istio.io/api/mixer/v1/config/descriptor"
 
-_ "istio.io/mixer/tools/codegen/template_extension"
+_ "istio.io/mixer/tools/codegen/pkg/template_extension"
 
 )
 
