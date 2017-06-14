@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	interfacegen "istio.io/mixer/tools/codegen/pkg/proc_interface_gen"
 )
 
 func withArgs(args []string, errorf func(format string, a ...interface{})) {
@@ -52,7 +53,7 @@ Example: procInterfaceGen metricTemplateFileDescriptorSet.pb -o MetricProcessor.
 				m := strings.Split(maps, ":")
 				importMapping[m[0]] = m[1]
 			}
-			generator := Generator{outFilePath: outFileFullPath, importMapping: importMapping}
+			generator := interfacegen.Generator{OutFilePath: outFileFullPath, ImportMapping: importMapping}
 			if err := generator.Generate(args[0]); err != nil {
 				errorf("%v", err)
 			}

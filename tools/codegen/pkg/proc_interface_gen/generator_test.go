@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package interfacegen
 
 import (
 	"fmt"
@@ -50,9 +50,9 @@ func TestWellKnownTemplate(t *testing.T) {
 			}
 
 			outFilePath := path.Join(outDir, "Processor.go")
-			generator := Generator{outFilePath: outFilePath, importMapping: map[string]string{
+			generator := Generator{OutFilePath: outFilePath, ImportMapping: map[string]string{
 				"mixer/v1/config/descriptor/value_type.proto":                     "istio.io/api/mixer/v1/config/descriptor",
-				"mixer/tools/codegen/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/template_extension",
+				"mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/pkg/template_extension",
 				"google/protobuf/duration.proto":                                  "github.com/golang/protobuf/ptypes/duration",
 			}}
 			if err := generator.Generate(outFDS); err == nil {
@@ -101,9 +101,9 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 	// HACK HACK. Depending on dir structure is super fragile.
 	// Explore how to generate File Descriptor set in a better way.
 	protocCmd := []string{
-		path.Join("mixer/tools/codegen/proc_interface_gen", protoFile),
+		path.Join("mixer/tools/codegen/pkg/proc_interface_gen", protoFile),
 		"-o",
-		path.Join("mixer/tools/codegen/proc_interface_gen", outputFDSFile),
+		path.Join("mixer/tools/codegen/pkg/proc_interface_gen", outputFDSFile),
 		"-I=.",
 		"-I=api",
 		"--include_imports",
@@ -122,12 +122,12 @@ func generteGoPbFileForTmpl(protoFile string, outDir string) error {
 	// HACK HACK. Depending on dir structure is super fragile.
 	// Explore how to generate File Descriptor set in a better way.
 	protocCmd := []string{
-		path.Join("mixer/tools/codegen/proc_interface_gen", protoFile),
+		path.Join("mixer/tools/codegen/pkg/proc_interface_gen", protoFile),
 		"--go_out=Mgoogle/protobuf/duration.proto=github.com/golang/protobuf/ptypes/duration,Mmixer/v1/" +
 			"config/descriptor/value_type.proto=istio.io/api/mixer/v1/config/descriptor," +
 			"Mgoogle/protobuf/descriptor.proto=github.com/golang/protobuf/protoc-gen-go/descriptor," +
 			"Mgoogle/protobuf/struct.proto=github.com/golang/protobuf/ptypes/struct," +
-			"Mmixer/tools/codegen/template_extension/TemplateExtensions.proto=istio.io/mixer/tools/codegen/template_extension:.",
+			"Mmixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto=istio.io/mixer/tools/codegen/pkg/template_extension:.",
 		"-I=.",
 		"-I=api",
 	}

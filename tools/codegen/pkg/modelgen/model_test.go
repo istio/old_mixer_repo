@@ -77,7 +77,7 @@ func TestConstructorDirRefAndImports(t *testing.T) {
 	if !contains(model.Imports, expectedTxt) {
 		t.Fatalf("CreateModel(%s).Imports = %v, wanted to contain %s", testFilename, model.Imports, expectedTxt)
 	}
-	expectedTxt = "_ \"mixer/tools/codegen/template_extension\""
+	expectedTxt = "_ \"mixer/tools/codegen/pkg/template_extension\""
 	if !contains(model.Imports, expectedTxt) {
 		t.Fatalf("CreateModel(%s).Imports = %v, wanted to contain %s", testFilename, model.Imports, expectedTxt)
 	}
@@ -148,9 +148,9 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 	// HACK HACK. Depending on dir structure is super fragile.
 	// Explore how to generate File Descriptor set in a better way.
 	protocCmd := []string{
-		path.Join("mixer/tools/codegen/modelgen", protoFile),
+		path.Join("mixer/tools/codegen/pkg/modelgen", protoFile),
 		"-o",
-		fmt.Sprintf("%s", path.Join("mixer/tools/codegen/modelgen", outputFDSFile)),
+		fmt.Sprintf("%s", path.Join("mixer/tools/codegen/pkg/modelgen", outputFDSFile)),
 		"-I=.",
 		"-I=api",
 		"--include_imports",

@@ -18,7 +18,7 @@ package foo_bar_mylistchecker
 
 import (
 
-_ "istio.io/mixer/tools/codegen/template_extension"
+_ "istio.io/mixer/tools/codegen/pkg/template_extension"
 
 )
 

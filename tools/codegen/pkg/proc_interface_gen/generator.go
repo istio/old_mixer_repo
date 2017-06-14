@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package interfacegen
 
 import (
 	"io/ioutil"
@@ -27,8 +27,8 @@ import (
 )
 
 type Generator struct {
-	outFilePath   string
-	importMapping map[string]string
+	OutFilePath   string
+	ImportMapping map[string]string
 }
 
 func (g *Generator) Generate(fdsFile string) error {
@@ -45,7 +45,7 @@ func (g *Generator) Generate(fdsFile string) error {
 		panic(err)
 	}
 
-	f, err := os.Create(g.outFilePath)
+	f, err := os.Create(g.OutFilePath)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.importMapping)
+	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping)
 	if err != nil {
 		return err
 	}
