@@ -17,6 +17,6 @@ package adapter
 import "time"
 
 type CacheabilityInfo struct {
-	ResetTime time.Duration
-	ResetCallCount int64
+	ValidDuration time.Duration
+	ValidUseCount int64
 }

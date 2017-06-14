@@ -20,74 +20,82 @@ import (
 	"strings"
 )
 
-const (
-	ERROR_DIAG DiagKind = iota
-	WARNING_DIAG
+type (
+	diagKind uint8
 )
-const UNKNOWN_LINE = ""
-const UNKNOWN_FILE = ""
+const (
+	errorDiag   diagKind = iota
+	warningDiag
+)
+
+const (
+	unknownFile = ""
+	unknownLine = ""
+)
 
 type (
-	DiagKind uint8
-
 	// Diag represents diagnostic information.
-	Diag struct {
-		kind     DiagKind
-		Location location
-		Message  string
+	diag struct {
+		kind     diagKind
+		location location
+		message  string
 	}
 	// location represents the location of the Diag
 	location struct {
-		File string
+		file string
 		// TODO: Currently Line is always set as UNKNOWN_LINE. Consider using proto's
 		// SourceCodeInfo to exactly point to the line number.
-		Line string
+		line string
 	}
 )
 
-func stringifyDiags(diags []Diag) string {
+func (diag diag) String() string {
+	var kind string
+	if diag.kind == errorDiag {
+		kind = "Error"
+	} else {
+		kind = "Warning"
+	}
+
+	var msg string
+	msg = strings.TrimSpace(diag.message)
+	if !strings.HasSuffix(msg, ".") {
+		msg = msg + "."
+	}
+
+	if diag.location.line != "" {
+		return fmt.Sprintf("%s: %s:%s: %s\n", kind, diag.location.file, diag.location.line, msg)
+	} else if diag.location.file != "" {
+		return  fmt.Sprintf("%s: %s: %s\n", kind, diag.location.file, msg)
+	} else {
+		return fmt.Sprintf("%s: %s\n", kind, msg)
+	}
+}
+
+func stringifyDiags(diags []diag) string {
 	var result bytes.Buffer
-	for _, diag := range diags {
-		var kind string
-		if diag.kind == ERROR_DIAG {
-			kind = "Error"
-		} else {
-			kind = "Warning"
-		}
-
-		var msg string
-		msg = strings.TrimSpace(diag.Message)
-		if !strings.HasSuffix(msg, ".") {
-			msg = msg + "."
-		}
-
-		if diag.Location.Line != "" {
-			result.WriteString(fmt.Sprintf("%s: %s:%s: %s\n", kind, diag.Location.File, diag.Location.Line, msg))
-		} else if diag.Location.File != "" {
-			result.WriteString(fmt.Sprintf("%s: %s: %s\n", kind, diag.Location.File, msg))
-		} else {
-			result.WriteString(fmt.Sprintf("%s: %s\n", kind, msg))
-		}
+	for _, d := range diags {
+		result.WriteString(d.String())
 	}
 	return result.String()
 }
 
 func (m *Model) addError(file string, line string, format string, a ...interface{}) {
-	m.addDiag(ERROR_DIAG, file, line, format, a)
+	m.addDiag(errorDiag, file, line, format, a)
 }
 
 func (m *Model) addWarning(file string, line string, format string, a ...interface{}) {
-	m.addDiag(WARNING_DIAG, file, line, format, a)
+	m.addDiag(warningDiag, file, line, format, a)
 }
 
-func (m *Model) addDiag(kind DiagKind, file string, line string, format string, a []interface{}) {
-	m.Diags = append(m.Diags, createDiag(kind, file, line, format, a))
+func (m *Model) addDiag(kind diagKind, file string, line string, format string, a []interface{}) {
+	m.diags = append(m.diags, createDiag(kind, file, line, format, a))
 }
 
-func createDiag(kind DiagKind, file string, line string, format string, a []interface{}) Diag {
+func createDiag(kind diagKind, file string, line string, format string, a []interface{}) diag {
 	if len(a) == 0 {
-		return Diag{kind: kind, Location: location{File: file, Line: line}, Message: format}
+		return diag{kind: kind, location: location{file: file, line: line}, message: format}
 	} else {
-		return Diag{kind: kind, Location: location{File: file, Line: line}, Message: fmt.Sprintf(format, a...)}
+		return diag{kind: kind, location: location{file: file, line: line}, message: fmt.Sprintf(format, a...)}
 	}
 }
