@@ -26,19 +26,20 @@ _ "istio.io/mixer/tools/codegen/pkg/template_extension"
 
 
 type Instance struct {
-  
+  Name string
+
   Value interface{}
-  
+
   Dimensions map[string]interface{}
-  
+
   Om *OtherMessage
-  
+
   Vt istio_mixer_v1_config_descriptor.ValueType
-  
+
 }
 
 type MetricProcessor interface {
   ConfigureMetric(types map[string]*Type) error
-  ReportMetric(instances map[string]*Instance) error
+  ReportMetric(instances []*Instance) error
   
 }

@@ -9,7 +9,7 @@ go_library(
     ],
     data = ["//tools/codegen/pkg/proc_interface_gen:template/ProcInterface.tmpl"],
     deps = [
-        "//tools/codegen/pkg/model_generator:go_default_library",
+        "//tools/codegen/pkg/modelgen:go_default_library",
         "//tools/codegen/pkg/template_extension:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",

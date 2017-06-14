@@ -24,6 +24,7 @@ _ "istio.io/mixer/tools/codegen/pkg/template_extension"
 
 
 type Instance struct {
+  Name string
 
   Om *Constructor_OtherMessage
 
@@ -31,6 +32,6 @@ type Instance struct {
 
 type MetricProcessor interface {
   ConfigureMetric(types map[string]*Type) error
-  ReportMetric(instances map[string]*Instance) error
+  ReportMetric(instances []*Instance) error
 
 }

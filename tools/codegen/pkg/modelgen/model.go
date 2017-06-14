@@ -181,10 +181,18 @@ func (m *Model) addInstanceFieldFromConstructor(parser *FileDescriptorSetParser,
 	m.ConstructorFields = make([]fieldInfo, 0)
 	for _, fieldDesc := range cnstrDesc.Field {
 		fieldName := CamelCase(fieldDesc.GetName())
+		// Name field is a reserved field that will be inject in the Instance object. The user defined
+		// Constructor should not have a Name field, else there will be a name clash.
+		// 'Name' within the Instance object would represent the name of the Constructor:instance_name
+		// specified in the operator Yaml file.
+		if fieldName == "Name" {
+			// TODO add line number for the field.
+			m.addError(cnstrDesc.file.GetName(), UNKNOWN_LINE, "Constructor message must not contain the reserved filed name '%s'", fieldDesc.GetName())
+			continue
+		}
 		typename := parser.GoType(cnstrDesc.DescriptorProto, fieldDesc)
 		// TODO : Can there be more than one expressions in a type for a field in Constructor ?
 		typename = strings.Replace(typename, FullNameOfExprMessageWithPtr, "interface{}", 1)
-
 		m.ConstructorFields = append(m.ConstructorFields, fieldInfo{Name: fieldName, Type: typeInfo{Name: typename}})
 	}
 }

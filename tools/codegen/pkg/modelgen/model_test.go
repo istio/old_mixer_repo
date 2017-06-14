@@ -40,6 +40,7 @@ func TestErrorInTemplate(t *testing.T) {
 		{"testdata/MissingBothRequiredExt.proto", "one proto file that has both extensions"},
 		{"testdata/MissingTypeMessage.proto", "message 'Type' not defined"},
 		{"testdata/MissingConstructorMessage.proto", "message 'Constructor' not defined"},
+		{"testdata/ReservedFieldInConstructor.proto", "Constructor message must not contain the reserved filed name 'Name'"},
 	}
 
 	for idx, tt := range tests {
