@@ -25,7 +25,7 @@ TODO:
 -  Handle Extensions. Should we allow Constructor message to have extension fields. Extensions have are a complete
    different handling in protoc-gen-go. So far I am what it means for our generated code.
 -  Accept all the other parameters that protoc-gen-go takes in our generator. Our codegen should use those
-   paramters for it's codegen and pass to the protoc-gen-go plugin (invoking another protoc process).
+   parameters for it's codegen and pass to the protoc-gen-go plugin (invoking another protoc process).
 */
 
 package modelgen
@@ -40,6 +40,8 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
+// FileDescriptorSetParser parses the FileDescriptorSetProto and creates an intermediate object that is used to
+// create Model struct.
 type FileDescriptorSetParser struct {
 	typeNameToObject  map[string]Object // Key is a fully-qualified name in input syntax.
 	Param             map[string]string // Command-line parameters.
@@ -51,13 +53,13 @@ type FileDescriptorSetParser struct {
 	packageName    string                     // What we're calling ourselves.
 	allFiles       []*FileDescriptor          // All files in the tree
 	allFilesByName map[string]*FileDescriptor // All files by filename.
-	usedPackages   map[string]bool            // Names of packages used in current file.
 }
 
 type common struct {
 	file *descriptor.FileDescriptorProto // File this object comes from.
 }
 
+// FileDescriptor wraps a FileDescriptorProto.
 type FileDescriptor struct {
 	*descriptor.FileDescriptorProto
 	desc []*Descriptor     // All the messages defined in this file.
@@ -66,17 +68,18 @@ type FileDescriptor struct {
 	proto3 bool // whether to generate proto3 code for this file
 }
 
+// Descriptor wraps a DescriptorProto.
 type Descriptor struct {
 	common
 	*descriptor.DescriptorProto
-	parent      *Descriptor       // The containing message, if any.
-	nested      []*Descriptor     // Inner messages, if any.
-	enums       []*EnumDescriptor // Inner enums, if any.
-	typename    []string          // Cached typename vector.
-	group       bool
-	refPackages []string
+	parent   *Descriptor       // The containing message, if any.
+	nested   []*Descriptor     // Inner messages, if any.
+	enums    []*EnumDescriptor // Inner enums, if any.
+	typename []string          // Cached typename vector.
+	group    bool
 }
 
+// EnumDescriptor wraps a EnumDescriptorProto.
 type EnumDescriptor struct {
 	common
 	*descriptor.EnumDescriptorProto
@@ -84,12 +87,14 @@ type EnumDescriptor struct {
 	typename []string    // Cached typename vector.
 }
 
+// Object is a shared interface implemented by FileDescriptor, EnumDescriptor and Descriptor
 type Object interface {
 	PackageName() string // The name we use in our output (a_b_c), possibly renamed for uniqueness.
 	TypeName() []string
 	File() *descriptor.FileDescriptorProto
 }
 
+// CreateFileDescriptorSetParser builds a FileDescriptorSetParser instance.
 func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string) (*FileDescriptorSetParser, error) {
 	parser := &FileDescriptorSetParser{ImportMap: importMap}
 	parser.WrapTypes(fds)
@@ -97,16 +102,17 @@ func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap 
 	return parser, nil
 }
 
+// WrapTypes creates wrapper types for messages, enumse and file inside the FileDescriptorSet.
 func (g *FileDescriptorSetParser) WrapTypes(fds *descriptor.FileDescriptorSet) {
 	g.allFiles = make([]*FileDescriptor, 0, len(fds.File))
 	g.allFilesByName = make(map[string]*FileDescriptor, len(g.allFiles))
 	for _, f := range fds.File {
-		g.WrapFileDescriptor(f)
+		g.wrapFileDescriptor(f)
 
 	}
 }
 
-func (g *FileDescriptorSetParser) WrapFileDescriptor(f *descriptor.FileDescriptorProto) {
+func (g *FileDescriptorSetParser) wrapFileDescriptor(f *descriptor.FileDescriptorProto) {
 	if _, ok := g.allFilesByName[f.GetName()]; !ok {
 		// We must wrap the descriptors before we wrap the enums
 		descs := wrapDescriptors(f)
@@ -127,17 +133,17 @@ func (g *FileDescriptorSetParser) WrapFileDescriptor(f *descriptor.FileDescripto
 
 func wrapDescriptors(file *descriptor.FileDescriptorProto) []*Descriptor {
 	sl := make([]*Descriptor, 0, len(file.MessageType)+10)
-	for i, desc := range file.MessageType {
-		sl = wrapThisDescriptor(sl, desc, nil, file, i)
+	for _, desc := range file.MessageType {
+		sl = wrapThisDescriptor(sl, desc, nil, file)
 	}
 	return sl
 }
 
-func wrapThisDescriptor(sl []*Descriptor, desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto, index int) []*Descriptor {
-	sl = append(sl, newDescriptor(desc, parent, file, index))
+func wrapThisDescriptor(sl []*Descriptor, desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto) []*Descriptor {
+	sl = append(sl, newDescriptor(desc, parent, file))
 	me := sl[len(sl)-1]
-	for i, nested := range desc.NestedType {
-		sl = wrapThisDescriptor(sl, nested, me, file, i)
+	for _, nested := range desc.NestedType {
+		sl = wrapThisDescriptor(sl, nested, me, file)
 	}
 	return sl
 }
@@ -145,13 +151,13 @@ func wrapThisDescriptor(sl []*Descriptor, desc *descriptor.DescriptorProto, pare
 func wrapEnumDescriptors(file *descriptor.FileDescriptorProto, descs []*Descriptor) []*EnumDescriptor {
 	sl := make([]*EnumDescriptor, 0, len(file.EnumType)+10)
 	// Top-level enums.
-	for i, enum := range file.EnumType {
-		sl = append(sl, newEnumDescriptor(enum, nil, file, i))
+	for _, enum := range file.EnumType {
+		sl = append(sl, newEnumDescriptor(enum, nil, file))
 	}
 	// Enums within messages. Enums within embedded messages appear in the outer-most message.
 	for _, nested := range descs {
-		for i, enum := range nested.EnumType {
-			sl = append(sl, newEnumDescriptor(enum, nested, file, i))
+		for _, enum := range nested.EnumType {
+			sl = append(sl, newEnumDescriptor(enum, nested, file))
 		}
 	}
 	return sl
@@ -159,7 +165,7 @@ func wrapEnumDescriptors(file *descriptor.FileDescriptorProto, descs []*Descript
 
 // Descriptor methods ..
 
-func newDescriptor(desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto, index int) *Descriptor {
+func newDescriptor(desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto) *Descriptor {
 	d := &Descriptor{
 		common:          common{file},
 		DescriptorProto: desc,
@@ -194,12 +200,13 @@ func (g *FileDescriptorSetParser) buildNestedDescriptors(descs []*Descriptor) {
 				}
 			}
 			if len(desc.nested) != len(desc.NestedType) {
-				g.Fail("internal error: nesting failure for", desc.GetName())
+				g.fail("internal error: nesting failure for", desc.GetName())
 			}
 		}
 	}
 }
 
+// TypeName returns a cached typename vector.
 func (d *Descriptor) TypeName() []string {
 	if d.typename != nil {
 		return d.typename
@@ -208,7 +215,7 @@ func (d *Descriptor) TypeName() []string {
 	for parent := d; parent != nil; parent = parent.parent {
 		n++
 	}
-	s := make([]string, n, n)
+	s := make([]string, n)
 	for parent := d; parent != nil; parent = parent.parent {
 		n--
 		s[n] = parent.GetName()
@@ -219,7 +226,7 @@ func (d *Descriptor) TypeName() []string {
 
 // Enum methods ..
 
-func newEnumDescriptor(desc *descriptor.EnumDescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto, index int) *EnumDescriptor {
+func newEnumDescriptor(desc *descriptor.EnumDescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto) *EnumDescriptor {
 	ed := &EnumDescriptor{
 		common:              common{file},
 		EnumDescriptorProto: desc,
@@ -237,12 +244,13 @@ func (g *FileDescriptorSetParser) buildNestedEnums(descs []*Descriptor, enums []
 				}
 			}
 			if len(desc.enums) != len(desc.EnumType) {
-				g.Fail("internal error: enum nesting failure for", desc.GetName())
+				g.fail("internal error: enum nesting failure for", desc.GetName())
 			}
 		}
 	}
 }
 
+// TypeName returns a cached typename vector.
 func (e *EnumDescriptor) TypeName() (s []string) {
 	if e.typename != nil {
 		return e.typename
@@ -306,23 +314,23 @@ func (d *FileDescriptor) goPackageOption() (impPath, pkg string, ok bool) {
 	return
 }
 
-func (d *FileDescriptor) PackageName() string { return goPackageName(*d.FileDescriptorProto.Name) }
+func (d *FileDescriptor) packageName() string { return goPackageName(*d.FileDescriptorProto.Name) }
 
 // FileDescriptorSetParser methods
 
-func (g *FileDescriptorSetParser) Fail(msgs ...string) {
+func (g *FileDescriptorSetParser) fail(msgs ...string) {
 	s := strings.Join(msgs, " ")
 	fmt.Fprintln(os.Stderr, "model_generator: error:", s)
 	os.Exit(1)
 }
 
-func (g *FileDescriptorSetParser) FileOf(fd *descriptor.FileDescriptorProto) *FileDescriptor {
+func (g *FileDescriptorSetParser) fileOf(fd *descriptor.FileDescriptorProto) *FileDescriptor {
 	for _, file := range g.allFiles {
 		if file.FileDescriptorProto == fd {
 			return file
 		}
 	}
-	g.Fail("could not find file in table:", fd.GetName())
+	g.fail("could not find file in table:", fd.GetName())
 	return nil
 }
 
@@ -330,6 +338,7 @@ func (g *FileDescriptorSetParser) fileByName(filename string) *FileDescriptor {
 	return g.allFilesByName[filename]
 }
 
+// GoType returns a Go type name for a FieldDescriptorProto.
 func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, field *descriptor.FieldDescriptorProto) (typ string) {
 	switch *field.Type {
 	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
@@ -354,7 +363,7 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 		typ = "string"
 	case descriptor.FieldDescriptorProto_TYPE_GROUP:
 		// TODO : What needs to be done in this case?
-		g.Fail(fmt.Sprintf("unsupported field type %s for field %s", descriptor.FieldDescriptorProto_TYPE_GROUP.String(), field.GetName()))
+		g.fail(fmt.Sprintf("unsupported field type %s for field %s", descriptor.FieldDescriptorProto_TYPE_GROUP.String(), field.GetName()))
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 		desc := g.ObjectNamed(field.GetTypeName())
 		typ = "*" + g.TypeName(desc)
@@ -392,7 +401,7 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 	case descriptor.FieldDescriptorProto_TYPE_SINT64:
 		typ = "int64"
 	default:
-		g.Fail("unknown type for", field.GetName())
+		g.fail("unknown type for", field.GetName())
 
 	}
 	if isRepeated(field) {
@@ -400,7 +409,7 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 	} else if message != nil {
 		return
 	} else if field.OneofIndex != nil && message != nil {
-		g.Fail("oneof not supported ", field.GetName())
+		g.fail("oneof not supported ", field.GetName())
 		return
 	} else if needsStar(*field.Type) {
 		typ = "*" + typ
@@ -408,10 +417,12 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 	return
 }
 
+// TypeName returns a full name for the underlying Object type.
 func (g *FileDescriptorSetParser) TypeName(obj Object) string {
-	return g.DefaultPackageName(obj) + CamelCaseSlice(obj.TypeName())
+	return g.DefaultPackageName(obj) + camelCaseSlice(obj.TypeName())
 }
 
+// DefaultPackageName returns a full packagen name for the underlying Object type.
 func (g *FileDescriptorSetParser) DefaultPackageName(obj Object) string {
 	// TODO if the protoc is not executed with --include_imports, this
 	// is guaranteed to throw NPE.
@@ -426,17 +437,17 @@ func (g *FileDescriptorSetParser) DefaultPackageName(obj Object) string {
 	return pkg + "."
 }
 
-// ObjectNamed, given a fully-qualified input type name as it appears in the input data,
-// returns the descriptor for the message or enum with that name.
+// ObjectNamed returns the descriptor for the message or enum with that name.
 func (g *FileDescriptorSetParser) ObjectNamed(typeName string) Object {
 	o, ok := g.typeNameToObject[typeName]
 	if !ok {
-		g.Fail("can't find object with type", typeName)
+		g.fail("can't find object with type", typeName)
 	}
 
 	return o
 }
 
+// BuildTypeNameMap creates a map of type name to the wrapper Object associated with it.
 func (g *FileDescriptorSetParser) BuildTypeNameMap() {
 	g.typeNameToObject = make(map[string]Object)
 	for _, f := range g.allFiles {
@@ -460,6 +471,7 @@ func (g *FileDescriptorSetParser) BuildTypeNameMap() {
 
 // common struct methods
 
+// PackageName returns the Go package name for the file the common object belongs to.
 func (c *common) PackageName() string {
 	f := c.file
 	return goPackageName(f.GetPackage())
@@ -497,7 +509,7 @@ func isASCIIDigit(c byte) bool {
 	return '0' <= c && c <= '9'
 }
 
-func CamelCase(s string) string {
+func camelCase(s string) string {
 	if s == "" {
 		return ""
 	}
@@ -545,7 +557,7 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-func CamelCaseSlice(elem []string) string { return CamelCase(strings.Join(elem, "_")) }
+func camelCaseSlice(elem []string) string { return camelCase(strings.Join(elem, "_")) }
 
 func fileIsProto3(file *descriptor.FileDescriptorProto) bool {
 	return file.GetSyntax() == "proto3"

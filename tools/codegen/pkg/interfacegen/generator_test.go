@@ -40,12 +40,12 @@ func TestWellKnownTemplate(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
 			outDir := path.Join("testdata", getBaseFileNameWithoutExt(t.Name()))
-			err := os.RemoveAll(outDir)
-			os.MkdirAll(outDir, os.ModePerm)
+			_ = os.RemoveAll(outDir)
+			_ = os.MkdirAll(outDir, os.ModePerm)
 
 			outFDS := path.Join(outDir, "outFDS.pb")
-			defer os.Remove(outFDS)
-			err = generteFDSFileHacky(tt.src, outFDS)
+			defer removeDir(outFDS)
+			err := generteFDSFileHacky(tt.src, outFDS)
 			if err != nil {
 				t.Errorf("Unable to generate file descriptor set %v", err)
 			}
@@ -56,7 +56,7 @@ func TestWellKnownTemplate(t *testing.T) {
 				"mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/pkg/template_extension",
 				"google/protobuf/duration.proto":                                      "github.com/golang/protobuf/ptypes/duration",
 			}}
-			if err := generator.Generate(outFDS); err == nil {
+			if err = generator.Generate(outFDS); err == nil {
 				/*
 					Below commented code is for testing if the generated code compiles correctly. Currently to test that, I have to
 					run protoc separately copy the generated pb.go in the tmp output folder (doing it via a separate script),
@@ -79,7 +79,7 @@ func TestWellKnownTemplate(t *testing.T) {
 					return
 				}
 			} else {
-				ioutil.WriteFile(outFilePath, []byte(err.Error()), 0644)
+				_ = ioutil.WriteFile(outFilePath, []byte(err.Error()), 0644)
 			}
 
 			diffCmd := exec.Command("diff", outFilePath, tt.baseline, "--ignore-all-space")
@@ -92,10 +92,13 @@ func TestWellKnownTemplate(t *testing.T) {
 			}
 
 			// if the test succeeded, clean up
-			os.RemoveAll(outDir)
+			_ = os.RemoveAll(outDir)
 		})
 	}
+}
 
+func removeDir(dir string) {
+	_ = os.Remove(dir)
 }
 
 // TODO: This is blocking the test to be enabled from Bazel.

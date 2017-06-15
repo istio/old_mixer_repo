@@ -30,7 +30,7 @@ const fullNameOfExprMessage = "istio_mixer_v1_config_template.Expr"
 const fullNameOfExprMessageWithPtr = "*" + fullNameOfExprMessage
 
 type (
-	// Data model to be used to generate code for istio/mixer
+	// Model represents the object used to code generate mixer artifacts.
 	Model struct {
 		// top level fields
 		Name        string
@@ -80,30 +80,30 @@ func Create(parser *FileDescriptorSetParser) (*Model, error) {
 }
 
 func createError(diags []diag) error {
-	return fmt.Errorf("Errors during parsing:\n%s", stringifyDiags(diags))
+	return fmt.Errorf("errors during parsing:\n%s", stringifyDiags(diags))
 }
 
-func (model *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorSetParser) {
+func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorSetParser) {
 
-	model.addTopLevelFields(templateProto)
+	m.addTopLevelFields(templateProto)
 
 	// ensure Type is present
 	if _, ok := getRequiredMsg(templateProto, "Type"); !ok {
-		model.addError(templateProto.GetName(), unknownFile, "message 'Type' not defined")
+		m.addError(templateProto.GetName(), unknownLine, "message 'Type' not defined")
 	}
 
 	// ensure Constructor is present
 	if cnstrDesc, ok := getRequiredMsg(templateProto, "Constructor"); !ok {
-		model.addError(templateProto.GetName(), unknownFile, "message 'Constructor' not defined")
+		m.addError(templateProto.GetName(), unknownLine, "message 'Constructor' not defined")
 	} else {
-		model.addInstanceFieldFromConstructor(parser, cnstrDesc)
-		model.addImports(parser, templateProto, cnstrDesc)
+		m.addInstanceFieldFromConstructor(parser, cnstrDesc)
+		m.addImports(parser, templateProto, cnstrDesc)
 	}
 }
 
 // Find the file that has the options TemplateVariety and TemplateName. There should only be one such file.
 func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
-	var templateDescriptorProto *FileDescriptor = nil
+	var templateDescriptorProto *FileDescriptor
 	diags := make([]diag, 0)
 	for _, fd := range fds {
 		if fd.GetOptions() == nil {
@@ -114,13 +114,15 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 		}
 
 		if !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateName) || !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateVariety) {
-			diags = append(diags, createDiag(errorDiag, fd.GetName(), unknownFile, "Contains only one of the following two options %s and %s. Both options are required.",
+			diags = append(diags, createDiag(errorDiag, fd.GetName(), unknownLine,
+				"Contains only one of the following two options %s and %s. Both options are required.",
 				[]interface{}{tmpl.E_TemplateVariety.Name, tmpl.E_TemplateName.Name}))
 			continue
 		}
 
 		if templateDescriptorProto != nil {
-			diags = append(diags, createDiag(errorDiag, fd.GetName(), unknownFile, "Proto files %s and %s, both have the options %s and %s. Only one proto file is allowed with those options",
+			diags = append(diags, createDiag(errorDiag, fd.GetName(), unknownLine,
+				"Proto files %s and %s, both have the options %s and %s. Only one proto file is allowed with those options",
 				[]interface{}{fd.GetName(), templateDescriptorProto.Name, tmpl.E_TemplateVariety.Name, tmpl.E_TemplateName.Name}))
 			continue
 		}
@@ -129,7 +131,7 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 	}
 
 	if templateDescriptorProto == nil {
-		diags = append(diags, createDiag(errorDiag, unknownFile, unknownFile, "There has to be one proto file that has both extensions %s and %s",
+		diags = append(diags, createDiag(errorDiag, unknownFile, unknownLine, "There has to be one proto file that has both extensions %s and %s",
 			[]interface{}{tmpl.E_TemplateVariety.Name, tmpl.E_TemplateVariety.Name}))
 	}
 
@@ -143,26 +145,26 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 // Add all the file level fields to the model.
 func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	if !fd.proto3 {
-		m.addError(fd.GetName(), unknownFile, "Only proto3 template files are allowed")
+		m.addError(fd.GetName(), unknownLine, "Only proto3 template files are allowed")
 	}
 
 	if fd.Package != nil {
 		m.PackageName = goPackageName(strings.TrimSpace(*fd.Package))
 	} else {
-		m.addError(fd.GetName(), unknownFile, "package name missing")
+		m.addError(fd.GetName(), unknownLine, "package name missing")
 	}
 
 	if tmplName, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateName); err == nil {
 		if _, ok := tmplName.(*string); !ok {
 			// protoc should mandate the type. It is impossible to get to this state.
-			m.addError(fd.GetName(), unknownFile, "%s should be of type string", tmpl.E_TemplateName.Name)
+			m.addError(fd.GetName(), unknownLine, "%s should be of type string", tmpl.E_TemplateName.Name)
 		} else {
 			m.Name = *tmplName.(*string)
 		}
 	} else {
 		// This func should only get called for FileDescriptor that has this attribute,
 		// therefore it is impossible to get to this state.
-		m.addError(fd.GetName(), unknownFile, "file option %s is required", tmpl.E_TemplateName.Name)
+		m.addError(fd.GetName(), unknownLine, "file option %s is required", tmpl.E_TemplateName.Name)
 	}
 
 	if tmplVariety, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateVariety); err == nil {
@@ -170,7 +172,7 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	} else {
 		// This func should only get called for FileDescriptor that has this attribute,
 		// therefore it is impossible to get to this state.
-		m.addError(fd.GetName(), unknownFile, "file option %s is required", tmpl.E_TemplateVariety.Name)
+		m.addError(fd.GetName(), unknownLine, "file option %s is required", tmpl.E_TemplateVariety.Name)
 	}
 }
 
@@ -178,14 +180,14 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 func (m *Model) addInstanceFieldFromConstructor(parser *FileDescriptorSetParser, cnstrDesc *Descriptor) {
 	m.ConstructorFields = make([]fieldInfo, 0)
 	for _, fieldDesc := range cnstrDesc.Field {
-		fieldName := CamelCase(fieldDesc.GetName())
+		fieldName := camelCase(fieldDesc.GetName())
 		// Name field is a reserved field that will be injected in the Instance object. The user defined
 		// Constructor should not have a Name field, else there will be a name clash.
 		// 'Name' within the Instance object would represent the name of the Constructor:instance_name
 		// specified in the operator Yaml file.
 		if fieldName == "Name" {
 			// TODO add line number for the field.
-			m.addError(cnstrDesc.file.GetName(), unknownFile, "Constructor message must not contain the reserved filed name '%s'", fieldDesc.GetName())
+			m.addError(cnstrDesc.file.GetName(), unknownLine, "Constructor message must not contain the reserved filed name '%s'", fieldDesc.GetName())
 			continue
 		}
 		typename := parser.GoType(cnstrDesc.DescriptorProto, fieldDesc)
@@ -201,7 +203,7 @@ func (m *Model) addImports(parser *FileDescriptorSetParser, fileDescriptor *File
 	for _, s := range fileDescriptor.Dependency {
 		fd := parser.fileByName(s)
 		// Do not import our own package.
-		if fd.PackageName() == parser.packageName {
+		if fd.packageName() == parser.packageName {
 			continue
 		}
 		filename := fd.goFileName()
@@ -220,7 +222,7 @@ func (m *Model) addImports(parser *FileDescriptorSetParser, fileDescriptor *File
 }
 
 func getRequiredMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
-	var cstrDesc *Descriptor = nil
+	var cstrDesc *Descriptor
 	for _, desc := range fdp.desc {
 		if desc.GetName() == msgName {
 			cstrDesc = desc
@@ -258,7 +260,7 @@ func getReferencedPackagesByField(parser *FileDescriptorSetParser, fieldDesc *de
 		}
 	}
 
-	pname := goPackageName(parser.FileOf(refDesc.File()).GetPackage())
+	pname := goPackageName(parser.fileOf(refDesc.File()).GetPackage())
 	if parentPackage != pname && !contains(*referencedPkgs, pname) {
 		*referencedPkgs = append(*referencedPkgs, pname)
 	}

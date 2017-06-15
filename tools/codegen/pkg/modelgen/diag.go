@@ -26,7 +26,6 @@ type (
 
 const (
 	errorDiag diagKind = iota
-	warningDiag
 )
 
 const (
@@ -58,8 +57,7 @@ func (diag diag) String() string {
 		kind = "Warning"
 	}
 
-	var msg string
-	msg = strings.TrimSpace(diag.message)
+	msg := strings.TrimSpace(diag.message)
 	if !strings.HasSuffix(msg, ".") {
 		msg = msg + "."
 	}
@@ -85,10 +83,6 @@ func (m *Model) addError(file string, line string, format string, a ...interface
 	m.addDiag(errorDiag, file, line, format, a)
 }
 
-func (m *Model) addWarning(file string, line string, format string, a ...interface{}) {
-	m.addDiag(warningDiag, file, line, format, a)
-}
-
 func (m *Model) addDiag(kind diagKind, file string, line string, format string, a []interface{}) {
 	m.diags = append(m.diags, createDiag(kind, file, line, format, a))
 }
@@ -96,7 +90,7 @@ func (m *Model) addDiag(kind diagKind, file string, line string, format string, 
 func createDiag(kind diagKind, file string, line string, format string, a []interface{}) diag {
 	if len(a) == 0 {
 		return diag{kind: kind, location: location{file: file, line: line}, message: format}
-	} else {
-		return diag{kind: kind, location: location{file: file, line: line}, message: fmt.Sprintf(format, a...)}
 	}
+
+	return diag{kind: kind, location: location{file: file, line: line}, message: fmt.Sprintf(format, a...)}
 }

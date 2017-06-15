@@ -16,6 +16,7 @@ package adapter
 
 import "time"
 
+// CacheabilityInfo represents information about when to refresh the cache.
 type CacheabilityInfo struct {
 	ValidDuration time.Duration
 	ValidUseCount int64

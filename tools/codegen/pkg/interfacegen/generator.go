@@ -16,7 +16,6 @@ package interfacegen
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,33 +27,35 @@ import (
 	"istio.io/mixer/tools/codegen/pkg/modelgen"
 )
 
+// Generator generates Go interfaces for adapters to implement for a given Template.
 type Generator struct {
 	OutFilePath   string
 	ImportMapping map[string]string
 }
 
+// Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
 	// This path works for bazel. TODO  Help pls !!
 
 	tmplPath := "template/ProcInterface.tmpl"
 	t, err := ioutil.ReadFile(tmplPath)
 	if err != nil {
-		return errors.New(fmt.Sprintf("cannot read template file '%s'. %v", tmplPath, err))
+		return fmt.Errorf("cannot read template file '%s'. %v", tmplPath, err)
 	}
 
 	tmpl, err := template.New("ProcInterface").Parse(string(t))
 	if err != nil {
-		return errors.New(fmt.Sprintf("cannot load template from path '%s'. %v", tmplPath, err))
+		return fmt.Errorf("cannot load template from path '%s'. %v", tmplPath, err)
 	}
 
 	fds, err := getFileDescSet(fdsFile)
 	if err != nil {
-		return errors.New(fmt.Sprintf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err))
+		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err)
 	}
 
 	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping)
 	if err != nil {
-		return errors.New(fmt.Sprintf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err))
+		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err)
 	}
 
 	model, err := modelgen.Create(parser)
@@ -65,7 +66,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	buf := new(bytes.Buffer)
 	err = tmpl.Execute(buf, model)
 	if err != nil {
-		return errors.New(fmt.Sprintf("cannot execute the template '%s' with the give data. %v", tmplPath, err))
+		return fmt.Errorf("cannot execute the template '%s' with the give data. %v", tmplPath, err)
 	}
 
 	// Now write to the file.
@@ -75,10 +76,8 @@ func (g *Generator) Generate(fdsFile string) error {
 		return err
 	} else {
 		// file successfully written, close it.
-		f.Close()
+		return f.Close()
 	}
-
-	return nil
 }
 
 func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {

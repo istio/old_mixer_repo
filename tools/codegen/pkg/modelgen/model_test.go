@@ -110,13 +110,13 @@ func testField(t *testing.T, testFilename string, model *Model, fldName string, 
 
 func createTestModel(t *testing.T, inputTemplateProto string) (*Model, error) {
 	outDir := path.Join("testdata", getBaseFileNameWithoutExt(t.Name()))
-	err := os.RemoveAll(outDir)
-	os.MkdirAll(outDir, os.ModePerm)
-	defer os.RemoveAll(outDir)
+	_ = os.RemoveAll(outDir)
+	_ = os.MkdirAll(outDir, os.ModePerm)
+	defer removeDir(outDir)
 
 	outFDS := path.Join(outDir, "outFDS.pb")
-	defer os.Remove(outFDS)
-	err = generteFDSFileHacky(inputTemplateProto, outFDS)
+	defer removeDir(outFDS)
+	err := generteFDSFileHacky(inputTemplateProto, outFDS)
 	if err != nil {
 		t.Fatalf("Unable to generate file descriptor set %v", err)
 	}
@@ -127,7 +127,7 @@ func createTestModel(t *testing.T, inputTemplateProto string) (*Model, error) {
 
 	}
 
-	parser, err := CreateFileDescriptorSetParser(fds, map[string]string{})
+	parser, _ := CreateFileDescriptorSetParser(fds, map[string]string{})
 	return Create(parser)
 }
 
@@ -141,6 +141,10 @@ func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
 	err = proto.Unmarshal(byts, fds)
 
 	return fds, err
+}
+
+func removeDir(dir string) {
+	_ = os.RemoveAll(dir)
 }
 
 // TODO: This is blocking the test to be enabled from Bazel.
