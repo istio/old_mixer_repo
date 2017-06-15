@@ -23,8 +23,9 @@ import (
 type (
 	diagKind uint8
 )
+
 const (
-	errorDiag   diagKind = iota
+	errorDiag diagKind = iota
 	warningDiag
 )
 
@@ -66,7 +67,7 @@ func (diag diag) String() string {
 	if diag.location.line != "" {
 		return fmt.Sprintf("%s: %s:%s: %s\n", kind, diag.location.file, diag.location.line, msg)
 	} else if diag.location.file != "" {
-		return  fmt.Sprintf("%s: %s: %s\n", kind, diag.location.file, msg)
+		return fmt.Sprintf("%s: %s: %s\n", kind, diag.location.file, msg)
 	} else {
 		return fmt.Sprintf("%s: %s\n", kind, msg)
 	}

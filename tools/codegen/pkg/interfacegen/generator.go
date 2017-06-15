@@ -15,17 +15,17 @@
 package interfacegen
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"text/template"
 
-	"fmt"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+
 	"istio.io/mixer/tools/codegen/pkg/modelgen"
-	"errors"
-	"bytes"
 )
 
 type Generator struct {

@@ -7,10 +7,9 @@ go_library(
     srcs = [
         "generator.go",
     ],
-    data = ["//tools/codegen/pkg/proc_interface_gen:template/ProcInterface.tmpl"],
+    data = ["//tools/codegen/pkg/interfacegen:template/ProcInterface.tmpl"],
     deps = [
         "//tools/codegen/pkg/modelgen:go_default_library",
-        "//tools/codegen/pkg/template_extension:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

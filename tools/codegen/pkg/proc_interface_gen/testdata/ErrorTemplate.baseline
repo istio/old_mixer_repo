@@ -1,3 +1,0 @@
-Errors during parsing:
-Error: mixer/tools/codegen/pkg/proc_interface_gen/testdata/ErrorTemplate.proto: package name missing.
-Error: mixer/tools/codegen/pkg/proc_interface_gen/testdata/ErrorTemplate.proto: message 'Type' not defined.

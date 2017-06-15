@@ -8,7 +8,7 @@ go_binary(
         "main.go",
     ],
     deps = [
-        "//tools/codegen/pkg/proc_interface_gen:go_default_library",
+        "//tools/codegen/pkg/interfacegen:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],
 )

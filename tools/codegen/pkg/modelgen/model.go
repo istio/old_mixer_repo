@@ -59,12 +59,10 @@ type (
 
 // Create creates a Model object.
 func Create(parser *FileDescriptorSetParser) (*Model, error) {
-	var templateProto *FileDescriptor
 
-	if template, diags := getTmplFileDesc(parser.allFiles); len(diags) != 0 {
+	templateProto, diags := getTmplFileDesc(parser.allFiles)
+	if len(diags) != 0 {
 		return nil, createError(diags)
-	} else {
-		templateProto = template
 	}
 
 	// set the current generated code package to the package of the
@@ -247,19 +245,21 @@ func getReferencedPackagesByField(parser *FileDescriptorSetParser, fieldDesc *de
 		return
 	}
 	refDesc := parser.ObjectNamed(fieldDesc.GetTypeName())
-	if d, ok := refDesc.(*Descriptor); ok {
-		if fmt.Sprintf("%s.%s", d.PackageName(), d.GetName()) == fullNameOfExprMessage {
+
+	if msgDesc, isMessage := refDesc.(*Descriptor); isMessage {
+		if fmt.Sprintf("%s.%s", msgDesc.PackageName(), msgDesc.GetName()) == fullNameOfExprMessage {
+			return
+		}
+		if msgDesc.GetOptions().GetMapEntry() {
+			keyField, valField := msgDesc.Field[0], msgDesc.Field[1]
+			getReferencedPackagesByField(parser, keyField, parentPackage, referencedPkgs)
+			getReferencedPackagesByField(parser, valField, parentPackage, referencedPkgs)
 			return
 		}
 	}
-	if d, ok := refDesc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
-		keyField, valField := d.Field[0], d.Field[1]
-		getReferencedPackagesByField(parser, keyField, parentPackage, referencedPkgs)
-		getReferencedPackagesByField(parser, valField, parentPackage, referencedPkgs)
-	} else {
-		pname := goPackageName(parser.FileOf(refDesc.File()).GetPackage())
-		if parentPackage != pname && !contains(*referencedPkgs, pname) {
-			*referencedPkgs = append(*referencedPkgs, pname)
-		}
+
+	pname := goPackageName(parser.FileOf(refDesc.File()).GetPackage())
+	if parentPackage != pname && !contains(*referencedPkgs, pname) {
+		*referencedPkgs = append(*referencedPkgs, pname)
 	}
 }

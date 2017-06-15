@@ -32,11 +32,12 @@ package modelgen
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"os"
 	"path"
 	"strings"
 	"unicode"
+
+	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
 type FileDescriptorSetParser struct {

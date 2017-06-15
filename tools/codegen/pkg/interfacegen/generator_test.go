@@ -16,12 +16,12 @@ package interfacegen
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"testing"
-	"io/ioutil"
 )
 
 func TestWellKnownTemplate(t *testing.T) {
@@ -104,9 +104,9 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 	// HACK HACK. Depending on dir structure is super fragile.
 	// Explore how to generate File Descriptor set in a better way.
 	protocCmd := []string{
-		path.Join("mixer/tools/codegen/pkg/proc_interface_gen", protoFile),
+		path.Join("mixer/tools/codegen/pkg/interfacegen", protoFile),
 		"-o",
-		path.Join("mixer/tools/codegen/pkg/proc_interface_gen", outputFDSFile),
+		path.Join("mixer/tools/codegen/pkg/interfacegen", outputFDSFile),
 		"-I=.",
 		"-I=api",
 		"--include_imports",
@@ -125,7 +125,7 @@ func generteGoPbFileForTmpl(protoFile string, outDir string) error {
 	// HACK HACK. Depending on dir structure is super fragile.
 	// Explore how to generate File Descriptor set in a better way.
 	protocCmd := []string{
-		path.Join("mixer/tools/codegen/pkg/proc_interface_gen", protoFile),
+		path.Join("mixer/tools/codegen/pkg/interfacegen", protoFile),
 		"--go_out=Mgoogle/protobuf/duration.proto=github.com/golang/protobuf/ptypes/duration,Mmixer/v1/" +
 			"config/descriptor/value_type.proto=istio.io/api/mixer/v1/config/descriptor," +
 			"Mgoogle/protobuf/descriptor.proto=github.com/golang/protobuf/protoc-gen-go/descriptor," +
