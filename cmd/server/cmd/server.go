@@ -268,7 +268,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	}
 
 	// setup server prometheus monitoring (as final interceptor in chain)
-	interceptors = append(interceptors, grpc.UnaryServerInterceptor(grpc_prometheus.UnaryServerInterceptor))
+	interceptors = append(interceptors, grpc_prometheus.UnaryServerInterceptor)
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
