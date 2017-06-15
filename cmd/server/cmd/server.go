@@ -260,17 +260,17 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
-	// setup server grpc interceptors for monitoring
-	grpc_prometheus.EnableHandlingTimeHistogram()
-
+	var interceptors []grpc.UnaryServerInterceptor
 	if sa.enableTracing {
 		tracer := bt.New(tracing.IORecorder(os.Stdout))
 		ot.InitGlobalTracer(tracer)
-		grpcOptions = append(grpcOptions,
-			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(otgrpc.OpenTracingServerInterceptor(tracer), grpc_prometheus.UnaryServerInterceptor)))
-	} else {
-		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
+		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(tracer))
 	}
+
+	// setup server prometheus monitoring (as final interceptor in chain)
+	interceptors = append(interceptors, grpc.UnaryServerInterceptor(grpc_prometheus.UnaryServerInterceptor))
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	configManager.Register(adapterMgr)
 	configManager.Start()
