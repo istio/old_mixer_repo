@@ -338,29 +338,41 @@ func (g *FileDescriptorSetParser) fileByName(filename string) *FileDescriptor {
 	return g.allFilesByName[filename]
 }
 
+const (
+	sINT64     = "int64"
+	sFLOAT64   = "float64"
+	sINT32     = "int32"
+	sFLOAT32   = "float32"
+	sBOOL      = "bool"
+	sSTRING    = "string"
+	sUINT64    = "uint64"
+	sUINT32    = "uint32"
+	sBYTEARRAY = "[]byte"
+)
+
 // GoType returns a Go type name for a FieldDescriptorProto.
 func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, field *descriptor.FieldDescriptorProto) (typ string) {
 	switch *field.Type {
 	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-		typ = "float64"
+		typ = sFLOAT64
 	case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-		typ = "float32"
+		typ = sFLOAT32
 	case descriptor.FieldDescriptorProto_TYPE_INT64:
-		typ = "int64"
+		typ = sINT64
 	case descriptor.FieldDescriptorProto_TYPE_UINT64:
-		typ = "uint64"
+		typ = sUINT64
 	case descriptor.FieldDescriptorProto_TYPE_INT32:
-		typ = "int32"
+		typ = sINT32
 	case descriptor.FieldDescriptorProto_TYPE_UINT32:
-		typ = "uint32"
+		typ = sUINT32
 	case descriptor.FieldDescriptorProto_TYPE_FIXED64:
-		typ = "uint64"
+		typ = sUINT64
 	case descriptor.FieldDescriptorProto_TYPE_FIXED32:
-		typ = "uint32"
+		typ = sUINT32
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
-		typ = "bool"
+		typ = sBOOL
 	case descriptor.FieldDescriptorProto_TYPE_STRING:
-		typ = "string"
+		typ = sSTRING
 	case descriptor.FieldDescriptorProto_TYPE_GROUP:
 		// TODO : What needs to be done in this case?
 		g.fail(fmt.Sprintf("unsupported field type %s for field %s", descriptor.FieldDescriptorProto_TYPE_GROUP.String(), field.GetName()))
@@ -388,18 +400,18 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 			return
 		}
 	case descriptor.FieldDescriptorProto_TYPE_BYTES:
-		typ = "[]byte"
+		typ = sBYTEARRAY
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
 		desc := g.ObjectNamed(field.GetTypeName())
 		typ = g.TypeName(desc)
 	case descriptor.FieldDescriptorProto_TYPE_SFIXED32:
-		typ = "int32"
+		typ = sINT32
 	case descriptor.FieldDescriptorProto_TYPE_SFIXED64:
-		typ = "int64"
+		typ = sINT64
 	case descriptor.FieldDescriptorProto_TYPE_SINT32:
-		typ = "int32"
+		typ = sINT32
 	case descriptor.FieldDescriptorProto_TYPE_SINT64:
-		typ = "int64"
+		typ = sINT64
 	default:
 		g.fail("unknown type for", field.GetName())
 
