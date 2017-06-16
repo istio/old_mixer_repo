@@ -164,6 +164,15 @@ func TestGoodEval(tt *testing.T) {
 			true, "",
 		},
 		{
+			`request.header["user"] | "unknown"`,
+			map[string]interface{}{
+				"request.header": map[string]string{
+					"myheader": "bbb",
+				},
+			},
+			"unknown", "",
+		},
+		{
 			`origin.name | "users"`,
 			map[string]interface{}{
 				"origin.name": "",
@@ -172,8 +181,7 @@ func TestGoodEval(tt *testing.T) {
 		},
 		{
 			`origin.name | "users"`,
-			map[string]interface{}{
-			},
+			map[string]interface{}{},
 			"users", "",
 		},
 		{
