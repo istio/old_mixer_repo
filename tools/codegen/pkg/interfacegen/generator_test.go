@@ -47,7 +47,7 @@ func TestWellKnownTemplate(t *testing.T) {
 			defer removeDir(outFDS)
 			err := generteFDSFileHacky(tt.src, outFDS)
 			if err != nil {
-				t.Errorf("Unable to generate file descriptor set %v", err)
+				t.Fatalf("Unable to generate file descriptor set %v", err)
 			}
 
 			outFilePath := path.Join(outDir, "Processor.go")
