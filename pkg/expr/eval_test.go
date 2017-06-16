@@ -164,6 +164,19 @@ func TestGoodEval(tt *testing.T) {
 			true, "",
 		},
 		{
+			`origin.name | "users"`,
+			map[string]interface{}{
+				"origin.name": "",
+			},
+			"users", "",
+		},
+		{
+			`origin.name | "users"`,
+			map[string]interface{}{
+			},
+			"users", "",
+		},
+		{
 			`(x/y) == 30`,
 			map[string]interface{}{
 				"x": int64(20),
@@ -223,12 +236,12 @@ func TestGoodEval(tt *testing.T) {
 				if tst.err == "" {
 					t.Errorf("[%d] unexpected error: %v", idx, err)
 				} else if !strings.Contains(err.Error(), tst.err) {
-					t.Errorf("[%d] got %s\nwant %s", idx, err, tst.err)
+					t.Errorf("[%d] got <%s>\nwant <%s>", idx, err, tst.err)
 				}
 				return
 			}
 			if res != tst.result {
-				t.Errorf("[%d] %s got %s\nwant %s", idx, exp.String(), res, tst.result)
+				t.Errorf("[%d] %s got <%s>\nwant <%s>", idx, exp.String(), res, tst.result)
 			}
 		})
 	}
