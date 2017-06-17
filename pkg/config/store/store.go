@@ -25,8 +25,10 @@ import (
 // the KeyValueStore implementation does not support index.
 const IndexNotSupported = -1
 
+// Builder is the type of function to build a KeyValueStore.
 type Builder func(u *url.URL) (KeyValueStore, error)
 
+// RegisterFunc is the type to register a builder for URL scheme.
 type RegisterFunc func(map[string]Builder)
 
 // ChangeType denotes the type of a change
@@ -96,16 +98,19 @@ type Listener interface {
 	NotifyStoreChanged(index int)
 }
 
-type registry struct {
+// Registry keeps the relationship between the URL scheme and the storage
+// implementation.
+type Registry struct {
 	builders map[string]Builder
 }
 
-func NewRegistry(inventory ...RegisterFunc) *registry {
+// NewRegistry creates a new Registry instance for the inventory.
+func NewRegistry(inventory ...RegisterFunc) *Registry {
 	b := map[string]Builder{}
 	for _, rf := range inventory {
 		rf(b)
 	}
-	return &registry{builders: b}
+	return &Registry{builders: b}
 }
 
 // URL types supported by the config store
@@ -115,7 +120,7 @@ const (
 )
 
 // NewStore create a new store based on the config URL.
-func (r *registry) NewStore(configURL string) (KeyValueStore, error) {
+func (r *Registry) NewStore(configURL string) (KeyValueStore, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
