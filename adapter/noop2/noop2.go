@@ -25,38 +25,38 @@ import (
 )
 
 type (
-	builder struct{}
+	noop2Adapter struct{}
 )
 
-func (builder) Name() string { return "noop2" }
-func (builder) Description() string {
+func (noop2Adapter) Name() string { return "noop2" }
+func (noop2Adapter) Description() string {
 	return "An adapter that does nothing, just echos the calls made from mixer"
 }
-func (builder) Close() error { return nil }
+func (noop2Adapter) Close() error { return nil }
 
-func (builder) ValidateConfig(msg proto.Message) error {
+func (noop2Adapter) ValidateConfig(msg proto.Message) error {
 	fmt.Println("ValidateConfig called with input", msg)
 	return nil
 }
 
-func (builder) Configure(msg proto.Message) error {
+func (noop2Adapter) Configure(msg proto.Message) error {
 	fmt.Println("Configure called with input", msg)
 	return nil
 }
 
-func (builder) DefaultConfig() proto.Message { return &types.Empty{} }
+func (noop2Adapter) DefaultConfig() proto.Message { return &types.Empty{} }
 
-func (builder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+func (noop2Adapter) ConfigureSample(typeParams map[string]*sample_report.Type) error {
 	fmt.Println("ConfigureSample in noop Adapter called with", typeParams)
 	return nil
 }
 
-func (builder) ReportSample(instances []*sample_report.Instance) error {
+func (noop2Adapter) ReportSample(instances []*sample_report.Instance) error {
 	fmt.Println("ReportSample in noop Adapter called with", instances)
 	return nil
 }
 
 // Register registers the no-op adapter as processor for all the templates.
 func Register(r adapter.Registrar2) {
-	r.RegisterSampleProcessor(builder{})
+	r.RegisterSampleProcessor(noop2Adapter{})
 }

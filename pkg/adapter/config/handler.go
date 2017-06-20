@@ -18,7 +18,7 @@ type (
 		Description() string
 	}
 
-	// ConfigValidator handles adapter configuration defaults and validation.
+	// AdapterConfigValidatorAndConfigurer handles adapter configuration defaults and validation.
 	AdapterConfigValidatorAndConfigurer interface {
 		// DefaultConfig returns a default configuration struct for this
 		// adapter. This will be used by the configuration system to establish
