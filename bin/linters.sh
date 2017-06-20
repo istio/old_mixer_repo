@@ -68,7 +68,7 @@ go_metalinter() {
         --enable=goconst\
         --enable=gofmt\
         --enable=goimports\
-        --enable=golint --min-confidence=0 --exclude=.pb.go --exclude=pkg/config/proto/combined.go --exclude="should have a package comment"\
+        --enable=golint --min-confidence=0 --exclude=.pb.go --exclude=pkg/config/proto/combined.go --exclude=pkg/templates/sample/report/ReportTesterProcessor.gen.go --exclude="should have a package comment"\
         --exclude=".*pkg/config/apiserver_test.go:.* method WriteHeaderAndJson should be WriteHeaderAndJSON"\
         --enable=gosimple\
         --enable=ineffassign\
