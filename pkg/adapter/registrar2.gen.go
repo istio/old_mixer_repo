@@ -14,11 +14,13 @@
 
 package adapter
 
-import "istio.io/mixer/pkg/templates/sample/report"
+import (
+	sample_report "istio.io/mixer/pkg/templates/sample/report"
+)
 
 // Registrar2 is used by adapters to register themselves as processors of one or more available templates.
 type Registrar2 interface {
-	RegisterSampleProcessor(processor istio_mixer_adapter_sample_report.SampleProcessor)
+	RegisterSampleProcessor(processor sample_report.SampleProcessor)
 }
 
 // RegisterFn2 is a function Mixer invokes to trigger adapters to register
