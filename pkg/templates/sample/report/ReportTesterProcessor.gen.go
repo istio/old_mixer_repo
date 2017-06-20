@@ -2,6 +2,8 @@ package istio_mixer_adapter_sample_report
 
 import "istio.io/mixer/pkg/adapter/config"
 
+const TemplateName = "istio.mixer.adapter.sample.report.Sample"
+
 // Instance represent the runtime structure that will be passed to the ReportSample method in the handlers.
 type Instance struct {
 	Name       string
