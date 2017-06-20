@@ -14,6 +14,8 @@
 
 package adapterManager
 
+import "istio.io/mixer/pkg/templates/sample/report"
+
 func (r *registry2) RegisterSampleProcessor(b istio_mixer_adapter_sample_report.SampleProcessor) {
 	r.insertHandler(istio_mixer_adapter_sample_report.TemplateName, b)
 }
