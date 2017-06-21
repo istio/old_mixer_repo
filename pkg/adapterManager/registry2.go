@@ -59,7 +59,7 @@ func HandlerMap(handlerRegFns []registrar2.RegisterFn2) map[string]*HandlerInfo 
 }
 
 // FindHandler returns the handler object with the given name.
-func (r *registry2) FindHandler(name string) (b adpCnfg.Handler, found bool) {
+func (r *registry2) FindHandler(name string) (b adpCnfg.HandlerBuilder, found bool) {
 	bi, found := r.handlerBuildersByName[name]
 	if !found {
 		return nil, false
