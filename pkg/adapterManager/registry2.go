@@ -26,7 +26,7 @@ import (
 // HandlerInfo provides information about an individual handler.
 type HandlerInfo struct {
 	// Builder is the builder of interest.
-	HandlerBuilder adpCnfg.Builder
+	HandlerBuilder adpCnfg.HandlerBuilder
 
 	// Templates specifies the the name of the templates this builder is capable of handling.
 	Templates []string
@@ -68,7 +68,7 @@ func (r *registry2) FindHandler(name string) (b adpCnfg.Handler, found bool) {
 
 }
 
-func (r *registry2) insertHandler(tmplName string, b adpCnfg.Builder) {
+func (r *registry2) insertHandler(tmplName string, b adpCnfg.HandlerBuilder) {
 	bi := r.handlerBuildersByName[b.Name()]
 	if bi == nil {
 		bi = &HandlerInfo{HandlerBuilder: b, Templates: make([]string, 0)}

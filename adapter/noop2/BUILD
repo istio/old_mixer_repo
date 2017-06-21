@@ -9,6 +9,7 @@ go_library(
     ],
     deps = [
         "//pkg/adapter:go_default_library",
+        "//pkg/adapter/config:go_default_library",
         "//pkg/status:go_default_library",
         "//pkg/templates/sample/report:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",

@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/config"
 	sample_report "istio.io/mixer/pkg/templates/sample/report"
 )
 
@@ -34,7 +35,14 @@ func (testHandlerBuilder) Close() error                         { return nil }
 func (testHandlerBuilder) Description() string                  { return "mock adapter for testing" }
 func (testHandlerBuilder) DefaultConfig() proto.Message         { return nil }
 func (testHandlerBuilder) ValidateConfig(c proto.Message) error { return nil }
-func (testHandlerBuilder) Create(cnfg proto.Message) (sample_report.SampleProcessor, error) {
+func (testHandlerBuilder) ConfigureHandler(cnfg proto.Message) error {
+	return nil
+}
+
+func (testHandlerBuilder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+	return nil
+}
+func (testHandlerBuilder) Build() (config.Handler, error) {
 	return testHandler{}, nil
 }
 
@@ -43,9 +51,6 @@ type sampleReportProcessingBuilder struct{ testHandlerBuilder }
 type sampleReportProcessingBuilder2 struct{ sampleReportProcessingBuilder }
 
 func (testHandler) Close() error { return nil }
-func (testHandler) ConfigureSample(typeParams map[string]*sample_report.Type) error {
-	return errors.New("not implemented")
-}
 func (testHandler) ReportSample(instances []*sample_report.Instance) error {
 	return errors.New("not implemented")
 }
