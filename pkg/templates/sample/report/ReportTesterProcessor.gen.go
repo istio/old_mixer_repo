@@ -1,6 +1,9 @@
 package istio_mixer_adapter_sample_report
 
 import "istio.io/mixer/pkg/adapter/config"
+import (
+	"github.com/golang/protobuf/proto"
+)
 
 const TemplateName = "istio.mixer.adapter.sample.report.Sample"
 
@@ -9,6 +12,11 @@ type Instance struct {
 	Name       string
 	Value      interface{}
 	Dimensions map[string]interface{}
+}
+
+type SampleProcessorBuilder interface {
+	config.Builder
+	Create(cnfg proto.Message) (SampleProcessor, error)
 }
 
 // SampleProcessor represent the Go interface that handlers must implement if it wants to process the template
