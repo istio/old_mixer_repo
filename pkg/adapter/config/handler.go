@@ -39,18 +39,15 @@ type (
 	// HandlerBuilder represents a factory of Handler. Adapters register builders with Mixer
 	// in order to allow Mixer to instantiate Handler on demand.
 	HandlerBuilder interface {
-		io.Closer
 		AdapterConfigValidator
 
 		// Name returns the official name of the adapter produced by this builder.
 		Name() string
 		// Description returns a user-friendly description of the adapter produced by this builder.
 		Description() string
-		// ConfigureHandler is called by Mixer to pass the Handler specific configuration to the Adapter implementation.
-		ConfigureHandler(cnfg proto.Message) error
-
 		// Build must return a Handler that must implement all the runtime request serving, template specific,
-		// interfaces{} that the Builder was configured for.
+		// interfaces{} that the Builder was configured for. Mixer will pass the Handler specific configuration to the
+		// Build method.
 		//
 		// Mixer will call the template specific configure methods on the HandlerBuilder object.
 		// After the configuration is done, Mixer will call the Build method to get an instance of Handler.
@@ -60,6 +57,6 @@ type (
 		// template the Adapter was registered for in the adapter.RegisterFn2 method.
 		// If the returned Handler fails to implement the required interface that builder was registered for, mixer will
 		// report an error and stop serving runtime traffic to the particular Handler.
-		Build() (Handler, error)
+		Build(cnfg proto.Message) (Handler, error)
 	}
 )

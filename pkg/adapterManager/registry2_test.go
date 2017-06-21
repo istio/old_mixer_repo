@@ -35,14 +35,11 @@ func (testHandlerBuilder) Close() error                         { return nil }
 func (testHandlerBuilder) Description() string                  { return "mock adapter for testing" }
 func (testHandlerBuilder) DefaultConfig() proto.Message         { return nil }
 func (testHandlerBuilder) ValidateConfig(c proto.Message) error { return nil }
-func (testHandlerBuilder) ConfigureHandler(cnfg proto.Message) error {
-	return nil
-}
 
 func (testHandlerBuilder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
 	return nil
 }
-func (testHandlerBuilder) Build() (config.Handler, error) {
+func (testHandlerBuilder) Build(cnfg proto.Message) (config.Handler, error) {
 	return testHandler{}, nil
 }
 
