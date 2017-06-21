@@ -26,50 +26,49 @@ import (
 )
 
 type (
-	noop2Adapter struct{}
-	noop2Builder struct{}
+	noop2Handler struct{}
+	noop2HandlerBuilder struct{}
 )
 
-func (noop2Builder) Name() string { return "noop2" }
-func (noop2Builder) Description() string {
+func (noop2HandlerBuilder) Name() string { return "noop2" }
+func (noop2HandlerBuilder) Description() string {
 	return "An adapter that does nothing, just echos the calls made from mixer"
 }
-func (noop2Builder) Close() error { return nil }
 
 ///////////////// Configuration time Methods ///////////////
 
-func (noop2Builder) DefaultConfig() proto.Message { return &types.Empty{} }
-func (noop2Builder) ValidateConfig(msg proto.Message) error {
+func (noop2HandlerBuilder) DefaultConfig() proto.Message { return &types.Empty{} }
+func (noop2HandlerBuilder) ValidateConfig(msg proto.Message) error {
 	fmt.Println("ValidateConfig called with input", msg)
 	return nil
 }
 
-func (noop2Builder) ConfigureHandler(cnfg proto.Message) error {
+func (noop2HandlerBuilder) ConfigureHandler(cnfg proto.Message) error {
 	fmt.Println("ConfigureHandler in noop Adapter called with", cnfg)
 	return nil
 }
 
-func (noop2Builder) Build() (adapter_cnfg.Handler, error) {
-	fmt.Println("Build in noop Adapter called with")
-	return noop2Adapter{}, nil
+func (noop2HandlerBuilder) Build(cnfg proto.Message) (adapter_cnfg.Handler, error) {
+	fmt.Println("Build in noop Adapter called with", cnfg)
+	return noop2Handler{}, nil
 }
 
 // Per template configuration methods
-func (noop2Builder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+func (noop2HandlerBuilder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
 	fmt.Println("ConfigureSample in noop Adapter called with", typeParams)
 	return nil
 }
 
 ////////////////// Runtime Methods //////////////////////////
 
-func (noop2Adapter) ReportSample(instances []*sample_report.Instance) error {
+func (noop2Handler) ReportSample(instances []*sample_report.Instance) error {
 	fmt.Println("ReportSample in noop Adapter called with", instances)
 	return nil
 }
 
-func (noop2Adapter) Close() error { return nil }
+func (noop2Handler) Close() error { return nil }
 
 // Register registers the no-op adapter as processor for all the templates.
 func Register(r adapter.Registrar2) {
-	r.RegisterSampleProcessor(noop2Builder{})
+	r.RegisterSampleProcessor(noop2HandlerBuilder{})
 }
