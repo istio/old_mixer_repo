@@ -24,7 +24,7 @@ import (
 func TestRegisteredForAllAspects(t *testing.T) {
 	handlers := adapterManager.HandlerMap([]adapter.RegisterFn2{Register})
 
-	name := noop2Adapter{}.Name()
+	name := noop2Builder{}.Name()
 	noop2Handler := handlers[name]
 
 	expectedTmpls := []string{

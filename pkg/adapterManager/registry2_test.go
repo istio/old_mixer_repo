@@ -25,31 +25,34 @@ import (
 	sample_report "istio.io/mixer/pkg/templates/sample/report"
 )
 
-type testHandler struct {
+type testHandlerBuilder struct {
 	name string
 }
 
-func (t testHandler) Name() string                       { return t.name }
-func (testHandler) Close() error                         { return nil }
-func (testHandler) Description() string                  { return "mock adapter for testing" }
-func (testHandler) DefaultConfig() proto.Message         { return nil }
-func (testHandler) ValidateConfig(c proto.Message) error { return nil }
-func (testHandler) Configure(m proto.Message) error      { return nil }
-
-type sampleReportProcessingAdapter struct{ testHandler }
-type sampleReportProcessingAdapter2 struct{ sampleReportProcessingAdapter }
-
-func (sampleReportProcessingAdapter) ConfigureSample(typeParams map[string]*sample_report.Type) error {
-	return errors.New("not implemented")
+func (t testHandlerBuilder) Name() string                       { return t.name }
+func (testHandlerBuilder) Close() error                         { return nil }
+func (testHandlerBuilder) Description() string                  { return "mock adapter for testing" }
+func (testHandlerBuilder) DefaultConfig() proto.Message         { return nil }
+func (testHandlerBuilder) ValidateConfig(c proto.Message) error { return nil }
+func (testHandlerBuilder) Create(cnfg proto.Message) (sample_report.SampleProcessor, error) {
+	return testHandler{}, nil
 }
 
-func (sampleReportProcessingAdapter) ReportSample(instances []*sample_report.Instance) error {
+type testHandler struct{}
+type sampleReportProcessingBuilder struct{ testHandlerBuilder }
+type sampleReportProcessingBuilder2 struct{ sampleReportProcessingBuilder }
+
+func (testHandler) Close() error { return nil }
+func (testHandler) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+	return errors.New("not implemented")
+}
+func (testHandler) ReportSample(instances []*sample_report.Instance) error {
 	return errors.New("not implemented")
 }
 
 func TestRegisterSampleProcessor(t *testing.T) {
 	reg := newRegistry2(nil)
-	sampleReportAdapter := sampleReportProcessingAdapter{}
+	sampleReportAdapter := sampleReportProcessingBuilder{}
 	reg.RegisterSampleProcessor(sampleReportAdapter)
 
 	handler, ok := reg.FindHandler(sampleReportAdapter.Name())
@@ -57,7 +60,7 @@ func TestRegisterSampleProcessor(t *testing.T) {
 		t.Errorf("No adapter by name %s, expected %v", sampleReportAdapter.Name(), sampleReportAdapter)
 	}
 
-	if sampleReport, ok := handler.(sample_report.SampleProcessor); !ok || sampleReport != sampleReportAdapter {
+	if sampleReport, ok := handler.(sample_report.SampleProcessorBuilder); !ok || sampleReport != sampleReportAdapter {
 		t.Errorf("reg.ByImpl(%s) expected handler '%v', actual '%v'", sampleReportAdapter.Name(), sampleReportAdapter, handler)
 	}
 }
@@ -66,7 +69,7 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 	reg := newRegistry2(nil)
 	name := "some name that they both have"
 
-	a1 := sampleReportProcessingAdapter{testHandler{name}}
+	a1 := sampleReportProcessingBuilder{testHandlerBuilder{name}}
 	reg.RegisterSampleProcessor(a1)
 
 	if a, ok := reg.FindHandler(name); !ok || a != a1 {
@@ -79,13 +82,13 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 		}
 	}()
 
-	a2 := sampleReportProcessingAdapter2{sampleReportProcessingAdapter{testHandler{name}}}
+	a2 := sampleReportProcessingBuilder2{sampleReportProcessingBuilder{testHandlerBuilder{name}}}
 	reg.RegisterSampleProcessor(a2)
 	t.Error("Should not reach this statement due to panic.")
 }
 
 func TestMultiTemplateRegistration(t *testing.T) {
-	sampleReportAdapter := sampleReportProcessingAdapter{}
+	sampleReportAdapter := sampleReportProcessingBuilder{}
 	reg := newRegistry2([]adapter.RegisterFn2{
 		func(r adapter.Registrar2) {
 			r.RegisterSampleProcessor(sampleReportAdapter)
@@ -97,8 +100,8 @@ func TestMultiTemplateRegistration(t *testing.T) {
 		t.Errorf("No adapter by name %s, expected %v", sampleReportAdapter.Name(), sampleReportAdapter)
 	}
 
-	var sampleReport sampleReportProcessingAdapter
-	if sampleReport, ok = handler.(sampleReportProcessingAdapter); !ok || sampleReport != sampleReportAdapter {
+	var sampleReport sampleReportProcessingBuilder
+	if sampleReport, ok = handler.(sampleReportProcessingBuilder); !ok || sampleReport != sampleReportAdapter {
 		t.Errorf("reg.ByImpl(%s) expected handler '%v', actual '%v'", sampleReportAdapter.Name(), sampleReportAdapter, handler)
 	}
 
@@ -107,14 +110,14 @@ func TestMultiTemplateRegistration(t *testing.T) {
 
 	reg.insertHandler("foo.bar2", sampleReport)
 
-	if !reflect.DeepEqual(reg.handlersByName[sampleReport.name].Templates, expectedTemplateNames) {
-		t.Errorf("supported templates: got %s\nwant %s", reg.handlersByName[sampleReport.name].Templates, expectedTemplateNames)
+	if !reflect.DeepEqual(reg.handlerBuildersByName[sampleReport.name].Templates, expectedTemplateNames) {
+		t.Errorf("supported templates: got %s\nwant %s", reg.handlerBuildersByName[sampleReport.name].Templates, expectedTemplateNames)
 	}
 
 	// register again and should be no chang
 	reg.RegisterSampleProcessor(sampleReportAdapter)
-	if !reflect.DeepEqual(reg.handlersByName[sampleReport.name].Templates, expectedTemplateNames) {
-		t.Errorf("supported templates: got %s\nwant %s", reg.handlersByName[sampleReport.name].Templates, expectedTemplateNames)
+	if !reflect.DeepEqual(reg.handlerBuildersByName[sampleReport.name].Templates, expectedTemplateNames) {
+		t.Errorf("supported templates: got %s\nwant %s", reg.handlerBuildersByName[sampleReport.name].Templates, expectedTemplateNames)
 	}
 
 	if _, ok = reg.FindHandler("DOES_NOT_EXIST"); ok {
@@ -125,10 +128,10 @@ func TestMultiTemplateRegistration(t *testing.T) {
 func TestHandlerMap(t *testing.T) {
 	mp := HandlerMap([]adapter.RegisterFn2{
 		func(r adapter.Registrar2) {
-			r.RegisterSampleProcessor(sampleReportProcessingAdapter{testHandler{name: "foo"}})
+			r.RegisterSampleProcessor(sampleReportProcessingBuilder{testHandlerBuilder{name: "foo"}})
 		},
 		func(r adapter.Registrar2) {
-			r.RegisterSampleProcessor(sampleReportProcessingAdapter{testHandler{name: "bar"}})
+			r.RegisterSampleProcessor(sampleReportProcessingBuilder{testHandlerBuilder{name: "bar"}})
 		},
 	})
 
