@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	adapter "istio.io/mixer/pkg/adapter"
+	adapter_cnfg "istio.io/mixer/pkg/adapter/config"
 	sample_report "istio.io/mixer/pkg/templates/sample/report"
 )
 
@@ -35,21 +36,31 @@ func (noop2Builder) Description() string {
 }
 func (noop2Builder) Close() error { return nil }
 
+///////////////// Configuration time Methods ///////////////
+
+func (noop2Builder) DefaultConfig() proto.Message { return &types.Empty{} }
 func (noop2Builder) ValidateConfig(msg proto.Message) error {
 	fmt.Println("ValidateConfig called with input", msg)
 	return nil
 }
 
-func (noop2Builder) DefaultConfig() proto.Message { return &types.Empty{} }
+func (noop2Builder) ConfigureHandler(cnfg proto.Message) error {
+	fmt.Println("ConfigureHandler in noop Adapter called with", cnfg)
+	return nil
+}
 
-func (noop2Builder) Create(cnfg proto.Message) (sample_report.SampleProcessor, error) {
+func (noop2Builder) Build() (adapter_cnfg.Handler, error) {
+	fmt.Println("Build in noop Adapter called with")
 	return noop2Adapter{}, nil
 }
 
-func (noop2Adapter) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+// Per template configuration methods
+func (noop2Builder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
 	fmt.Println("ConfigureSample in noop Adapter called with", typeParams)
 	return nil
 }
+
+////////////////// Runtime Methods //////////////////////////
 
 func (noop2Adapter) ReportSample(instances []*sample_report.Instance) error {
 	fmt.Println("ReportSample in noop Adapter called with", instances)
