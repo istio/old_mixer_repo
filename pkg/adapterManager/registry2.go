@@ -26,7 +26,7 @@ import (
 // HandlerInfo provides information about an individual handler.
 type HandlerInfo struct {
 	// Builder is the builder of interest.
-	Handler adpCnfg.Handler
+	HandlerBuilder adpCnfg.Builder
 
 	// Templates specifies the the name of the templates this builder is capable of handling.
 	Templates []string
@@ -36,7 +36,7 @@ type HandlerInfo struct {
 // registry2 is initialized in the constructor and is immutable thereafter.
 // All registered handlers must have unique names per aspect kind.
 type registry2 struct {
-	handlersByName map[string]*HandlerInfo
+	handlerBuildersByName map[string]*HandlerInfo
 }
 
 // newRegistry returns a new Builder registry.
@@ -55,26 +55,26 @@ func newRegistry2(builders []registrar2.RegisterFn2) *registry2 {
 
 // HandlerMap returns the known handlers, indexed by their names.
 func HandlerMap(handlerRegFns []registrar2.RegisterFn2) map[string]*HandlerInfo {
-	return newRegistry2(handlerRegFns).handlersByName
+	return newRegistry2(handlerRegFns).handlerBuildersByName
 }
 
 // FindHandler returns the handler object with the given name.
 func (r *registry2) FindHandler(name string) (b adpCnfg.Handler, found bool) {
-	bi, found := r.handlersByName[name]
+	bi, found := r.handlerBuildersByName[name]
 	if !found {
 		return nil, false
 	}
-	return bi.Handler, true
+	return bi.HandlerBuilder, true
 
 }
 
-func (r *registry2) insertHandler(tmplName string, b adpCnfg.Handler) {
-	bi := r.handlersByName[b.Name()]
+func (r *registry2) insertHandler(tmplName string, b adpCnfg.Builder) {
+	bi := r.handlerBuildersByName[b.Name()]
 	if bi == nil {
-		bi = &HandlerInfo{Handler: b, Templates: make([]string, 0)}
-		r.handlersByName[b.Name()] = bi
+		bi = &HandlerInfo{HandlerBuilder: b, Templates: make([]string, 0)}
+		r.handlerBuildersByName[b.Name()] = bi
 
-	} else if bi.Handler != b {
+	} else if bi.HandlerBuilder != b {
 		// panic only if 2 different handler objects are trying to identify by the
 		// same Name.  2nd registration is ok so long as old and the new are same
 		msg := fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", b.Name(), bi, b)

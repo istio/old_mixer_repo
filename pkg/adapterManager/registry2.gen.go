@@ -18,6 +18,6 @@ import (
 	sample_report "istio.io/mixer/pkg/templates/sample/report"
 )
 
-func (r *registry2) RegisterSampleProcessor(b sample_report.SampleProcessor) {
+func (r *registry2) RegisterSampleProcessor(b sample_report.SampleProcessorBuilder) {
 	r.insertHandler(sample_report.TemplateName, b)
 }
