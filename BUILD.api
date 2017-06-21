@@ -104,3 +104,8 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )
+
+filegroup(
+    name = "mixer_descriptors",
+    srcs = DESCRIPTOR_FILE_GROUP,
+)
