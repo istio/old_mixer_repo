@@ -26,25 +26,15 @@ import (
 )
 
 type (
-	noop2Handler struct{}
+	noop2Handler        struct{}
 	noop2HandlerBuilder struct{}
 )
-
-func (noop2HandlerBuilder) Name() string { return "noop2" }
-func (noop2HandlerBuilder) Description() string {
-	return "An adapter that does nothing, just echos the calls made from mixer"
-}
 
 ///////////////// Configuration time Methods ///////////////
 
 func (noop2HandlerBuilder) DefaultConfig() proto.Message { return &types.Empty{} }
 func (noop2HandlerBuilder) ValidateConfig(msg proto.Message) error {
 	fmt.Println("ValidateConfig called with input", msg)
-	return nil
-}
-
-func (noop2HandlerBuilder) ConfigureHandler(cnfg proto.Message) error {
-	fmt.Println("ConfigureHandler in noop Adapter called with", cnfg)
 	return nil
 }
 
@@ -66,9 +56,22 @@ func (noop2Handler) ReportSample(instances []*sample_report.Instance) error {
 	return nil
 }
 
+// Close closes all the open resources.
 func (noop2Handler) Close() error { return nil }
 
-// Register registers the no-op adapter as processor for all the templates.
-func Register(r adapter.Registrar2) {
-	r.RegisterSampleProcessor(noop2HandlerBuilder{})
+// CreateHandler constructs a noop2HandlerBuilder.
+func CreateHandler() adapter_cnfg.HandlerBuilder {
+	return noop2HandlerBuilder{}
+}
+
+var noop2AdapterInfo = adapter.BuilderInfo{
+	Name:                   "noop2",
+	Description:            "An adapter that does nothing, just echos the calls made from mixer",
+	SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
+	CreateHandlerBuilderFn: CreateHandler,
+}
+
+// GetAdapterInfo returns the AdapterInfo associated with this adapter implementation.
+func GetAdapterInfo() adapter.BuilderInfo {
+	return noop2AdapterInfo
 }

@@ -41,10 +41,6 @@ type (
 	HandlerBuilder interface {
 		AdapterConfigValidator
 
-		// Name returns the official name of the adapter produced by this builder.
-		Name() string
-		// Description returns a user-friendly description of the adapter produced by this builder.
-		Description() string
 		// Build must return a Handler that must implement all the runtime request serving, template specific,
 		// interfaces{} that the Builder was configured for. Mixer will pass the Handler specific configuration to the
 		// Build method.

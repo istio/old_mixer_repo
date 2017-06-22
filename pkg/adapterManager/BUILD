@@ -5,12 +5,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "adapterInfoRegistry.gen.go",
+        "adapterInfoRegistry.go",
         "env.go",
         "logger.go",
         "manager.go",
         "registry.go",
-        "registry2.gen.go",
-        "registry2.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -37,9 +37,9 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "adapterInfoRegistry_test.go",
         "env_test.go",
         "manager_test.go",
-        "registry2_test.go",
         "registry_test.go",
     ],
     library = ":go_default_library",
