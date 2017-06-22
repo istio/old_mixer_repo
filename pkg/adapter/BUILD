@@ -7,6 +7,8 @@ go_library(
     srcs = [
         "accessLogs.go",
         "adapter.go",
+        "adapterInfo.gen.go",
+        "adapterInfo.go",
         "applicationLogs.go",
         "attributes.go",
         "builder.go",
@@ -17,10 +19,9 @@ go_library(
         "metrics.go",
         "quotas.go",
         "registrar.go",
-        # Should this file be in it's own rule?
-        "registrar2.gen.go",
     ],
     deps = [
+        "//pkg/adapter/config:go_default_library",
         "//pkg/templates/sample/report:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
