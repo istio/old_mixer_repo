@@ -22,22 +22,21 @@ import (
 )
 
 func TestRegisteredForAllAspects(t *testing.T) {
-	handlers := adapterManager.HandlerMap([]adapter.RegisterFn2{Register})
+	handlers := adapterManager.AdapterInfoMap([]adapter.GetAdapterInfoFn{GetAdapterInfo},
+		adapterManager.DoesBuilderSupportsTemplate)
 
-	name := noop2HandlerBuilder{}.Name()
-	noop2Handler := handlers[name]
+	name := noop2AdapterInfo.Name
+	resultNoop2AdapterInfo := handlers[name]
 
-	expectedTmpls := []string{
-		"istio.mixer.adapter.sample.report.Sample",
-	}
+	expectedTmpls := noop2AdapterInfo.SupportedTemplates
 	for _, expectedTmpl := range expectedTmpls {
-		if !contains(noop2Handler.Templates, expectedTmpl) {
+		if !contains(resultNoop2AdapterInfo.SupportedTemplates, expectedTmpl) {
 			t.Errorf("%s is not registered for template %s", name, expectedTmpl)
 		}
 	}
 }
 
-func contains(s []string, e string) bool {
+func contains(s []adapter.SupportedTemplates, e adapter.SupportedTemplates) bool {
 	for _, a := range s {
 		if a == e {
 			return true

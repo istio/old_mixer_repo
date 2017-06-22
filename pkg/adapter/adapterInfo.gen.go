@@ -18,11 +18,18 @@ import (
 	sample_report "istio.io/mixer/pkg/templates/sample/report"
 )
 
-// Registrar2 is used by adapters to register themselves as processors of one or more available templates.
-type Registrar2 interface {
-	RegisterSampleProcessor(processorBuilder sample_report.SampleProcessorBuilder)
+// SupportedTemplates is a string enum that expressess the template that an Adapter is intending to support.
+type SupportedTemplates string
+
+const (
+	// SampleProcessor is for a Report processing Adapter...
+	SampleProcessorTemplate SupportedTemplates = sample_report.TemplateName
+)
+
+var AllSupportedTemplates = []SupportedTemplates{
+	SampleProcessorTemplate,
 }
 
-// RegisterFn2 is a function Mixer invokes to trigger adapters to register
-// themselves as processors of one or more templates. It must succeed or panic().
-type RegisterFn2 func(Registrar2)
+var BuilderNames = map[SupportedTemplates]string{
+	SampleProcessorTemplate: "istio.io/mixer/pkg/templates/sample/report.SampleProcessorBuilder",
+}
