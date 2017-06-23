@@ -196,7 +196,7 @@ def template_protos(WKSPC):
                 makelink(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file, WKSPC + "/pkg/templates/" +template + "/" + file)
             if os.path.isdir(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file):
                 for file2 in os.listdir(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file):
-                    if file2.endswith(".pb.go"):
+                    if file2.endswith(".gen.altered.pb.go"):
                         makelink(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file + "/" + file2, WKSPC + "/pkg/templates/" + template + "/" + file + "/" + file2)
 
 def aspect_protos(WKSPC):
