@@ -22,5 +22,5 @@ go_proto_library(
 
 filegroup(
     name = "protos",
-    srcs = glob(["*.proto"]),
+    srcs = ["TemplateExtensions.proto"],
 )

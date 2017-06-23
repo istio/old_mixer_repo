@@ -190,14 +190,14 @@ def adapter_protos(WKSPC):
 
 # link pb.go files 2 levels down the dir
 def template_protos(WKSPC):
-    for template in os.listdir(WKSPC + "/bazel-genfiles/pkg/templates"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/templates/" + template):
+    for template in os.listdir(WKSPC + "/bazel-genfiles/pkg/template"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/template/" + template):
             if file.endswith(".pb.go"):
-                makelink(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file, WKSPC + "/pkg/templates/" +template + "/" + file)
-            if os.path.isdir(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file):
-                for file2 in os.listdir(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file):
+                makelink(WKSPC + "/bazel-genfiles/pkg/template/" + template + "/" + file, WKSPC + "/pkg/template/" +template + "/" + file)
+            if os.path.isdir(WKSPC + "/bazel-genfiles/pkg/template/" + template + "/" + file):
+                for file2 in os.listdir(WKSPC + "/bazel-genfiles/pkg/template/" + template + "/" + file):
                     if file2.endswith(".gen.altered.pb.go"):
-                        makelink(WKSPC + "/bazel-genfiles/pkg/templates/" + template + "/" + file + "/" + file2, WKSPC + "/pkg/templates/" + template + "/" + file + "/" + file2)
+                        makelink(WKSPC + "/bazel-genfiles/pkg/template/" + template + "/" + file + "/" + file2, WKSPC + "/pkg/template/" + template + "/" + file + "/" + file2)
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):
