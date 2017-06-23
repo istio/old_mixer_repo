@@ -18,7 +18,7 @@ import (
 	"istio.io/mixer/pkg/adapter/config"
 )
 
-// AdapterInfo describes the Adapter and provides a function to a Handler Builder method.
+// BuilderInfo describes the Adapter and provides a function to a Handler Builder method.
 type BuilderInfo struct {
 	// Name returns the official name of the adapter.
 	Name string
