@@ -31,7 +31,7 @@ genrule(
     srcs = [
         ":go_compiled_src",
     ],
-    outs = ["ReportTesterTemplate.gen2.pb.go"],
+    outs = ["ReportTesterTemplate.gen.altered.pb.go"],
     cmd = "sed -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' $(locations :go_compiled_src) > $@",
 )
 
