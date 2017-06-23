@@ -26,21 +26,9 @@ type (
 		io.Closer
 	}
 
-	// AdapterConfigValidator handles adapter configuration defaults and validation.
-	AdapterConfigValidator interface {
-		// DefaultConfig returns a default configuration struct for this
-		// adapter. This will be used by the configuration system to establish
-		// the shape of the block of configuration state passed to the Configure method.
-		DefaultConfig() proto.Message
-		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(proto.Message) error
-	}
-
 	// HandlerBuilder represents a factory of Handler. Adapters register builders with Mixer
 	// in order to allow Mixer to instantiate Handler on demand.
 	HandlerBuilder interface {
-		AdapterConfigValidator
-
 		// Build must return a Handler that must implement all the runtime request serving, template specific,
 		// interfaces{} that the Builder was configured for. Mixer will pass the Handler specific configuration to the
 		// Build method.

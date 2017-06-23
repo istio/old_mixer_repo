@@ -21,16 +21,16 @@ import (
 	"istio.io/mixer/pkg/adapterManager"
 )
 
-func TestRegisteredForAllAspects(t *testing.T) {
-	handlers := adapterManager.AdapterInfoMap([]adapter.GetAdapterInfoFn{GetAdapterInfo},
+func TestRegisterationForTemplates(t *testing.T) {
+	handlers := adapterManager.BuilderInfoMap([]adapter.GetBuilderInfoFn{GetBuilderInfo},
 		adapterManager.DoesBuilderSupportsTemplate)
+	bi := GetBuilderInfo()
+	name := bi.Name
+	resultNoop2BuilderInfo := handlers[name]
 
-	name := noop2AdapterInfo.Name
-	resultNoop2AdapterInfo := handlers[name]
-
-	expectedTmpls := noop2AdapterInfo.SupportedTemplates
+	expectedTmpls := bi.SupportedTemplates
 	for _, expectedTmpl := range expectedTmpls {
-		if !contains(resultNoop2AdapterInfo.SupportedTemplates, expectedTmpl) {
+		if !contains(resultNoop2BuilderInfo.SupportedTemplates, expectedTmpl) {
 			t.Errorf("%s is not registered for template %s", name, expectedTmpl)
 		}
 	}

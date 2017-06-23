@@ -15,6 +15,8 @@
 package adapter
 
 import (
+	"github.com/golang/protobuf/proto"
+
 	"istio.io/mixer/pkg/adapter/config"
 )
 
@@ -29,10 +31,21 @@ type BuilderInfo struct {
 	CreateHandlerBuilderFn CreateHandlerBuilder
 	// SupportedTemplates expressess all the templates the Adapter wants to serve.
 	SupportedTemplates []SupportedTemplates
+	// DefaultConfig is a default configuration struct for this
+	// adapter. This will be used by the configuration system to establish
+	// the shape of the block of configuration state passed to the HandlerBuilder.Build method.
+	DefaultConfig proto.Message
+	// ValidateConfig is a function that determines whether the given handler configuration meets all
+	// correctness requirements.
+	ValidateConfig ValidateConfig
 }
 
 // CreateHandlerBuilder is a function that creates a HandlerBuilder.
 type CreateHandlerBuilder func() config.HandlerBuilder
 
-// GetAdapterInfoFn returns an AdapterInfo object that Mixer will use to create HandlerBuilder
-type GetAdapterInfoFn func() BuilderInfo
+// ValidateConfig is a function that determines whether the given handler configuration meets all
+// correctness requirements.
+type ValidateConfig func(proto.Message) error
+
+// GetBuilderInfoFn returns an BuilderInfo object that Mixer will use to create HandlerBuilder
+type GetBuilderInfoFn func() BuilderInfo
