@@ -22,7 +22,7 @@ import (
 
 	adapter "istio.io/mixer/pkg/adapter"
 	adapter_cnfg "istio.io/mixer/pkg/adapter/config"
-	sample_report "istio.io/mixer/pkg/templates/sample/report"
+	sample_report "istio.io/mixer/pkg/template/sample/report"
 )
 
 type (

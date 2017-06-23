@@ -16,7 +16,6 @@ package adapterManager
 
 import (
 	"errors"
-	//"reflect"
 	"fmt"
 	"reflect"
 	"testing"
@@ -26,7 +25,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/config"
-	sample_report "istio.io/mixer/pkg/templates/sample/report"
+	sample_report "istio.io/mixer/pkg/template/sample/report"
 )
 
 type TestBuilderInfoInventory struct {
