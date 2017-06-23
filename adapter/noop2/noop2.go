@@ -26,25 +26,19 @@ import (
 )
 
 type (
-	noop2Handler        struct{}
-	noop2HandlerBuilder struct{}
+	noop2Handler struct{}
+	noop2Builder struct{}
 )
 
 ///////////////// Configuration time Methods ///////////////
 
-func (noop2HandlerBuilder) DefaultConfig() proto.Message { return &types.Empty{} }
-func (noop2HandlerBuilder) ValidateConfig(msg proto.Message) error {
-	fmt.Println("ValidateConfig called with input", msg)
-	return nil
-}
-
-func (noop2HandlerBuilder) Build(cnfg proto.Message) (adapter_cnfg.Handler, error) {
+func (noop2Builder) Build(cnfg proto.Message) (adapter_cnfg.Handler, error) {
 	fmt.Println("Build in noop Adapter called with", cnfg)
 	return noop2Handler{}, nil
 }
 
 // Per template configuration methods
-func (noop2HandlerBuilder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+func (noop2Builder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
 	fmt.Println("ConfigureSample in noop Adapter called with", typeParams)
 	return nil
 }
@@ -59,19 +53,17 @@ func (noop2Handler) ReportSample(instances []*sample_report.Instance) error {
 // Close closes all the open resources.
 func (noop2Handler) Close() error { return nil }
 
-// CreateHandler constructs a noop2HandlerBuilder.
-func CreateHandler() adapter_cnfg.HandlerBuilder {
-	return noop2HandlerBuilder{}
-}
-
-var noop2AdapterInfo = adapter.BuilderInfo{
-	Name:                   "noop2",
-	Description:            "An adapter that does nothing, just echos the calls made from mixer",
-	SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
-	CreateHandlerBuilderFn: CreateHandler,
-}
-
-// GetAdapterInfo returns the AdapterInfo associated with this adapter implementation.
-func GetAdapterInfo() adapter.BuilderInfo {
-	return noop2AdapterInfo
+// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
+func GetBuilderInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
+		Name:                   "noop2",
+		Description:            "An adapter that does nothing, just echos the calls made from mixer",
+		SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
+		CreateHandlerBuilderFn: func() adapter_cnfg.HandlerBuilder { return noop2Builder{} },
+		DefaultConfig:          &types.Empty{},
+		ValidateConfig: func(msg proto.Message) error {
+			fmt.Println("ValidateConfig called with input", msg)
+			return nil
+		},
+	}
 }

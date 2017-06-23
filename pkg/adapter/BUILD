@@ -7,11 +7,11 @@ go_library(
     srcs = [
         "accessLogs.go",
         "adapter.go",
-        "adapterInfo.gen.go",
-        "adapterInfo.go",
         "applicationLogs.go",
         "attributes.go",
         "builder.go",
+        "builderInfo.gen.go",
+        "builderInfo.go",
         "configError.go",
         "denials.go",
         "labels.go",
