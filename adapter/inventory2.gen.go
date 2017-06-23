@@ -20,8 +20,8 @@ import (
 )
 
 // Inventory2 returns the inventory of all available adapters.
-func Inventory2() []adapter.GetAdapterInfoFn {
-	return []adapter.GetAdapterInfoFn{
-		noop2.GetAdapterInfo,
+func Inventory2() []adapter.GetBuilderInfoFn {
+	return []adapter.GetBuilderInfoFn{
+		noop2.GetBuilderInfo,
 	}
 }
