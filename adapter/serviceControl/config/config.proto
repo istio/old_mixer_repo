@@ -26,10 +26,4 @@ option (gogoproto.gostring_all) = false;
 message Params {
     // The GCP service name.
     string service_name = 1;
-
-    // The path contains file secret.json and token.json.
-    string client_credential_path = 2;
-
-    // The labels set for GCP service control operations.
-    map<string, string> operation_labels = 3;
 }
