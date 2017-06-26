@@ -40,17 +40,28 @@ type (
 
 var (
 	name        = "serviceControl"
-	desc        = "Pushes metrics to service controller"
+	desc        = "Pushes metrics, logs to service controller"
 	defaultConf = &config.Params{
 		ServiceName:      "xiaolan-library-example.sandbox.googleapis.com",
 		ClientCredentialPath: "/Users/xiaolan/credentials/",
-		OperationLabels: []{"cloud.googleapis.com/location": "global"},
+		OperationLabels: map[string]string{"cloud.googleapis.com/location": "global"},
 	}
 )
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
 	r.RegisterMetricsBuilder(newBuilder())
+
+	b := builder{adapter.NewDefaultBuilder(
+		"serviceControlLogger",
+		"Writes log entries to service controller",
+		&config.Params{
+			ServiceName:      "xiaolan-library-example.sandbox.googleapis.com",
+			ClientCredentialPath: "/Users/xiaolan/credentials/",
+		},
+	)}
+
+	r.RegisterApplicationLogsBuilder(b)
 }
 
 func newBuilder() *builder {
@@ -107,8 +118,8 @@ func (a *aspect) Record(values []adapter.Value) error {
 	return err
 }
 
-// translate mixer label key to GCP label. This is case by case and needs preconfiguration.
-// Current implementation only works for some serviceruntime predefined labels by adding prefix /
+// translate mixer label key to GCP label. TODO Eventually move this to configuration.
+// Current implementation is just adding a prefix /
 func translate(labels map[string]interface{}) map[string]string {
 	ml := make(map[string]string)
 	for k, v := range labels {
