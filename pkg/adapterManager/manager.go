@@ -238,7 +238,7 @@ func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreproce
 		return nil, fmt.Errorf("unable to resolve config: %v", err)
 	}
 	if glog.V(2) {
-		glog.Infof("Resolved %d configs", len(configs))
+		glog.Infof("Resolved %d configs: %v ", len(configs), configs)
 	}
 	return configs, nil
 }
@@ -273,6 +273,7 @@ func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribu
 	cfg *cpb.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
 	df, _ := m.df.Load().(descriptor.Finder)
 	m.gp.ScheduleWork(func() {
+
 		// tracing
 		op := fmt.Sprintf("%s:%s(%s)", cfg.Aspect.Kind, cfg.Aspect.Adapter, cfg.Builder.Impl)
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)

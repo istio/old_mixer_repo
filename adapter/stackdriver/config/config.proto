@@ -37,25 +37,12 @@ message Params {
     // If no value is provided we default to once per second.
     google.protobuf.Duration push_interval = 3 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
 
-    // Configuration required to execute the "client credentials" or "2-legged
-    // oauth 2.0" flow, used to produce credentials for calling StackDriver.
-    // See https://godoc.org/golang.org/x/oauth2/clientcredentials which is
-    // used to create a token source for the StackDriver SDK.
-    message OauthClientCredentials {
-        string client_id = 1;
-        string client_secret = 2;
-        string token_url = 3;
-        repeated string scopes = 4;
-    }
-
     message GoogleApplicationCredentials {}
 
     // Credentials must be attached to every call made to StackDriver. This
     // can be an API key, a service account secret key, or Oauth2 tokens.
     //
-    // TODO: do we want to support 3-legged oauth flows too? It's not
-    // particularly hard, except for handling consent. In most cases Istio
-    // "owns" the resource, so 2L oauth makes sense.
+    // TODO: do we want to support oauth?
     oneof creds {
         // Use Google's Application Default Credentials to authorize calls made
         // by the StackDriver SDK.
@@ -69,9 +56,6 @@ message Params {
         // The (relative) path of a Google service account credential file to
         // use.
         string service_account_path = 6;
-
-        // 2-Legged oauth credentials
-        OauthClientCredentials oauth = 7;
     }
 
     // Information about how to represent an Istio metric in Stackdriver.

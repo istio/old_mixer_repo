@@ -25,7 +25,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
-	"golang.org/x/oauth2/clientcredentials"
 	gapiopts "google.golang.org/api/option"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
@@ -123,15 +122,6 @@ func toOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
 	case *config.Params_ApiKey:
 		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
-	case *config.Params_Oauth:
-		oauthcfg := cfg.GetOauth()
-		tokensrc := (&clientcredentials.Config{
-			ClientID:     oauthcfg.ClientId,
-			ClientSecret: oauthcfg.ClientSecret,
-			TokenURL:     oauthcfg.TokenUrl,
-			Scopes:       oauthcfg.Scopes,
-		}).TokenSource(context.Background())
-		opts = append(opts, gapiopts.WithTokenSource(tokensrc))
 	case *config.Params_ServiceAccountPath:
 		opts = append(opts, gapiopts.WithServiceAccountFile(cfg.GetServiceAccountPath()))
 	case *config.Params_AppCredentials:
@@ -254,9 +244,9 @@ func (s *sd) pushData() {
 	}
 	// Take the ref to the data we're pushing and create a new one to be written in to. We assume it'll be similarly
 	// sized to the last one.
-	toSend := s.toSend
 	// TODO: evaluate just swapping between two arrays (old, new) rather than creating new ones. Could run into
 	// problems if latency is high (> cfg.PushInterval) due to sending a lot of data in one go. Otherwise, maybe pool things
+	toSend := s.toSend
 	s.toSend = make([]*monitoringpb.TimeSeries, 0, len(toSend))
 	s.m.Unlock()
 	l.Infof("Pushing %d timeseries to stackdriver", len(toSend))

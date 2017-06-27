@@ -21,7 +21,6 @@ go_library(
         "@org_golang_google_genproto//googleapis/api/monitoredres:go_default_library",
         "@org_golang_google_genproto//googleapis/monitoring/v3:go_default_library",
         "@org_golang_x_net//context:go_default_library",
-        "@org_golang_x_oauth2//clientcredentials:go_default_library",
     ],
 )
 
