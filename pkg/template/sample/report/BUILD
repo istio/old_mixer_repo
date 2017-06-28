@@ -1,8 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library", "go_proto_compile")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_compile")
 
 go_proto_compile(
     name = "go_compiled_src",

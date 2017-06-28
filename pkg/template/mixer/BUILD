@@ -14,7 +14,7 @@ go_proto_library(
     inputs = [
         "@com_github_google_protobuf//:well_known_protos",
     ],
-    protos = glob(["*.proto"]),
+    protos = ["TemplateExtensions.proto"],
     deps = [
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
     ],
