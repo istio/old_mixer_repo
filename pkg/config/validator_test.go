@@ -23,23 +23,34 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/config"
 	listcheckerpb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	tmpl "istio.io/mixer/pkg/template"
 )
 
 type fakeVFinder struct {
 	ada   map[string]adapter.ConfigValidator
+	hbi   map[string]*adapter.BuilderInfo
 	asp   map[Kind]AspectValidator
 	kinds KindSet
 }
 
 func (f *fakeVFinder) FindAdapterValidator(name string) (adapter.ConfigValidator, bool) {
 	v, found := f.ada[name]
+	return v, found
+}
+
+func (f *fakeVFinder) FindBuilderInfo(name string) (*adapter.BuilderInfo, bool) {
+	v, found := f.hbi[name]
 	return v, found
 }
 
@@ -81,6 +92,7 @@ func (a *ac) ValidateConfig(AspectParams, expr.TypeChecker, descriptor.Finder) *
 type configTable struct {
 	cerr     *adapter.ConfigErrors
 	ada      map[string]adapter.ConfigValidator
+	hbi      map[string]*adapter.BuilderInfo
 	asp      map[Kind]AspectValidator
 	nerrors  int
 	selector string
@@ -88,12 +100,18 @@ type configTable struct {
 	cfg      string
 }
 
-func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValidator) *fakeVFinder {
+func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValidator,
+	hbi map[string]*adapter.BuilderInfo) *fakeVFinder {
 	var kinds KindSet
 	for k := range asp {
 		kinds = kinds.Set(k)
 	}
-	return &fakeVFinder{ada: ada, asp: asp, kinds: kinds}
+	return &fakeVFinder{ada: ada, hbi: hbi, asp: asp, kinds: kinds}
+}
+
+func fakeConfigureHandler(actions []*pb.Action, constructors map[string]*pb.Constructor,
+	handlers map[string]*HandlerBuilderInfo, tmplRepo tmpl.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error {
+	return nil
 }
 
 func TestConfigValidatorError(t *testing.T) {
@@ -106,41 +124,42 @@ func TestConfigValidatorError(t *testing.T) {
 			map[string]adapter.ConfigValidator{
 				"denyChecker": &lc{},
 				"metrics2":    &lc{},
-			},
+			}, nil,
 			nil, 0, "service.name == “*”", false, ConstGlobalConfig},
 		{nil,
 			map[string]adapter.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
-			},
+			}, nil,
 			nil, 1, "service.name == “*”", false, ConstGlobalConfig},
-		{nil, nil,
+		{nil, nil, nil,
 			map[Kind]AspectValidator{
 				MetricsKind: &ac{},
 				QuotasKind:  &ac{},
 			},
 			0, "service.name == “*”", false, sSvcConfig},
-		{nil, nil,
+		{nil, nil, nil,
 			map[Kind]AspectValidator{
 				MetricsKind: &ac{},
 				QuotasKind:  &ac{},
 			},
 			1, "service.name == “*”", true, sSvcConfig},
-		{cerr, nil,
+		{cerr, nil, nil,
 			map[Kind]AspectValidator{
 				QuotasKind: &ac{ce: cerr},
 			},
 			2, "service.name == “*”", false, sSvcConfig},
 		{ct.Append("/:metrics", unknownValidator("metrics")),
-			nil, nil, 2, "\"\"", false, sSvcConfig},
+			nil, nil, nil, 2, "\"\"", false, sSvcConfig},
 	}
 
 	for idx, tt := range tests {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
 
 			var ce *adapter.ConfigErrors
-			mgr := newVfinder(tt.ada, tt.asp)
-			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.AdapterToAspectMapperFunc, tt.strict, evaluator)
+			mgr := newVfinder(tt.ada, tt.asp, tt.hbi)
+			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.FindBuilderInfo, fakeConfigureHandler, nil,
+				mgr.AdapterToAspectMapperFunc, tt.strict, evaluator)
 			if tt.cfg == sSvcConfig {
 				ce = p.validateServiceConfig(globalRulesKey, fmt.Sprintf(tt.cfg, tt.selector), false)
 			} else {
@@ -150,14 +169,531 @@ func TestConfigValidatorError(t *testing.T) {
 			ok := tt.nerrors == 0
 
 			if ok != cok {
-				t.Fatalf("Expected %t Got %t", ok, cok)
+				t.Fatalf("got %t, want %t", cok, ok)
 			}
 			if ce == nil {
 				return
 			}
 
 			if len(ce.Multi.Errors) != tt.nerrors {
-				t.Fatalf("Expected: '%v' Got: %v", tt.cerr.Error(), ce.Error())
+				t.Fatalf("got %s, want %s", ce.Error(), tt.cerr.Error())
+			}
+		})
+	}
+}
+
+func TestConvertHandlerParamsErrors(t *testing.T) {
+
+	tTable := []struct {
+		params         interface{}
+		defaultCnfg    proto.Message
+		validateConfig adapter.ValidateConfig
+		errorStr       string
+	}{
+		{
+			map[string]interface{}{
+				"check_expression": "src.ip",
+				"blacklist":        "true (this should be bool)",
+			},
+			&listcheckerpb.ListsParams{},
+			func(c proto.Message) error { return nil },
+			"failed to decode",
+		},
+		{
+			map[string]interface{}{
+				"check_expression": "src.ip",
+				"blacklist":        true,
+				"wrongextrafield":  true,
+			},
+			&listcheckerpb.ListsParams{},
+			func(c proto.Message) error { return nil },
+			"failed to unmarshal",
+		},
+		{
+			map[string]interface{}{
+				"check_expression": "src.ip",
+				"blacklist":        true,
+			},
+			&listcheckerpb.ListsParams{},
+			func(c proto.Message) error { return errors.New("handler config validation failed") },
+			"handler config validation failed",
+		},
+	}
+
+	for _, tt := range tTable {
+		t.Run(tt.errorStr, func(t *testing.T) {
+			_, ce := convertHandlerParams(
+				&adapter.BuilderInfo{
+					DefaultConfig:  tt.defaultCnfg,
+					ValidateConfig: tt.validateConfig,
+				}, "myhandlerCnfgBlock", tt.params, true)
+
+			if !strings.Contains(ce.Error(), tt.errorStr) {
+				t.Errorf("got %s, want %s\n", ce.Error(), tt.errorStr)
+			}
+		})
+	}
+}
+
+func TestHandlerConfigValidator(t *testing.T) {
+	evaluator := newFakeExpr()
+
+	tests := []*configTable{
+		{
+			nil,
+			nil,
+			map[string]*adapter.BuilderInfo{
+				"fooHandlerAdapter": {
+					DefaultConfig:          &types.Empty{},
+					ValidateConfig:         func(c proto.Message) error { return nil },
+					CreateHandlerBuilderFn: func() config.HandlerBuilder { return nil },
+				},
+			},
+			nil, 0, "service.name == “*”", false, ConstGlobalConfig,
+		},
+		{
+			nil,
+			nil,
+			map[string]*adapter.BuilderInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			nil, 1, "service.name == “*”", false, ConstGlobalConfig,
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(strconv.Itoa(idx), func(t *testing.T) {
+
+			var ce *adapter.ConfigErrors
+
+			mgr := newVfinder(tt.ada, tt.asp, tt.hbi)
+			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.FindBuilderInfo, fakeConfigureHandler, nil,
+				mgr.AdapterToAspectMapperFunc, tt.strict, evaluator)
+			ce = p.validateHandlers(tt.cfg)
+			cok := ce == nil
+			ok := tt.nerrors == 0
+
+			if ok != cok {
+				t.Fatalf("got %t, want %t", cok, ok)
+			}
+			if ce == nil {
+				return
+			}
+
+			if len(ce.Multi.Errors) != tt.nerrors {
+				t.Fatalf("got %s, want %s", ce.Error(), tt.cerr.Error())
+			}
+		})
+	}
+}
+
+func TestCacheValidatedHandlerBuilder(t *testing.T) {
+	evaluator := newFakeExpr()
+
+	var globalConfig = `
+subject: "namespace:ns"
+revision: "2022"
+handlers:
+  - name: fooHandler
+    adapter: fooHandlerAdapter
+`
+
+	const testSupportedTemplate adapter.SupportedTemplates = "testSupportedTemplate"
+	tests := []*configTable{
+		{
+			hbi: map[string]*adapter.BuilderInfo{
+				"fooHandlerAdapter": {
+					DefaultConfig:          &types.Empty{},
+					ValidateConfig:         func(c proto.Message) error { return nil },
+					CreateHandlerBuilderFn: func() config.HandlerBuilder { return nil },
+					SupportedTemplates:     []adapter.SupportedTemplates{testSupportedTemplate},
+				},
+			},
+			cfg:     globalConfig,
+			nerrors: 0,
+		},
+		{
+			hbi:     map[string]*adapter.BuilderInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			cfg:     globalConfig,
+			nerrors: 1,
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(strconv.Itoa(idx), func(t *testing.T) {
+			mgr := newVfinder(tt.ada, tt.asp, tt.hbi)
+			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.FindBuilderInfo, fakeConfigureHandler, nil,
+				mgr.AdapterToAspectMapperFunc, tt.strict, evaluator)
+			_ = p.validateHandlers(tt.cfg)
+			v, ok := p.handlerBuilderByName["fooHandler"]
+			if tt.nerrors > 0 && ok {
+				t.Fatalf("got p.handlerBuilderByName[\"fooHandler\"] = %v, want: <nil>", v)
+
+			}
+			if tt.nerrors == 0 {
+				if !ok {
+					t.Fatalf("got p.handlerBuilderByName[\"fooHandler\"] = %v, want: <nil>", v)
+
+				} else if !reflect.DeepEqual(p.handlerBuilderByName["fooHandler"].supportedTemplates, []adapter.SupportedTemplates{testSupportedTemplate}) {
+					t.Fatalf("got p.handlerBuilderByName[\"fooHandler\"]: %v, Expected: =%v",
+						p.handlerBuilderByName["fooHandler"].supportedTemplates, []adapter.SupportedTemplates{testSupportedTemplate})
+				}
+			}
+		})
+	}
+}
+
+type fakeGoodHandlerBuilder struct{}
+
+func (f fakeGoodHandlerBuilder) Build(cnfg proto.Message) (config.Handler, error) { return nil, nil }
+
+type fakeBadHandlerBuilder struct{}
+
+func (f fakeBadHandlerBuilder) Build(cnfg proto.Message) (config.Handler, error) {
+	return nil, errors.New("build failed")
+}
+
+func getConfigureHandlerFn(err error) ConfigureHandler {
+	return func(actions []*pb.Action, constructors map[string]*pb.Constructor,
+		handlers map[string]*HandlerBuilderInfo, tmplRepo tmpl.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error {
+		return err
+	}
+}
+func TestBuildAndCacheHandlers(t *testing.T) {
+	var hbgood config.HandlerBuilder = fakeGoodHandlerBuilder{}
+	var hbb config.HandlerBuilder = fakeBadHandlerBuilder{}
+	tests := []struct {
+		configureHandler     ConfigureHandler
+		handlerBuilderByName map[string]*HandlerBuilderInfo
+		expectedError        string
+	}{
+		{
+			getConfigureHandlerFn(nil),
+			map[string]*HandlerBuilderInfo{
+				"foo": {
+					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+				},
+			},
+			"",
+		},
+		{
+			getConfigureHandlerFn(errors.New("some error during configuration")),
+			map[string]*HandlerBuilderInfo{
+				"foo": {
+					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+				},
+			},
+			"some error during configuration",
+		},
+		{
+			getConfigureHandlerFn(nil),
+			map[string]*HandlerBuilderInfo{
+				"foo": {
+					handlerBuilder: &hbb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+				},
+			},
+			"failed to build a handler instance",
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(strconv.Itoa(idx), func(t *testing.T) {
+			p := newValidator(nil, nil, nil, tt.configureHandler, nil, nil, true, nil)
+			p.handlerBuilderByName = tt.handlerBuilderByName
+			err := p.buildHandlers()
+			if tt.expectedError == "" {
+				if len(p.validated.handlerByName) == len(tt.handlerBuilderByName) {
+					for k := range tt.handlerBuilderByName {
+						if _, ok := p.validated.handlerByName[k]; !ok {
+							t.Fatalf("got validated.handlerByName[%s] = nil, want !nil", k)
+						}
+					}
+				} else {
+					t.Fatalf("got: validated.handlerByName %v, want: '%v'", p.validated.handlerByName, tt.handlerBuilderByName)
+				}
+			} else {
+				if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Fatalf("got %s, want %s", tt.expectedError, err.Error())
+				}
+			}
+		})
+	}
+}
+
+type fakeTemplateRepo struct {
+	templateConstructorParamMap map[string]proto.Message
+}
+
+func newFakeTemplateRepo(templateConstructorParamMap map[string]proto.Message) tmpl.Repository {
+	return fakeTemplateRepo{templateConstructorParamMap: templateConstructorParamMap}
+}
+
+func (t fakeTemplateRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
+	if t.templateConstructorParamMap == nil {
+		return tmpl.Info{}, false
+	}
+	if v, ok := t.templateConstructorParamMap[template]; ok {
+		return tmpl.Info{
+			CnstrDefConfig: v,
+		}, true
+	}
+	return tmpl.Info{}, false
+}
+
+func TestValidateRulesConfig(t *testing.T) {
+	const sSvcConfigValid = `
+subject: namespace:ns
+revision: "2022"
+action_rules:
+- selector: target.service == "*"
+  actions:
+  - handler: somehandler
+    instances:
+    - RequestCountByService
+`
+	const sSvcConfigNestedValid = `
+subject: namespace:ns
+revision: "2022"
+action_rules:
+- selector: target.service == "*"
+  actions:
+  - handler: somehandler
+    instances:
+    - RequestCountByService
+  rules:
+  - selector: target.service == "*"
+    actions:
+    - handler: somehandler
+      instances:
+      - RequestCountByService
+`
+	const sSvcConfigMissingHandler = `
+subject: namespace:ns
+revision: "2022"
+action_rules:
+- selector: target.service == "*"
+  actions:
+  - instances:
+    - RequestCountByService
+`
+	const sSvcConfigNestedMissingHandler = `
+subject: namespace:ns
+revision: "2022"
+action_rules:
+- selector: target.ip == "*"
+  actions:
+  - handler: somehandler
+    instances:
+    - RequestCountByService
+  rules:
+  - selector: source.ip == "*"
+    actions:
+    - instances:
+      - RequestCountByService
+`
+	const sSvcConfigInvalidSelector = `
+subject: namespace:ns
+revision: "2022"
+action_rules:
+- selector: == * == invalid
+  actions:
+  - handler: somehandler
+    instances:
+    - RequestCountByService
+`
+
+	evaluator := newFakeExpr()
+	tests := []struct {
+		cfg        string
+		nerrors    int
+		cnstrMap   map[string]*pb.Constructor
+		handlerMap map[string]*HandlerBuilderInfo
+		cerr       []string
+		nActions   int
+		expr       expr.TypeChecker
+	}{
+		{
+			sSvcConfigValid,
+			0,
+			map[string]*pb.Constructor{"RequestCountByService": {}},
+			map[string]*HandlerBuilderInfo{"somehandler": {}},
+			nil,
+			1,
+			evaluator,
+		},
+		{
+			sSvcConfigNestedValid,
+			0,
+			map[string]*pb.Constructor{"RequestCountByService": {}},
+			map[string]*HandlerBuilderInfo{"somehandler": {}},
+			nil,
+			2,
+			evaluator,
+		},
+		{
+			sSvcConfigValid,
+			2,
+			map[string]*pb.Constructor{},
+			map[string]*HandlerBuilderInfo{},
+			[]string{"handler not specified or is invalid", "instance 'RequestCountByService' is not defined"},
+			0,
+			evaluator,
+		},
+		{
+			sSvcConfigMissingHandler,
+			1,
+			map[string]*pb.Constructor{"RequestCountByService": {}},
+			map[string]*HandlerBuilderInfo{"somehandler": {}},
+			[]string{"handler not specified or is invalid"},
+			0,
+			evaluator,
+		},
+		{
+			sSvcConfigNestedMissingHandler,
+			1,
+			map[string]*pb.Constructor{"RequestCountByService": {}},
+			map[string]*HandlerBuilderInfo{"somehandler": {}},
+			[]string{"handler not specified or is invalid"},
+			1,
+			evaluator,
+		},
+		{
+			sSvcConfigInvalidSelector,
+			1,
+			map[string]*pb.Constructor{"RequestCountByService": {}},
+			map[string]*HandlerBuilderInfo{"somehandler": {}},
+			[]string{"bad expression"},
+			1, /*even if the selector is wrong the action is correct*/
+			&fakeExpr{err: errors.New("bad expression")},
+		},
+	}
+
+	tdf := newFakeTemplateRepo(map[string]proto.Message{"FooTemplate": &types.Empty{}})
+	for idx, tt := range tests {
+		t.Run(strconv.Itoa(idx), func(t *testing.T) {
+
+			var ce *adapter.ConfigErrors
+
+			p := newValidator(nil, nil, nil, nil, tdf, nil, true, tt.expr)
+			ce = p.validateRulesConfig(globalRulesKey, tt.cfg, tt.cnstrMap, tt.handlerMap)
+
+			cok := ce == nil
+			ok := tt.nerrors == 0
+
+			if ok != cok {
+				t.Errorf("got %t, want %t", cok, ok)
+			}
+			if len(p.actions) != tt.nActions {
+				t.Errorf("got len(p.actions)=%d, want %d", len(p.actions), tt.nActions)
+			}
+			if ce == nil {
+				return
+			}
+
+			if !containErrors(ce.Multi.Errors, tt.cerr) {
+				t.Fatalf("got '%v' want %v", ce.Error(), tt.cerr)
+			}
+		})
+	}
+}
+
+func containErrors(actualErrors []error, expectedErrorStrs []string) bool {
+	if len(actualErrors) != len(expectedErrorStrs) {
+		return false
+	}
+
+	for _, exp := range expectedErrorStrs {
+		match := false
+		for _, actualError := range actualErrors {
+			if strings.Contains(actualError.Error(), exp) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	return true
+}
+
+func TestValidateConstructorConfigs(t *testing.T) {
+	const sSvcConfigInvalidTemplate = `
+subject: namespace:ns
+revision: "2022"
+constructors:
+- instanceName: RequestCountByService
+  template: invalidtemplate
+  params:
+    value: 1
+    dimensions:
+      source: origin.service
+      target_ip: destination.ip
+`
+	const sSvcConfigValidParams = `
+subject: namespace:ns
+revision: "2022"
+constructors:
+- instanceName: RequestCountByService
+  template: FooTemplate
+  params:
+`
+	const sSvcConfigExtraParamFields = `
+subject: namespace:ns
+revision: "2022"
+constructors:
+- instanceName: RequestCountByService
+  template: FooTemplate
+  params:
+    check_expression: src.ip
+    blacklist: true
+`
+
+	evaluator := newFakeExpr()
+	tests := []struct {
+		cfg     string
+		nerrors int
+		tdf     tmpl.Repository
+		cerr    []string
+	}{
+		{
+			sSvcConfigInvalidTemplate,
+			1,
+			newFakeTemplateRepo(map[string]proto.Message{"FooTemplate": &types.Empty{}}),
+			[]string{"is not a registered"},
+		},
+		{
+			sSvcConfigValidParams,
+			0,
+			newFakeTemplateRepo(map[string]proto.Message{"FooTemplate": &types.Empty{}}),
+			nil,
+		},
+		{
+			sSvcConfigExtraParamFields,
+			1,
+			newFakeTemplateRepo(map[string]proto.Message{"FooTemplate": &types.Empty{}}),
+			[]string{"failed to decode constructor params"},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(strconv.Itoa(idx), func(t *testing.T) {
+
+			var ce *adapter.ConfigErrors
+
+			p := newValidator(nil, nil, nil, nil, tt.tdf, nil, true, evaluator)
+			ce = p.validateConstructorConfigs(globalRulesKey, tt.cfg)
+
+			cok := ce == nil
+			ok := tt.nerrors == 0
+
+			if ok != cok {
+				t.Errorf("got %t want %t ", cok, ok)
+			}
+			if ce == nil {
+				return
+			}
+
+			if !containErrors(ce.Multi.Errors, tt.cerr) {
+				t.Fatalf("got: %v, want: '%v' ", ce.Error(), tt.cerr)
 			}
 		})
 	}
@@ -225,15 +761,16 @@ func TestFullConfigValidator(tt *testing.T) {
 	}
 	for idx, ctx := range ctable {
 		tt.Run(fmt.Sprintf("[%d]", idx), func(t *testing.T) {
-			mgr := newVfinder(ctx.ada, ctx.asp)
+			mgr := newVfinder(ctx.ada, ctx.asp, nil)
 			fe.err = ctx.exprErr
-			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.AdapterToAspectMapperFunc, ctx.strict, fe)
+			p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, nil, fakeConfigureHandler, nil,
+				mgr.AdapterToAspectMapperFunc, ctx.strict, fe)
 			// ConstGlobalConfig only defines 1 adapter: denyChecker
 			_, ce := p.validate(newFakeMap(ConstGlobalConfig, ctx.cfg))
 			cok := ce == nil
 			ok := ctx.cerr == nil
 			if ok != cok {
-				t.Fatalf("%d Expected %t Got %t", idx, ok, cok)
+				t.Fatalf("%d got %t, want %t ", idx, cok, ok)
 
 			}
 			if ce == nil {
@@ -256,13 +793,20 @@ var globalRulesKey = rulesKey{Scope: global, Subject: global}
 func TestConfigParseError(t *testing.T) {
 	mgr := &fakeVFinder{}
 	evaluator := newFakeExpr()
-	p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, mgr.AdapterToAspectMapperFunc, false, evaluator)
+	p := newValidator(mgr.FindAspectValidator, mgr.FindAdapterValidator, nil, fakeConfigureHandler, nil,
+		mgr.AdapterToAspectMapperFunc, false, evaluator)
 	ce := p.validateServiceConfig(globalRulesKey, "<config>  </config>", false)
 
 	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
 	}
 	ce = p.validateAdapters("", "<config>  </config>")
+
+	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
+		t.Error("Expected unmarshal Error", ce)
+	}
+
+	ce = p.validateHandlers("<config>  </config>")
 
 	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
@@ -277,6 +821,7 @@ func TestConfigParseError(t *testing.T) {
 		keyGlobalServiceConfig: "<config>  </config>",
 		keyAdapters:            "<config>  </config>",
 		keyDescriptors:         "<config>  </config>",
+		keyHandlers:            "<config>  </config>",
 	})
 	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
@@ -293,6 +838,9 @@ func TestDecoderError(t *testing.T) {
 const ConstGlobalConfigValid = `
 subject: "namespace:ns"
 revision: "2022"
+handlers:
+  - name: fooHandler
+    adapter: fooHandlerAdapter
 adapters:
   - name: default
     kind: denials
@@ -416,6 +964,10 @@ func TestValidated_Clone(t *testing.T) {
 		{AccessLogsKind, "n1"}: {},
 	}
 
+	hh := map[string]*HandlerInfo{
+		"foo": nil,
+	}
+
 	rule := map[rulesKey]*pb.ServiceConfig{
 		{"global", "global"}: {},
 	}
@@ -434,6 +986,7 @@ func TestValidated_Clone(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: aa,
+		handlerByName: hh,
 		rule:          rule,
 		adapter:       adp,
 		descriptor:    desc,
@@ -511,7 +1064,7 @@ func TestConvertAdapterParamsErrors(t *testing.T) {
 			}, "ABC", tt.params, true)
 
 			if !strings.Contains(ce.Error(), tt.cv.err) {
-				t.Errorf("got %s\nwant %s", ce.Error(), tt.cv.err)
+				t.Errorf("got %s, want %s. ", ce.Error(), tt.cv.err)
 			}
 		})
 	}
@@ -574,7 +1127,7 @@ quotas:
 				if tt.err == "" {
 					t.Fatalf("validateDescriptors = '%s', wanted no err", err.Error())
 				} else if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+					t.Fatalf("got: '%s', want errors containing the string '%s', ", err.Error(), tt.err)
 				}
 			}
 		})
