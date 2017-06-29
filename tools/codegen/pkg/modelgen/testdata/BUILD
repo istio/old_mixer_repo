@@ -19,7 +19,6 @@ proto_compile(
     protos = [
         "BasicTopLevelFields.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -42,7 +41,6 @@ proto_compile(
     protos = [
         "ConstructorAndImports.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -63,7 +61,6 @@ proto_compile(
     protos = [
         "MissingBothRequiredExt.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -84,7 +81,6 @@ proto_compile(
     protos = [
         "MissingConstructorMessage.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -105,7 +101,6 @@ proto_compile(
     protos = [
         "MissingPackageName.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -126,7 +121,6 @@ proto_compile(
     protos = [
         "MissingTemplateNameExt.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -147,7 +141,6 @@ proto_compile(
     protos = [
         "MissingTemplateVarietyExt.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -168,7 +161,6 @@ proto_compile(
     protos = [
         "MissingTypeMessage.proto",
     ],
-    # output_to_workspace = True,
     verbose = 0,
 )
 
@@ -189,7 +181,26 @@ proto_compile(
     protos = [
         "ReservedFieldInConstructor.proto",
     ],
-    # output_to_workspace = True,
+    verbose = 0,
+)
+
+proto_compile(
+    name = "proto2_bad_syntax",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+    ],
+    inputs = [
+        "//tools/codegen/pkg/template_extension:proto",
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
+    protos = [
+        "Proto2BadSyntax.proto",
+    ],
     verbose = 0,
 )
 
@@ -205,6 +216,7 @@ filegroup(
         "missing_template_name.descriptor_set",
         "missing_template_variety.descriptor_set",
         "missing_type_message.descriptor_set",
+        "proto2_bad_syntax.descriptor_set",
         "reserved_field_in_constructor.descriptor_set",
     ],
 )

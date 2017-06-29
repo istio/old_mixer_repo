@@ -35,7 +35,8 @@ func TestErrorInTemplate(t *testing.T) {
 		{"testdata/missing_both_required.descriptor_set", "one proto file that has both extensions"},
 		{"testdata/missing_type_message.descriptor_set", "message 'Type' not defined"},
 		{"testdata/missing_constructor_message.descriptor_set", "message 'Constructor' not defined"},
-		{"testdata/reserved_field_in_constructor.descriptor_set", "Constructor message must not contain the reserved filed name 'Name'"},
+		{"testdata/reserved_field_in_constructor.descriptor_set", "proto:15: Constructor message must not contain the reserved filed name 'Name'"},
+		{"testdata/proto2_bad_syntax.descriptor_set", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},
 	}
 
 	for idx, tt := range tests {
