@@ -6,6 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "handler.go",
+        "cacheability.go",
     ],
     deps = [
         "@com_github_golang_protobuf//proto:go_default_library",
