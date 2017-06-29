@@ -72,16 +72,15 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 			// TODO: use a timer, like wrk
 			go func() {
 				for i := 0; i < rootArgs.repeat; i++ {
-					<-sem
-					request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
+					request := mixerpb.CheckRequest{Attributes: *attrs}
 
 					response, err := cs.client.Check(ctx, &request)
 					if err != nil {
 						fatalf("Failed to send Check RPC: %v", err)
 					}
 					if rootArgs.repeat < 10 {
-						printf("Check RPC returned %s", decodeStatus(response.Result))
-						dumpAttributes(printf, fatalf, response.AttributeUpdate)
+						printf("Check RPC returned %s", decodeStatus(response.Status))
+						dumpAttributes(printf, fatalf, &response.Attributes)
 					}
 					// Some progress indication, 100k seems to avoid verbosity.
 					if i%100000 == 0 {
@@ -90,7 +89,9 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 					sem <- true
 				}
 			}()
-
+			for i := 0; i < rootArgs.repeat; i++ {
+				<-sem
+			}
 			span.Finish()
 			wg.Done()
 		}()
