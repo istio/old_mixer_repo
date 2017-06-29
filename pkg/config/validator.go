@@ -38,9 +38,11 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/template"
 )
 
 type (
@@ -71,19 +73,35 @@ type (
 	// AdapterToAspectMapper returns the set of aspect kinds implemented by
 	// the given builder.
 	AdapterToAspectMapper func(builder string) KindSet
+
+	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
+	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
+
+	// ConfigureHandler is used to configure handler implementation with Types associated with all the templates that
+	// it supports.
+	ConfigureHandler func(actions []*pb.Action, constructors map[string]*pb.Constructor,
+		handlers map[string]*HandlerBuilderInfo, tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error
 )
 
 // newValidator returns a validator given component validators.
 func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderValidatorFinder,
+	builderInfoFinder BuilderInfoFinder, configureHandler ConfigureHandler, templateRepo template.Repository,
 	findAspects AdapterToAspectMapper, strict bool, typeChecker expr.TypeChecker) *validator {
 	return &validator{
-		managerFinder: managerFinder,
-		adapterFinder: adapterFinder,
-		findAspects:   findAspects,
-		strict:        strict,
-		typeChecker:   typeChecker,
+		managerFinder:        managerFinder,
+		adapterFinder:        adapterFinder,
+		builderInfoFinder:    builderInfoFinder,
+		configureHandler:     configureHandler,
+		templateRepo:         templateRepo,
+		findAspects:          findAspects,
+		constructorByName:    make(map[string]*pb.Constructor),
+		actions:              make([]*pb.Action, 0),
+		strict:               strict,
+		typeChecker:          typeChecker,
+		handlerBuilderByName: make(map[string]*HandlerBuilderInfo),
 		validated: &Validated{
 			adapterByName: make(map[adapterKey]*pb.Adapter),
+			handlerByName: make(map[string]*HandlerInfo),
 			rule:          make(map[rulesKey]*pb.ServiceConfig),
 			adapter:       make(map[string]*pb.GlobalConfig),
 			descriptor:    make(map[string]*pb.GlobalConfig),
@@ -95,13 +113,19 @@ func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderVali
 type (
 	// validator is the Configuration validator.
 	validator struct {
-		managerFinder    AspectValidatorFinder
-		adapterFinder    BuilderValidatorFinder
-		findAspects      AdapterToAspectMapper
-		descriptorFinder descriptor.Finder
-		strict           bool
-		typeChecker      expr.TypeChecker
-		validated        *Validated
+		managerFinder        AspectValidatorFinder
+		adapterFinder        BuilderValidatorFinder
+		builderInfoFinder    BuilderInfoFinder
+		configureHandler     ConfigureHandler
+		templateRepo         template.Repository
+		findAspects          AdapterToAspectMapper
+		descriptorFinder     descriptor.Finder
+		handlerBuilderByName map[string]*HandlerBuilderInfo
+		constructorByName    map[string]*pb.Constructor
+		actions              []*pb.Action
+		strict               bool
+		typeChecker          expr.TypeChecker
+		validated            *Validated
 	}
 
 	adapterKey struct {
@@ -122,11 +146,26 @@ type (
 	Validated struct {
 		adapterByName map[adapterKey]*pb.Adapter
 		// descriptors and adapters are only allowed in global scope
-		adapter    map[string]*pb.GlobalConfig
-		descriptor map[string]*pb.GlobalConfig
-		rule       map[rulesKey]*pb.ServiceConfig
-		shas       map[string][sha1.Size]byte
-		numAspects int
+		adapter       map[string]*pb.GlobalConfig
+		handlerByName map[string]*HandlerInfo
+		descriptor    map[string]*pb.GlobalConfig
+		rule          map[rulesKey]*pb.ServiceConfig
+		shas          map[string][sha1.Size]byte
+		numAspects    int
+	}
+
+	// HandlerBuilderInfo stores validated HandlerBuilders..
+	HandlerBuilderInfo struct {
+		handlerBuilder     *config.HandlerBuilder
+		handlerCnfg        *pb.Handler
+		supportedTemplates []adapter.SupportedTemplates
+	}
+
+	// HandlerInfo stores validated and configured Handlers.
+	HandlerInfo struct {
+		handlerInstance    *config.Handler
+		adapterName        string
+		supportedTemplates []adapter.SupportedTemplates
 	}
 )
 
@@ -145,6 +184,11 @@ func (v *Validated) Clone() *Validated {
 		aa[k] = a
 	}
 
+	hh := map[string]*HandlerInfo{}
+	for k, a := range v.handlerByName {
+		hh[k] = a
+	}
+
 	rule := map[rulesKey]*pb.ServiceConfig{}
 	for k, a := range v.rule {
 		rule[k] = a
@@ -157,6 +201,7 @@ func (v *Validated) Clone() *Validated {
 
 	return &Validated{
 		adapterByName: aa,
+		handlerByName: hh,
 		rule:          rule,
 		adapter:       copyDescriptors(v.adapter),
 		descriptor:    copyDescriptors(v.descriptor),
@@ -166,16 +211,22 @@ func (v *Validated) Clone() *Validated {
 }
 
 const (
-	global      = "global"
-	scopes      = "scopes"
-	subjects    = "subjects"
-	rules       = "rules"
-	adapters    = "adapters"
-	descriptors = "descriptors"
+	global       = "global"
+	scopes       = "scopes"
+	subjects     = "subjects"
+	rules        = "rules"
+	constructors = "constructors"
+	actionRules  = "action_rules"
+	adapters     = "adapters"
+	handlers     = "handlers"
+	descriptors  = "descriptors"
 
 	keyAdapters            = "/scopes/global/adapters"
+	keyHandlers            = "/scopes/global/handlers"
 	keyDescriptors         = "/scopes/global/descriptors"
 	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
+	keyConstructorsConfig  = "/scopes/global/subjects/global/constructors"
+	keyActionsConfig       = "/scopes/global/subjects/global/action_rules"
 )
 
 // String string representation of a Key
@@ -357,6 +408,56 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 	return numAspects, ce
 }
 
+func (p *validator) validateRules(rules []*pb.Rule, path string, cnstrByName map[string]*pb.Constructor,
+	hdlrByName map[string]*HandlerBuilderInfo) (ce *adapter.ConfigErrors) {
+	for _, rule := range rules {
+		if err := p.validateSelector(rule.GetSelector(), p.descriptorFinder); err != nil {
+			ce = ce.Append(path+":Selector "+rule.GetSelector(), err)
+		}
+
+		path = path + "/" + rule.GetSelector()
+		for idx, aa := range rule.GetActions() {
+			hasError := false
+			if aa.GetHandler() == "" || hdlrByName[aa.GetHandler()] == nil {
+				hasError = true
+				ce = ce.Appendf(fmt.Sprintf("%s[%d]", path, idx), "handler not specified or is invalid")
+			}
+			for _, instanceName := range aa.GetInstances() {
+				if cnstrByName[instanceName] == nil {
+					hasError = true
+					ce = ce.Appendf(fmt.Sprintf("%s[%d]", path, idx), "instance '%s' is not defined.", instanceName)
+				}
+				// TODO Validate if the cnstr's template is something that the handler supports.
+			}
+			if !hasError {
+				p.actions = append(p.actions, aa)
+			}
+		}
+		rs := rule.GetRules()
+		if len(rs) == 0 {
+			continue
+		}
+		if verr := p.validateRules(rs, path, cnstrByName, hdlrByName); verr != nil {
+			ce = ce.Extend(verr)
+		}
+	}
+	return ce
+}
+
+// validateConstructors validates the constructors in the service configuration.
+func (p *validator) validateConstructors(constructors []*pb.Constructor) (ce *adapter.ConfigErrors) {
+	for _, cnstr := range constructors {
+		if ccfg, err := convertConstructorParam(p.templateRepo, cnstr.GetTemplate(), cnstr.GetParams(), p.strict); err != nil {
+			ce = ce.Appendf(fmt.Sprintf("constructor:%s", cnstr.GetInstanceName()), "failed to parse params: %v", err)
+			continue
+		} else {
+			cnstr.Params = ccfg
+			p.constructorByName[cnstr.GetInstanceName()] = cnstr
+		}
+	}
+	return ce
+}
+
 // classifyKeys classifies keys of cfg into rules, adapters, and descriptors.
 func classifyKeys(cfg map[string]string) map[string][]string {
 	keymap := map[string][]string{}
@@ -366,8 +467,14 @@ func classifyKeys(cfg map[string]string) map[string][]string {
 		switch kk[len(kk)-1] {
 		case rules:
 			k = rules
+		case constructors:
+			k = constructors
+		case actionRules:
+			k = actionRules
 		case adapters:
 			k = adapters
+		case handlers:
+			k = handlers
 		case descriptors:
 			k = descriptors
 		default:
@@ -403,6 +510,12 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 		}
 	}
 
+	for _, kk := range keymap[handlers] {
+		if re := p.validateHandlers(cfg[kk]); re != nil {
+			return rt, ce.Appendf("handlerConfig", "failed validation").Extend(re)
+		}
+	}
+
 	// The order is important here, because serviceConfig refers to adapters and descriptors
 	p.descriptorFinder = descriptor.NewFinder(p.validated.descriptor[descriptorKey(global)])
 	for _, kk := range keymap[rules] {
@@ -414,7 +527,53 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 			return rt, ce.Appendf("serviceConfig", "failed validation").Extend(re)
 		}
 	}
+
+	for _, kk := range keymap[constructors] {
+		ck := parseRulesKey(kk)
+		if ck == nil {
+			continue
+		}
+		if re := p.validateConstructorConfigs(*ck, cfg[kk]); re != nil {
+			return rt, ce.Appendf("serviceConfig", "failed validation").Extend(re)
+		}
+	}
+
+	for _, kk := range keymap[actionRules] {
+		ck := parseRulesKey(kk)
+		if ck == nil {
+			continue
+		}
+		if re := p.validateRulesConfig(*ck, cfg[kk], p.constructorByName, p.handlerBuilderByName); re != nil {
+			return rt, ce.Appendf("serviceConfig", "failed validation").Extend(re)
+		}
+	}
+
+	// everything is validated we can configure the handlers.
+	if re := p.buildHandlers(); re != nil {
+		return rt, ce.Extend(re)
+	}
+
 	return p.validated, nil
+}
+
+func (p *validator) buildHandlers() (ce *adapter.ConfigErrors) {
+	if err := p.configureHandler(p.actions, p.constructorByName, p.handlerBuilderByName, p.templateRepo, p.typeChecker, p.descriptorFinder); err != nil {
+		return ce.Appendf("handlerConfig", "failed to configure handler: %v", err)
+	}
+
+	for name, handlerBuilder := range p.handlerBuilderByName {
+		handlerInstance, err := (*handlerBuilder.handlerBuilder).Build(handlerBuilder.handlerCnfg.Params.(proto.Message))
+		// TODO Add validation to ensure handlerInstance support all the templates it claims to support.
+		if err != nil {
+			return ce.Appendf("handlerConfig: "+name, "failed to build a handler instance: %v", err)
+		}
+		p.validated.handlerByName[name] = &HandlerInfo{
+			adapterName:        handlerBuilder.handlerCnfg.GetAdapter(),
+			handlerInstance:    &handlerInstance,
+			supportedTemplates: handlerBuilder.supportedTemplates,
+		}
+	}
+	return nil
 }
 
 // ValidateServiceConfig validates service config.
@@ -435,6 +594,82 @@ func (p *validator) validateServiceConfig(pk rulesKey, cfg string, validatePrese
 	p.validated.numAspects += numAspects
 
 	return nil
+}
+
+func (p *validator) validateRulesConfig(pk rulesKey, cfg string, cnstrByName map[string]*pb.Constructor,
+	hdlrByName map[string]*HandlerBuilderInfo) (ce *adapter.ConfigErrors) {
+	var err error
+	m := &pb.ServiceConfig{}
+	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
+		return ce.Appendf("serviceConfig", "failed to unmarshal config into proto: %v", err)
+	}
+
+	if ce = p.validateRules(m.GetActionRules(), "", cnstrByName, hdlrByName); ce != nil {
+		return ce
+	}
+
+	return nil
+}
+
+func (p *validator) validateConstructorConfigs(pk rulesKey, cfg string) (ce *adapter.ConfigErrors) {
+	var err error
+	m := &pb.ServiceConfig{}
+	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
+		return ce.Appendf("serviceConfig", "failed to unmarshal config into proto: %v", err)
+	}
+
+	if ce = p.validateConstructors(m.GetConstructors()); ce != nil {
+		return ce
+	}
+
+	return nil
+}
+
+func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
+	var ferr error
+	var data []byte
+
+	if data, _, ferr = compatfilterConfig(cfg, func(s string) bool {
+		return s == "handlers"
+	}); ferr != nil {
+		return ce.Appendf("handlerConfig", "failed to unmarshal config into proto with err: %v", ferr)
+	}
+
+	var m = &pb.GlobalConfig{}
+	if err := yaml.Unmarshal(data, m); err != nil {
+		return ce.Appendf("handlerConfig", "failed to unmarshal config into proto: %v", err)
+	}
+
+	var hcfg proto.Message
+	var err *adapter.ConfigErrors
+
+	for _, hh := range m.GetHandlers() {
+		bi, found := p.builderInfoFinder(hh.Adapter)
+		if !found {
+			ce = ce.Appendf("handlerConfig", "Adapter %s referenced in Handler %s is not found", hh.GetAdapter(), hh.GetName())
+			continue
+		}
+		if hcfg, err = convertHandlerParams(bi, hh.GetName(), hh.Params, p.strict); err != nil {
+			ce = ce.Appendf("Handler: "+hh.Adapter, "failed to convert handler params to proto: %v", err)
+			continue
+		}
+
+		hh.Params = hcfg
+		hb := bi.CreateHandlerBuilderFn()
+		p.handlerBuilderByName[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, handlerBuilder: &hb, supportedTemplates: bi.SupportedTemplates}
+	}
+	return
+}
+
+func convertHandlerParams(bi *adapter.BuilderInfo, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
+	hc = bi.DefaultConfig
+	if err := decode(params, hc, strict); err != nil {
+		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)
+	}
+	if err := bi.ValidateConfig(hc); err != nil {
+		return nil, ce.Appendf(name, "handler validation failed: %v", err)
+	}
+	return hc, nil
 }
 
 // unknownValidator returns error for the given name.
@@ -464,6 +699,22 @@ func convertAdapterParams(f BuilderValidatorFinder, name string, params interfac
 		return nil, ce.Appendf(name, "adapter validation failed: %v", err)
 	}
 	return ac, nil
+}
+
+// convertConstructorParam converts and returns a typed proto message based on available templates.
+func convertConstructorParam(tf template.Repository, templateName string, params interface{},
+	strict bool) (cp proto.Message, ce *adapter.ConfigErrors) {
+
+	var found bool
+	var tmplInfo template.Info
+	if tmplInfo, found = tf.GetTemplateInfo(templateName); !found {
+		return nil, ce.Appendf("template", "'%s' is not a registered", templateName)
+	}
+	cp = tmplInfo.CnstrDefConfig
+	if err := decode(params, cp, strict); err != nil {
+		return nil, ce.Appendf(templateName, "failed to decode constructor params: %v", err)
+	}
+	return cp, nil
 }
 
 // convertAspectParams converts returns a typed proto message based on available validator.
@@ -497,6 +748,11 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 
 // decode interprets src interface{} as the specified proto message.
 // if strict is true returns error on unknown fields.
+// TODO dst at message CnstParam {Value string} fails to decode value: 1. Seems weird, investigate
+// The constructorParams are all stringified for all ValueType items, so if a value field is meant to be
+// of ValueType, it's expression can be anything and we are suppose to infer type from it. To parse the
+// field we need a proto, which is our synthesized ConstructorParam from each template. Due to the limitation
+// of non string fields cannot parsed into strings, we might have a problem.. Investigate.
 func decode(src interface{}, dst proto.Message, strict bool) error {
 	ba, err := json.Marshal(src)
 	if err != nil {
