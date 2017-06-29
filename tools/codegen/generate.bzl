@@ -28,7 +28,7 @@ mixer_gen = rule(
       "_gen_tool": attr.label(executable=True, cfg="host", allow_files=True,
                                 default=Label("//tools/codegen/cmd/mixgenproc"))
   },
-  # output_to_genfiles=True,
+  output_to_genfiles=True,
 )
 
 MIXER_DEPS = [
@@ -101,7 +101,7 @@ def mixer_proto_library(
    }
 
    # we run this proto library to get the generated pb.go files to link
-   # in wit the mixer generated files for a go library
+   # in with the mixer generated files for a go library
    gogoslick_proto_library(**gogoslick_args)
 
    mixer_gen_args += {

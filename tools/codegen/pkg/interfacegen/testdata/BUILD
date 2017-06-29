@@ -34,6 +34,18 @@ mixer_proto_library(
 )
 
 filegroup(
+    name = "descriptors",
+    testonly = True,
+    srcs = [
+        "list_template_library_proto.descriptor_set",
+        "log_template_library_proto.descriptor_set",
+        "metric_template_library_proto.descriptor_set",
+        "nested_message_library_proto.descriptor_set",
+        "quota_template_library_proto.descriptor_set",
+    ],
+)
+
+filegroup(
     name = "generated_files",
     testonly = True,
     srcs = [

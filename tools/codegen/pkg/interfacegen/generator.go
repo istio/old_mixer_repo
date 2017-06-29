@@ -71,7 +71,8 @@ func (g *Generator) Generate(fdsFile string) error {
 	}
 
 	imports.LocalPrefix = "istio.io"
-	imptd, err := imports.Process(fdsFile, fmtd, nil)
+	// OutFilePath provides context for import path. We rely on the supplied bytes for content.
+	imptd, err := imports.Process(g.OutFilePath, fmtd, nil)
 	if err != nil {
 		return fmt.Errorf("could not fix imports for generated code: %v", err)
 	}

@@ -25,30 +25,62 @@ import (
 
 type logFn func(string, ...interface{})
 
-// TestBazelGeneration uses the outputs files generated via the bazel rule
-// for testdata:generated_files and compares them against the golden files.
-func TestBazelGeneration(t *testing.T) {
+// TestGenerator_Generate uses the outputs file descriptors generated via bazel
+// and compares them against the golden files.
+func TestGenerator_Generate(t *testing.T) {
+	importmap := map[string]string{
+		"mixer/v1/config/descriptor/value_type.proto":                   "istio.io/api/mixer/v1/config/descriptor",
+		"tools/codegen/pkg/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/pkg/template_extension",
+		"gogoproto/gogo.proto":                                          "github.com/gogo/protobuf/gogoproto",
+		"google/protobuf/duration.proto":                                "github.com/gogo/protobuf/types",
+	}
+
 	tests := []struct {
-		name, got, want string
+		name, descriptor, want string
 	}{
-		{"Metrics", "testdata/metric_template_library_processor.gen.go", "testdata/MetricTemplateProcessorInterface.golden.go"},
-		{"Quota", "testdata/quota_template_library_processor.gen.go", "testdata/QuotaTemplateProcessorInterface.golden.go"},
-		{"Logs", "testdata/log_template_library_processor.gen.go", "testdata/LogTemplateProcessorInterface.golden.go"},
-		{"Lists", "testdata/list_template_library_processor.gen.go", "testdata/ListTemplateProcessorInterface.golden.go"},
-		{"Nested Message", "testdata/nested_message_library_processor.gen.go", "testdata/NestedMessageProcessorInterface.golden.go"},
+		{"Metrics", "testdata/metric_template_library_proto.descriptor_set", "testdata/MetricTemplateProcessorInterface.golden.go"},
+		{"Quota", "testdata/quota_template_library_proto.descriptor_set", "testdata/QuotaTemplateProcessorInterface.golden.go"},
+		{"Logs", "testdata/log_template_library_proto.descriptor_set", "testdata/LogTemplateProcessorInterface.golden.go"},
+		{"Lists", "testdata/list_template_library_proto.descriptor_set", "testdata/ListTemplateProcessorInterface.golden.go"},
+		{"Nested Message", "testdata/nested_message_library_proto.descriptor_set", "testdata/NestedMessageProcessorInterface.golden.go"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if same := deepCompare(v.got, v.want, t.Errorf); !same {
+			file, err := ioutil.TempFile("", v.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if removeErr := os.Remove(file.Name()); removeErr != nil {
+					t.Logf("Could not remove temporary file %s: %v", file.Name(), removeErr)
+				}
+			}()
+
+			g := Generator{OutFilePath: file.Name(), ImportMapping: importmap}
+			if err := g.Generate(v.descriptor); err != nil {
+				t.Fatalf("Generate(%s) produced an error: %v", v.descriptor, err)
+			}
+
+			if same := fileCompare(file.Name(), v.want, t.Errorf); !same {
 				t.Error("Files were not the same.")
 			}
 		})
 	}
 }
 
-func TestGenerate_Errors(t *testing.T) {
-	g := Generator{OutFilePath: "."}
-	err := g.Generate("testdata/error_template.descriptor_set")
+func TestGenerator_GenerateErrors(t *testing.T) {
+	file, err := ioutil.TempFile("", "error_file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if removeErr := os.Remove(file.Name()); removeErr != nil {
+			t.Logf("Could not remove temporary file %s: %v", file.Name(), removeErr)
+		}
+	}()
+
+	g := Generator{OutFilePath: file.Name()}
+	err = g.Generate("testdata/error_template.descriptor_set")
 	if err == nil {
 		t.Fatalf("Generate(%s) should have produced an error", "testdata/error_template.descriptor_set")
 	}
@@ -65,7 +97,7 @@ func TestGenerate_Errors(t *testing.T) {
 
 const chunkSize = 64000
 
-func deepCompare(file1, file2 string, logf logFn) bool {
+func fileCompare(file1, file2 string, logf logFn) bool {
 	f1, err := os.Open(file1)
 	if err != nil {
 		logf("could not open file: %v", err)
@@ -85,14 +117,12 @@ func deepCompare(file1, file2 string, logf logFn) bool {
 		b2 := make([]byte, chunkSize)
 		s2, err2 := f2.Read(b2)
 
+		if err1 == io.EOF && err2 == io.EOF {
+			return true
+		}
+
 		if err1 != nil || err2 != nil {
-			if err1 == io.EOF && err2 == io.EOF {
-				return true
-			} else if err1 == io.EOF || err2 == io.EOF {
-				return false
-			} else {
-				return false
-			}
+			return false
 		}
 
 		if !bytes.Equal(b1, b2) {

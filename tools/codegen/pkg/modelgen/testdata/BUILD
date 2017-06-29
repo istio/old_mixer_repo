@@ -37,7 +37,7 @@ proto_compile(
     inputs = [
         "//tools/codegen/pkg/template_extension:proto",
         "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_istio_api//:mixer_descriptors",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
     ],
     protos = [
         "ConstructorAndImports.proto",

@@ -25,7 +25,6 @@ import (
 )
 
 func TestErrorInTemplate(t *testing.T) {
-
 	tests := []struct {
 		src           string
 		expectedError string

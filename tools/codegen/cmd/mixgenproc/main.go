@@ -40,9 +40,9 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			if len(args) == 0 {
 				errorf("Must specify a file descriptor set protobuf file.")
 			}
-			//if len(args) != 1 {
-			//	errorf("Only one input file is allowed.")
-			//}
+			if len(args) != 1 {
+				errorf("Only one input file is allowed.")
+			}
 			outFileFullPath, err := filepath.Abs(outFilePath)
 			if err != nil {
 				errorf("Invalid path %s. %v", outFilePath, err)

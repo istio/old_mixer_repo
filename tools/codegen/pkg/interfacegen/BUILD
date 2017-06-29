@@ -25,6 +25,7 @@ go_test(
         "generator_test.go",
     ],
     data = [
+        "//tools/codegen/pkg/interfacegen/testdata:descriptors",
         "//tools/codegen/pkg/interfacegen/testdata:error_test_files",
         "//tools/codegen/pkg/interfacegen/testdata:generated_files",
         "//tools/codegen/pkg/interfacegen/testdata:golden_files",
