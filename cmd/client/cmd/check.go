@@ -16,9 +16,9 @@ package cmd
 
 import (
 	"context"
-	"io"
 	"time"
 
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
@@ -66,51 +66,31 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 				fatalf("Unable to establish connection to %s", rootArgs.mixerAddress)
 			}
 			defer deleteAPIClient(cs)
-			span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Check", ext.SpanKindRPCClient)
-			_, ctx = cs.tracer.PropagateSpan(ctx, span)
-			// start the stream
-			var stream mixerpb.Mixer_CheckClient
-			if stream, err = cs.client.Check(ctx); err != nil {
-				fatalf("Check RPC failed: %v", err)
-			}
+			span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Check", ext.SpanKindRPCClient)
+
 			// send requests in background, using the sem channel to limit the concurrency
 			// TODO: use a timer, like wrk
 			go func() {
 				for i := 0; i < rootArgs.repeat; i++ {
+					<-sem
 					request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
 
-					if err = stream.Send(&request); err != nil {
+					response, err := cs.client.Check(ctx, &request)
+					if err != nil {
 						fatalf("Failed to send Check RPC: %v", err)
+					}
+					if rootArgs.repeat < 10 {
+						printf("Check RPC returned %s", decodeStatus(response.Result))
+						dumpAttributes(printf, fatalf, response.AttributeUpdate)
+					}
+					// Some progress indication, 100k seems to avoid verbosity.
+					if i%100000 == 0 {
+						print(".")
 					}
 					sem <- true
 				}
 			}()
 
-			// Read responses.
-			for i := 0; i < rootArgs.repeat; i++ {
-				var response *mixerpb.CheckResponse
-				response, err = stream.Recv()
-				if err == io.EOF {
-					fatalf("Got no response from Check RPC")
-				} else if err != nil {
-					fatalf("Failed to receive a response from Check RPC: %v", err)
-				}
-
-				<-sem
-
-				// To limit verbosity, only show responses for small repeat counts (otherwise logging slows down the test)
-				if rootArgs.repeat < 10 {
-					printf("Check RPC returned %s", decodeStatus(response.Result))
-					dumpAttributes(printf, fatalf, response.AttributeUpdate)
-				}
-				// Some progress indication, 100k seems to avoid verbosity.
-				if i%100000 == 0 {
-					print(".")
-				}
-			}
-			if err = stream.CloseSend(); err != nil {
-				fatalf("Failed to close gRPC stream: %v", err)
-			}
 			span.Finish()
 			wg.Done()
 		}()

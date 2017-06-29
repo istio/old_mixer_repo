@@ -26,7 +26,11 @@ import (
 	"strings"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	bt "github.com/opentracing/basictracer-go"
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -39,6 +43,7 @@ import (
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/tracing"
@@ -96,18 +101,21 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			runServer(sa, printf, fatalf)
 		},
 	}
+
+	// TODO: need to pick appropriate defaults for all these settings below
+
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for Mixer's gRPC API")
 	serverCmd.PersistentFlags().Uint16Var(&sa.monitoringPort, "monitoringPort", 9093, "HTTP port to use for the exposing mixer self-monitoring information")
 	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
-	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
-	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
-	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
+	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 1024, "Maximum number of outstanding RPCs per connection")
+	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max number of goroutines in the API worker pool")
+	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max number of goroutines in the adapter worker pool")
 	// TODO: what is the right default value for expressionEvalCacheSize.
-	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", expr.DefaultCacheSize, "Number of entries in"+
-		" the expression cache")
-	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run Mixer in single-threaded mode (useful "+
-		"for debugging)")
+	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", expr.DefaultCacheSize,
+		"Number of entries in the expression cache")
+	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false,
+		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
@@ -149,22 +157,23 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 // configStore - given config this function returns a KeyValueStore
 // It provides a compatibility layer so one can continue using serviceConfigFile and globalConfigFile flags
 // until they are removed.
-func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf shared.FormatFn) (store config.KeyValueStore) {
+func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf shared.FormatFn) (s store.KeyValueStore) {
 	var err error
 	if url != "" {
-		if store, err = config.NewStore(url); err != nil {
+		registry := store.NewRegistry(config.StoreInventory()...)
+		if s, err = registry.NewStore(url); err != nil {
 			fatalf("Failed to get config store: %v", err)
 		}
-		return store
+		return s
 	}
 	if serviceConfigFile == "" || globalConfigFile == "" {
 		fatalf("Missing configStoreURL")
 	}
 	printf("*** serviceConfigFile and globalConfigFile are deprecated, use configStoreURL")
-	if store, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
+	if s, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
 		fatalf("Failed to get config store: %v", err)
 	}
-	return store
+	return s
 }
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
@@ -252,12 +261,17 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
-	var tracer tracing.Tracer
+	var interceptors []grpc.UnaryServerInterceptor
 	if sa.enableTracing {
-		tracer = tracing.NewTracer(bt.New(tracing.IORecorder(os.Stdout)))
-	} else {
-		tracer = tracing.DisabledTracer()
+		tracer := bt.New(tracing.IORecorder(os.Stdout))
+		ot.InitGlobalTracer(tracer)
+		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(tracer))
 	}
+
+	// setup server prometheus monitoring (as final interceptor in chain)
+	interceptors = append(interceptors, grpc_prometheus.UnaryServerInterceptor)
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	configManager.Register(adapterMgr)
 	configManager.Start()
@@ -291,7 +305,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
-	s := api.NewGRPCServer(adapterMgr, tracer, gp)
+	s := api.NewGRPCServer(adapterMgr, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 
 	printf("Istio Mixer: %s", version.Info)

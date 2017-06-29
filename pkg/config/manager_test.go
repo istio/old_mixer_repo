@@ -24,6 +24,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config/descriptor"
+	"istio.io/mixer/pkg/config/store"
 )
 
 const (
@@ -88,7 +89,7 @@ func TestConfigManager(t *testing.T) {
 			}
 			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc,
 				store, loopDelay, keyTargetService, keyServiceDomain)
-			testConfigManager(t, ma, mt, loopDelay, idx)
+			testConfigManager(t, ma, mt, loopDelay)
 		})
 	}
 }
@@ -105,7 +106,7 @@ func TestManager_FetchError(t *testing.T) {
 		return nil, nil, ce
 	}
 
-	testConfigManager(t, mgr, mtest{errStr: errStr}, loopDelay, 0)
+	testConfigManager(t, mgr, mtest{errStr: errStr}, loopDelay)
 
 }
 
@@ -133,7 +134,7 @@ func TestManager_readdb(t *testing.T) {
 	}
 }
 
-func testConfigManager(t *testing.T, mgr *Manager, mt mtest, loopDelay time.Duration, idx int) {
+func testConfigManager(t *testing.T, mgr *Manager, mt mtest, loopDelay time.Duration) {
 	fl := &fakelistener{}
 	mgr.Register(fl)
 
@@ -183,13 +184,14 @@ type fakeMemStore struct {
 	err      error
 	writeErr error
 
-	cl StoreListener
+	cl store.Listener
 	sync.RWMutex
 
 	listKeys []string
 }
 
-var _ KeyValueStore = &fakeMemStore{}
+var _ store.KeyValueStore = &fakeMemStore{}
+var _ store.ChangeNotifier = &fakeMemStore{}
 
 func (f *fakeMemStore) String() string {
 	return "fakeMemStore"
@@ -218,7 +220,7 @@ func (f *fakeMemStore) Set(key string, value string) (index int, err error) {
 	f.index++
 	f.data[key] = value
 
-	go func(idx int, cl StoreListener) {
+	go func(idx int, cl store.Listener) {
 		if cl != nil {
 			cl.NotifyStoreChanged(idx)
 		}
@@ -264,7 +266,7 @@ func (f *fakeMemStore) Delete(key string) error {
 func (f *fakeMemStore) Close() {
 }
 
-func (f *fakeMemStore) RegisterStoreChangeListener(s StoreListener) {
+func (f *fakeMemStore) RegisterListener(s store.Listener) {
 	f.cl = s
 }
 

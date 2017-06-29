@@ -18,14 +18,18 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
@@ -37,6 +41,40 @@ import (
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
 )
+
+const (
+	aspectName   = "aspect"
+	adapterName  = "adapter"
+	impl         = "impl"
+	responseCode = "response_code"
+	responseMsg  = "response_message"
+)
+
+var (
+	promLabelNames  = []string{aspectName, adapterName, impl, responseCode}
+	dispatchBuckets = []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+	dispatchCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "mixer",
+			Subsystem: "adapter",
+			Name:      "dispatch_count",
+			Help:      "Total number of adapter dispatches handled by Mixer.",
+		}, promLabelNames)
+
+	dispatchDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "mixer",
+			Subsystem: "adapter",
+			Name:      "dispatch_duration",
+			Help:      "Histogram of times for adapter dispatches handled by Mixer.",
+			Buckets:   dispatchBuckets,
+		}, promLabelNames)
+)
+
+func init() {
+	prometheus.MustRegister(dispatchCounter)
+	prometheus.MustRegister(dispatchDuration)
+}
 
 // AspectDispatcher executes aspects associated with individual API methods
 type AspectDispatcher interface {
@@ -235,11 +273,37 @@ func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribu
 	cfg *cpb.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
 	df, _ := m.df.Load().(descriptor.Finder)
 	m.gp.ScheduleWork(func() {
+
+		// tracing
+		op := fmt.Sprintf("%s:%s(%s)", cfg.Aspect.Kind, cfg.Aspect.Adapter, cfg.Builder.Impl)
+		span, ctx := opentracing.StartSpanFromContext(ctx, op)
+		defer span.Finish()
+
+		start := time.Now()
 		out := m.execute(ctx, cfg, requestBag, responseBag, df, invokeFunc)
+		duration := time.Since(start)
 		// free request bag before returning results
 		// resultChan is drained to ensure that all child bags are
 		// accounted for.
 		requestBag.Done()
+
+		span.LogFields(
+			log.String(aspectName, cfg.Aspect.Kind),
+			log.String(adapterName, cfg.Aspect.Adapter),
+			log.String(impl, cfg.Builder.Impl),
+			log.String(responseCode, rpc.Code_name[out.Code]),
+			log.String(responseMsg, out.Message),
+		)
+
+		dispatchLbls := prometheus.Labels{
+			aspectName:   cfg.Aspect.Kind,
+			adapterName:  cfg.Aspect.Adapter,
+			impl:         cfg.Builder.Impl,
+			responseCode: rpc.Code_name[out.Code],
+		}
+		dispatchCounter.With(dispatchLbls).Inc()
+		dispatchDuration.With(dispatchLbls).Observe(duration.Seconds())
+
 		resultChan <- result{cfg, out, responseBag}
 	})
 }
@@ -363,7 +427,7 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag, re
 	}
 
 	// TODO: plumb ctx through asp.Execute
-	_ = ctx
+	_ = ctx.Err()
 
 	return invokeFunc(executor, m.mapper, requestBag, responseBag)
 }
@@ -382,28 +446,35 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 		kind: kind,
 		impl: cfg.Builder.GetImpl(),
 	}
-
-	//TODO pre-compute shas and store with params
+	// TODO: pre-compute shas and store with params
 	b := pool.GetBuffer()
-	// use gob encoding so that we don't rely on proto marshal
-	enc := gob.NewEncoder(b)
-
+	pbuf := proto.NewBuffer(b.Bytes())
 	if cfg.Builder.Params != nil {
-		if err := enc.Encode(cfg.Builder.Params); err != nil {
+		ppb, ok := cfg.Builder.Params.(proto.Message)
+		if !ok {
+			pool.PutBuffer(b)
+			return nil, fmt.Errorf("non-proto cfg.Builder.Params: %v", cfg.Builder.Params)
+		}
+		if err := pbuf.Marshal(ppb); err != nil {
+			pool.PutBuffer(b)
 			return nil, err
 		}
-		ret.builderParamsSHA = sha1.Sum(b.Bytes())
+		ret.builderParamsSHA = sha1.Sum(pbuf.Bytes())
 	}
-	b.Reset()
+	pbuf.Reset()
 	if cfg.Aspect.Params != nil {
-		if err := enc.Encode(cfg.Aspect.Params); err != nil {
+		ppb, ok := cfg.Aspect.Params.(proto.Message)
+		if !ok {
+			pool.PutBuffer(b)
+			return nil, fmt.Errorf("non-proto cfg.Aspect.Params: %v", cfg.Aspect.Params)
+		}
+		if err := pbuf.Marshal(ppb); err != nil {
+			pool.PutBuffer(b)
 			return nil, err
 		}
-
-		ret.aspectParamsSHA = sha1.Sum(b.Bytes())
+		ret.aspectParamsSHA = sha1.Sum(pbuf.Bytes())
 	}
 	pool.PutBuffer(b)
-
 	return &ret, nil
 }
 

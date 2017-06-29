@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_mixer")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "87cdda3fc0fd65c63ef0316533be03ea4956f809",  # April 7 2017 (0.4.2)
+    commit = "4c9a52aba0b59511c5646af88d2f93a9c0193647",  # May 5, 2017 (0.4.4)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -11,8 +11,18 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "new_go_repository")
 go_repositories()
 
 git_repository(
+    name = "io_bazel_rules_docker",
+    commit = "e770f81cef4165828df955f37b827874a884a1de",  # June 21, 2017 (v0.0.2)
+    remote = "https://github.com/bazelbuild/rules_docker.git",
+)
+
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
+
+docker_repositories()
+
+git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31 2017 (gogo* support)
+    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31, 2017 (gogo* support)
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
@@ -115,7 +125,7 @@ new_git_repository(
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "cdee119ee21e61eef7093a41ba148fa83585e143",  # Mar 14, 2017 (v1.2.0)
+    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
     importpath = "google.golang.org/grpc",
 )
 
@@ -178,7 +188,7 @@ load("//:repositories.bzl", "new_git_or_local_repository")
 new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
-    commit = "7d82318c70c7ba8611eed585ac1a8da44a005adb",  # May 1, 2017 (no releases)
+    commit = "8edd0f7d57cd336ed8acd7ada91ffd4ef5f2a1c4",  # June 1, 2017 (no releases)
     path = "../api",
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
@@ -428,14 +438,44 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_googleapis_gax_go",
-    commit = "9af46dd5a1713e8b5cd71106287eba3cefdde50b", # Mar 20, 2017 (no releases)
+    commit = "9af46dd5a1713e8b5cd71106287eba3cefdde50b",  # Mar 20, 2017 (no releases)
     importpath = "github.com/googleapis/gax-go",
 )
 
 new_go_repository(
     name = "com_github_hashicorp_golang_lru",
-    commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6", # Aug 13, 2016 (no releases)
+    commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6",  # Aug 13, 2016 (no releases)
     importpath = "github.com/hashicorp/golang-lru",
+)
+
+new_go_repository(
+    name = "com_github_grpcecosystem_opentracing",
+    commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf",  # Feb 24, 2017 (no releases)
+    importpath = "github.com/grpc-ecosystem/grpc-opentracing",
+)
+
+new_go_repository(
+    name = "com_github_grpcecosystem_middleware",
+    commit = "f63a7dfb64c138bd93d5c5b896d8b33c4b08e000",  # Jun 11, 2017 (no releases)
+    importpath = "github.com/grpc-ecosystem/go-grpc-middleware",
+)
+
+new_go_repository(
+    name = "com_github_grpcecosystem_prometheus",
+    commit = "2500245aa6110c562d17020fb31a2c133d737799",  # Mar 30, 2017 (only 1 release)
+    importpath = "github.com/grpc-ecosystem/go-grpc-prometheus",
+)
+
+new_go_repository(
+    name = "org_golang_google_api",
+    commit = "48e49d1645e228d1c50c3d54fb476b2224477303",  # Mar 27, 2017 (no release)
+    importpath = "google.golang.org/api",
+)
+
+new_go_repository(
+    name = "org_golang_google_genproto",
+    commit = "411e09b969b1170a9f0c467558eb4c4c110d9c77",  # Apr 4, 2017 (no release)
+    importpath = "google.golang.org/genproto",
 )
 
 ##
@@ -443,8 +483,7 @@ new_go_repository(
 ##
 
 git_repository(
-    name = "istio_test_infra",
-    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",  # Apr 13, 2017 (no releases)
+    name = "com_github_istio_test_infra",
+    commit = "9a3ac467ba862432c75e42cecff7aa5c2980e3b8",  # Jun 18, 2017 (no releases)
     remote = "https://github.com/istio/test-infra.git",
 )
-
