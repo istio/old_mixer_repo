@@ -106,8 +106,8 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 		},
 		{
 			name:               "ErrorFromAdapterCode",
-			tmplCnfgrMtdErrRet: fmt.Errorf("Error from adapter configure code"),
-			wantErr:            "Error from adapter configure code",
+			tmplCnfgrMtdErrRet: fmt.Errorf("error from adapter configure code"),
+			wantErr:            "error from adapter configure code",
 			handlers:           map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
 			infrdTyps:          map[string]proto.Message{"inst1": nil},
 			hndlrInstsByTmpls:  map[string]instancesByTemplate{"hndlr": {map[string][]string{"any": {"inst1"}}}},
@@ -130,7 +130,7 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 		hc := handlerConfigurer{typeChecker: ex, tmplRepo: tmplRepo}
 
 		err := hc.dispatchTypesToHandlers(tt.infrdTyps, tt.hndlrInstsByTmpls, tt.handlers)
-		if tt.tmplCnfgrMtdShouldPanic && tt.handlers["hndlr"].isBroken != true {
+		if tt.tmplCnfgrMtdShouldPanic && !tt.handlers["hndlr"].isBroken {
 			t.Error("The handler should be marked as broken.")
 		}
 
