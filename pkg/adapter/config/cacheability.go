@@ -18,6 +18,8 @@ import "time"
 
 // CacheabilityInfo represents information about when to refresh the cache.
 type CacheabilityInfo struct {
+	// ValidDuration represents amount of time for which this result can be considered valid.
 	ValidDuration time.Duration
+	// ValidUseCount represent the number of uses for which this result can be considered valid.
 	ValidUseCount int64
 }
