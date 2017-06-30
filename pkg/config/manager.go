@@ -17,6 +17,7 @@ package config
 import (
 	"crypto/sha1"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ import (
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/template"
 )
 
 // Resolver resolves configuration to a list of combined configs.
@@ -83,7 +85,7 @@ type Manager struct {
 // as command line input parameters.
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
-func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
+func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder, builderInfoFinder BuilderInfoFinder,
 	findAspects AdapterToAspectMapper, store store.KeyValueStore, loopDelay time.Duration, identityAttribute string,
 	identityAttributeDomain string) *Manager {
 	m := &Manager{
@@ -96,7 +98,7 @@ func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builder
 		identityAttribute:       identityAttribute,
 		identityAttributeDomain: identityAttributeDomain,
 		validate: func(cfg map[string]string) (*Validated, descriptor.Finder, *adapter.ConfigErrors) {
-			v := newValidator(aspectFinder, builderFinder, findAspects, true, eval)
+			v := newValidator(aspectFinder, builderFinder, builderInfoFinder, configureHandlers, template.NewTemplateRepository(), findAspects, true, eval)
 			rt, ce := v.validate(cfg)
 			return rt, v.descriptorFinder, ce
 		},
@@ -167,6 +169,7 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 
 	vd, finder, cerr = c.validate(data)
 	if cerr != nil {
+		fmt.Printf("Validation failed: %v", cerr)
 		glog.Warningf("Validation failed: %v", cerr)
 		return nil, nil, cerr
 	}
