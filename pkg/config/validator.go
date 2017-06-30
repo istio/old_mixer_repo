@@ -130,7 +130,7 @@ type (
 		numAspects int
 	}
 
-	// HandlerBuilderInfo stores validated HandlerBuilders..
+	// HandlerBuilderInfo stores validated HandlerBuilders.
 	HandlerBuilderInfo struct {
 		handlerBuilder *config.HandlerBuilder
 		isBroken       bool

@@ -91,7 +91,7 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 			tmplCnfgrMtdErrRet:  nil,
 			handlers:            map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
 			infrdTyps:           map[string]proto.Message{"inst1": nil},
-			hndlrInstsByTmpls:   map[string]instancesByTemplate{"hndlr": {map[string][]string{"any": {"inst1"}}}},
+			hndlrInstsByTmpls:   map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
 			wantErr:             "",
 			expectCallTrackInfo: [][]string{{"inst1"}},
 		},
@@ -100,7 +100,7 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 			tmplCnfgrMtdErrRet:  nil,
 			handlers:            map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}, "hndlr2": {handlerBuilder: nil}},
 			infrdTyps:           map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil},
-			hndlrInstsByTmpls:   map[string]instancesByTemplate{"hndlr": {map[string][]string{"any1": {"inst1", "inst2"}, "any2": {"inst3"}}}},
+			hndlrInstsByTmpls:   map[string]instancesByTemplate{"hndlr": map[string][]string{"any1": {"inst1", "inst2"}, "any2": {"inst3"}}},
 			wantErr:             "",
 			expectCallTrackInfo: [][]string{{"inst1", "inst2"}, {"inst3"}},
 		},
@@ -110,7 +110,7 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 			wantErr:            "error from adapter configure code",
 			handlers:           map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
 			infrdTyps:          map[string]proto.Message{"inst1": nil},
-			hndlrInstsByTmpls:  map[string]instancesByTemplate{"hndlr": {map[string][]string{"any": {"inst1"}}}},
+			hndlrInstsByTmpls:  map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
 		},
 		{
 			name:                    "PanicFromAdapterCodeRecovery",
@@ -119,7 +119,7 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 			wantErr:                 "",
 			handlers:                map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
 			infrdTyps:               map[string]proto.Message{"inst1": nil},
-			hndlrInstsByTmpls:       map[string]instancesByTemplate{"hndlr": {map[string][]string{"any": {"inst1"}}}},
+			hndlrInstsByTmpls:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
 		},
 	}
 
@@ -127,9 +127,9 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 	for _, tt := range tests {
 		actualCallTrackInfo := make([][]string, 0)
 		tmplRepo := newFakeTmplRepo2(tt.tmplCnfgrMtdErrRet, tt.tmplCnfgrMtdShouldPanic, &actualCallTrackInfo)
-		hc := handlerConfigurer{typeChecker: ex, tmplRepo: tmplRepo}
+		hc := handlerFactory{typeChecker: ex, tmplRepo: tmplRepo}
 
-		err := hc.dispatchTypesToHandlers(tt.infrdTyps, tt.hndlrInstsByTmpls, tt.handlers)
+		err := hc.dispatch(tt.infrdTyps, tt.hndlrInstsByTmpls, tt.handlers)
 		if tt.tmplCnfgrMtdShouldPanic && !tt.handlers["hndlr"].isBroken {
 			t.Error("The handler should be marked as broken.")
 		}
@@ -166,9 +166,8 @@ func TestInferTypes(t *testing.T) {
 			name: "MultipleCnstr",
 			constructors: map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}},
 				"inst2": {"inst2", "tpml1", &empty.Empty{}}},
-			tmplRepo:  newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}, true),
-			want:      map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}, "inst2": &wrappers.Int32Value{Value: 1}},
-			wantError: "",
+			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}, true),
+			want:     map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}, "inst2": &wrappers.Int32Value{Value: 1}},
 		},
 		{
 			name:         "ErrorDuringTypeInfr",
@@ -181,7 +180,7 @@ func TestInferTypes(t *testing.T) {
 	ex, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hc := handlerConfigurer{typeChecker: ex, tmplRepo: tt.tmplRepo}
+			hc := handlerFactory{typeChecker: ex, tmplRepo: tt.tmplRepo}
 			v, err := hc.inferTypes(tt.constructors)
 			if tt.wantError == "" {
 				if err != nil {
@@ -215,9 +214,8 @@ func TestDedupeAndGroupInstances(t *testing.T) {
 			constructors: map[string]*pb.Constructor{"i1": {"i1", "tpml1", nil}},
 			actions:      []*pb.Action{{"hndlr1", []string{"i1"}}},
 			want: map[string]instancesByTemplate{
-				"hndlr1": {map[string][]string{"tpml1": {"i1"}}},
+				"hndlr1": map[string][]string{"tpml1": {"i1"}},
 			},
-			wantError: "",
 		},
 		{
 			name:     "DedupeAcrossActions",
@@ -229,9 +227,8 @@ func TestDedupeAndGroupInstances(t *testing.T) {
 				{"hndlr1", []string{"repeatInst"}},
 				{"hndlr1", []string{"repeatInst", "inst2"}}},
 			want: map[string]instancesByTemplate{
-				"hndlr1": {map[string][]string{"tpml1": {"repeatInst", "inst2"}}},
+				"hndlr1": map[string][]string{"tpml1": {"repeatInst", "inst2"}},
 			},
-			wantError: "",
 		},
 		{
 			name:     "DedupeWithinAction",
@@ -243,9 +240,8 @@ func TestDedupeAndGroupInstances(t *testing.T) {
 				{"hndlr1", []string{"repeatInst", "repeatInst"}},
 				{"hndlr1", []string{"inst2"}}},
 			want: map[string]instancesByTemplate{
-				"hndlr1": {map[string][]string{"tpml1": {"repeatInst", "inst2"}}},
+				"hndlr1": map[string][]string{"tpml1": {"repeatInst", "inst2"}},
 			},
-			wantError: "",
 		},
 		{
 			name:     "MultipleTemplates",
@@ -262,9 +258,8 @@ func TestDedupeAndGroupInstances(t *testing.T) {
 				{"hndlr1", []string{"inst2tmplA", "inst4tmplB", "inst5tmplB", "inst1tmplA", "inst3tmplB"}},
 			},
 			want: map[string]instancesByTemplate{
-				"hndlr1": {map[string][]string{"tmplA": {"inst2tmplA", "inst1tmplA"}, "tmplB": {"inst3tmplB", "inst5tmplB", "inst4tmplB"}}},
+				"hndlr1": map[string][]string{"tmplA": {"inst2tmplA", "inst1tmplA"}, "tmplB": {"inst3tmplB", "inst5tmplB", "inst4tmplB"}},
 			},
-			wantError: "",
 		},
 		{
 			name:     "UnionAcrossActionsWithMultipleTemplates",
@@ -283,18 +278,17 @@ func TestDedupeAndGroupInstances(t *testing.T) {
 				{"hndlr2", []string{"inst2tmplA", "inst4tmplB", "inst5tmplB", "inst1tmplA", "inst3tmplB"}},
 			},
 			want: map[string]instancesByTemplate{
-				"hndlr1": {map[string][]string{"tmplA": {"inst2tmplA", "inst1tmplA"}, "tmplB": {"inst3tmplB", "inst5tmplB", "inst4tmplB"}}},
-				"hndlr2": {map[string][]string{"tmplA": {"inst2tmplA", "inst1tmplA"}, "tmplB": {"inst3tmplB", "inst5tmplB", "inst4tmplB"}}},
+				"hndlr1": map[string][]string{"tmplA": {"inst2tmplA", "inst1tmplA"}, "tmplB": {"inst3tmplB", "inst5tmplB", "inst4tmplB"}},
+				"hndlr2": map[string][]string{"tmplA": {"inst2tmplA", "inst1tmplA"}, "tmplB": {"inst3tmplB", "inst5tmplB", "inst4tmplB"}},
 			},
-			wantError: "",
 		},
 	}
 	ex, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			hc := handlerConfigurer{typeChecker: ex, tmplRepo: nil}
-			v, err := hc.groupHandlerInstancesByTemplate(tt.actions, tt.constructors, tt.handlers)
+			hc := handlerFactory{typeChecker: ex, tmplRepo: nil}
+			v, err := hc.groupByTmpl(tt.actions, tt.constructors, tt.handlers)
 			if tt.wantError == "" {
 				if err != nil {
 					t.Errorf("got err %v\nwant <nil>", err)
@@ -319,14 +313,13 @@ func deepEqualsOrderIndependent(expected map[string]instancesByTemplate, actual 
 	}
 
 	for k, exTmplCnstMap := range expected {
-		var actTmplCnstMap instancesByTemplate
-		var ok bool
-		if actTmplCnstMap, ok = actual[k]; !ok {
+		actTmplCnstMap, ok := actual[k]
+		if !ok {
 			return false
 		}
 
-		var exInstNamesByTmpl = exTmplCnstMap.instancesNamesByTemplate
-		var actInstNamesByTmpl = actTmplCnstMap.instancesNamesByTemplate
+		var exInstNamesByTmpl = exTmplCnstMap
+		var actInstNamesByTmpl = actTmplCnstMap
 		if len(exInstNamesByTmpl) != len(actInstNamesByTmpl) {
 			return false
 		}
