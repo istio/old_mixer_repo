@@ -32,7 +32,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
-	sample_report "istio.io/mixer/pkg/template/sample/report"
+	sample_report "istio.io/mixer/template/sample/report"
 )
 
 // The adapter implementation fills this data and test can verify what was called.

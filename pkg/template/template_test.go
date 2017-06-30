@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	sample_report "istio.io/mixer/pkg/template/sample/report"
+	sample_report "istio.io/mixer/template/sample/report"
 )
 
 func TestGetTemplateInfo(t *testing.T) {

@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
-	sample_report "istio.io/mixer/pkg/template/sample/report"
+	sample_report "istio.io/mixer/template/sample/report"
 )
 
 func fillProto(cfg string, o interface{}) error {
@@ -55,6 +55,7 @@ func TestInferTypeForSampleReport(t *testing.T) {
 		typeEvalError     error
 		expectedValueType pb.ValueType
 		expectedErr       string
+		willPanic         bool
 	}{
 		{
 			name: "SimpleValid",
@@ -68,12 +69,14 @@ dimensions:
 			typeEvalError:     nil,
 			expectedValueType: pb.INT64,
 			expectedErr:       "",
+			willPanic:         false,
 		},
 		{
 			name:         "NotValidConstructorParam",
 			cnstrCnfg:    ``,
 			cnstrParamPb: &empty.Empty{}, // cnstr type mismatch
 			expectedErr:  "is not of type",
+			willPanic:    true,
 		},
 		{
 			name: "ErrorFromTypeEvaluator",
@@ -91,8 +94,18 @@ dimensions:
 			cp := tst.cnstrParamPb
 			_ = fillProto(tst.cnstrCnfg, cp)
 			typeEvalFn := func(expr string) (pb.ValueType, error) { return tst.typeEvalRet, tst.typeEvalError }
+			defer func() {
+				r := recover()
+				if tst.willPanic && r == nil {
+					t.Error(fmt.Sprintf("Expected to recover from panic for %s, but recover was nil.", tst.name))
+				} else if !tst.willPanic && r != nil {
+					t.Error(fmt.Sprintf("got panic %v, expected success.", r))
+				}
+			}()
 			cv, cerr := inferTypeForSampleReport(cp.(proto.Message), typeEvalFn)
-
+			if tst.willPanic {
+				t.Error("Should not reach this statement due to panic.")
+			}
 			if tst.expectedErr == "" {
 				if cerr != nil {
 					t.Errorf("got err %v\nwant <nil>", cerr)
