@@ -16,6 +16,8 @@ package config
 
 import "time"
 
+// TODO revisit the comment on this adapter struct.
+
 // CacheabilityInfo represents information about when to refresh the cache.
 type CacheabilityInfo struct {
 	// ValidDuration represents amount of time for which this result can be considered valid.
