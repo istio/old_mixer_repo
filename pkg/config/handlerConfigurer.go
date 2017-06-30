@@ -57,7 +57,7 @@ func newInstancesByTemplate() instancesByTemplate {
 func ConfigureHandlers(actions []*pb.Action, constructors map[string]*pb.Constructor,
 	handlers map[string]*HandlerBuilderInfo, tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error {
 	// Steps
-	// 1. For each handler, based on the actions it is referenced from, we first groups all the
+	// 1. For each handler, based on the actions it is referenced from, we first group all the
 	// constructors based on template kind. This results into something like
 	// map[handlerName]map[TemplateName][][Constructor.InstanceName].
 	// 2. We then infer all the types for all the known

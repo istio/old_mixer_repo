@@ -134,8 +134,6 @@ type (
 	HandlerBuilderInfo struct {
 		handlerBuilder *config.HandlerBuilder
 		isBroken       bool
-		// handlerCnfg        *pb.Handler
-		// supportedTemplates []adapter.SupportedTemplates
 	}
 )
 
