@@ -14,8 +14,6 @@ BDIR=$(dirname $(dirname $(readlink $TARGETBIN)))
 export GOROOT=$(ls -1d $BDIR/external/golang_*)
 export PATH=$GOROOT/bin:$PATH
 
-go get -u golang.org/x/tools/cmd/goimports
-
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   echo "*** Calling ${BASH_SOURCE[0]} directly has no effect. It should be sourced."
   echo "Using GOROOT: $GOROOT" 

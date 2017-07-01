@@ -114,6 +114,7 @@ genrule(
     cmd = "sed " +
           "-e 's/*google_protobuf.Struct/interface{}/g' " +
           "-e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' " +
-          "$(location :mixer/v1/config_gen) | goimports >> $@",
+          "$(location :mixer/v1/config_gen) | $(location @org_golang_x_tools_imports//:goimports) >> $@",
     message = "Applying overrides to cfg proto",
+    tools = ["@org_golang_x_tools_imports//:goimports"],
 )
