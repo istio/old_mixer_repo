@@ -16,6 +16,8 @@ package adapter
 
 import "time"
 
+// TODO: Delete this file and use pkg/adapter/config/CacheabilityInfo
+
 // CacheabilityInfo represents information about when to refresh the cache.
 type CacheabilityInfo struct {
 	ValidDuration time.Duration
