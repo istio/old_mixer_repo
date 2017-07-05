@@ -99,7 +99,7 @@ func TestLogger_Log(t *testing.T) {
 		input []adapter.LogEntry
 		want  []string
 	}{
-		{"empty_arrary", []adapter.LogEntry{}, nil},
+		{"empty_array", []adapter.LogEntry{}, nil},
 		{"no_payload", []adapter.LogEntry{noPayloadEntry}, []string{baseLog}},
 		{"text_payload", []adapter.LogEntry{textPayloadEntry}, []string{textPayloadLog}},
 		{"json_payload", []adapter.LogEntry{jsonPayloadEntry}, []string{jsonPayloadLog}},
@@ -170,7 +170,7 @@ func TestLogger_LogAccess(t *testing.T) {
 			t.Errorf("LogAccess(%v) => unexpected error: %v", v.input, err)
 		}
 		if !reflect.DeepEqual(tc.(*testCore).lines, v.want) {
-			t.Errorf("LogAccess(%v) => %#v, want %#s", v.input, tc.(*testCore).lines, v.want)
+			t.Errorf("LogAccess(%v) => %#v, want %#v", v.input, tc.(*testCore).lines, v.want)
 		}
 	}
 }
@@ -213,7 +213,9 @@ func BenchmarkLogger_Log(b *testing.B) {
 	l := &logger{impl: zap.NewNop()}
 
 	for i := 0; i < b.N; i++ {
-		l.log([]adapter.LogEntry{entry1, entry2})
+		if err := l.log([]adapter.LogEntry{entry1, entry2}); err != nil {
+			b.Logf("error in log: %v", err)
+		}
 	}
 }
 
