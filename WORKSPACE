@@ -496,12 +496,6 @@ new_go_repository(
     importpath = "go.uber.org/atomic",
 )
 
-new_go_repository(
-    name = "org_uber_go_multierr",
-    commit = "3c4937480c32f4c13a875a1829af76c98ca3d40a",  # Jun 30, 2017 (v1.1.0)
-    importpath = "go.uber.org/multierr",
-)
-
 ##
 ## Testing
 ##
