@@ -17,25 +17,19 @@
 package istio_mixer_adapter_quota
 
 import (
+	_ "github.com/gogo/protobuf/types"
 
-_ "github.com/golang/protobuf/ptypes/duration"
-
-_ "istio.io/api/mixer/v1/config/descriptor"
-
-_ "istio.io/mixer/tools/codegen/pkg/template_extension"
-
+	_ "istio.io/api/mixer/v1/config/descriptor"
+	_ "istio.io/mixer/tools/codegen/pkg/template_extension"
 )
 
-
 type Instance struct {
-  Name string
+	Name string
 
-  Dimensions map[string]interface{}
-
+	Dimensions map[string]interface{}
 }
 
 type QuotaProcessor interface {
-  ConfigureQuota(types map[string]*Type) error
-  ReportQuota(instances []*Instance) error
-
+	ConfigureQuota(types map[string]*Type) error
+	ReportQuota(instances []*Instance) error
 }
