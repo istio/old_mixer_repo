@@ -213,10 +213,10 @@ def aspect_protos(WKSPC):
                 makelink(WKSPC + "/bazel-genfiles/pkg/aspect/config/" + file, WKSPC + "/pkg/aspect/config/" + file)
 
 def tools_protos(WKSPC):
-    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/"):
+    if os.path.exists(WKSPC + "/bazel-genfiles/pkg/template/mixer/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/template/mixer/"):
             if file.endswith(".pb.go"):
-                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/" + file, WKSPC + "/tools/codegen/pkg/template_extension/" + file)
+                makelink(WKSPC + "/bazel-genfiles/pkg/template/mixer/" + file, WKSPC + "/pkg/template/mixer/" + file)
 
 def tools_generated_files(WKSPC):
     if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):

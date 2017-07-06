@@ -1,12 +1,11 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 
-go_proto_library(
+gogoslick_proto_library(
     name = "go_default_library",
     importmap = {
-        "google/protobuf/descriptor.proto": "github.com/golang/protobuf/protoc-gen-go/descriptor",
+        "google/protobuf/descriptor.proto": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
     },
     imports = [
         "external/com_github_google_protobuf/src",
@@ -15,8 +14,12 @@ go_proto_library(
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = ["TemplateExtensions.proto"],
+    verbose = 0,
+    with_grpc = False,
     deps = [
-        "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
+        "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )
 
