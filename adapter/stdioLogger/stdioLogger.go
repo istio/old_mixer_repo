@@ -33,6 +33,12 @@ type (
 		outputPaths []string
 		impl        *zap.Logger
 	}
+	zapBuilderFn func(outputPaths ...string) (*zap.Logger, error)
+)
+
+const (
+	stdErr = "stderr"
+	stdOut = "stdout"
 )
 
 var (
@@ -41,8 +47,6 @@ var (
 		EncodeTime:     zapcore.EpochTimeEncoder,
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 	}
-
-	fields = make([]zapcore.Field, 0, 6)
 )
 
 // Register records the builders exposed by this adapter.
@@ -58,22 +62,22 @@ func Register(r adapter.Registrar) {
 }
 
 func (builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
-	return newLogger(cfg)
+	return newLogger(cfg, newZapLogger)
 }
 
 func (builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
-	return newLogger(cfg)
+	return newLogger(cfg, newZapLogger)
 }
 
-func newLogger(cfg adapter.Config) (*logger, error) {
+func newLogger(cfg adapter.Config, buildZap zapBuilderFn) (*logger, error) {
 	c := cfg.(*config.Params)
 
-	outputPath := "stderr"
+	outputPath := stdErr
 	if c.LogStream == config.STDOUT {
-		outputPath = "stdout"
+		outputPath = stdOut
 	}
 
-	zapLogger, err := newZapLogger(outputPath)
+	zapLogger, err := buildZap(outputPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not build logger: %v", err)
 	}
@@ -91,6 +95,7 @@ func (l *logger) LogAccess(entries []adapter.LogEntry) error {
 
 func (l *logger) log(entries []adapter.LogEntry) error {
 	var errors *multierror.Error
+	fields := make([]zapcore.Field, 0, 6)
 	for _, entry := range entries {
 		if entry.LogName != "" {
 			fields = append(fields, zap.String("logName", entry.LogName))
@@ -115,7 +120,6 @@ func (l *logger) log(entries []adapter.LogEntry) error {
 		}
 		fields = fields[:0]
 	}
-	errors = multierror.Append(errors, l.impl.Sync())
 	return errors.ErrorOrNil()
 }
 

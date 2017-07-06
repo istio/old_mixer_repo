@@ -74,6 +74,23 @@ func TestBuilder_NewAccessLogger(t *testing.T) {
 	}
 }
 
+func TestNewLogger_Failures(t *testing.T) {
+	tests := []struct {
+		name       string
+		zapBuilder zapBuilderFn
+	}{
+		{"builder fn failure", func(...string) (*zap.Logger, error) { return nil, errors.New("expected") }},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			if _, err := newLogger(defaultParams, v.zapBuilder); err == nil {
+				t.Fatal("newLogger() - Expected error")
+			}
+		})
+	}
+}
+
 func TestLogger_Close(t *testing.T) {
 	a := &logger{}
 	if err := a.Close(); err != nil {
@@ -108,7 +125,7 @@ func TestLogger_Log(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			tc := newTestCore(false, false)
+			tc := newTestCore(false)
 			l := &logger{impl: newTestLogger(tc)}
 			if err := l.Log(v.input); err != nil {
 				t.Errorf("Log(%v) => unexpected error: %v", v.input, err)
@@ -126,8 +143,7 @@ func TestLogger_LogFailure(t *testing.T) {
 		name string
 		core zapcore.Core
 	}{
-		{"write_error", newTestCore(true, false)},
-		{"sync_error", newTestCore(false, true)},
+		{"write_error", newTestCore(true)},
 	}
 
 	for _, v := range cases {
@@ -164,7 +180,7 @@ func TestLogger_LogAccess(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		tc := newTestCore(false, false)
+		tc := newTestCore(false)
 		log := &logger{impl: newTestLogger(tc)}
 		if err := log.LogAccess(v.input); err != nil {
 			t.Errorf("LogAccess(%v) => unexpected error: %v", v.input, err)
@@ -182,8 +198,7 @@ func TestLogger_LogAccessFailure(t *testing.T) {
 		name string
 		core zapcore.Core
 	}{
-		{"write_error", newTestCore(true, false)},
-		{"sync_error", newTestCore(false, true)},
+		{"write_error", newTestCore(true)},
 	}
 
 	for _, v := range cases {
@@ -234,7 +249,6 @@ type (
 		count        int
 		lines        []string
 		errorOnWrite bool
-		errorOnSync  bool
 	}
 )
 
@@ -247,10 +261,9 @@ func newTestLogger(t zapcore.Core) *zap.Logger {
 	return zap.New(t)
 }
 
-func newTestCore(errOnWrite, errOnSync bool) zapcore.Core {
+func newTestCore(errOnWrite bool) zapcore.Core {
 	return &testCore{
 		errorOnWrite: errOnWrite,
-		errorOnSync:  errOnSync,
 		enc:          zapcore.NewJSONEncoder(zapConfig),
 	}
 }
@@ -260,19 +273,12 @@ func (t *testCore) Write(e zapcore.Entry, f []zapcore.Field) error {
 		return errors.New("write error")
 	}
 
-	buf, err := t.enc.EncodeEntry(e, fields)
+	buf, err := t.enc.EncodeEntry(e, f)
 	if err != nil {
 		return err
 	}
 
 	t.count++
 	t.lines = append(t.lines, strings.Trim(buf.String(), "\n"))
-	return nil
-}
-
-func (t *testCore) Sync() error {
-	if t.errorOnSync {
-		return errors.New("sync error")
-	}
 	return nil
 }
