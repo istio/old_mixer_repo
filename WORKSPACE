@@ -456,6 +456,12 @@ new_go_repository(
     importpath = "github.com/grpc-ecosystem/go-grpc-prometheus",
 )
 
+new_go_repository(
+    name = "org_golang_google_api",
+    commit = "1faa39f42f12a54fa82ca5902a7ab642d5b09ad1",  # Jun 5, 2017 (no releases)
+    importpath = "google.golang.org/api",
+)
+
 ##
 ## Testing
 ##

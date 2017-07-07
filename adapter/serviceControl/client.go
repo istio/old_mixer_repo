@@ -15,11 +15,7 @@
 package serviceControl
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -29,92 +25,20 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-func createAPIClient(logger adapter.Logger, clientCredentialPath string) (*servicecontrol.Service, error) {
-	logger.Infof("Creating service control client...\n")
+// createAPIClient creates a new service control client. TODO Currently oauth ca only works on GKE.
+func createAPIClient(logger adapter.Logger) (*servicecontrol.Service, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{
 		Transport: http.DefaultTransport})
 
-	bytes, err := ioutil.ReadFile(clientCredentialPath + "secret.json")
+	c, err := google.DefaultClient(ctx, servicecontrol.CloudPlatformScope, servicecontrol.ServicecontrolScope)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("Created http client error %s\n", err.Error())
 	}
 
-	o, err := google.ConfigFromJSON(bytes, servicecontrol.CloudPlatformScope, servicecontrol.ServicecontrolScope)
+	s, err := servicecontrol.New(c)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("Created service control client error %s\n", err.Error())
 	}
-	logger.Infof("Created oauth config %v\n", o)
-
-	// The following code is uncommented for authorizing the client for using oauth2 the first time.
-	//
-	//	authorize(ctx, *o)
-
-	// t, err := o.Exchange(ctx, "<fill in the code>")
-
-//		if err != nil {
-//			return nil, err
-//		}
-//		showToken(t)
-
-	t, err := tokenFromFile(clientCredentialPath + "token.json")
-
-	if err != nil {
-		return nil, err
-	}
-	o.TokenSource(ctx, t)
-
-	if err != nil {
-		return nil, err
-	}
-
-	httpClient := o.Client(ctx, t)
-	s, err := servicecontrol.New(httpClient)
-	logger.Infof("Created service control client")
-	return s, err
-}
-
-func authorize(ctx context.Context, config oauth2.Config) {
-	authURL := config.AuthCodeURL("")
-
-	showURL(authURL)
-
-	return
-}
-
-func showURL(url string) {
-	fmt.Printf("Authorization URL and copy the code: \n%s\n\n", url)
-}
-
-func obtainCode() (string, error) {
-	var code string
-	_, err := fmt.Scanln(&code)
-	return code, err
-}
-
-func showToken(token *oauth2.Token) error {
-	jt, err := json.Marshal(token)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Obtained token:\n%s\n\n", string(jt))
-	return nil
-}
-
-func tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	defer f.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	jt, err := ioutil.ReadAll(f)
-
-	if err != nil {
-		return nil, err
-	}
-
-	t := new(oauth2.Token)
-	err = json.Unmarshal(jt, &t)
-	return t, err
+	logger.Infof("Created service control client\n")
+	return s, nil
 }
