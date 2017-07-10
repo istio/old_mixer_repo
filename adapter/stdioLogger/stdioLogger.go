@@ -30,6 +30,7 @@ import (
 type (
 	builder struct{ adapter.DefaultBuilder }
 	logger  struct {
+		omitEmpty   bool
 		outputPaths []string
 		impl        *zap.Logger
 	}
@@ -82,7 +83,7 @@ func newLogger(cfg adapter.Config, buildZap zapBuilderFn) (*logger, error) {
 		return nil, fmt.Errorf("could not build logger: %v", err)
 	}
 
-	return &logger{outputPaths: []string{outputPath}, impl: zapLogger}, nil
+	return &logger{omitEmpty: c.OmitEmptyFields, outputPaths: []string{outputPath}, impl: zapLogger}, nil
 }
 
 func (l *logger) Log(entries []adapter.LogEntry) error {
@@ -96,23 +97,24 @@ func (l *logger) LogAccess(entries []adapter.LogEntry) error {
 func (l *logger) log(entries []adapter.LogEntry) error {
 	var errors *multierror.Error
 	fields := make([]zapcore.Field, 0, 6)
+	includeEmpty := !l.omitEmpty
 	for _, entry := range entries {
-		if entry.LogName != "" {
+		if includeEmpty || entry.LogName != "" {
 			fields = append(fields, zap.String("logName", entry.LogName))
 		}
-		if entry.Timestamp != "" {
+		if includeEmpty || entry.Timestamp != "" {
 			fields = append(fields, zap.String("timestamp", entry.Timestamp))
 		}
-		if entry.Severity != adapter.Default {
-			fields = append(fields, zap.Stringer("severity", entry.Severity))
+		if includeEmpty || entry.Severity != adapter.Default {
+			fields = append(fields, zap.String("severity", entry.Severity.String()))
 		}
-		if len(entry.Labels) > 0 {
+		if includeEmpty || len(entry.Labels) > 0 {
 			fields = append(fields, zap.Any("labels", entry.Labels))
 		}
-		if len(entry.TextPayload) > 0 {
+		if includeEmpty || len(entry.TextPayload) > 0 {
 			fields = append(fields, zap.String("textPayload", entry.TextPayload))
 		}
-		if len(entry.StructPayload) > 0 {
+		if includeEmpty || len(entry.StructPayload) > 0 {
 			fields = append(fields, zap.Any("structPayload", entry.StructPayload))
 		}
 		if err := l.impl.Core().Write(zapcore.Entry{}, fields); err != nil {

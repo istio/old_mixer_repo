@@ -106,27 +106,32 @@ func TestLogger_Log(t *testing.T) {
 	jsonPayloadEntry := adapter.LogEntry{LogName: "istio_log", StructPayload: structPayload, Timestamp: "2017-Jan-09", Severity: adapter.Info}
 	labelEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
 
+	omitAll := "{}"
+	noOmitAll := `{"logName":"","timestamp":"","severity":"DEFAULT","labels":null,"textPayload":"","structPayload":null}`
 	baseLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO"}`
 	textPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","textPayload":"text payload"}`
 	jsonPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","structPayload":{"obj":{"val":false},"val":42}}`
 	labelLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","labels":{"label":42}}`
 
 	tests := []struct {
-		name  string
-		input []adapter.LogEntry
-		want  []string
+		name      string
+		input     []adapter.LogEntry
+		omitEmpty bool
+		want      []string
 	}{
-		{"empty_array", []adapter.LogEntry{}, nil},
-		{"no_payload", []adapter.LogEntry{noPayloadEntry}, []string{baseLog}},
-		{"text_payload", []adapter.LogEntry{textPayloadEntry}, []string{textPayloadLog}},
-		{"json_payload", []adapter.LogEntry{jsonPayloadEntry}, []string{jsonPayloadLog}},
-		{"labels", []adapter.LogEntry{labelEntry}, []string{labelLog}},
+		{"empty_array", []adapter.LogEntry{}, true, nil},
+		{"empty_omit", []adapter.LogEntry{{}}, true, []string{omitAll}},
+		{"empty_include", []adapter.LogEntry{{}}, false, []string{noOmitAll}},
+		{"no_payload", []adapter.LogEntry{noPayloadEntry}, true, []string{baseLog}},
+		{"text_payload", []adapter.LogEntry{textPayloadEntry}, true, []string{textPayloadLog}},
+		{"json_payload", []adapter.LogEntry{jsonPayloadEntry}, true, []string{jsonPayloadLog}},
+		{"labels", []adapter.LogEntry{labelEntry}, true, []string{labelLog}},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
 			tc := newTestCore(false)
-			l := &logger{impl: newTestLogger(tc)}
+			l := &logger{omitEmpty: v.omitEmpty, impl: newTestLogger(tc)}
 			if err := l.Log(v.input); err != nil {
 				t.Errorf("Log(%v) => unexpected error: %v", v.input, err)
 			}
@@ -170,18 +175,19 @@ func TestLogger_LogAccess(t *testing.T) {
 	labelsWithTextLog := `{"logName":"access_log","labels":{"test":false,"val":42},"textPayload":"this is a log line"}`
 
 	tests := []struct {
-		input []adapter.LogEntry
-		want  []string
+		input     []adapter.LogEntry
+		omitEmpty bool
+		want      []string
 	}{
-		{[]adapter.LogEntry{}, []string(nil)},
-		{[]adapter.LogEntry{noLabelsEntry}, []string{baseLog}},
-		{[]adapter.LogEntry{labelsEntry}, []string{labelsLog}},
-		{[]adapter.LogEntry{labelsWithTextEntry}, []string{labelsWithTextLog}},
+		{[]adapter.LogEntry{}, true, []string(nil)},
+		{[]adapter.LogEntry{noLabelsEntry}, true, []string{baseLog}},
+		{[]adapter.LogEntry{labelsEntry}, true, []string{labelsLog}},
+		{[]adapter.LogEntry{labelsWithTextEntry}, true, []string{labelsWithTextLog}},
 	}
 
 	for _, v := range tests {
 		tc := newTestCore(false)
-		log := &logger{impl: newTestLogger(tc)}
+		log := &logger{omitEmpty: v.omitEmpty, impl: newTestLogger(tc)}
 		if err := log.LogAccess(v.input); err != nil {
 			t.Errorf("LogAccess(%v) => unexpected error: %v", v.input, err)
 		}
@@ -225,7 +231,7 @@ func BenchmarkLogger_Log(b *testing.B) {
 		StructPayload: map[string]interface{}{"bool": true, "number": 242, "map": map[string]string{"test": "test"}, "array": []string{"t", "v", "x"}},
 	}
 
-	l := &logger{impl: zap.NewNop()}
+	l := &logger{omitEmpty: true, impl: zap.NewNop()}
 
 	for i := 0; i < b.N; i++ {
 		if err := l.log([]adapter.LogEntry{entry1, entry2}); err != nil {
