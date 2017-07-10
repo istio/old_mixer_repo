@@ -28,7 +28,7 @@ mixer_docker_build(
     images = [
         {
             "name": "mixer",
-            "base": "@docker_ubuntu//:xenial",
+            "base": "@distroless//base:base",
         },
         {
             "name": "mixer_debug",
