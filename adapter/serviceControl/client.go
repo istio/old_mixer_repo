@@ -25,8 +25,15 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
+type client interface {
+	create(logger adapter.Logger) (*servicecontrol.Service, error)
+}
+
+type clientImpl struct {
+}
+
 // createAPIClient creates a new service control client. TODO Currently oauth ca only works on GKE.
-func createAPIClient(logger adapter.Logger) (*servicecontrol.Service, error) {
+func (*clientImpl) create(logger adapter.Logger) (*servicecontrol.Service, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{
 		Transport: http.DefaultTransport})
 
