@@ -29,6 +29,8 @@ import (
 type (
 	builder struct {
 		adapter.DefaultBuilder
+
+		client
 	}
 
 	aspect struct {
@@ -49,35 +51,35 @@ func Register(r adapter.Registrar) {
 			name,
 			"Push metrics to GCP service controller",
 			new(config.Params),
-		)})
+		), new(clientImpl)})
 
 	r.RegisterApplicationLogsBuilder(
 		&builder{adapter.NewDefaultBuilder(
 			name,
 			"Writes log entries to GCP service controller",
 			new(config.Params),
-		)})
+		), new(clientImpl)})
 }
 
-func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
+func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	return nil
 }
 
-func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	return newAspect(env, cfg)
+func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+	return b.newAspect(env, cfg)
 }
 
-func (*builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
-	return newAspect(env, cfg)
+func (b *builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
+	return b.newAspect(env, cfg)
 }
 
 func (*builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
 	return nil, errors.New("access logs are not supported")
 }
 
-func newAspect(env adapter.Env, cfg adapter.Config) (*aspect, error) {
+func (b *builder) newAspect(env adapter.Env, cfg adapter.Config) (*aspect, error) {
 	params := cfg.(*config.Params)
-	ss, err := createAPIClient(env.Logger())
+	ss, err := b.client.create(env.Logger())
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +148,8 @@ func translate(labels map[string]interface{}) (map[string]string, string) {
 	return ml, method
 }
 
-func (a *aspect) Log(entries []adapter.LogEntry) error {
+//TODO Add supports to struct payload.
+func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationId string) *servicecontrol.ReportRequest {
 	var ls []*servicecontrol.LogEntry
 	for _, e := range entries {
 		l := &servicecontrol.LogEntry{
@@ -159,23 +162,26 @@ func (a *aspect) Log(entries []adapter.LogEntry) error {
 	}
 
 	op := &servicecontrol.Operation{
-		OperationId:   fmt.Sprintf("mixer-log-report-id-%d", uuid.New()),
+		OperationId:   operationId,
 		OperationName: "reportLogs",
-		StartTime:     time.Now().Format(time.RFC3339),
-		EndTime:       time.Now().Format(time.RFC3339),
+		StartTime:     now.Format(time.RFC3339),
+		EndTime:       now.Format(time.RFC3339),
 		LogEntries:    ls,
 		Labels:        map[string]string{"cloud.googleapis.com/location": "global"},
 	}
 
-	rq := &servicecontrol.ReportRequest{
+	return &servicecontrol.ReportRequest{
 		Operations: []*servicecontrol.Operation{op},
 	}
+}
 
+func (a *aspect) Log(entries []adapter.LogEntry) error {
+	rq := a.log(entries, time.Now(), fmt.Sprintf("mixer-log-report-id-%d", uuid.New()))
 	rp, err := a.service.Services.Report(a.serviceName, rq).Do()
 
 	if a.logger.VerbosityLevel(4) {
 		a.logger.Infof("service control log report for operation id %s\nlogs %v\nresponse %v",
-			op.OperationId, entries, rp)
+			rq.Operations[0].OperationId, entries, rp)
 	}
 	return err
 }

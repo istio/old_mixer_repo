@@ -15,9 +15,15 @@
 package serviceControl
 
 import (
+	"reflect"
 	"testing"
+	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/mixer/adapter/serviceControl/config"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
 )
 
@@ -25,80 +31,121 @@ const testServiceName = "gcp-service"
 
 var (
 	defaultParams = &config.Params{ServiceName: testServiceName}
+	fakeService   = new(servicecontrol.Service)
 )
 
+type fakeClient struct {
+}
+
+func (*fakeClient) create(logger adapter.Logger) (*servicecontrol.Service, error) {
+	return fakeService, nil
+}
+
+/*
+type fakeServicesService struct {
+	*servicecontrol.ServicesService
+}
+
+func (* fakeServicesService) Report(serviceName string, reportrequest *servicecontrol.ReportRequest) *servicecontrol.ServicesReportCall{
+    fmt.Print(reportrequest)
+	return nil
+}
+
+	func (r *fakeServicesService) AllocateQuota(serviceName string, allocatequotarequest *servicecontrol.AllocateQuotaRequest) *servicecontrol.ServicesAllocateQuotaCall{
+		return nil
+	}
+		func (r *fakeServicesService) Check(serviceName string, checkrequest *servicecontrol.CheckRequest) *servicecontrol.ServicesCheckCall {
+return nil
+	}
+		func (r *fakeServicesService) EndReconciliation(serviceName string, endreconciliationrequest *servicecontrol.EndReconciliationRequest) *servicecontrol.ServicesEndReconciliationCall {
+
+			return nil
+	}
+		func (r *fakeServicesService) ReleaseQuota(serviceName string, releasequotarequest *servicecontrol.ReleaseQuotaRequest) *servicecontrol.ServicesReleaseQuotaCall {
+
+			return nil
+	}
+		func (r *fakeServicesService) StartReconciliation(serviceName string, startreconciliationrequest *servicecontrol.StartReconciliationRequest) *servicecontrol.ServicesStartReconciliationCall {
+
+			return nil
+	}
+*/
 func TestAdapterInvariants(t *testing.T) {
 	test.AdapterInvariants(Register, t)
 }
 
 func TestBuilder_NewAspect(t *testing.T) {
 	e := test.NewEnv(t)
-	b := builder{}
-	a, err := b.NewApplicationLogsAspect(e, defaultParams)
+	b := builder{adapter.DefaultBuilder{}, new(fakeClient)}
+	a, err := b.newAspect(e, defaultParams)
 	if err != nil {
 		t.Errorf("NewApplicationLogsAspect(env, %s) => unexpected error: %v", defaultParams, err)
 	}
-	if x := a.(aspect).serviceName; x != testServiceName {
+	if x := a.serviceName; x != testServiceName {
 		t.Errorf("NewApplicationLogsAspect(env, %s) => service name actual: %s", defaultParams, x)
 	}
 
-	if a.(aspect).service == nil {
-		t.Errorf("NewApplicationLogsAspect(env, %s) => create service control client nil", defaultParams)
+	if a.service != fakeService {
+		t.Errorf("NewApplicationLogsAspect(env, %s) => create service control client fail", defaultParams)
 	}
 
-	if x := a.(aspect).logger; x != e.Logger() {
+	if x := a.logger; x != e.Logger() {
 		t.Errorf("NewApplicationLogsAspect(env, %s) mismatching logger actual: %v", x)
 	}
 }
 
-/*
 func TestLogger_Close(t *testing.T) {
-	a := &logger{}
+	a := new(aspect)
 	if err := a.Close(); err != nil {
 		t.Errorf("Close() => unexpected error: %v", err)
 	}
 }
+
 func TestLogger_Log(t *testing.T) {
+	a := &aspect{
+		testServiceName,
+		new(servicecontrol.Service),
+		test.NewEnv(t).Logger(),
+	}
 
-	tw := &testWriter{lines: make([]string, 0)}
-
-	structPayload := map[string]interface{}{"val": 42, "obj": map[string]interface{}{"val": false}}
-
-	noPayloadEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	jsonPayloadEntry := adapter.LogEntry{LogName: "istio_log", StructPayload: structPayload, Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	labelEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
-
-	baseLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO"}`
-	textPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","textPayload":"text payload"}`
-	jsonPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","structPayload":{"obj":{"val":false},"val":42}}`
-	labelLog := `{"logName":"istio_log","labels":{"label":42},"timestamp":"2017-Jan-09","severity":"INFO"}`
-
-	baseAspectImpl := &logger{tw}
+	l := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
 
 	tests := []struct {
-		asp   *logger
 		input []adapter.LogEntry
-		want  []string
+		want  servicecontrol.ReportRequest
 	}{
-		{baseAspectImpl, []adapter.LogEntry{}, []string{}},
-		{baseAspectImpl, []adapter.LogEntry{noPayloadEntry}, []string{baseLog}},
-		{baseAspectImpl, []adapter.LogEntry{textPayloadEntry}, []string{textPayloadLog}},
-		{baseAspectImpl, []adapter.LogEntry{jsonPayloadEntry}, []string{jsonPayloadLog}},
-		{baseAspectImpl, []adapter.LogEntry{labelEntry}, []string{labelLog}},
+		{[]adapter.LogEntry{l},
+			servicecontrol.ReportRequest{
+				Operations: []*servicecontrol.Operation{
+					{
+						OperationId:   "test_operation",
+						OperationName: "reportLogs",
+						StartTime:     "2017-07-01T10:10:05Z",
+						EndTime:       "2017-07-01T10:10:05Z",
+						LogEntries: []*servicecontrol.LogEntry{
+							{
+								Name:        "istio_log",
+								Severity:    "INFO",
+								TextPayload: "text payload",
+								Timestamp:   "2017-Jan-09",
+							},
+						},
+						Labels: map[string]string{"cloud.googleapis.com/location": "global"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, v := range tests {
-		if err := v.asp.Log(v.input); err != nil {
-			t.Errorf("Log(%v) => unexpected error: %v", v.input, err)
+		r := a.log(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.Local), "test_operation")
+		if !reflect.DeepEqual(*r, v.want) {
+			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(r), spew.Sdump(v.want))
 		}
-		if !reflect.DeepEqual(tw.lines, v.want) {
-			t.Errorf("Log(%v) => %v, want %s", v.input, tw.lines, v.want)
-		}
-		tw.lines = make([]string, 0)
 	}
 }
 
+/*
 func TestLogger_LogFailure(t *testing.T) {
 	tw := &testWriter{errorOnWrite: true}
 	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
