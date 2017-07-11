@@ -111,7 +111,7 @@ func TestAspect_Log(t *testing.T) {
 	for _, v := range tests {
 		r := a.log(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.Local), "test_operation")
 		if !reflect.DeepEqual(*r, v.want) {
-			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(r), spew.Sdump(v.want))
+			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
 		}
 	}
 }
@@ -155,7 +155,7 @@ func TestAspect_Record(t *testing.T) {
 								MetricValues: []*servicecontrol.MetricValue{
 									{
 										Labels: map[string]string{
-											"/request_count": "500",
+											"/response_code": "500",
 										},
 										StartTime:  "2017-06-30T18:10:05Z",
 										EndTime:    "2017-06-30T18:10:30Z",
@@ -174,7 +174,7 @@ func TestAspect_Record(t *testing.T) {
 	for _, v := range tests {
 		r := a.record(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.Local), "test_operation")
 		if !reflect.DeepEqual(*r, v.want) {
-			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(r), spew.Sdump(v.want))
+			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
 		}
 	}
 }
