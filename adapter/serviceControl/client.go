@@ -26,17 +26,18 @@ import (
 )
 
 type client interface {
+	// create a new service control client.
 	create(logger adapter.Logger) (*servicecontrol.Service, error)
 }
 
 type clientImpl struct {
 }
 
-// createAPIClient creates a new service control client. TODO Currently oauth ca only works on GKE.
 func (*clientImpl) create(logger adapter.Logger) (*servicecontrol.Service, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{
 		Transport: http.DefaultTransport})
 
+	// TODO Only works on GKE istio.
 	c, err := google.DefaultClient(ctx, servicecontrol.CloudPlatformScope, servicecontrol.ServicecontrolScope)
 	if err != nil {
 		return nil, logger.Errorf("Created http client error %s\n", err.Error())
