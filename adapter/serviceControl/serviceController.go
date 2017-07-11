@@ -107,8 +107,8 @@ func (a *aspect) record(values []adapter.Value, now time.Time, operationID strin
 		}
 		var mv servicecontrol.MetricValue
 		mv.Labels, _ = translate(v.Labels)
-		mv.StartTime = v.StartTime.Format(time.RFC3339)
-		mv.EndTime = v.EndTime.Format(time.RFC3339)
+		mv.StartTime = v.StartTime.Format(time.RFC3339Nano)
+		mv.EndTime = v.EndTime.Format(time.RFC3339Nano)
 		i, _ := v.Int64()
 		mv.Int64Value = &i
 
@@ -122,8 +122,8 @@ func (a *aspect) record(values []adapter.Value, now time.Time, operationID strin
 	op := &servicecontrol.Operation{
 		OperationId:     operationID,
 		OperationName:   "reportMetrics",
-		StartTime:       now.Format(time.RFC3339),
-		EndTime:         now.Format(time.RFC3339),
+		StartTime:       now.Format(time.RFC3339Nano),
+		EndTime:         now.Format(time.RFC3339Nano),
 		MetricValueSets: vs,
 		Labels: map[string]string{
 			"cloud.googleapis.com/location": "global",
@@ -167,8 +167,8 @@ func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationID stri
 	op := &servicecontrol.Operation{
 		OperationId:   operationID,
 		OperationName: "reportLogs",
-		StartTime:     now.Format(time.RFC3339),
-		EndTime:       now.Format(time.RFC3339),
+		StartTime:     now.Format(time.RFC3339Nano),
+		EndTime:       now.Format(time.RFC3339Nano),
 		LogEntries:    ls,
 		Labels:        map[string]string{"cloud.googleapis.com/location": "global"},
 	}

@@ -91,8 +91,8 @@ func TestAspect_Log(t *testing.T) {
 					{
 						OperationId:   "test_operation",
 						OperationName: "reportLogs",
-						StartTime:     "2017-07-01T10:10:05Z",
-						EndTime:       "2017-07-01T10:10:05Z",
+						StartTime:     "2017-07-01T10:10:05.000000002Z",
+						EndTime:       "2017-07-01T10:10:05.000000002Z",
 						LogEntries: []*servicecontrol.LogEntry{
 							{
 								Name:        "istio_log",
@@ -147,8 +147,8 @@ func TestAspect_Record(t *testing.T) {
 					{
 						OperationId:   "test_operation",
 						OperationName: "reportMetrics",
-						StartTime:     "2017-07-01T10:10:05Z",
-						EndTime:       "2017-07-01T10:10:05Z",
+						StartTime:     "2017-07-01T10:10:05.000000002Z",
+						EndTime:       "2017-07-01T10:10:05.000000002Z",
 						MetricValueSets: []*servicecontrol.MetricValueSet{
 							{
 								MetricName: "serviceruntime.googleapis.com/api/producer/request_count",
@@ -157,8 +157,8 @@ func TestAspect_Record(t *testing.T) {
 										Labels: map[string]string{
 											"/response_code": "500",
 										},
-										StartTime:  "2017-06-30T18:10:05Z",
-										EndTime:    "2017-06-30T18:10:30Z",
+										StartTime:  "2017-06-30T18:10:05.000000002Z",
+										EndTime:    "2017-06-30T18:10:30.000000002Z",
 										Int64Value: &c,
 									},
 								},
