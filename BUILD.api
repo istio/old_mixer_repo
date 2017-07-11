@@ -52,7 +52,9 @@ DESCRIPTOR_FILE_GROUP = [
     "mixer/v1/config/descriptor/value_type.proto",
 ]
 
-# gogoslick_proto_compile is broken. need to file a PR against pubref to fix.
+# gogoslick_proto_compile cannot be used here. it generates Equal, Size, and
+# MarshalTo methods for google.protobuf.Struct, which we then later replace
+# with interface{}. This causes compilation issues.
 gogo_proto_compile(
     name = "mixer/v1/config_gen",
     importmap = {
@@ -105,8 +107,6 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-# TODO: when gogoslick_proto_compile rule is fixed for use, remove the
-# VALUE_TYPE enum fix part of the sed.
 genrule(
     name = "mixer/v1/config_fixed",
     srcs = [":mixer/v1/config_gen"],
@@ -114,7 +114,7 @@ genrule(
     cmd = "sed " +
           "-e 's/*google_protobuf.Struct/interface{}/g' " +
           "-e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' " +
-          "$(location :mixer/v1/config_gen) | $(location @org_golang_x_tools_imports//:goimports) >> $@",
+          "$(location :mixer/v1/config_gen) | $(location @org_golang_x_tools_imports//:goimports) > $@",
     message = "Applying overrides to cfg proto",
     tools = ["@org_golang_x_tools_imports//:goimports"],
 )
