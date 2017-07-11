@@ -30,4 +30,4 @@ fi
 
 bazel test //...
 bin/racetest.sh
-LAST_GOOD_GITSHA=HEAD bin/linters.sh
+bin/linters.sh

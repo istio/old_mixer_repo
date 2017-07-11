@@ -109,7 +109,7 @@ func TestAspect_Log(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		r := a.log(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.Local), "test_operation")
+		r := a.log(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.UTC), "test_operation")
 		if !reflect.DeepEqual(*r, v.want) {
 			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
 		}
@@ -130,8 +130,8 @@ func TestAspect_Record(t *testing.T) {
 			Kind: adapter.Counter,
 		},
 		Labels:      make(map[string]interface{}),
-		StartTime:   time.Date(2017, time.June, 30, 18, 10, 5, 2, time.Local),
-		EndTime:     time.Date(2017, time.June, 30, 18, 10, 30, 2, time.Local),
+		StartTime:   time.Date(2017, time.June, 30, 18, 10, 5, 2, time.UTC),
+		EndTime:     time.Date(2017, time.June, 30, 18, 10, 30, 2, time.UTC),
 		MetricValue: c,
 	}
 
@@ -172,7 +172,7 @@ func TestAspect_Record(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		r := a.record(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.Local), "test_operation")
+		r := a.record(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.UTC), "test_operation")
 		if !reflect.DeepEqual(*r, v.want) {
 			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
 		}
