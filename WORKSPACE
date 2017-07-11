@@ -508,7 +508,7 @@ new_git_repository(
     remote = "https://github.com/golang/tools.git",
 )
 
-new_git_repository(
+new_go_repository(
     name = "com_github_Shopify_sarama",
     commit = "c01858abb625b73a3af51d0798e4ad42c8147093",  # May 8, 2017 (1.12.0)
     importpath = "github.com/Shopify/sarama",
