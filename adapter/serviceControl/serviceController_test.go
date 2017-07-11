@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"google.golang.org/api/servicecontrol/v1"
+	servicecontrol "google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/mixer/adapter/serviceControl/config"
 	"istio.io/mixer/pkg/adapter"
@@ -41,35 +41,6 @@ func (*fakeClient) create(logger adapter.Logger) (*servicecontrol.Service, error
 	return fakeService, nil
 }
 
-/*
-type fakeServicesService struct {
-	*servicecontrol.ServicesService
-}
-
-func (* fakeServicesService) Report(serviceName string, reportrequest *servicecontrol.ReportRequest) *servicecontrol.ServicesReportCall{
-    fmt.Print(reportrequest)
-	return nil
-}
-
-	func (r *fakeServicesService) AllocateQuota(serviceName string, allocatequotarequest *servicecontrol.AllocateQuotaRequest) *servicecontrol.ServicesAllocateQuotaCall{
-		return nil
-	}
-		func (r *fakeServicesService) Check(serviceName string, checkrequest *servicecontrol.CheckRequest) *servicecontrol.ServicesCheckCall {
-return nil
-	}
-		func (r *fakeServicesService) EndReconciliation(serviceName string, endreconciliationrequest *servicecontrol.EndReconciliationRequest) *servicecontrol.ServicesEndReconciliationCall {
-
-			return nil
-	}
-		func (r *fakeServicesService) ReleaseQuota(serviceName string, releasequotarequest *servicecontrol.ReleaseQuotaRequest) *servicecontrol.ServicesReleaseQuotaCall {
-
-			return nil
-	}
-		func (r *fakeServicesService) StartReconciliation(serviceName string, startreconciliationrequest *servicecontrol.StartReconciliationRequest) *servicecontrol.ServicesStartReconciliationCall {
-
-			return nil
-	}
-*/
 func TestAdapterInvariants(t *testing.T) {
 	test.AdapterInvariants(Register, t)
 }
@@ -90,18 +61,18 @@ func TestBuilder_NewAspect(t *testing.T) {
 	}
 
 	if x := a.logger; x != e.Logger() {
-		t.Errorf("NewApplicationLogsAspect(env, %s) mismatching logger actual: %v", x)
+		t.Errorf("NewApplicationLogsAspect(env, %s) mismatching logger actual: %v", defaultParams, x)
 	}
 }
 
-func TestLogger_Close(t *testing.T) {
+func TestAspect_Close(t *testing.T) {
 	a := new(aspect)
 	if err := a.Close(); err != nil {
 		t.Errorf("Close() => unexpected error: %v", err)
 	}
 }
 
-func TestLogger_Log(t *testing.T) {
+func TestAspect_Log(t *testing.T) {
 	a := &aspect{
 		testServiceName,
 		new(servicecontrol.Service),
@@ -140,76 +111,70 @@ func TestLogger_Log(t *testing.T) {
 	for _, v := range tests {
 		r := a.log(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.Local), "test_operation")
 		if !reflect.DeepEqual(*r, v.want) {
-			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(r), spew.Sdump(v.want))
+			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
 		}
 	}
 }
 
-/*
-func TestLogger_LogFailure(t *testing.T) {
-	tw := &testWriter{errorOnWrite: true}
-	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	baseAspectImpl := &logger{tw}
-
-	if err := baseAspectImpl.Log([]adapter.LogEntry{textPayloadEntry}); err == nil {
-		t.Error("Log() should have produced error")
-	}
-}
-
-func TestLogger_LogAccess(t *testing.T) {
-	tw := &testWriter{lines: make([]string, 0)}
-
-	noLabelsEntry := adapter.LogEntry{LogName: "access_log"}
-	labelsEntry := adapter.LogEntry{LogName: "access_log", Labels: map[string]interface{}{"test": false, "val": 42}}
-	labelsWithTextEntry := adapter.LogEntry{
-		LogName:     "access_log",
-		Labels:      map[string]interface{}{"test": false, "val": 42},
-		TextPayload: "this is a log line",
+func TestAspect_Record(t *testing.T) {
+	a := &aspect{
+		testServiceName,
+		new(servicecontrol.Service),
+		test.NewEnv(t).Logger(),
 	}
 
-	baseLog := `{"logName":"access_log"}`
-	labelsLog := `{"logName":"access_log","labels":{"test":false,"val":42}}`
-	labelsWithTextLog := `{"logName":"access_log","labels":{"test":false,"val":42},"textPayload":"this is a log line"}`
+	c := int64(123)
+	v := adapter.Value{
+		Definition: &adapter.MetricDefinition{
+			Name: "request_count",
+			Kind: adapter.Counter,
+		},
+		Labels:      make(map[string]interface{}),
+		StartTime:   time.Date(2017, time.June, 30, 18, 10, 5, 2, time.Local),
+		EndTime:     time.Date(2017, time.June, 30, 18, 10, 30, 2, time.Local),
+		MetricValue: c,
+	}
+
+	v.Labels["response_code"] = 500
 
 	tests := []struct {
-		input []adapter.LogEntry
-		want  []string
+		input []adapter.Value
+		want  servicecontrol.ReportRequest
 	}{
-		{[]adapter.LogEntry{}, []string{}},
-		{[]adapter.LogEntry{noLabelsEntry}, []string{baseLog}},
-		{[]adapter.LogEntry{labelsEntry}, []string{labelsLog}},
-		{[]adapter.LogEntry{labelsWithTextEntry}, []string{labelsWithTextLog}},
+		{[]adapter.Value{v},
+			servicecontrol.ReportRequest{
+				Operations: []*servicecontrol.Operation{
+					{
+						OperationId:   "test_operation",
+						OperationName: "reportMetrics",
+						StartTime:     "2017-07-01T10:10:05Z",
+						EndTime:       "2017-07-01T10:10:05Z",
+						MetricValueSets: []*servicecontrol.MetricValueSet{
+							{
+								MetricName: "serviceruntime.googleapis.com/api/producer/request_count",
+								MetricValues: []*servicecontrol.MetricValue{
+									{
+										Labels: map[string]string{
+											"/response_code": "500",
+										},
+										StartTime:  "2017-06-30T18:10:05Z",
+										EndTime:    "2017-06-30T18:10:30Z",
+										Int64Value: &c,
+									},
+								},
+							},
+						},
+						Labels: map[string]string{"cloud.googleapis.com/location": "global"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, v := range tests {
-		log := &logger{tw}
-		if err := log.LogAccess(v.input); err != nil {
-			t.Errorf("LogAccess(%v) => unexpected error: %v", v.input, err)
+		r := a.record(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.Local), "test_operation")
+		if !reflect.DeepEqual(*r, v.want) {
+			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
 		}
-		if !reflect.DeepEqual(tw.lines, v.want) {
-			t.Errorf("LogAccess(%v) => %v, want %s", v.input, tw.lines, v.want)
-		}
-		tw.lines = make([]string, 0)
 	}
 }
-
-func TestLogger_LogAccessFailure(t *testing.T) {
-	tw := &testWriter{errorOnWrite: true}
-	entry := adapter.LogEntry{LogName: "access_log"}
-	l := &logger{tw}
-
-	if err := l.LogAccess([]adapter.LogEntry{entry}); err == nil {
-		t.Error("LogAccess() should have produced error")
-	}
-}
-
-
-func (t *testWriter) Write(p []byte) (n int, err error) {
-	if t.errorOnWrite {
-		return 0, errors.New("write error")
-	}
-	t.count++
-	t.lines = append(t.lines, strings.Trim(string(p), "\n"))
-	return len(p), nil
-}
-*/

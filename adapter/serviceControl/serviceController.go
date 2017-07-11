@@ -87,8 +87,18 @@ func (b *builder) newAspect(env adapter.Env, cfg adapter.Config) (*aspect, error
 }
 
 func (a *aspect) Record(values []adapter.Value) error {
+	rq := a.record(values, time.Now(), fmt.Sprintf("mixer-metric-report-id-%d", uuid.New()))
+	rp, err := a.service.Services.Report(a.serviceName, rq).Do()
+
+	if a.logger.VerbosityLevel(4) {
+		a.logger.Infof("service control metric report operation id %s\nmetrics %v\nresponse %v",
+			rq.Operations[0].OperationId, values, rp)
+	}
+	return err
+}
+
+func (a *aspect) record(values []adapter.Value, now time.Time, operationID string) *servicecontrol.ReportRequest {
 	var vs []*servicecontrol.MetricValueSet
-	var method string
 	for _, v := range values {
 		// TODO Only support request count.
 		if v.Definition.Name != "request_count" {
@@ -96,45 +106,38 @@ func (a *aspect) Record(values []adapter.Value) error {
 			continue
 		}
 		var mv servicecontrol.MetricValue
-		mv.Labels, method = translate(v.Labels)
+		mv.Labels, _ = translate(v.Labels)
 		mv.StartTime = v.StartTime.Format(time.RFC3339)
 		mv.EndTime = v.EndTime.Format(time.RFC3339)
 		i, _ := v.Int64()
 		mv.Int64Value = &i
 
 		ms := &servicecontrol.MetricValueSet{
-			MetricName:   v.Definition.Name,
+			MetricName:   "serviceruntime.googleapis.com/api/producer/request_count",
 			MetricValues: []*servicecontrol.MetricValue{&mv},
 		}
 		vs = append(vs, ms)
 	}
 
 	op := &servicecontrol.Operation{
-		OperationId:     fmt.Sprintf("mixer-metric-report-id-%d", uuid.New()),
+		OperationId:     operationID,
 		OperationName:   "reportMetrics",
-		StartTime:       time.Now().Format(time.RFC3339),
-		EndTime:         time.Now().Format(time.RFC3339),
+		StartTime:       now.Format(time.RFC3339),
+		EndTime:         now.Format(time.RFC3339),
 		MetricValueSets: vs,
 		Labels: map[string]string{
-			"cloud.googleapis.com/location":            "global",
-			"serviceruntime.googleapis.com/api_method": method,
+			"cloud.googleapis.com/location": "global",
 		},
 	}
-	rq := &servicecontrol.ReportRequest{
+	return &servicecontrol.ReportRequest{
 		Operations: []*servicecontrol.Operation{op},
 	}
-
-	rp, err := a.service.Services.Report(a.serviceName, rq).Do()
-
-	if a.logger.VerbosityLevel(4) {
-		a.logger.Infof("service control metric report operation id %s\nmetrics %v\nresponse %v",
-			op.OperationId, values, rp)
-	}
-	return err
 }
 
 // translate mixer label key to GCP label, and find the api method. TODO Need general redesign.
 // Current implementation is just adding a prefix / which does not work for some labels.
+// Need to support api_method
+// "serviceruntime.googleapis.com/api_method": method,
 func translate(labels map[string]interface{}) (map[string]string, string) {
 	ml := make(map[string]string)
 	var method string
@@ -149,7 +152,7 @@ func translate(labels map[string]interface{}) (map[string]string, string) {
 }
 
 //TODO Add supports to struct payload.
-func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationId string) *servicecontrol.ReportRequest {
+func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationID string) *servicecontrol.ReportRequest {
 	var ls []*servicecontrol.LogEntry
 	for _, e := range entries {
 		l := &servicecontrol.LogEntry{
@@ -162,7 +165,7 @@ func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationId stri
 	}
 
 	op := &servicecontrol.Operation{
-		OperationId:   operationId,
+		OperationId:   operationID,
 		OperationName: "reportLogs",
 		StartTime:     now.Format(time.RFC3339),
 		EndTime:       now.Format(time.RFC3339),
