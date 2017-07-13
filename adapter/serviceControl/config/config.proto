@@ -24,6 +24,6 @@ option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
 message Params {
-    // The GCP service name.
+    // Fully qualified GCP service name.
     string service_name = 1;
 }

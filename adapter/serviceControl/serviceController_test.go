@@ -16,11 +16,13 @@ package serviceControl
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	servicecontrol "google.golang.org/api/servicecontrol/v1"
+	"github.com/golang/protobuf/proto"
+	sc "google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/mixer/adapter/serviceControl/config"
 	"istio.io/mixer/pkg/adapter"
@@ -31,13 +33,10 @@ const testServiceName = "gcp-service"
 
 var (
 	defaultParams = &config.Params{ServiceName: testServiceName}
-	fakeService   = new(servicecontrol.Service)
+	fakeService   = new(sc.Service)
 )
 
-type fakeClient struct {
-}
-
-func (*fakeClient) create(logger adapter.Logger) (*servicecontrol.Service, error) {
+func fakeCreateClient(logger adapter.Logger) (*sc.Service, error) {
 	return fakeService, nil
 }
 
@@ -47,7 +46,7 @@ func TestAdapterInvariants(t *testing.T) {
 
 func TestBuilder_NewAspect(t *testing.T) {
 	e := test.NewEnv(t)
-	b := builder{adapter.DefaultBuilder{}, new(fakeClient)}
+	b := builder{adapter.DefaultBuilder{}, fakeCreateClient}
 	a, err := b.newAspect(e, defaultParams)
 	if err != nil {
 		t.Errorf("NewApplicationLogsAspect(env, %s) => unexpected error: %v", defaultParams, err)
@@ -72,10 +71,30 @@ func TestAspect_Close(t *testing.T) {
 	}
 }
 
+func TestValidateConfig(t *testing.T) {
+	cases := []struct {
+		conf      proto.Message
+		errString string
+	}{
+		{&config.Params{}, "serviceName"},
+		{&config.Params{ServiceName: testServiceName}, ""},
+	}
+	for idx, c := range cases {
+		b := &builder{}
+		errString := ""
+		if err := b.ValidateConfig(c.conf); err != nil {
+			errString = err.Error()
+		}
+		if !strings.Contains(errString, c.errString) {
+			t.Errorf("[%d] b.ValidateConfig(c.conf) = '%s'; want errString containing '%s'", idx, errString, c.errString)
+		}
+	}
+}
+
 func TestAspect_Log(t *testing.T) {
 	a := &aspect{
 		testServiceName,
-		new(servicecontrol.Service),
+		new(sc.Service),
 		test.NewEnv(t).Logger(),
 	}
 
@@ -83,17 +102,17 @@ func TestAspect_Log(t *testing.T) {
 
 	tests := []struct {
 		input []adapter.LogEntry
-		want  servicecontrol.ReportRequest
+		want  sc.ReportRequest
 	}{
 		{[]adapter.LogEntry{l},
-			servicecontrol.ReportRequest{
-				Operations: []*servicecontrol.Operation{
+			sc.ReportRequest{
+				Operations: []*sc.Operation{
 					{
 						OperationId:   "test_operation",
 						OperationName: "reportLogs",
 						StartTime:     "2017-07-01T10:10:05.000000002Z",
 						EndTime:       "2017-07-01T10:10:05.000000002Z",
-						LogEntries: []*servicecontrol.LogEntry{
+						LogEntries: []*sc.LogEntry{
 							{
 								Name:        "istio_log",
 								Severity:    "INFO",
@@ -108,10 +127,10 @@ func TestAspect_Log(t *testing.T) {
 		},
 	}
 
-	for _, v := range tests {
-		r := a.log(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.UTC), "test_operation")
-		if !reflect.DeepEqual(*r, v.want) {
-			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
+	for _, c := range tests {
+		r := a.log(c.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.UTC), "test_operation")
+		if !reflect.DeepEqual(*r, c.want) {
+			t.Errorf("log(%+v) => %v, want %v", c.input, spew.Sdump(*r), spew.Sdump(c.want))
 		}
 	}
 }
@@ -119,7 +138,7 @@ func TestAspect_Log(t *testing.T) {
 func TestAspect_Record(t *testing.T) {
 	a := &aspect{
 		testServiceName,
-		new(servicecontrol.Service),
+		new(sc.Service),
 		test.NewEnv(t).Logger(),
 	}
 
@@ -139,20 +158,20 @@ func TestAspect_Record(t *testing.T) {
 
 	tests := []struct {
 		input []adapter.Value
-		want  servicecontrol.ReportRequest
+		want  sc.ReportRequest
 	}{
 		{[]adapter.Value{v},
-			servicecontrol.ReportRequest{
-				Operations: []*servicecontrol.Operation{
+			sc.ReportRequest{
+				Operations: []*sc.Operation{
 					{
 						OperationId:   "test_operation",
 						OperationName: "reportMetrics",
 						StartTime:     "2017-07-01T10:10:05.000000002Z",
 						EndTime:       "2017-07-01T10:10:05.000000002Z",
-						MetricValueSets: []*servicecontrol.MetricValueSet{
+						MetricValueSets: []*sc.MetricValueSet{
 							{
 								MetricName: "serviceruntime.googleapis.com/api/producer/request_count",
-								MetricValues: []*servicecontrol.MetricValue{
+								MetricValues: []*sc.MetricValue{
 									{
 										Labels: map[string]string{
 											"/response_code": "500",
@@ -171,10 +190,10 @@ func TestAspect_Record(t *testing.T) {
 		},
 	}
 
-	for _, v := range tests {
-		r := a.record(v.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.UTC), "test_operation")
-		if !reflect.DeepEqual(*r, v.want) {
-			t.Errorf("log(%+v) => %v, want %v", v.input, spew.Sdump(*r), spew.Sdump(v.want))
+	for _, c := range tests {
+		r := a.record(c.input, time.Date(2017, time.July, 1, 10, 10, 5, 2, time.UTC), "test_operation")
+		if !reflect.DeepEqual(*r, c.want) {
+			t.Errorf("record(%+v) => %v, want %v", c.input, spew.Sdump(*r), spew.Sdump(c.want))
 		}
 	}
 }

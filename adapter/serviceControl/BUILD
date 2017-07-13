@@ -27,5 +27,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/adapter/test:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )

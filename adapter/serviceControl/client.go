@@ -20,30 +20,24 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	servicecontrol "google.golang.org/api/servicecontrol/v1"
+	sc "google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/mixer/pkg/adapter"
 )
 
-type client interface {
-	// create a new service control client.
-	create(logger adapter.Logger) (*servicecontrol.Service, error)
-}
+type createClientFunc func(logger adapter.Logger) (*sc.Service, error)
 
-type clientImpl struct {
-}
-
-func (*clientImpl) create(logger adapter.Logger) (*servicecontrol.Service, error) {
+func createClient(logger adapter.Logger) (*sc.Service, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{
 		Transport: http.DefaultTransport})
 
 	// TODO Only works on GKE istio.
-	c, err := google.DefaultClient(ctx, servicecontrol.CloudPlatformScope, servicecontrol.ServicecontrolScope)
+	c, err := google.DefaultClient(ctx, sc.CloudPlatformScope, sc.ServicecontrolScope)
 	if err != nil {
 		return nil, logger.Errorf("Created http client error %s\n", err.Error())
 	}
 
-	s, err := servicecontrol.New(c)
+	s, err := sc.New(c)
 	if err != nil {
 		return nil, logger.Errorf("Created service control client error %s\n", err.Error())
 	}

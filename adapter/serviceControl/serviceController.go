@@ -15,12 +15,12 @@
 package serviceControl
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"time"
 
 	"github.com/pborman/uuid"
-	servicecontrol "google.golang.org/api/servicecontrol/v1"
+	sc "google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/mixer/adapter/serviceControl/config"
 	"istio.io/mixer/pkg/adapter"
@@ -30,18 +30,21 @@ type (
 	builder struct {
 		adapter.DefaultBuilder
 
-		client
+		createClientFunc
 	}
 
 	aspect struct {
 		serviceName string
-		service     *servicecontrol.Service
+		service     *sc.Service
 		logger      adapter.Logger
 	}
 )
 
 var (
-	name = "serviceControl"
+	name        = "serviceControl"
+	defaultConf = &config.Params{
+		ServiceName: "library-example.sandbox.googleapis.com",
+	}
 )
 
 // Register records the builders exposed by this adapter.
@@ -50,19 +53,23 @@ func Register(r adapter.Registrar) {
 		&builder{adapter.NewDefaultBuilder(
 			name,
 			"Push metrics to GCP service controller",
-			new(config.Params),
-		), new(clientImpl)})
+			defaultConf,
+		), createClient})
 
 	r.RegisterApplicationLogsBuilder(
 		&builder{adapter.NewDefaultBuilder(
 			name,
 			"Writes log entries to GCP service controller",
-			new(config.Params),
-		), new(clientImpl)})
+			defaultConf,
+		), createClient})
 }
 
 func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
-	return nil
+	params := c.(*config.Params)
+	if params.ServiceName == "" {
+		ce = ce.Appendf("serviceName", "empty GCP service name")
+	}
+	return
 }
 
 func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
@@ -73,13 +80,9 @@ func (b *builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) 
 	return b.newAspect(env, cfg)
 }
 
-func (*builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
-	return nil, errors.New("access logs are not supported")
-}
-
 func (b *builder) newAspect(env adapter.Env, cfg adapter.Config) (*aspect, error) {
 	params := cfg.(*config.Params)
-	ss, err := b.client.create(env.Logger())
+	ss, err := b.createClientFunc(env.Logger())
 	if err != nil {
 		return nil, err
 	}
@@ -87,50 +90,59 @@ func (b *builder) newAspect(env adapter.Env, cfg adapter.Config) (*aspect, error
 }
 
 func (a *aspect) Record(values []adapter.Value) error {
-	rq := a.record(values, time.Now(), fmt.Sprintf("mixer-metric-report-id-%d", uuid.New()))
+	b := bytes.NewBufferString("mixer-metric-report-id-")
+	_, err := b.WriteString(uuid.New())
+	if err != nil {
+		return err
+	}
+	rq := a.record(values, time.Now(), b.String())
 	rp, err := a.service.Services.Report(a.serviceName, rq).Do()
+	if err != nil {
+		return err
+	}
 
 	if a.logger.VerbosityLevel(4) {
 		a.logger.Infof("service control metric report operation id %s\nmetrics %v\nresponse %v",
 			rq.Operations[0].OperationId, values, rp)
 	}
-	return err
+	return nil
 }
 
-func (a *aspect) record(values []adapter.Value, now time.Time, operationID string) *servicecontrol.ReportRequest {
-	var vs []*servicecontrol.MetricValueSet
+func (a *aspect) record(values []adapter.Value, now time.Time, operationID string) *sc.ReportRequest {
+	var vs []*sc.MetricValueSet
 	for _, v := range values {
 		// TODO Only support request count.
 		if v.Definition.Name != "request_count" {
 			a.logger.Warningf("service control metric got unsupported metric name: %s\n", v.Definition.Name)
 			continue
 		}
-		var mv servicecontrol.MetricValue
+		var mv sc.MetricValue
 		mv.Labels, _ = translate(v.Labels)
 		mv.StartTime = v.StartTime.Format(time.RFC3339Nano)
 		mv.EndTime = v.EndTime.Format(time.RFC3339Nano)
 		i, _ := v.Int64()
 		mv.Int64Value = &i
 
-		ms := &servicecontrol.MetricValueSet{
+		ms := &sc.MetricValueSet{
 			MetricName:   "serviceruntime.googleapis.com/api/producer/request_count",
-			MetricValues: []*servicecontrol.MetricValue{&mv},
+			MetricValues: []*sc.MetricValue{&mv},
 		}
 		vs = append(vs, ms)
 	}
 
-	op := &servicecontrol.Operation{
+	ot := now.Format(time.RFC3339Nano)
+	op := &sc.Operation{
 		OperationId:     operationID,
 		OperationName:   "reportMetrics",
-		StartTime:       now.Format(time.RFC3339Nano),
-		EndTime:         now.Format(time.RFC3339Nano),
+		StartTime:       ot,
+		EndTime:         ot,
 		MetricValueSets: vs,
 		Labels: map[string]string{
 			"cloud.googleapis.com/location": "global",
 		},
 	}
-	return &servicecontrol.ReportRequest{
-		Operations: []*servicecontrol.Operation{op},
+	return &sc.ReportRequest{
+		Operations: []*sc.Operation{op},
 	}
 }
 
@@ -142,7 +154,7 @@ func translate(labels map[string]interface{}) (map[string]string, string) {
 	ml := make(map[string]string)
 	var method string
 	for k, v := range labels {
-		nk := fmt.Sprintf("/%s", k)
+		nk := "/" + k
 		ml[nk] = fmt.Sprintf("%v", v)
 		if k == "request.method" {
 			method = ml[nk]
@@ -152,10 +164,10 @@ func translate(labels map[string]interface{}) (map[string]string, string) {
 }
 
 //TODO Add supports to struct payload.
-func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationID string) *servicecontrol.ReportRequest {
-	var ls []*servicecontrol.LogEntry
+func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationID string) *sc.ReportRequest {
+	var ls []*sc.LogEntry
 	for _, e := range entries {
-		l := &servicecontrol.LogEntry{
+		l := &sc.LogEntry{
 			Name:        e.LogName,
 			Severity:    e.Severity.String(),
 			TextPayload: e.TextPayload,
@@ -164,29 +176,38 @@ func (a *aspect) log(entries []adapter.LogEntry, now time.Time, operationID stri
 		ls = append(ls, l)
 	}
 
-	op := &servicecontrol.Operation{
+	ot := now.Format(time.RFC3339Nano)
+	op := &sc.Operation{
 		OperationId:   operationID,
 		OperationName: "reportLogs",
-		StartTime:     now.Format(time.RFC3339Nano),
-		EndTime:       now.Format(time.RFC3339Nano),
+		StartTime:     ot,
+		EndTime:       ot,
 		LogEntries:    ls,
 		Labels:        map[string]string{"cloud.googleapis.com/location": "global"},
 	}
 
-	return &servicecontrol.ReportRequest{
-		Operations: []*servicecontrol.Operation{op},
+	return &sc.ReportRequest{
+		Operations: []*sc.Operation{op},
 	}
 }
 
 func (a *aspect) Log(entries []adapter.LogEntry) error {
-	rq := a.log(entries, time.Now(), fmt.Sprintf("mixer-log-report-id-%d", uuid.New()))
+	b := bytes.NewBufferString("mixer-metric-log-id-")
+	_, err := b.WriteString(uuid.New())
+	if err != nil {
+		return err
+	}
+	rq := a.log(entries, time.Now(), b.String())
 	rp, err := a.service.Services.Report(a.serviceName, rq).Do()
+	if err != nil {
+		return err
+	}
 
 	if a.logger.VerbosityLevel(4) {
 		a.logger.Infof("service control log report for operation id %s\nlogs %v\nresponse %v",
 			rq.Operations[0].OperationId, entries, rp)
 	}
-	return err
+	return nil
 }
 
 func (a *aspect) LogAccess(entries []adapter.LogEntry) error {
