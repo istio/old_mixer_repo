@@ -402,7 +402,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_google_cloud_go",
-    commit = "2e6a95edb1071d750f6d7db777bf66cd2997af6c",  # Mar 9, 2017 (v0.7.0)
+    commit = "a5913b3f7deecba45e98ff33cefbac4fd204ddd7",  # Jun 27, 2017 (v0.10.0)
     importpath = "cloud.google.com/go",
 )
 
