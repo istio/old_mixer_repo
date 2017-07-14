@@ -197,7 +197,7 @@ func TestDispatchToHandlersPanicRecover(t *testing.T) {
 		err := hc.dispatch(tt.infrdTyps, tt.instancesByTemplate, tt.handlers)
 
 		if !tt.handlers[badHndlr].isBroken || tt.handlers[goodHndlr1].isBroken || tt.handlers[goodHndlr2].isBroken {
-			t.Error(fmt.Sprintf("The handler %s should be marked as broken. Handlers %s and %s should not be broken", badHndlr, goodHndlr1, goodHndlr2))
+			t.Errorf("The handler %s should be marked as broken. Handlers %s and %s should not be broken", badHndlr, goodHndlr1, goodHndlr2)
 		}
 
 		if tt.wantErr == "" {
