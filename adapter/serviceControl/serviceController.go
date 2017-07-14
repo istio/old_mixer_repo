@@ -49,19 +49,16 @@ var (
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
-	r.RegisterMetricsBuilder(
-		&builder{adapter.NewDefaultBuilder(
+	b := &builder{
+		adapter.NewDefaultBuilder(
 			name,
-			"Push metrics to GCP service controller",
+			"Check/report to GCP service controller",
 			defaultConf,
-		), createClient})
-
-	r.RegisterApplicationLogsBuilder(
-		&builder{adapter.NewDefaultBuilder(
-			name,
-			"Writes log entries to GCP service controller",
-			defaultConf,
-		), createClient})
+		),
+		createClient,
+	}
+	r.RegisterMetricsBuilder(b)
+	r.RegisterApplicationLogsBuilder(b)
 }
 
 func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
