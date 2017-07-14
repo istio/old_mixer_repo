@@ -7,7 +7,7 @@ go_library(
     srcs = [
         "apiserver.go",
         "compatStore.go",
-        "handlerConfigurer.go",
+        "handler.go",
         "inventory.go",
         "kind.go",
         "manager.go",
@@ -42,7 +42,7 @@ go_test(
     size = "small",
     srcs = [
         "apiserver_test.go",
-        "handlerConfigurer_test.go",
+        "handler_test.go",
         "kind_test.go",
         "manager_test.go",
         "runtime_test.go",
