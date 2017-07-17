@@ -129,7 +129,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 	// TODO: implement a better option to specify how traces are reported
 	serverCmd.PersistentFlags().StringVarP(&sa.traceOutput, "traceOutput", "t", "",
-		"If the literal string 'STDOUT' or 'STDERR', traces will be produced and written to stdout. "+
+		"If the literal string 'STDOUT' or 'STDERR', traces will be produced and written to stdout or stderr respectively. "+
 			"Otherwise the address is assumed to be a URL and HTTP zipkin traces are sent to that address. "+
 			"Note that when providing a URL it must be the full path to the span collection endpoint, e.g. 'zipkin:9411/api/v1/spans'.")
 
