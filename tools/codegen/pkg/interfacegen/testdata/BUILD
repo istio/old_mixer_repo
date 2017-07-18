@@ -80,7 +80,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//pkg/template/mixer:protos",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = ["ErrorTemplate.proto"],

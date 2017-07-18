@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package foo.bar;
 
-import "pkg/template/mixer/TemplateExtensions.proto";
+import "pkg/adapter/template/TemplateExtensions.proto";
 
 message Type {}
 message Constructor {}

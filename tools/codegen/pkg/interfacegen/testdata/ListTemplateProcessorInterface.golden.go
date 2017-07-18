@@ -18,7 +18,7 @@ package foo_bar_mylistchecker
 
 import (
 	"istio.io/mixer/pkg/adapter/config"
-	_ "istio.io/mixer/pkg/template/mixer"
+	_ "istio.io/mixer/pkg/adapter/template"
 )
 
 type Instance struct {

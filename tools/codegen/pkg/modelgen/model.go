@@ -24,7 +24,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
-	tmpl "istio.io/mixer/pkg/template/mixer"
+	tmpl "istio.io/mixer/pkg/adapter/template"
 )
 
 const fullNameOfExprMessage = "istio_mixer_v1_config_template.Expr"

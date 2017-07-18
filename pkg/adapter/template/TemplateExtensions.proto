@@ -18,7 +18,6 @@ extend google.protobuf.FileOptions {
 }
 
 message Expr {
-    // NO fields. this is just a kind that we want to know in the tempaltes.
-    // Don't want to use annotations, since we cannot apply annotations within things like
-    // value type in a map. Withi this we can
+    // This will be deleted in the next PR once the initial codegen implementation is fixed to not use it. Curren plan
+    // is to treate field of type ValueType as expressions.
 }
