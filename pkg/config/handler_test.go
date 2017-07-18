@@ -32,33 +32,33 @@ import (
 )
 
 type fakeTmplRepo struct {
-	tmptExists    bool
-	inferTypeErr  error
-	inferTypeRslt proto.Message
+	exists     bool
+	err        error
+	typeResult proto.Message
 }
 
-func newFakeTmplRepo(inferError error, inferResult proto.Message, tmplFound bool) tmpl.Repository {
-	return fakeTmplRepo{inferTypeErr: inferError, inferTypeRslt: inferResult, tmptExists: tmplFound}
+func newFakeTmplRepo(err error, result proto.Message, found bool) tmpl.Repository {
+	return fakeTmplRepo{err: err, typeResult: result, exists: found}
 }
 func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
 		InferTypeFn: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
-			return t.inferTypeRslt, t.inferTypeErr
+			return t.typeResult, t.err
 		},
 		CnstrDefConfig: nil,
-	}, t.tmptExists
+	}, t.exists
 }
 
 type instancesPerCall [][]string
 type fakeTmplRepo2 struct {
-	cnfgTypeErr           error
-	cnfgTypePanicsForTmpl string
+	err       error
+	panicTmpl string
 	// used to track what is called and later verify in the test.
-	trackInstancesPerCall *instancesPerCall
+	trace *instancesPerCall
 }
 
 func newFakeTmplRepo2(retErr error, cnfgTypePanicsForTmpl string, trackInstancesPerCall *instancesPerCall) fakeTmplRepo2 {
-	return fakeTmplRepo2{cnfgTypeErr: retErr, cnfgTypePanicsForTmpl: cnfgTypePanicsForTmpl, trackInstancesPerCall: trackInstancesPerCall}
+	return fakeTmplRepo2{err: retErr, panicTmpl: cnfgTypePanicsForTmpl, trace: trackInstancesPerCall}
 }
 func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
@@ -67,11 +67,11 @@ func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 			for instance := range types {
 				instances = append(instances, instance)
 			}
-			(*t.trackInstancesPerCall) = append(*(t.trackInstancesPerCall), instances)
-			if t.cnfgTypePanicsForTmpl == template {
+			(*t.trace) = append(*(t.trace), instances)
+			if t.panicTmpl == template {
 				panic("Panic from handler code")
 			}
-			return t.cnfgTypeErr
+			return t.err
 		},
 	}, true
 }

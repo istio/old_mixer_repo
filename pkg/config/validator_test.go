@@ -254,7 +254,6 @@ func TestFullConfigValidator(tt *testing.T) {
 			ok := ctx.cerr == nil
 			if ok != cok {
 				t.Fatalf("%d got %t, want %t ", idx, cok, ok)
-
 			}
 			if ce == nil {
 				return
@@ -496,7 +495,7 @@ func TestValidated_Clone(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: aa,
-		handlerByName: hh,
+		handlers:      hh,
 		rule:          rule,
 		adapter:       adp,
 		descriptor:    desc,
@@ -796,7 +795,7 @@ handlers:
 				mgr.AdapterToAspectMapperFunc, tt.strict, evaluator)
 
 			_ = p.validateHandlers(tt.cfg)
-			v, ok := p.hndlrBldrByName["fooHandler"]
+			v, ok := p.handlers["fooHandler"]
 			if tt.nerrors > 0 && ok {
 				t.Fatalf("got p.handlerBuilderByName[\"fooHandler\"] = %v, want: <nil>", v)
 			}
@@ -804,18 +803,28 @@ handlers:
 				exptSupportTmpl := []adapter.SupportedTemplates{testSupportedTemplate}
 				if !ok {
 					t.Fatal("got p.handlerBuilderByName[\"fooHandler\"] = <nil>, want: NOT <nil>")
-				} else if !reflect.DeepEqual(p.hndlrBldrByName["fooHandler"].supportedTemplates, exptSupportTmpl) {
+				} else if !reflect.DeepEqual(p.handlers["fooHandler"].supportedTemplates, exptSupportTmpl) {
 					t.Fatalf("got p.handlerBuilderByName[\"fooHandler\"]: %v, Expected: =%v",
-						p.hndlrBldrByName["fooHandler"].supportedTemplates, exptSupportTmpl)
+						p.handlers["fooHandler"].supportedTemplates, exptSupportTmpl)
 				}
 			}
 		})
 	}
 }
 
-type fakeGoodHndlrldr struct{}
+type fakeGoodHndlrBldr struct{}
+type fakeGoodHndlr struct {
+	closeMtdCalled bool
+}
 
-func (f fakeGoodHndlrldr) Build(cnfg proto.Message) (config.Handler, error) { return nil, nil }
+func (f *fakeGoodHndlr) Close() error {
+	f.closeMtdCalled = true
+	return nil
+}
+
+func (f fakeGoodHndlrBldr) Build(cnfg proto.Message) (config.Handler, error) {
+	return &fakeGoodHndlr{}, nil
+}
 
 type fakeErrRetrningHndlrBldr struct{}
 
@@ -837,16 +846,20 @@ func getSetupHandlerFn(err error) SetupHandlerFn {
 }
 
 func TestBuildHandlers(t *testing.T) {
-	var hbgood config.HandlerBuilder = fakeGoodHndlrldr{}
+	var hbgood config.HandlerBuilder = fakeGoodHndlrBldr{}
+	var hbgood2 config.HandlerBuilder = fakeGoodHndlrBldr{}
 	var hbb config.HandlerBuilder = fakeErrRetrningHndlrBldr{}
+	var hbb2 config.HandlerBuilder = fakeErrRetrningHndlrBldr{}
 	var hpb config.HandlerBuilder = fakePanicHndlrBldr{}
 	const handlerName = "foo"
+	const handlerName2 = "bar"
 	tests := []struct {
 		name            string
 		cnfgHndlrFn     SetupHandlerFn
 		hndlrBldrByName map[string]*HandlerBuilderInfo
 		expectedError   string
 		buildPanics     bool
+		closeMtdCalled  bool
 	}{
 		{
 			"SuccessBuildHandler",
@@ -857,6 +870,7 @@ func TestBuildHandlers(t *testing.T) {
 				},
 			},
 			"",
+			false,
 			false,
 		},
 		{
@@ -869,6 +883,7 @@ func TestBuildHandlers(t *testing.T) {
 			},
 			"some error during configuration",
 			false,
+			false,
 		},
 		{
 			"ErrorInCnfgrBuild",
@@ -879,6 +894,7 @@ func TestBuildHandlers(t *testing.T) {
 				},
 			},
 			"failed to build a handler instance",
+			false,
 			false,
 		},
 		{
@@ -891,13 +907,29 @@ func TestBuildHandlers(t *testing.T) {
 			},
 			"",
 			true,
+			false,
+		},
+		{
+			"PartialFailureErrorInSecondCnfgrBuild",
+			getSetupHandlerFn(nil),
+			map[string]*HandlerBuilderInfo{
+				handlerName: {
+					handlerBuilder: &hbgood2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+				},
+				handlerName2: {
+					handlerBuilder: &hbb2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+				},
+			},
+			"failed to build a handler instance",
+			false,
+			true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newValidator(nil, nil, nil, tt.cnfgHndlrFn, nil, nil, true, nil)
-			p.hndlrBldrByName = tt.hndlrBldrByName
+			p.handlers = tt.hndlrBldrByName
 			err := p.buildHandlers()
 
 			if tt.buildPanics {
@@ -906,22 +938,30 @@ func TestBuildHandlers(t *testing.T) {
 				}
 			} else {
 				if tt.expectedError == "" {
-					if len(p.validated.handlerByName) == len(tt.hndlrBldrByName) {
+					if len(p.validated.handlers) == len(tt.hndlrBldrByName) {
 						for k := range tt.hndlrBldrByName {
-							if _, ok := p.validated.handlerByName[k]; !ok {
-								t.Fatalf("got validated.handlerByName[%s] = nil, want !nil", k)
+							if _, ok := p.validated.handlers[k]; !ok {
+								t.Errorf("got validated.handlerByName[%s] = nil, want !nil", k)
 							}
 						}
 					} else {
-						t.Fatalf("got: validated.handlerByName %v, want: '%v'", p.validated.handlerByName, tt.hndlrBldrByName)
+						t.Errorf("got: validated.handlerByName %v, want: '%v'", p.validated.handlers, tt.hndlrBldrByName)
 					}
 				} else {
 					if !strings.Contains(err.Error(), tt.expectedError) {
-						t.Fatalf("got %s, want %s", tt.expectedError, err.Error())
+						t.Errorf("got %s, want %s", tt.expectedError, err.Error())
+					}
+				}
+
+				if tt.closeMtdCalled {
+					for _, hndlr := range p.validated.handlers {
+						var h interface{} = *(hndlr.instance)
+						if !h.(*fakeGoodHndlr).closeMtdCalled {
+							t.Errorf("got handler.Close method called = %t, want %t", false, true)
+						}
 					}
 				}
 			}
-
 		})
 	}
 }
@@ -1096,8 +1136,8 @@ action_rules:
 			var ce *adapter.ConfigErrors
 
 			p := newValidator(nil, nil, nil, nil, tdf, nil, true, tt.expr)
-			p.cnstrByName = tt.cnstrMap
-			p.hndlrBldrByName = tt.handlerMap
+			p.ctors = tt.cnstrMap
+			p.handlers = tt.handlerMap
 			ce = p.validateRulesConfig(tt.cfg)
 
 			cok := ce == nil

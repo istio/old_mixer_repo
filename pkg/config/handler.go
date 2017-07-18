@@ -48,18 +48,18 @@ func SetupHandlers(actions []*pb.Action, constructors map[string]*pb.Constructor
 	// constructors.
 	// 3. Using data from #1 and #2, for each handler and for each template within it, we call configure*TemplateName*
 	// with all the inferred types for all the instanceNames that belong to handler-template group.
-	hndlrFactory := handlerFactory{tmplRepo: tmplRepo, typeChecker: expr, attrDescFinder: df}
+	factory := handlerFactory{tmplRepo: tmplRepo, typeChecker: expr, attrDescFinder: df}
 
-	iTypes, err := hndlrFactory.inferTypes(constructors)
+	iTypes, err := factory.inferTypes(constructors)
 	if err != nil {
 		return err
 	}
-	grpHandlers, err := hndlrFactory.groupByTmpl(actions, constructors, handlers)
+	grpHandlers, err := factory.groupByTmpl(actions, constructors, handlers)
 	if err != nil {
 		return err
 	}
 
-	return hndlrFactory.dispatch(iTypes, grpHandlers, handlers)
+	return factory.dispatch(iTypes, grpHandlers, handlers)
 }
 
 func (h *handlerFactory) dispatch(types map[string]proto.Message,

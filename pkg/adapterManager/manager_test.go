@@ -318,7 +318,7 @@ func TestManager(t *testing.T) {
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
-		m := newManager(r, nil, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
+		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
 		m.cfg.Store(&fakeResolver{tt.cfg, nil})
 
@@ -368,7 +368,7 @@ func TestManager_Preprocess(t *testing.T) {
 	pe := &fakePreprocessExecutor{}
 	mgrs := newFakeMgrReg(pe, nil, nil, nil)
 
-	m := newManager(r, nil, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
+	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
 	cfg := []*cpb.Combined{
 		{
@@ -402,7 +402,7 @@ func TestReport(t *testing.T) {
 	re := &fakeReportExecutor{}
 	mgrs := newFakeMgrReg(nil, nil, re, nil)
 
-	m := newManager(r, nil, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
+	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
 	cfg := []*cpb.Combined{
 		{
@@ -435,7 +435,7 @@ func TestQuota(t *testing.T) {
 	qe := &fakeQuotaExecutor{result: aspect.QuotaMethodResp{Amount: 42}}
 	mgrs := newFakeMgrReg(nil, nil, nil, qe)
 
-	m := newManager(r, nil, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
+	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
 	cfg := []*cpb.Combined{
 		{
@@ -499,7 +499,7 @@ func TestManager_BulkExecute(t *testing.T) {
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
-		m := newManager(r, nil, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
+		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
 		m.cfg.Store(&fakeResolver{c.cfgs, nil})
 
@@ -542,7 +542,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 
 	gp := pool.NewGoroutinePool(1, true)
 	agp := pool.NewGoroutinePool(1, true)
-	m := newManager(breg, nil, mreg, nil, aspect.ManagerInventory{}, gp, agp)
+	m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
 	cfg := []*cpb.Combined{
 		{
@@ -589,7 +589,7 @@ func TestExecute(t *testing.T) {
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
-		m := newManager(breg, nil, mreg, nil, aspect.ManagerInventory{}, gp, agp)
+		m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
 		cfg := []*cpb.Combined{
 			{&cpb.Adapter{Name: c.name}, &cpb.Aspect{Kind: c.name}},
@@ -661,7 +661,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	agp := pool.NewGoroutinePool(128, true)
 	agp.AddWorkers(32)
 
-	m := newManager(breg, nil, mreg, nil, aspect.ManagerInventory{}, gp, agp)
+	m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
 	go func() {
 		time.Sleep(1 * time.Millisecond)

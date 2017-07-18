@@ -179,7 +179,7 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 	}
 	adapterMgr := NewManager([]pkgAdapter.RegisterFn{
 		noop.Register,
-	}, nil, aspect.Inventory(), eval, gp, adapterGP)
+	}, aspect.Inventory(), eval, gp, adapterGP)
 	store, err := config.NewCompatFSStore(declaredGlobalCnfgFilePath, declarativeSrvcCnfgFilePath)
 	if err != nil {
 		b.Errorf("NewCompatFSStore failed: %v", err)

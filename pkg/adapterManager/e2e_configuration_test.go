@@ -155,14 +155,14 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 	}
 	adapterMgr := NewManager([]pkgAdapter.RegisterFn{
 		noop.Register,
-	}, []adapter.GetBuilderInfoFn{GetFakeHndlrBuilderInfo}, aspect.Inventory(), eval, gp, adapterGP)
+	}, aspect.Inventory(), eval, gp, adapterGP)
 	store, err := config.NewCompatFSStore(declaredGlobalCnfgFilePath, declarativeSrvcCnfgFilePath)
 	if err != nil {
 		t.Errorf("NewCompatFSStore failed: %v", err)
 		return
 	}
 
-	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapterMgr.BuilderInfoFinder,
+	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, []adapter.GetBuilderInfoFn{GetFakeHndlrBuilderInfo},
 		adapterMgr.SupportedKinds, store,
 		loopDelay,
 		identityAttribute, identityDomainAttribute)

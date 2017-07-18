@@ -6,6 +6,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "apiserver.go",
+        "builderInfoRegistry.gen.go",
+        "builderInfoRegistry.go",
         "compatStore.go",
         "handler.go",
         "inventory.go",
@@ -26,6 +28,7 @@ go_library(
         "//pkg/pool:go_default_library",
         "//pkg/status:go_default_library",
         "//pkg/template:go_default_library",
+        "//template/sample/report:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
@@ -42,6 +45,7 @@ go_test(
     size = "small",
     srcs = [
         "apiserver_test.go",
+        "builderInfoRegistry_test.go",
         "handler_test.go",
         "kind_test.go",
         "manager_test.go",
