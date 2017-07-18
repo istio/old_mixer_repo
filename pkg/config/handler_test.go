@@ -37,8 +37,8 @@ type fakeTmplRepo struct {
 	typeResult proto.Message
 }
 
-func newFakeTmplRepo(err error, result proto.Message, found bool) tmpl.Repository {
-	return fakeTmplRepo{err: err, typeResult: result, exists: found}
+func newFakeTmplRepo(err error, result proto.Message) tmpl.Repository {
+	return fakeTmplRepo{err: err, typeResult: result, exists: true}
 }
 func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
@@ -224,20 +224,20 @@ func TestInferTypes(t *testing.T) {
 		{
 			name:     "SingleCnstr",
 			cnstrs:   map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
-			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}, true),
+			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}),
 			want:     map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}},
 		},
 		{
 			name: "MultipleCnstr",
 			cnstrs: map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}},
 				"inst2": {"inst2", "tpml1", &empty.Empty{}}},
-			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}, true),
+			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}),
 			want:     map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}, "inst2": &wrappers.Int32Value{Value: 1}},
 		},
 		{
 			name:      "ErrorDuringTypeInfr",
 			cnstrs:    map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
-			tmplRepo:  newFakeTmplRepo(fmt.Errorf("error during type infer"), nil, true),
+			tmplRepo:  newFakeTmplRepo(fmt.Errorf("error during type infer"), nil),
 			want:      nil,
 			wantError: "cannot infer type information",
 		},

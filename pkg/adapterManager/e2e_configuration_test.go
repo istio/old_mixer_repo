@@ -115,7 +115,7 @@ constructors:
 `
 )
 
-func getCnfgs(srvcCnfg string) (declarativeSrvcCnfg *os.File, declaredGlobalCnfg *os.File) {
+func getCnfgs() (declarativeSrvcCnfg *os.File, declaredGlobalCnfg *os.File) {
 	srvcCnfgFile, _ := ioutil.TempFile("", "e2eConfigTest")
 	globalCnfgFile, _ := ioutil.TempFile("", "e2eConfigTest")
 
@@ -123,7 +123,7 @@ func getCnfgs(srvcCnfg string) (declarativeSrvcCnfg *os.File, declaredGlobalCnfg
 	_ = globalCnfgFile.Close()
 
 	var srvcCnfgBuffer bytes.Buffer
-	srvcCnfgBuffer.WriteString(srvcCnfg)
+	srvcCnfgBuffer.WriteString(srvConfig)
 
 	_, _ = srvcCnfgFile.Write([]byte(srvcCnfgBuffer.String()))
 	_ = srvcCnfgFile.Close()
@@ -180,7 +180,7 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 }
 
 func TestConfigFlow(t *testing.T) {
-	sc, gsc := getCnfgs(srvConfig)
+	sc, gsc := getCnfgs()
 	testConfigFlow(t, sc.Name(), gsc.Name())
 	_ = os.Remove(sc.Name())
 	_ = os.Remove(gsc.Name())

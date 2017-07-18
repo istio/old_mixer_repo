@@ -527,7 +527,7 @@ func descriptorKey(scope string) string {
 func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
 	keymap := classifyKeys(cfg)
 
-	rce := &adapter.ConfigErrors{}
+	var rce *adapter.ConfigErrors
 
 	for _, kk := range keymap[descriptors] {
 		if re := p.validateDescriptors(kk, cfg[kk]); re != nil {
@@ -579,7 +579,7 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 		}
 	}
 
-	if rce.Multi != nil && len(rce.Multi.Errors) != 0 {
+	if rce != nil {
 		// error has happened, we quit
 		return rt, ce.Appendf("Config", "failed validation").Extend(rce)
 	}
@@ -601,7 +601,7 @@ func (p *validator) buildHandlers() (ce *adapter.ConfigErrors) {
 		return ce.Appendf("handlerConfig", "failed to configure handler: %v", err)
 	}
 
-	rce := &adapter.ConfigErrors{}
+	var rce *adapter.ConfigErrors
 	for handler, builder := range p.handlers {
 		if builder.isBroken {
 			// handler is broken, we should not build and cache it.
@@ -612,7 +612,7 @@ func (p *validator) buildHandlers() (ce *adapter.ConfigErrors) {
 		}
 	}
 
-	if rce.Multi != nil && len(rce.Multi.Errors) != 0 {
+	if rce != nil {
 		// error has happened, we need to close the already built handlers since they might have
 		// established connection to back-ends during the build() call.
 		for name, hndlr := range p.validated.handlers {
