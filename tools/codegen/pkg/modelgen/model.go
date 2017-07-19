@@ -85,6 +85,8 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 	if tmplDesc, ok := getRequiredMsg(templateProto, "Template"); !ok {
 		m.addError(templateProto.GetName(), unknownLine, "message 'Template' not defined")
 	} else {
+		// TODO Validate that the type of the fields in the template are primitives that can be represented as ValueType
+		// or is ValueType itself.
 		m.addInstanceFields(parser, templateProto, tmplDesc)
 	}
 }
