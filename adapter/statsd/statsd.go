@@ -35,6 +35,8 @@ const (
 type (
 	builder struct {
 		adapter.DefaultBuilder
+
+		definitions map[string]*adapter.MetricDefinition
 	}
 
 	aspect struct {
@@ -63,7 +65,7 @@ func Register(r adapter.Registrar) {
 }
 
 func newBuilder() *builder {
-	return &builder{adapter.NewDefaultBuilder(name, desc, defaultConf)}
+	return &builder{adapter.NewDefaultBuilder(name, desc, defaultConf), nil}
 }
 
 func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
@@ -85,7 +87,12 @@ func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (b *builder) Configure(metrics map[string]*adapter.MetricDefinition) error {
+	b.definitions = metrics
+	return nil
+}
+
+func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config) (adapter.MetricsAspect, error) {
 	params := cfg.(*config.Params)
 
 	flushBytes := int(params.FlushBytes)
@@ -99,7 +106,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics ma
 
 	templates := make(map[string]*template.Template)
 	for metricName, s := range params.MetricNameTemplateStrings {
-		def, found := metrics[metricName]
+		def, found := b.definitions[metricName]
 		if !found {
 			env.Logger().Infof("template registered for nonexistent metric '%s'", metricName)
 			continue // we don't have a metric that corresponds to this template, skip processing it

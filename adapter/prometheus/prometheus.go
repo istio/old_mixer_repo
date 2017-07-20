@@ -36,6 +36,8 @@ type (
 	factory struct {
 		adapter.DefaultBuilder
 
+		definitions map[string]*adapter.MetricDefinition
+
 		srv      server
 		registry *prometheus.Registry
 		once     sync.Once
@@ -60,15 +62,20 @@ func Register(r adapter.Registrar) {
 }
 
 func newFactory(srv server) *factory {
-	return &factory{adapter.NewDefaultBuilder(name, desc, conf), srv, prometheus.NewPedanticRegistry(), sync.Once{}}
+	return &factory{adapter.NewDefaultBuilder(name, desc, conf), nil, srv, prometheus.NewPedanticRegistry(), sync.Once{}}
 }
 
 func (f *factory) Close() error {
 	return f.srv.Close()
 }
 
+func (f *factory) Configure(metrics map[string]*adapter.MetricDefinition) error {
+	f.definitions = metrics
+	return nil
+}
+
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
-func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.Config) (adapter.MetricsAspect, error) {
 	var serverErr error
 	f.once.Do(func() {
 		serverErr = f.srv.Start(env, promhttp.HandlerFor(f.registry, promhttp.HandlerOpts{}))
@@ -79,8 +86,8 @@ func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics 
 
 	var metricErr *multierror.Error
 
-	metricsMap := make(map[string]prometheus.Collector, len(metrics))
-	for _, m := range metrics {
+	metricsMap := make(map[string]prometheus.Collector, len(f.definitions))
+	for _, m := range f.definitions {
 		switch m.Kind {
 		case adapter.Gauge:
 			c, err := registerOrGet(f.registry, newGaugeVec(m.Name, m.Description, m.Labels))

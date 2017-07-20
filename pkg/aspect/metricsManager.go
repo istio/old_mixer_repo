@@ -72,7 +72,10 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, e
 		}
 	}
 	b := a.(adapter.MetricsBuilder)
-	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.Config), defs)
+	if err := b.Configure(defs); err != nil {
+		return nil, err
+	}
+	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v': %v", c, err)
 	}

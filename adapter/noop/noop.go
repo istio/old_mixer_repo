@@ -25,8 +25,9 @@ import (
 )
 
 type (
-	builder struct{}
-	aspect  struct{}
+	builder  struct{}
+	qbuilder struct{} // used for quotas, because of duplicate method names w/ diff signatures between metrics and quotas
+	aspect   struct{}
 )
 
 // Register registers the no-op adapter as every aspect.
@@ -36,7 +37,7 @@ func Register(r adapter.Registrar) {
 	r.RegisterApplicationLogsBuilder(builder{})
 	r.RegisterAccessLogsBuilder(builder{})
 	r.RegisterAttributesGeneratorBuilder(builder{})
-	r.RegisterQuotasBuilder(builder{})
+	r.RegisterQuotasBuilder(qbuilder{})
 	r.RegisterMetricsBuilder(builder{})
 }
 
@@ -45,6 +46,12 @@ func (builder) Close() error                                          { return n
 func (builder) Description() string                                   { return "an adapter that does nothing" }
 func (builder) DefaultConfig() (c adapter.Config)                     { return &types.Empty{} }
 func (builder) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
+
+func (qbuilder) Name() string                                          { return "no-op" }
+func (qbuilder) Close() error                                          { return nil }
+func (qbuilder) Description() string                                   { return "an adapter that does nothing" }
+func (qbuilder) DefaultConfig() (c adapter.Config)                     { return &types.Empty{} }
+func (qbuilder) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
 
 func (aspect) Close() error { return nil }
 
@@ -75,12 +82,14 @@ func (builder) NewListsAspect(adapter.Env, adapter.Config) (adapter.ListsAspect,
 }
 func (aspect) CheckList(symbol string) (bool, error) { return false, nil }
 
-func (builder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (builder) Configure(map[string]*adapter.MetricDefinition) error { return nil }
+func (builder) NewMetricsAspect(adapter.Env, adapter.Config) (adapter.MetricsAspect, error) {
 	return &aspect{}, nil
 }
 func (aspect) Record([]adapter.Value) error { return nil }
 
-func (builder) NewQuotasAspect(adapter.Env, adapter.Config, map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func (qbuilder) Configure(map[string]*adapter.QuotaDefinition) error { return nil }
+func (qbuilder) NewQuotasAspect(adapter.Env, adapter.Config) (adapter.QuotasAspect, error) {
 	return &aspect{}, nil
 }
 func (aspect) Alloc(adapter.QuotaArgs) (adapter.QuotaResult, error) { return adapter.QuotaResult{}, nil }

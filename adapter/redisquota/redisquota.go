@@ -80,7 +80,11 @@ func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func (builder) Configure(d map[string]*adapter.QuotaDefinition) error {
+	return nil
+}
+
+func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config) (adapter.QuotasAspect, error) {
 	return newAspect(env, c.(*config.Params))
 }
 

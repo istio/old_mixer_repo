@@ -158,7 +158,10 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...)); err != nil {
+			if err := f.Configure(makeMetricMap(v.metrics...)); err != nil {
+				t.Fatalf("Failed to configure prom builder: %v", err)
+			}
+			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}); err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
 		})
@@ -167,7 +170,10 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 func TestFactory_NewMetricsAspectServerFail(t *testing.T) {
 	f := newFactory(&testServer{errOnStart: true})
-	if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap()); err == nil {
+	if err := f.Configure(makeMetricMap()); err != nil {
+		t.Fatalf("Failed to configure prom builder: %v", err)
+	}
+	if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}); err == nil {
 		t.Error("NewMetricsAspect() => expected error on server startup")
 	}
 }
@@ -182,7 +188,10 @@ func TestNewMetricsAspect_MetricDefinitionErrors(t *testing.T) {
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...)); err == nil {
+			if err := f.Configure(makeMetricMap(v.metrics...)); err != nil {
+				t.Fatalf("Failed to configure prom builder: %v", err)
+			}
+			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}); err == nil {
 				t.Errorf("Expected error for NewMetricsAspect(%#v)", v.metrics)
 			}
 		})
@@ -231,7 +240,10 @@ func TestFactory_NewMetricsAspect_MetricDefinitionConflicts(t *testing.T) {
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
 			for i, met := range v.metrics {
-				_, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(met))
+				if err := f.Configure(makeMetricMap(met)); err != nil {
+					t.Fatalf("Failed to configure prom builder: %v", err)
+				}
+				_, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{})
 				if i > 0 && err == nil {
 					t.Error("NewMetricsAspect() => expected error during metrics registration")
 				}
@@ -242,7 +254,10 @@ func TestFactory_NewMetricsAspect_MetricDefinitionConflicts(t *testing.T) {
 
 func TestProm_Close(t *testing.T) {
 	f := newFactory(&testServer{})
-	prom, _ := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap())
+	if err := f.Configure(makeMetricMap()); err != nil {
+		t.Fatalf("Failed to configure prom builder: %v", err)
+	}
+	prom, _ := f.NewMetricsAspect(test.NewEnv(t), &config.Params{})
 	if err := prom.Close(); err != nil {
 		t.Errorf("Close() should not have returned an error: %v", err)
 	}
@@ -268,7 +283,10 @@ func TestProm_Record(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...))
+			if err := f.Configure(makeMetricMap(v.metrics...)); err != nil {
+				t.Fatalf("Failed to configure prom builder: %v", err)
+			}
+			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{})
 			if err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
@@ -333,7 +351,10 @@ func TestProm_RecordFailures(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...))
+			if err := f.Configure(makeMetricMap(v.metrics...)); err != nil {
+				t.Fatalf("Failed to configure prom builder: %v", err)
+			}
+			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{})
 			if err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}

@@ -70,8 +70,11 @@ func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env
 			labels:     quota.Labels,
 		}
 	}
-
-	asp, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.Config), defs)
+	b := a.(adapter.QuotasBuilder)
+	if err := b.Configure(defs); err != nil {
+		return nil, err
+	}
+	asp, err := b.NewQuotasAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, err
 	}

@@ -35,8 +35,12 @@ type (
 	QuotasBuilder interface {
 		Builder
 
+		// Configure provides the Builder with a set of definitions that will be used at runtime. This func will always
+		// be called before calling NewQuotasAspect.
+		Configure(quotas map[string]*QuotaDefinition) error
+
 		// NewQuotasAspect returns a new instance of the Quota aspect.
-		NewQuotasAspect(env Env, c Config, quotas map[string]*QuotaDefinition) (QuotasAspect, error)
+		NewQuotasAspect(env Env, c Config) (QuotasAspect, error)
 	}
 
 	// QuotaDefinition is used to describe an individual quota that the aspect will encounter at runtime.
