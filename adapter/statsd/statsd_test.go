@@ -73,7 +73,7 @@ func TestNewMetricsAspect(t *testing.T) {
 		MetricNameTemplateStrings: map[string]string{"a": `{{(.apiMethod) "-" (.responseCode)}}`},
 	}
 	env := test.NewEnv(t)
-	if _, err := newBuilder().NewMetricsAspect(env, conf, nil); err != nil {
+	if _, err := newBuilder().NewMetricsAspect(env, conf); err != nil {
 		t.Errorf("b.NewMetrics(test.NewEnv(t), &config.Params{}) = %s, wanted no err", err)
 	}
 
@@ -110,7 +110,11 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 		},
 	}
 	env := test.NewEnv(t)
-	if _, err := newBuilder().NewMetricsAspect(env, conf, makeMetricMap(metrics)); err != nil {
+	b := newBuilder()
+	if err := b.Configure(makeMetricMap(metrics)); err != nil {
+		t.Fatalf("Failed to configure prom builder: %v", err)
+	}
+	if _, err := newBuilder().NewMetricsAspect(env, conf); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), conf, metrics) = _, %s, wanted no error", err)
 	}
 
@@ -144,7 +148,11 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 			t.Error("NewMetricsAspect(test.NewEnv(t), config, nil) didn't panic")
 		}
 	}()
-	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), conf, makeMetricMap(metrics)); err != nil {
+	b := newBuilder()
+	if err := b.Configure(makeMetricMap(metrics)); err != nil {
+		t.Fatalf("Failed to configure prom builder: %v", err)
+	}
+	if _, err := b.NewMetricsAspect(test.NewEnv(t), conf); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), config, nil) = %v; wanted panic not err", err)
 	}
 	t.Fail()
@@ -248,7 +256,10 @@ func TestRecord(t *testing.T) {
 		if err != nil {
 			t.Errorf("statsd.NewClientWithSender(rs, \"\") = %s; wanted no err", err)
 		}
-		m, err := b.NewMetricsAspect(test.NewEnv(t), conf, makeMetricMap(metrics))
+		if err := b.Configure(makeMetricMap(metrics)); err != nil {
+			t.Fatalf("Failed to configure prom builder: %v", err)
+		}
+		m, err := b.NewMetricsAspect(test.NewEnv(t), conf)
 		if err != nil {
 			t.Errorf("[%d] newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", idx, err)
 			continue

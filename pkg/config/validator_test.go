@@ -893,7 +893,7 @@ func TestBuildHandlers(t *testing.T) {
 					handlerBuilder: &hbb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
-			"failed to build a handler instance",
+			"failed to build a handler Instance",
 			false,
 			false,
 		},
@@ -920,7 +920,7 @@ func TestBuildHandlers(t *testing.T) {
 					handlerBuilder: &hbb2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
-			"failed to build a handler instance",
+			"failed to build a handler Instance",
 			false,
 			true,
 		},
@@ -955,7 +955,7 @@ func TestBuildHandlers(t *testing.T) {
 
 				if tt.closeMtdCalled {
 					for _, hndlr := range p.validated.handlers {
-						var h interface{} = *(hndlr.instance)
+						var h interface{} = *(hndlr.Instance)
 						if !h.(*fakeGoodHndlr).closeMtdCalled {
 							t.Errorf("got handler.Close method called = %t, want %t", false, true)
 						}
@@ -1084,7 +1084,7 @@ action_rules:
 			2,
 			map[string]*pb.Constructor{},
 			map[string]*HandlerBuilderInfo{},
-			[]string{"handler not specified or is invalid", "instance 'RequestCountByService' is not defined"},
+			[]string{"handler not specified or is invalid", "Instance 'RequestCountByService' is not defined"},
 			0,
 			evaluator,
 		},

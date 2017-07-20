@@ -65,8 +65,12 @@ type (
 	MetricsBuilder interface {
 		Builder
 
+		// Configure provides the Builder with a set of definitions that will be used at runtime. This func will always
+		// be called before calling NewMetricsAspect.
+		Configure(metrics map[string]*MetricDefinition) error
+
 		// NewMetricsAspect returns a new instance of the Metrics aspect.
-		NewMetricsAspect(env Env, config Config, metrics map[string]*MetricDefinition) (MetricsAspect, error)
+		NewMetricsAspect(env Env, config Config) (MetricsAspect, error)
 	}
 
 	// MetricDefinition provides the basic description of a metric schema

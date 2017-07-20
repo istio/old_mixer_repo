@@ -305,8 +305,8 @@ func TestManager(t *testing.T) {
 		{true, false, "could not find registered adapter", nil, []*cpb.Combined{goodcfg}},
 		{true, true, "", &fakeCheckExecutor{}, []*cpb.Combined{goodcfg, goodcfg2}},
 		{true, true, "", nil, []*cpb.Combined{goodcfg}},
-		{true, true, "non-proto cfg.Builder.Params", nil, []*cpb.Combined{badcfg1}},
-		{true, true, "non-proto cfg.Aspect.Params", nil, []*cpb.Combined{badcfg2}},
+		{true, true, "non-proto resolver.Builder.Params", nil, []*cpb.Combined{badcfg1}},
+		{true, true, "non-proto resolver.Aspect.Params", nil, []*cpb.Combined{badcfg2}},
 	}
 
 	for idx, tt := range ttt {
@@ -320,7 +320,7 @@ func TestManager(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
-		m.cfg.Store(&fakeResolver{tt.cfg, nil})
+		m.resolver.Store(&fakeResolver{tt.cfg, nil})
 
 		out := m.Check(context.Background(), requestBag, responseBag)
 		errStr := out.Message
@@ -377,7 +377,7 @@ func TestManager_Preprocess(t *testing.T) {
 		},
 	}
 
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	out := m.Preprocess(context.Background(), requestBag, responseBag)
 
@@ -410,7 +410,7 @@ func TestReport(t *testing.T) {
 			Builder: &cpb.Adapter{Name: "Foo"},
 		},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	out := m.Report(context.Background(), requestBag)
 
@@ -443,7 +443,7 @@ func TestQuota(t *testing.T) {
 			Builder: &cpb.Adapter{Name: "Foo"},
 		},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	qmr, out := m.Quota(context.Background(), requestBag, nil)
 
@@ -486,8 +486,8 @@ func TestManager_BulkExecute(t *testing.T) {
 		{"", []*cpb.Combined{}},
 		{"", []*cpb.Combined{goodcfg}},
 		{"", []*cpb.Combined{goodcfg, goodcfg}},
-		{"non-proto cfg.Builder.Params", []*cpb.Combined{badcfg1, goodcfg}},
-		{"non-proto cfg.Aspect.Params", []*cpb.Combined{goodcfg, badcfg2}},
+		{"non-proto resolver.Builder.Params", []*cpb.Combined{badcfg1, goodcfg}},
+		{"non-proto resolver.Aspect.Params", []*cpb.Combined{goodcfg, badcfg2}},
 	}
 
 	requestBag := attribute.GetMutableBag(nil)
@@ -501,7 +501,7 @@ func TestManager_BulkExecute(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
-		m.cfg.Store(&fakeResolver{c.cfgs, nil})
+		m.resolver.Store(&fakeResolver{c.cfgs, nil})
 
 		out := m.Check(context.Background(), requestBag, responseBag)
 		errStr := out.Message
@@ -543,7 +543,7 @@ func testRecovery(t *testing.T, name string, want string) {
 			Aspect:  &cpb.Aspect{Kind: name},
 		},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	out := m.Check(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil))
 	if status.IsOK(out) {
@@ -587,7 +587,7 @@ func TestExecute(t *testing.T) {
 		cfg := []*cpb.Combined{
 			{&cpb.Adapter{Name: c.name}, &cpb.Aspect{Kind: c.name}},
 		}
-		m.cfg.Store(&fakeResolver{cfg, nil})
+		m.resolver.Store(&fakeResolver{cfg, nil})
 
 		o := m.dispatch(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), cfg,
 			func(executor aspect.Executor, evaluator expr.Evaluator, _, _ *attribute.MutableBag) rpc.Status {
@@ -619,7 +619,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	cfg := []*cpb.Combined{
 		{&cpb.Adapter{Name: ""}, &cpb.Aspect{Kind: ""}},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	reqBag := attribute.GetMutableBag(nil)
 	respBag := attribute.GetMutableBag(nil)
@@ -665,7 +665,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		&cpb.Adapter{Name: name},
 		&cpb.Aspect{Kind: name},
 	}}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	if out := m.Check(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil)); status.IsOK(out) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")

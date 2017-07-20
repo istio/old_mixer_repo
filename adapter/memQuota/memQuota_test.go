@@ -45,7 +45,8 @@ func TestAllocAndRelease(t *testing.T) {
 	c := b.DefaultConfig().(*config.Params)
 	c.MinDeduplicationDuration = 3600 * time.Second
 
-	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
+	b.Configure(definitions)
+	a, err := b.NewQuotasAspect(test.NewEnv(t), c)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -160,7 +161,8 @@ func TestAllocAndRelease(t *testing.T) {
 
 func TestBadName(t *testing.T) {
 	b := newBuilder()
-	a, err := b.NewQuotasAspect(test.NewEnv(t), b.DefaultConfig(), make(map[string]*adapter.QuotaDefinition))
+	b.Configure(make(map[string]*adapter.QuotaDefinition))
+	a, err := b.NewQuotasAspect(test.NewEnv(t), b.DefaultConfig())
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -182,7 +184,8 @@ func TestBadAmount(t *testing.T) {
 	}
 
 	b := newBuilder()
-	a, err := b.NewQuotasAspect(test.NewEnv(t), b.DefaultConfig(), definitions)
+	b.Configure(definitions)
+	a, err := b.NewQuotasAspect(test.NewEnv(t), b.DefaultConfig())
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -252,7 +255,8 @@ func TestReaper(t *testing.T) {
 	c := b.DefaultConfig().(*config.Params)
 	c.MinDeduplicationDuration = 3600 * time.Second
 
-	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
+	b.Configure(definitions)
+	a, err := b.NewQuotasAspect(test.NewEnv(t), c)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
