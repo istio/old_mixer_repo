@@ -238,7 +238,7 @@ func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, en
 		return nil, fmt.Errorf("could not create clientset for k8s: %v", err)
 	}
 	env.Logger().Infof("building new cache controller")
-	return newCacheController(clientset, "", refreshDuration, env), nil
+	return newCacheController(clientset, refreshDuration, env), nil
 }
 
 func getRESTConfig(kubeconfigPath string) (*rest.Config, error) {
