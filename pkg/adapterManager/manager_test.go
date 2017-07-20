@@ -150,7 +150,7 @@ func (m *fakePreprocessMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakePreprocessMgr) NewPreprocessExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.PreprocessExecutor, error) {
+func (m *fakePreprocessMgr) NewPreprocessExecutor(c *cpb.Combined, _ aspect.CreateAspectFunc, e adapter.Env, _ descriptor.Finder) (aspect.PreprocessExecutor, error) {
 	m.called++
 	if m.pe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -163,7 +163,7 @@ func (m *fakeCheckAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeCheckAspectMgr) NewCheckExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.CheckExecutor, error) {
+func (m *fakeCheckAspectMgr) NewCheckExecutor(cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
 	m.called++
 	if m.ce == nil {
 		return nil, errors.New("unable to create aspect")
@@ -176,7 +176,7 @@ func (m *fakeReportAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeReportAspectMgr) NewReportExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.ReportExecutor, error) {
+func (m *fakeReportAspectMgr) NewReportExecutor(cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.ReportExecutor, error) {
 	m.called++
 	if m.re == nil {
 		return nil, errors.New("unable to create aspect")
@@ -189,7 +189,7 @@ func (m *fakeQuotaAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeQuotaAspectMgr) NewQuotaExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.QuotaExecutor, error) {
+func (m *fakeQuotaAspectMgr) NewQuotaExecutor(cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.QuotaExecutor, error) {
 	m.called++
 	if m.qe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -277,6 +277,12 @@ func TestManager(t *testing.T) {
 		Builder: &cpb.Adapter{Kind: config.AccessLogsKindName, Impl: "k1impl2", Params: &rpc.Status{}},
 	}
 
+	handlerName := "not in builder registry"
+	handlercfg := &cpb.Combined{
+		Aspect:  &cpb.Aspect{Kind: config.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &cpb.Adapter{Kind: config.DenialsKindName, Impl: handlerName, Params: &rpc.Status{}},
+	}
+
 	badcfg1 := &cpb.Combined{
 		Aspect: &cpb.Aspect{Kind: config.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &cpb.Adapter{Kind: config.DenialsKindName, Impl: "k1impl1",
@@ -305,6 +311,7 @@ func TestManager(t *testing.T) {
 		{true, true, "", nil, []*cpb.Combined{goodcfg}},
 		{true, true, "non-proto cfg.Builder.Params", nil, []*cpb.Combined{badcfg1}},
 		{true, true, "non-proto cfg.Aspect.Params", nil, []*cpb.Combined{badcfg2}},
+		{true, false, "", &fakeCheckExecutor{}, []*cpb.Combined{handlercfg}},
 	}
 
 	for idx, tt := range ttt {
@@ -318,7 +325,10 @@ func TestManager(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
-		m.cfg.Store(&fakeResolver{tt.cfg, nil})
+		m.resolver.Store(&fakeResolver{tt.cfg, nil})
+		m.handlers.Store(map[string]*config.HandlerInfo{
+			handlerName: {Instance: &fakeBuilder{name: "handlerName"}, Name: handlerName},
+		})
 
 		out := m.Check(context.Background(), requestBag, responseBag)
 		errStr := out.Message
@@ -375,7 +385,7 @@ func TestManager_Preprocess(t *testing.T) {
 		},
 	}
 
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	out := m.Preprocess(context.Background(), requestBag, responseBag)
 
@@ -408,7 +418,7 @@ func TestReport(t *testing.T) {
 			Builder: &cpb.Adapter{Name: "Foo"},
 		},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	out := m.Report(context.Background(), requestBag)
 
@@ -441,7 +451,7 @@ func TestQuota(t *testing.T) {
 			Builder: &cpb.Adapter{Name: "Foo"},
 		},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	qmr, out := m.Quota(context.Background(), requestBag, nil)
 
@@ -499,7 +509,7 @@ func TestManager_BulkExecute(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
-		m.cfg.Store(&fakeResolver{c.cfgs, nil})
+		m.resolver.Store(&fakeResolver{c.cfgs, nil})
 
 		out := m.Check(context.Background(), requestBag, responseBag)
 		errStr := out.Message
@@ -541,7 +551,7 @@ func testRecovery(t *testing.T, name string, want string) {
 			Aspect:  &cpb.Aspect{Kind: name},
 		},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	out := m.Check(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil))
 	if status.IsOK(out) {
@@ -585,7 +595,7 @@ func TestExecute(t *testing.T) {
 		cfg := []*cpb.Combined{
 			{&cpb.Adapter{Name: c.name}, &cpb.Aspect{Kind: c.name}},
 		}
-		m.cfg.Store(&fakeResolver{cfg, nil})
+		m.resolver.Store(&fakeResolver{cfg, nil})
 
 		o := m.dispatch(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), cfg,
 			func(executor aspect.Executor, evaluator expr.Evaluator, _ attribute.Bag, _ *attribute.MutableBag) rpc.Status {
@@ -617,7 +627,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	cfg := []*cpb.Combined{
 		{&cpb.Adapter{Name: ""}, &cpb.Aspect{Kind: ""}},
 	}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	reqBag := attribute.GetMutableBag(nil)
 	respBag := attribute.GetMutableBag(nil)
@@ -663,7 +673,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		&cpb.Adapter{Name: name},
 		&cpb.Aspect{Kind: name},
 	}}
-	m.cfg.Store(&fakeResolver{cfg, nil})
+	m.resolver.Store(&fakeResolver{cfg, nil})
 
 	if out := m.Check(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil)); status.IsOK(out) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")

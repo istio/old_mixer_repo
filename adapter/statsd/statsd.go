@@ -85,7 +85,7 @@ func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	params := cfg.(*config.Params)
 
 	flushBytes := int(params.FlushBytes)
