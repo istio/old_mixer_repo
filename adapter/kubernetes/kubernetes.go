@@ -250,20 +250,20 @@ func (k *kubegen) Close() error { return nil }
 func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
 	if uid, found := inputs[k.params.SourceUidInputName]; found {
-		uidstr := uid.(string)
-		if len(uidstr) > 0 {
+		uidstr, ok := uid.(string)
+		if ok && len(uidstr) > 0 {
 			k.addValues(values, uidstr, k.params.SourcePrefix)
 		}
 	}
 	if uid, found := inputs[k.params.TargetUidInputName]; found {
-		uidstr := uid.(string)
-		if len(uidstr) > 0 {
+		uidstr, ok := uid.(string)
+		if ok && len(uidstr) > 0 {
 			k.addValues(values, uidstr, k.params.TargetPrefix)
 		}
 	}
 	if uid, found := inputs[k.params.OriginUidInputName]; found {
-		uidstr := uid.(string)
-		if len(uidstr) > 0 {
+		uidstr, ok := uid.(string)
+		if ok && len(uidstr) > 0 {
 			k.addValues(values, uidstr, k.params.OriginPrefix)
 		}
 	}
