@@ -130,7 +130,7 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	df := test.NewDescriptorFinder(map[string]interface{}{quotaRequestCount.Name: quotaRequestCount})
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
 
-	if _, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), df); err != nil {
+	if _, err := newQuotasManager().NewQuotaExecutor(conf, FromBuilder(builder), atest.NewEnv(t), df); err != nil {
 		t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -146,7 +146,7 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.QuotasAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), nil)
+	_, err := newQuotasManager().NewQuotaExecutor(conf, FromBuilder(builder), atest.NewEnv(t), nil)
 	if err == nil {
 		t.Error("newQuotasManager().NewExecutor(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}

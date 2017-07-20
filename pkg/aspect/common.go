@@ -21,9 +21,75 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
+
+func FromHandler(handler config.Handler) CreateAspectFunc {
+	return func(adapter.Env, adapter.Config, ...interface{}) (adapter.Aspect, error) {
+		return handler, nil
+	}
+}
+
+func FromBuilder(builder adapter.Builder) CreateAspectFunc {
+	switch b := builder.(type) {
+	case adapter.DenialsBuilder:
+		// yet `return b.NewDenialsAspect` is a compilation error.
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewDenialsAspect(env, c)
+		}
+	case adapter.AccessLogsBuilder:
+		// yet `return b.NewDenialsAspect` is a compilation error.
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewAccessLogsAspect(env, c)
+		}
+	case adapter.ApplicationLogsBuilder:
+		// yet `return b.NewDenialsAspect` is a compilation error.
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewApplicationLogsAspect(env, c)
+		}
+	case adapter.AttributesGeneratorBuilder:
+		// yet `return b.NewDenialsAspect` is a compilation error.
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.BuildAttributesGenerator(env, c)
+		}
+	case adapter.ListsBuilder:
+		// yet `return b.NewDenialsAspect` is a compilation error.
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewListsAspect(env, c)
+		}
+	case adapter.MetricsBuilder:
+		// yet `return b.NewDenialsAspect` is a compilation error.
+		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
+			if len(cfg) < 1 {
+				return nil, fmt.Errorf("metric builders must have configuration args.")
+			}
+			metrics, ok := cfg[0].(map[string]*adapter.MetricDefinition)
+			if !ok {
+				return nil, fmt.Errorf("arg to metrics builder must be a map[string]*adapter.MetricDefinition, got: %#v", cfg[0])
+			}
+			return b.NewMetricsAspect(env, c, metrics)
+		}
+	case adapter.QuotasBuilder:
+		// yet `return b.NewDenialsAspect` is a compilation error.
+		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
+			if len(cfg) < 1 {
+				return nil, fmt.Errorf("quota builders must have configuration args.")
+			}
+			quotas, ok := cfg[0].(map[string]*adapter.QuotaDefinition)
+			if !ok {
+				return nil, fmt.Errorf("arg to quota builder must be a map[string]*adapter.QuotaDefinition, got: %#v", cfg[0])
+			}
+			return b.NewQuotasAspect(env, c, quotas)
+		}
+	default:
+		// TODO: should we do something stronger here, or maybe change this func to return `(CreateAspectFunc, error)`?
+		return func(adapter.Env, adapter.Config, ...interface{}) (adapter.Aspect, error) {
+			return nil, fmt.Errorf("Invalid builder type: %#v", builder)
+		}
+	}
+}
 
 func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
 	result := &multierror.Error{}
