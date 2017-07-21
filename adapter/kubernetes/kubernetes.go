@@ -238,7 +238,7 @@ func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, en
 		return nil, fmt.Errorf("could not create clientset for k8s: %v", err)
 	}
 	env.Logger().Infof("building new cache controller")
-	return newCacheController(clientset, "", refreshDuration, env), nil
+	return newCacheController(clientset, refreshDuration, env), nil
 }
 
 func getRESTConfig(kubeconfigPath string) (*rest.Config, error) {
@@ -250,31 +250,32 @@ func (k *kubegen) Close() error { return nil }
 func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
 	if uid, found := inputs[k.params.SourceUidInputName]; found {
-		uidstr := uid.(string)
-		if len(uidstr) > 0 {
+		uidstr, ok := uid.(string)
+		if ok && len(uidstr) > 0 {
 			k.addValues(values, uidstr, k.params.SourcePrefix)
 		}
 	}
 	if uid, found := inputs[k.params.TargetUidInputName]; found {
-		uidstr := uid.(string)
-		if len(uidstr) > 0 {
+		uidstr, ok := uid.(string)
+		if ok && len(uidstr) > 0 {
 			k.addValues(values, uidstr, k.params.TargetPrefix)
 		}
 	}
 	if uid, found := inputs[k.params.OriginUidInputName]; found {
-		uidstr := uid.(string)
-		if len(uidstr) > 0 {
+		uidstr, ok := uid.(string)
+		if ok && len(uidstr) > 0 {
 			k.addValues(values, uidstr, k.params.OriginPrefix)
 		}
 	}
 	if targetSvc, found := inputs[k.params.TargetServiceInputName]; found {
-		svc := targetSvc.(string)
-		if len(svc) > 0 {
+		svc, ok := targetSvc.(string)
+		if ok && len(svc) > 0 {
 			n, err := canonicalName(svc, defaultNamespace, k.params.ClusterDomainName)
+			key := valueName(k.params.TargetPrefix, k.params.ServiceValueName)
 			if err != nil {
 				k.log.Warningf("could not canonicalize target service: %v", err)
-			} else {
-				values[valueName(k.params.TargetPrefix, k.params.ServiceValueName)] = n
+			} else if _, ok := values[key]; !ok {
+				values[key] = n
 			}
 		}
 	}
