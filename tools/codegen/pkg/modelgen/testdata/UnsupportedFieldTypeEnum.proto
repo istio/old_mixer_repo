@@ -8,9 +8,12 @@ import "mixer/v1/config/descriptor/value_type.proto";
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 option (istio.mixer.v1.config.template.template_name) = "List";
 
-
+// NOT SUPPORTED field type for 'o'
 message Template {
-    bool blacklist = 1;
-    istio.mixer.v1.config.descriptor.ValueType val = 2;
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 3;
+    unsupported o = 1;
+}
+
+enum unsupported {
+    a = 0;
+
 }

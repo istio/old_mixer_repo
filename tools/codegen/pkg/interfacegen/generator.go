@@ -26,20 +26,21 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
-	"istio.io/mixer/tools/codegen/pkg/interfacegen/template/processor"
+	tmpl "istio.io/mixer/tools/codegen/pkg/interfacegen/template"
 	"istio.io/mixer/tools/codegen/pkg/modelgen"
 )
 
 // Generator generates Go interfaces for adapters to implement for a given Template.
 type Generator struct {
-	OutFilePath   string
-	ImportMapping map[string]string
+	OIntface string
+	OTmpl    string
+	ImptMap  map[string]string
 }
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
 
-	tmpl, err := template.New("ProcInterface").Parse(processor.InterfaceTemplate)
+	intfaceTmpl, err := template.New("ProcInterface").Parse(tmpl.InterfaceTemplate)
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
 	}
@@ -49,7 +50,7 @@ func (g *Generator) Generate(fdsFile string) error {
 		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err)
 	}
 
-	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping)
+	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImptMap)
 	if err != nil {
 		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err)
 	}
@@ -59,28 +60,48 @@ func (g *Generator) Generate(fdsFile string) error {
 		return err
 	}
 
-	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, model)
+	intfaceBuf := new(bytes.Buffer)
+	err = intfaceTmpl.Execute(intfaceBuf, model)
 	if err != nil {
 		return fmt.Errorf("cannot execute the template with the given data: %v", err)
 	}
 
-	fmtd, err := format.Source(buf.Bytes())
+	fmtd, err := format.Source(intfaceBuf.Bytes())
 	if err != nil {
 		return fmt.Errorf("could not format generated code: %v", err)
 	}
 
 	imports.LocalPrefix = "istio.io"
 	// OutFilePath provides context for import path. We rely on the supplied bytes for content.
-	imptd, err := imports.Process(g.OutFilePath, fmtd, nil)
+	imptd, err := imports.Process(g.OIntface, fmtd, nil)
 	if err != nil {
 		return fmt.Errorf("could not fix imports for generated code: %v", err)
 	}
 
-	// Now write to the file.
-	if f, err := os.Create(g.OutFilePath); err != nil {
+	revisedTemplateTmpl, err := template.New("RevisedTemplateTmpl").Parse(tmpl.RevisedTemplateTmpl)
+	if err != nil {
+		return fmt.Errorf("cannot load template: %v", err)
+	}
+
+	tmplBuf := new(bytes.Buffer)
+	err = revisedTemplateTmpl.Execute(tmplBuf, model)
+	if err != nil {
+		return fmt.Errorf("cannot execute the template with the given data: %v", err)
+	}
+
+	// Everything succeeded, now write to the file.
+	if f, err := os.Create(g.OIntface); err != nil {
 		return err
 	} else if _, err = f.Write(imptd); err != nil {
+		return err
+	} else {
+		// file successfully written, close it.
+		f.Close()
+	}
+
+	if f, err := os.Create(g.OTmpl); err != nil {
+		return err
+	} else if _, err = f.Write(tmplBuf.Bytes()); err != nil {
 		return err
 	} else {
 		// file successfully written, close it.
