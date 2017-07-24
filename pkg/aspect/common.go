@@ -84,7 +84,7 @@ func FromBuilder(builder adapter.Builder, kind cfg.Kind) (CreateAspectFunc, erro
 			return nil, fmt.Errorf("invalid builder - kind MetricsKind expected builder implementing MetricsBuilder, got builder: %v", builder)
 		}
 		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
-			if len(cfg) < 1 {
+			if len(cfg) != 1 {
 				return nil, fmt.Errorf("metric builders must have configuration args")
 			}
 			metrics, ok := cfg[0].(map[string]*adapter.MetricDefinition)
@@ -99,7 +99,7 @@ func FromBuilder(builder adapter.Builder, kind cfg.Kind) (CreateAspectFunc, erro
 			return nil, fmt.Errorf("invalid builder - kind QuotasKind expected builder implementing QuotasBuilder, go buildert: %v", builder)
 		}
 		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
-			if len(cfg) < 1 {
+			if len(cfg) != 1 {
 				return nil, fmt.Errorf("quota builders must have configuration args")
 			}
 			quotas, ok := cfg[0].(map[string]*adapter.QuotaDefinition)
