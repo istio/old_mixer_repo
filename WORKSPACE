@@ -298,12 +298,6 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_davecgh_go_spew",
-    commit = "346938d642f2ec3594ed81d874461961cd0faa76",  # Oct 29, 2016 (v1.1.0)
-    importpath = "github.com/davecgh/go-spew",
-)
-
-new_go_repository(
     name = "com_github_go_openapi_spec",
     commit = "6aced65f8501fe1217321abf0749d354824ba2ff",  # Aug 8, 2016 (no releases)
     importpath = "github.com/go-openapi/spec",
