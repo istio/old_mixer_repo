@@ -432,7 +432,7 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag att
 
 	executor, err := m.cacheGet(cfg, mgr, createAspect, df)
 	if err != nil {
-		return status.WithError(fmt.Errorf("Failed to construct executor for adapter '%s': %v", cfg.Builder.Impl, err))
+		return status.WithError(fmt.Errorf("failed to construct executor for adapter '%s': %v", cfg.Builder.Impl, err))
 	}
 
 	// TODO: plumb ctx through asp.Execute
