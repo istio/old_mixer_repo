@@ -270,17 +270,13 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	var interceptors []grpc.UnaryServerInterceptor
 
 	if sa.traceOutput != "" {
-		var tracer ot.Tracer
+		var recorder zt.SpanRecorder
 		switch strings.ToUpper(sa.traceOutput) {
 		case "STDOUT":
-			if tracer, err = zt.NewTracer(zipkin.IORecorder(os.Stdout)); err != nil {
-				fatalf("Failed to construct a stdout zipkin trace: %v", err)
-			}
+			recorder = zipkin.IORecorder(os.Stdout)
 			printf("Zipkin traces being dumped to stdout")
 		case "STDERR":
-			if tracer, err = zt.NewTracer(zipkin.IORecorder(os.Stderr)); err != nil {
-				fatalf("Failed to construct a stderr zipkin trace: %v", err)
-			}
+			recorder = zipkin.IORecorder(os.Stderr)
 			printf("Zipkin traces being dumped to stderr")
 		default:
 			col, err := zt.NewHTTPCollector(sa.traceOutput, zt.HTTPLogger(zt.LoggerFunc(func(vals ...interface{}) error {
@@ -294,12 +290,13 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 			if err != nil {
 				fatalf("Unable to create zipkin http collector with address '%s': %v", sa.traceOutput, err)
 			}
-			tracer, err = zt.NewTracer(zt.NewRecorder(col, false /* debug */, fmt.Sprintf("0.0.0.0:%d", sa.port), "istio-mixer"))
-			if err != nil {
-				fatalf("Failed to construct zipkin tracer: %v", err)
-			}
-			printf("Zipkin traces being sent to %s", sa.traceOutput)
+			recorder = zt.NewRecorder(col, false /* debug */, fmt.Sprintf("0.0.0.0:%d", sa.port), "istio-mixer")
 		}
+		tracer, err := zt.NewTracer(recorder)
+		if err != nil {
+			fatalf("Failed to construct zipkin tracer: %v", err)
+		}
+		printf("Zipkin traces being sent to %s", sa.traceOutput)
 		ot.InitGlobalTracer(tracer)
 		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(tracer))
 	}
