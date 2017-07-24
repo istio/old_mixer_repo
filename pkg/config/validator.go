@@ -423,7 +423,7 @@ func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.Co
 			for _, instName := range aa.GetInstances() {
 				if p.ctors[instName] == nil {
 					hasError = true
-					ce = ce.Appendf(fmt.Sprintf("%s[%d]", path, idx), "Instance '%s' is not defined.", instName)
+					ce = ce.Appendf(fmt.Sprintf("%s[%d]", path, idx), "instance '%s' is not defined.", instName)
 					continue
 				}
 				validInsts = append(validInsts, instName)
