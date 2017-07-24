@@ -25,6 +25,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
@@ -169,43 +170,46 @@ func TestFromHandler(t *testing.T) {
 func TestFromBuilder(t *testing.T) {
 	tests := []struct {
 		name         string
-		builder      adapter.Builder
+		kind         config.Kind
 		expectedType reflect.Type // we only compare the type of this value against the one returned by the builder
 		err          string
 		args         []interface{}
 	}{
-		{"access logs", noop.AccessLogsBuilder{}, reflect.TypeOf((*adapter.AccessLogsAspect)(nil)).Elem(), "", []interface{}{}},
-		{"app logs", noop.AppLogsBuilder{}, reflect.TypeOf((*adapter.ApplicationLogsAspect)(nil)).Elem(), "", []interface{}{}},
-		{"attr gen", noop.AttrBuilder{}, reflect.TypeOf((*adapter.AttributesGenerator)(nil)).Elem(), "", []interface{}{}},
-		{"denials", noop.DenialsBuilder{}, reflect.TypeOf((*adapter.DenialsAspect)(nil)).Elem(), "", []interface{}{}},
-		{"list", noop.ListBuilder{}, reflect.TypeOf((*adapter.ListsAspect)(nil)).Elem(), "", []interface{}{}},
-		{"metrics no args", noop.MetricBuilder{}, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
+		{"access logs", config.AccessLogsKind, reflect.TypeOf((*adapter.AccessLogsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"app logs", config.ApplicationLogsKind, reflect.TypeOf((*adapter.ApplicationLogsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"attr gen", config.AttributesKind, reflect.TypeOf((*adapter.AttributesGenerator)(nil)).Elem(), "", []interface{}{}},
+		{"denials", config.DenialsKind, reflect.TypeOf((*adapter.DenialsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"list", config.ListsKind, reflect.TypeOf((*adapter.ListsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"metrics no args", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
 			"metric builders must have configuration args",
 			[]interface{}{}},
-		{"metrics wrong args", noop.MetricBuilder{}, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
+		{"metrics wrong args", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
 			"arg to metrics builder must be a map[string]*adapter.MetricDefinition",
 			[]interface{}{map[string]*adapter.QuotaDefinition{}}},
-		{"metrics", noop.MetricBuilder{}, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
+		{"metrics", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
 			"",
 			[]interface{}{map[string]*adapter.MetricDefinition{}}},
-		{"quota no args", noop.QuotaBuilder{}, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
+		{"quota no args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
 			"quota builders must have configuration args",
 			[]interface{}{}},
-		{"quota wrong args", noop.QuotaBuilder{}, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
+		{"quota wrong args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
 			"arg to quota builder must be a map[string]*adapter.QuotaDefinition",
 			[]interface{}{map[string]*adapter.MetricDefinition{}}},
-		{"quota", noop.QuotaBuilder{}, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
+		{"quota", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
 			"",
 			[]interface{}{map[string]*adapter.QuotaDefinition{}}},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			f := FromBuilder(tt.builder)
+			f, err := FromBuilder(noop.Builder{}, tt.kind)
+			if err != nil {
+				t.Fatalf("failed to construct CreateAspectFunc from builder unexpectedly")
+			}
 			out, err := f(nil, nil, tt.args...)
 			if err != nil || tt.err != "" {
 				if tt.err == "" {
-					t.Fatalf("FromBuilder(%v)(nil, nil) = '%s', wanted no err", tt.builder, err.Error())
+					t.Fatalf("FromBuilder(noop.Builder{})(nil, nil) = '%s', wanted no err", err.Error())
 				} else if !strings.Contains(err.Error(), tt.err) {
 					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
 				}

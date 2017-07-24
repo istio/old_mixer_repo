@@ -422,7 +422,11 @@ func (m *Manager) execute(
 
 	var createAspect aspect.CreateAspectFunc
 	if builder, found := m.builders.FindBuilder(cfg.Builder.Impl); found {
-		createAspect = aspect.FromBuilder(builder)
+		var e error
+		createAspect, e = aspect.FromBuilder(builder, kind)
+		if e != nil {
+			return status.WithError(e)
+		}
 	} else if handler, found := m.getHandlers()[cfg.Builder.Impl]; found {
 		createAspect = aspect.FromHandler(handler.Instance)
 	} else {
