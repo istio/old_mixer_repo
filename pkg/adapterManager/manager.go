@@ -416,10 +416,10 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag att
 
 	var createAspect aspect.CreateAspectFunc
 	if builder, found := m.builders.FindBuilder(cfg.Builder.Impl); found {
-		var e error
-		createAspect, e = aspect.FromBuilder(builder, kind)
-		if e != nil {
-			return status.WithError(e)
+		var err error
+		createAspect, err = aspect.FromBuilder(builder, kind)
+		if err != nil {
+			return status.WithError(err)
 		}
 	} else if handler, found := m.getHandlers()[cfg.Builder.Impl]; found {
 		createAspect = aspect.FromHandler(handler.Instance)
