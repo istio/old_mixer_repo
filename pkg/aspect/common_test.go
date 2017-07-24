@@ -222,3 +222,46 @@ func TestFromBuilder(t *testing.T) {
 	}
 
 }
+
+type fakeDeny struct{ adapter.Builder }
+
+func (fakeDeny) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
+	return nil, nil
+}
+
+type fakeAccess struct{ adapter.Builder }
+
+func (fakeAccess) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
+	return nil, nil
+}
+
+func TestFromBuilder_Errors(t *testing.T) {
+	tests := []struct {
+		builder adapter.Builder
+		kind    config.Kind
+		err     string
+	}{
+		{&fakeDeny{}, config.AccessLogsKind, "invalid builder"},
+		{&fakeDeny{}, config.ApplicationLogsKind, "invalid builder"},
+		{&fakeDeny{}, config.AttributesKind, "invalid builder"},
+		{&fakeDeny{}, config.ListsKind, "invalid builder"},
+		{&fakeDeny{}, config.MetricsKind, "invalid builder"},
+		{&fakeDeny{}, config.QuotasKind, "invalid builder"},
+		{&fakeAccess{}, config.DenialsKind, "invalid builder"},
+		{&fakeAccess{}, config.NumKinds, "invalid kind"},
+		{&fakeDeny{}, config.DenialsKind, ""},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			if _, err := FromBuilder(tt.builder, tt.kind); err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf(" = '%s', wanted no err", err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
+			}
+		})
+	}
+
+}
