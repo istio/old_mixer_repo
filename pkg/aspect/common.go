@@ -23,6 +23,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/attribute"
+	cfg "istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -34,30 +35,54 @@ func FromHandler(handler config.Handler) CreateAspectFunc {
 }
 
 // FromBuilder creates a CreateAspectFunc from the provided builder instance, dispatching to New*Aspect methods based
-// on the builder's type.
-func FromBuilder(builder adapter.Builder) CreateAspectFunc {
-	switch b := builder.(type) {
-	case adapter.DenialsBuilder:
-		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
-			return b.NewDenialsAspect(env, c)
+// on the kind parameter.
+func FromBuilder(builder adapter.Builder, kind cfg.Kind) (CreateAspectFunc, error) {
+	switch kind {
+	case cfg.AccessLogsKind:
+		b, ok := builder.(adapter.AccessLogsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind AccessLogsKind expected builder implementing AccessLogsBuilder, got builder: %v", builder)
 		}
-	case adapter.AccessLogsBuilder:
 		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
 			return b.NewAccessLogsAspect(env, c)
+		}, nil
+	case cfg.ApplicationLogsKind:
+		b, ok := builder.(adapter.ApplicationLogsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind ApplicationLogsKind expected builder implementing ApplicationLogsBuilder, got builder: %v", builder)
 		}
-	case adapter.ApplicationLogsBuilder:
 		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
 			return b.NewApplicationLogsAspect(env, c)
+		}, nil
+	case cfg.AttributesKind:
+		b, ok := builder.(adapter.AttributesGeneratorBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind AttributesKind expected builder implementing AttributesGeneratorBuilder, got builder: %v", builder)
 		}
-	case adapter.AttributesGeneratorBuilder:
 		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
 			return b.BuildAttributesGenerator(env, c)
+		}, nil
+	case cfg.DenialsKind:
+		b, ok := builder.(adapter.DenialsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind DenialsKind expected builder implementing DenialsBuilder, got builder: %v", builder)
 		}
-	case adapter.ListsBuilder:
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewDenialsAspect(env, c)
+		}, nil
+	case cfg.ListsKind:
+		b, ok := builder.(adapter.ListsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind ListsKind expected builder implementing ListsBuilder, got builder: %v", builder)
+		}
 		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
 			return b.NewListsAspect(env, c)
+		}, nil
+	case cfg.MetricsKind:
+		b, ok := builder.(adapter.MetricsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind MetricsKind expected builder implementing MetricsBuilder, got builder: %v", builder)
 		}
-	case adapter.MetricsBuilder:
 		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
 			if len(cfg) < 1 {
 				return nil, fmt.Errorf("metric builders must have configuration args")
@@ -67,8 +92,12 @@ func FromBuilder(builder adapter.Builder) CreateAspectFunc {
 				return nil, fmt.Errorf("arg to metrics builder must be a map[string]*adapter.MetricDefinition, got: %#v", cfg[0])
 			}
 			return b.NewMetricsAspect(env, c, metrics)
+		}, nil
+	case cfg.QuotasKind:
+		b, ok := builder.(adapter.QuotasBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind QuotasKind expected builder implementing QuotasBuilder, go buildert: %v", builder)
 		}
-	case adapter.QuotasBuilder:
 		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
 			if len(cfg) < 1 {
 				return nil, fmt.Errorf("quota builders must have configuration args")
@@ -78,12 +107,9 @@ func FromBuilder(builder adapter.Builder) CreateAspectFunc {
 				return nil, fmt.Errorf("arg to quota builder must be a map[string]*adapter.QuotaDefinition, got: %#v", cfg[0])
 			}
 			return b.NewQuotasAspect(env, c, quotas)
-		}
+		}, nil
 	default:
-		// TODO: should we do something stronger here, or maybe change this func to return `(CreateAspectFunc, error)`?
-		return func(adapter.Env, adapter.Config, ...interface{}) (adapter.Aspect, error) {
-			return nil, fmt.Errorf("invalid builder type: %#v", builder)
-		}
+		return nil, fmt.Errorf("invalid kind %v", kind)
 	}
 }
 

@@ -24,94 +24,70 @@ import (
 )
 
 type (
-	// AccessLogsBuilder implements adapter.AccessLogBuilder
-	AccessLogsBuilder struct{ adapter.DefaultBuilder }
-	// AppLogsBuilder implements adapter.ApplicationLogsBuilder
-	AppLogsBuilder struct{ adapter.DefaultBuilder }
-	// AttrBuilder implements adapter.AttributeGeneratorBuilder
-	AttrBuilder struct{ adapter.DefaultBuilder }
-	// DenialsBuilder implements adapter.DenialsBuilder
-	DenialsBuilder struct{ adapter.DefaultBuilder }
-	// ListBuilder implements adapter.ListsBuilder
-	ListBuilder struct{ adapter.DefaultBuilder }
-	// MetricBuilder implements adapter.MetricsBuilder
-	MetricBuilder struct{ adapter.DefaultBuilder }
-	// QuotaBuilder implements adapter.QuotasBuilder
-	QuotaBuilder struct{ adapter.DefaultBuilder }
-
-	accessLogsAspect struct{}
-	appLogsAspect    struct{}
-	attrAspect       struct{}
-	denialsAspect    struct{}
-	listAspect       struct{}
-	metricAspect     struct{}
-	quotaAspect      struct{}
+	// Builder implements all adapter.*Builder interfaces
+	Builder struct{ adapter.DefaultBuilder }
+	aspect  struct{}
 )
 
 // Register registers the no-op adapter as every aspect.
 func Register(r adapter.Registrar) {
-	r.RegisterAccessLogsBuilder(AccessLogsBuilder{adapter.NewDefaultBuilder("noop access", "", nil)})
-	r.RegisterApplicationLogsBuilder(AppLogsBuilder{adapter.NewDefaultBuilder("noop application", "", nil)})
-	r.RegisterAttributesGeneratorBuilder(AttrBuilder{adapter.NewDefaultBuilder("noop attr gen", "", nil)})
-	r.RegisterDenialsBuilder(DenialsBuilder{adapter.NewDefaultBuilder("noop denials", "", nil)})
-	r.RegisterListsBuilder(ListBuilder{adapter.NewDefaultBuilder("noop lists", "", nil)})
-	r.RegisterMetricsBuilder(MetricBuilder{adapter.NewDefaultBuilder("noop metrics", "", nil)})
-	r.RegisterQuotasBuilder(QuotaBuilder{adapter.NewDefaultBuilder("noop quotas", "", nil)})
+	b := Builder{adapter.NewDefaultBuilder("noop builder", "", nil)}
+	r.RegisterAccessLogsBuilder(b)
+	r.RegisterApplicationLogsBuilder(b)
+	r.RegisterAttributesGeneratorBuilder(b)
+	r.RegisterDenialsBuilder(b)
+	r.RegisterListsBuilder(b)
+	r.RegisterMetricsBuilder(b)
+	r.RegisterQuotasBuilder(b)
 }
 
 // BuildAttributesGenerator creates an adapter.AttributesGenerator instance
-func (AttrBuilder) BuildAttributesGenerator(adapter.Env, adapter.Config) (adapter.AttributesGenerator, error) {
-	return &attrAspect{}, nil
+func (Builder) BuildAttributesGenerator(adapter.Env, adapter.Config) (adapter.AttributesGenerator, error) {
+	return &aspect{}, nil
 }
-func (attrAspect) Generate(map[string]interface{}) (map[string]interface{}, error) {
+func (aspect) Generate(map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
-func (attrAspect) Close() error { return nil }
+func (aspect) Close() error { return nil }
 
 // NewAccessLogsAspect creates an adapter.AccessLogsAspect instance
-func (AccessLogsBuilder) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
-	return &accessLogsAspect{}, nil
+func (Builder) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
+	return &aspect{}, nil
 }
-func (accessLogsAspect) LogAccess([]adapter.LogEntry) error { return nil }
-func (accessLogsAspect) Close() error                       { return nil }
+func (aspect) LogAccess([]adapter.LogEntry) error { return nil }
 
 // NewApplicationLogsAspect creates an adapter.ApplicationLogsAspect instance
-func (AppLogsBuilder) NewApplicationLogsAspect(adapter.Env, adapter.Config) (adapter.ApplicationLogsAspect, error) {
-	return &appLogsAspect{}, nil
+func (Builder) NewApplicationLogsAspect(adapter.Env, adapter.Config) (adapter.ApplicationLogsAspect, error) {
+	return &aspect{}, nil
 }
-func (appLogsAspect) Log([]adapter.LogEntry) error { return nil }
-func (appLogsAspect) Close() error                 { return nil }
+func (aspect) Log([]adapter.LogEntry) error { return nil }
 
 // NewDenialsAspect creates an adapter.DenialsAspect instance
-func (DenialsBuilder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
-	return &denialsAspect{}, nil
+func (Builder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
+	return &aspect{}, nil
 }
-func (denialsAspect) Deny() rpc.Status { return status.New(rpc.FAILED_PRECONDITION) }
-func (denialsAspect) Close() error     { return nil }
+func (aspect) Deny() rpc.Status { return status.New(rpc.FAILED_PRECONDITION) }
 
 // NewListsAspect creates an adapter.ListsAspect instance
-func (ListBuilder) NewListsAspect(adapter.Env, adapter.Config) (adapter.ListsAspect, error) {
-	return &listAspect{}, nil
+func (Builder) NewListsAspect(adapter.Env, adapter.Config) (adapter.ListsAspect, error) {
+	return &aspect{}, nil
 }
-func (listAspect) CheckList(symbol string) (bool, error) { return false, nil }
-func (listAspect) Close() error                          { return nil }
+func (aspect) CheckList(symbol string) (bool, error) { return false, nil }
 
 // NewMetricsAspect creates an adapter.MetricsAspect instance
-func (MetricBuilder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	return &metricAspect{}, nil
+func (Builder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+	return &aspect{}, nil
 }
-func (metricAspect) Record([]adapter.Value) error { return nil }
-func (metricAspect) Close() error                 { return nil }
+func (aspect) Record([]adapter.Value) error { return nil }
 
 // NewQuotasAspect creates an adapter.QuotasAspect instance
-func (QuotaBuilder) NewQuotasAspect(env adapter.Env, c adapter.Config, quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	return &quotaAspect{}, nil
+func (Builder) NewQuotasAspect(env adapter.Env, c adapter.Config, quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+	return &aspect{}, nil
 }
-func (quotaAspect) Alloc(adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (aspect) Alloc(adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return adapter.QuotaResult{}, nil
 }
-func (quotaAspect) AllocBestEffort(adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (aspect) AllocBestEffort(adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return adapter.QuotaResult{}, nil
 }
-func (quotaAspect) ReleaseBestEffort(adapter.QuotaArgs) (int64, error) { return 0, nil }
-func (quotaAspect) Close() error                                       { return nil }
+func (aspect) ReleaseBestEffort(adapter.QuotaArgs) (int64, error) { return 0, nil }

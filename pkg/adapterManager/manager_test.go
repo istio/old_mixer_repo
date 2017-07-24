@@ -121,6 +121,18 @@ func (f *fakeResolver) ResolveUnconditional(bag attribute.Bag, kindSet config.Ki
 }
 
 func (f *fakeBuilder) Name() string { return f.name }
+func (fakeBuilder) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
+	return nil, nil
+}
+func (fakeBuilder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
+	return nil, nil
+}
+func (fakeBuilder) BuildAttributesGenerator(adapter.Env, adapter.Config) (adapter.AttributesGenerator, error) {
+	return nil, nil
+}
+func (fakeBuilder) NewQuotasAspect(adapter.Env, adapter.Config, map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+	return nil, nil
+}
 
 func (f *fakePreprocessExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.PreprocessResult, rpc.Status) {
 	f.called++
@@ -231,6 +243,9 @@ func (testAspect) DefaultConfig() adapter.Config                       { return 
 func (testAspect) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return nil }
 func (testAspect) Name() string                                        { return "" }
 func (testAspect) Description() string                                 { return "" }
+func (testAspect) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
+	return nil, nil
+}
 
 func (m *fakeBuilderReg) FindBuilder(adapterName string) (adapter.Builder, bool) {
 	return m.adp, m.found

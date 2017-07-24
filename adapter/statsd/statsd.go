@@ -66,7 +66,7 @@ func newBuilder() *builder {
 	return &builder{adapter.NewDefaultBuilder(name, desc, defaultConf)}
 }
 
-func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
+func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
 	if params.FlushDuration < 0 {
 		ce = ce.Appendf("flushDuration", "flush duration must be >= 0")
