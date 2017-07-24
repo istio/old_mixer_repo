@@ -104,7 +104,7 @@ type fakeresolver struct {
 	resolveError error
 }
 
-func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver { // nolint: unparams
+func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver { // nolint: unparam
 	am := make(map[string]KindSet)
 
 	for _, k := range kinds {
@@ -143,7 +143,7 @@ type fakeRule struct {
 	kinds   []string
 }
 
-func fP(scope string, subject string, kinds ...string) *fakeRule { // nolint: unparams
+func fP(scope string, subject string, kinds ...string) *fakeRule { // nolint: unparam
 	return &fakeRule{scope, subject, kinds}
 }
 
