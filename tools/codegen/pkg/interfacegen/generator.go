@@ -32,9 +32,9 @@ import (
 
 // Generator generates Go interfaces for adapters to implement for a given Template.
 type Generator struct {
-	OIntface string
-	OTmpl    string
-	ImptMap  map[string]string
+	OutInterfacePath   string
+	OAugmentedTmplPath string
+	ImptMap            map[string]string
 }
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
@@ -47,12 +47,12 @@ func (g *Generator) Generate(fdsFile string) error {
 
 	fds, err := getFileDescSet(fdsFile)
 	if err != nil {
-		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err)
+		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto: %v", fdsFile, err)
 	}
 
 	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImptMap)
 	if err != nil {
-		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fdsFile, err)
+		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto: %v", fdsFile, err)
 	}
 
 	model, err := modelgen.Create(parser)
@@ -73,7 +73,7 @@ func (g *Generator) Generate(fdsFile string) error {
 
 	imports.LocalPrefix = "istio.io"
 	// OutFilePath provides context for import path. We rely on the supplied bytes for content.
-	imptd, err := imports.Process(g.OIntface, fmtd, nil)
+	imptd, err := imports.Process(g.OutInterfacePath, fmtd, nil)
 	if err != nil {
 		return fmt.Errorf("could not fix imports for generated code: %v", err)
 	}
@@ -90,23 +90,30 @@ func (g *Generator) Generate(fdsFile string) error {
 	}
 
 	// Everything succeeded, now write to the file.
-	if f, err := os.Create(g.OIntface); err != nil {
+	f1, err := os.Create(g.OutInterfacePath)
+	if err != nil {
 		return err
-	} else if _, err = f.Write(imptd); err != nil {
+	}
+	defer f1.Close()
+
+	if _, err = f1.Write(imptd); err != nil {
+		_ = f1.Close()
+		_ = os.Remove(f1.Name())
 		return err
-	} else {
-		// file successfully written, close it.
-		f.Close()
 	}
 
-	if f, err := os.Create(g.OTmpl); err != nil {
+	f2, err := os.Create(g.OAugmentedTmplPath)
+	if err != nil {
 		return err
-	} else if _, err = f.Write(tmplBuf.Bytes()); err != nil {
-		return err
-	} else {
-		// file successfully written, close it.
-		return f.Close()
 	}
+	defer f2.Close()
+	if _, err = f2.Write(tmplBuf.Bytes()); err != nil {
+		_ = f2.Close()
+		_ = os.Remove(f2.Name())
+		return err
+	}
+
+	return nil
 }
 
 func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {

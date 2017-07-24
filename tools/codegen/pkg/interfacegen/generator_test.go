@@ -71,7 +71,7 @@ func TestGenerator_Generate(t *testing.T) {
 				}
 			}()
 
-			g := Generator{OIntface: oIntface.Name(), OTmpl: oTmpl.Name(), ImptMap: importmap}
+			g := Generator{OutInterfacePath: oIntface.Name(), OAugmentedTmplPath: oTmpl.Name(), ImptMap: importmap}
 
 			if err := g.Generate(v.descriptor); err != nil {
 				t.Fatalf("Generate(%s) produced an error: %v", v.descriptor, err)
@@ -99,7 +99,7 @@ func TestGenerator_GenerateErrors(t *testing.T) {
 		}
 	}()
 
-	g := Generator{OIntface: file.Name()}
+	g := Generator{OutInterfacePath: file.Name()}
 	err = g.Generate("testdata/error_template.descriptor_set")
 	if err == nil {
 		t.Fatalf("Generate(%s) should have produced an error", "testdata/error_template.descriptor_set")
