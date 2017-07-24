@@ -24,13 +24,20 @@ import (
 )
 
 type (
-	AccessLogsBuilder struct{ adapter.Builder }
-	AppLogsBuilder    struct{ adapter.Builder }
-	AttrBuilder       struct{ adapter.Builder }
-	DenialsBuilder    struct{ adapter.Builder }
-	ListBuilder       struct{ adapter.Builder }
-	MetricBuilder     struct{ adapter.Builder }
-	QuotaBuilder      struct{ adapter.Builder }
+	// AccessLogsBuilder implements adapter.AccessLogBuilder
+	AccessLogsBuilder struct{ adapter.DefaultBuilder }
+	// AppLogsBuilder implements adapter.ApplicationLogsBuilder
+	AppLogsBuilder struct{ adapter.DefaultBuilder }
+	// AttrBuilder implements adapter.AttributeGeneratorBuilder
+	AttrBuilder struct{ adapter.DefaultBuilder }
+	// DenialsBuilder implements adapter.DenialsBuilder
+	DenialsBuilder struct{ adapter.DefaultBuilder }
+	// ListBuilder implements adapter.ListsBuilder
+	ListBuilder struct{ adapter.DefaultBuilder }
+	// MetricBuilder implements adapter.MetricsBuilder
+	MetricBuilder struct{ adapter.DefaultBuilder }
+	// QuotaBuilder implements adapter.QuotasBuilder
+	QuotaBuilder struct{ adapter.DefaultBuilder }
 
 	accessLogsAspect struct{}
 	appLogsAspect    struct{}
@@ -43,15 +50,16 @@ type (
 
 // Register registers the no-op adapter as every aspect.
 func Register(r adapter.Registrar) {
-	r.RegisterAccessLogsBuilder(AccessLogsBuilder{})
-	r.RegisterApplicationLogsBuilder(AppLogsBuilder{})
-	r.RegisterAttributesGeneratorBuilder(AttrBuilder{})
-	r.RegisterDenialsBuilder(DenialsBuilder{})
-	r.RegisterListsBuilder(ListBuilder{})
-	r.RegisterMetricsBuilder(MetricBuilder{})
-	r.RegisterQuotasBuilder(QuotaBuilder{})
+	r.RegisterAccessLogsBuilder(AccessLogsBuilder{adapter.NewDefaultBuilder("noop access", "", nil)})
+	r.RegisterApplicationLogsBuilder(AppLogsBuilder{adapter.NewDefaultBuilder("noop application", "", nil)})
+	r.RegisterAttributesGeneratorBuilder(AttrBuilder{adapter.NewDefaultBuilder("noop attr gen", "", nil)})
+	r.RegisterDenialsBuilder(DenialsBuilder{adapter.NewDefaultBuilder("noop denials", "", nil)})
+	r.RegisterListsBuilder(ListBuilder{adapter.NewDefaultBuilder("noop lists", "", nil)})
+	r.RegisterMetricsBuilder(MetricBuilder{adapter.NewDefaultBuilder("noop metrics", "", nil)})
+	r.RegisterQuotasBuilder(QuotaBuilder{adapter.NewDefaultBuilder("noop quotas", "", nil)})
 }
 
+// BuildAttributesGenerator creates an adapter.AttributesGenerator instance
 func (AttrBuilder) BuildAttributesGenerator(adapter.Env, adapter.Config) (adapter.AttributesGenerator, error) {
 	return &attrAspect{}, nil
 }
@@ -60,36 +68,42 @@ func (attrAspect) Generate(map[string]interface{}) (map[string]interface{}, erro
 }
 func (attrAspect) Close() error { return nil }
 
+// NewAccessLogsAspect creates an adapter.AccessLogsAspect instance
 func (AccessLogsBuilder) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
 	return &accessLogsAspect{}, nil
 }
 func (accessLogsAspect) LogAccess([]adapter.LogEntry) error { return nil }
 func (accessLogsAspect) Close() error                       { return nil }
 
+// NewApplicationLogsAspect creates an adapter.ApplicationLogsAspect instance
 func (AppLogsBuilder) NewApplicationLogsAspect(adapter.Env, adapter.Config) (adapter.ApplicationLogsAspect, error) {
 	return &appLogsAspect{}, nil
 }
 func (appLogsAspect) Log([]adapter.LogEntry) error { return nil }
 func (appLogsAspect) Close() error                 { return nil }
 
+// NewDenialsAspect creates an adapter.DenialsAspect instance
 func (DenialsBuilder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
 	return &denialsAspect{}, nil
 }
 func (denialsAspect) Deny() rpc.Status { return status.New(rpc.FAILED_PRECONDITION) }
 func (denialsAspect) Close() error     { return nil }
 
+// NewListsAspect creates an adapter.ListsAspect instance
 func (ListBuilder) NewListsAspect(adapter.Env, adapter.Config) (adapter.ListsAspect, error) {
 	return &listAspect{}, nil
 }
 func (listAspect) CheckList(symbol string) (bool, error) { return false, nil }
 func (listAspect) Close() error                          { return nil }
 
+// NewMetricsAspect creates an adapter.MetricsAspect instance
 func (MetricBuilder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return &metricAspect{}, nil
 }
 func (metricAspect) Record([]adapter.Value) error { return nil }
 func (metricAspect) Close() error                 { return nil }
 
+// NewQuotasAspect creates an adapter.QuotasAspect instance
 func (QuotaBuilder) NewQuotasAspect(env adapter.Env, c adapter.Config, quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return &quotaAspect{}, nil
 }

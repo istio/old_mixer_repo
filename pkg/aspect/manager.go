@@ -32,6 +32,8 @@ import (
 )
 
 type (
+	// CreateAspectFunc represents a function capable of returning an aspect instance.
+	// It accepts optional params that may be required for some aspects (Metrics, Quotas).
 	CreateAspectFunc func(env adapter.Env, c adapter.Config, optional ...interface{}) (adapter.Aspect, error)
 
 	// Manager is responsible for a specific aspect and presents a uniform interface
