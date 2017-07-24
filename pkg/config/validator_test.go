@@ -1089,7 +1089,7 @@ action_rules:
 			2,
 			map[string]*pb.Constructor{},
 			map[string]*HandlerBuilderInfo{},
-			[]string{"handler not specified or is invalid", "Instance 'RequestCountByService' is not defined"},
+			[]string{"handler not specified or is invalid", "instance 'RequestCountByService' is not defined"},
 			0,
 			evaluator,
 		},
