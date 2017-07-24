@@ -55,7 +55,7 @@ func newMetricsManager() ReportManager {
 	return &metricsManager{}
 }
 
-func (m *metricsManager) NewReportExecutor(c *cpb.Combined, createAdapater CreateAspectFunc, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
+func (m *metricsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	metadata := make(map[string]*metricInfo)
@@ -71,7 +71,7 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, createAdapater Creat
 			labels:     metric.Labels,
 		}
 	}
-	out, err := createAdapater(env, c.Builder.Params.(adapter.Config), defs)
+	out, err := createAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v': %v", c, err)
 	}

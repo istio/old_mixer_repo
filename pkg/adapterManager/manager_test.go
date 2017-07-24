@@ -162,7 +162,8 @@ func (m *fakePreprocessMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakePreprocessMgr) NewPreprocessExecutor(c *cpb.Combined, _ aspect.CreateAspectFunc, e adapter.Env, _ descriptor.Finder) (aspect.PreprocessExecutor, error) {
+func (m *fakePreprocessMgr) NewPreprocessExecutor(
+	c *cpb.Combined, _ aspect.CreateAspectFunc, e adapter.Env, _ descriptor.Finder) (aspect.PreprocessExecutor, error) {
 	m.called++
 	if m.pe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -175,7 +176,8 @@ func (m *fakeCheckAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeCheckAspectMgr) NewCheckExecutor(cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
+func (m *fakeCheckAspectMgr) NewCheckExecutor(
+	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
 	m.called++
 	if m.ce == nil {
 		return nil, errors.New("unable to create aspect")
@@ -188,7 +190,8 @@ func (m *fakeReportAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeReportAspectMgr) NewReportExecutor(cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.ReportExecutor, error) {
+func (m *fakeReportAspectMgr) NewReportExecutor(
+	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.ReportExecutor, error) {
 	m.called++
 	if m.re == nil {
 		return nil, errors.New("unable to create aspect")
@@ -201,7 +204,8 @@ func (m *fakeQuotaAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeQuotaAspectMgr) NewQuotaExecutor(cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.QuotaExecutor, error) {
+func (m *fakeQuotaAspectMgr) NewQuotaExecutor(
+	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.QuotaExecutor, error) {
 	m.called++
 	if m.qe == nil {
 		return nil, errors.New("unable to create aspect")

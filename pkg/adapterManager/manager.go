@@ -492,7 +492,8 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 }
 
 // cacheGet gets an aspect executor from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *cpb.Combined, mgr aspect.Manager, createAspect aspect.CreateAspectFunc, df descriptor.Finder) (executor aspect.Executor, err error) {
+func (m *Manager) cacheGet(
+	cfg *cpb.Combined, mgr aspect.Manager, createAspect aspect.CreateAspectFunc, df descriptor.Finder) (executor aspect.Executor, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err
