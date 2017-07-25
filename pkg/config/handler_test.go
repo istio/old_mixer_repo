@@ -43,14 +43,14 @@ func newFakeTmplRepo(err error, result proto.Message) tmpl.Repository {
 
 func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
-		InferTypeFn: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
+		InferType: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
 			return t.typeResult, t.err
 		},
-		CnstrDefConfig: nil,
+		CtrCfg: nil,
 	}, t.exists
 }
 
-func (t fakeTmplRepo) DoesBuilderSupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+func (t fakeTmplRepo) SupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
 	// always succeed
 	return true, ""
 }
@@ -68,7 +68,7 @@ func newFakeTmplRepo2(retErr error, cnfgTypePanicsForTmpl string, trackInstances
 }
 func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
-		ConfigureTypeFn: func(types map[string]proto.Message, builder *config.HandlerBuilder) error {
+		ConfigureType: func(types map[string]proto.Message, builder *config.HandlerBuilder) error {
 			instances := make([]string, 0)
 			for instance := range types {
 				instances = append(instances, instance)
@@ -82,7 +82,7 @@ func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	}, true
 }
 
-func (t fakeTmplRepo2) DoesBuilderSupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+func (t fakeTmplRepo2) SupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
 	// always succeed
 	return true, ""
 }

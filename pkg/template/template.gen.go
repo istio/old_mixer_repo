@@ -25,11 +25,11 @@ import (
 var (
 	TemplateInfos = map[string]Info{
 		sample_report.TemplateName: {
-			InferTypeFn:       inferTypeForSampleReport,
-			CnstrDefConfig:    &sample_report.ConstructorParam{},
-			ConfigureTypeFn:   configureTypeForSampleReport,
-			SupportsBuilderFn: supportsSampleReportBuilder,
-			BuilderName:       "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
+			InferType:        inferTypeForSampleReport,
+			CtrCfg:           &sample_report.ConstructorParam{},
+			ConfigureType:    configureTypeForSampleReport,
+			SupportsTemplate: supportsSampleReportBuilder,
+			BldrName:         "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
 		},
 	}
 )

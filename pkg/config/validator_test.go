@@ -978,13 +978,13 @@ func (t fakeTemplateRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	}
 	if v, ok := t.templateConstructorParamMap[template]; ok {
 		return tmpl.Info{
-			CnstrDefConfig: v,
+			CtrCfg: v,
 		}, true
 	}
 	return tmpl.Info{}, false
 }
 
-func (t fakeTemplateRepo) DoesBuilderSupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+func (t fakeTemplateRepo) SupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
 	// always succeed
 	return true, ""
 }

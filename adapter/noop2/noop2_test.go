@@ -24,7 +24,7 @@ import (
 
 func TestRegisterationForTemplates(t *testing.T) {
 	handlers := config.BuilderInfoMap([]adapter.GetBuilderInfoFn{GetBuilderInfo},
-		template.NewTemplateRepository(template.TemplateInfos).DoesBuilderSupportsTemplate)
+		template.NewRepository(template.TemplateInfos).SupportsTemplate)
 	bi := GetBuilderInfo()
 	name := bi.Name
 	resultNoop2BuilderInfo := handlers[name]

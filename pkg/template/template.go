@@ -27,7 +27,7 @@ type (
 	// Repository defines all the helper functions to access the generated template specific types and fields.
 	Repository interface {
 		GetTemplateInfo(template string) (Info, bool)
-		DoesBuilderSupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string)
+		SupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string)
 	}
 	// TypeEvalFn evaluates an expression and returns the ValueType for the expression.
 	TypeEvalFn func(string) (pb.ValueType, error)
@@ -35,38 +35,38 @@ type (
 	InferTypeFn func(proto.Message, TypeEvalFn) (proto.Message, error)
 	// ConfigureTypeFn dispatches the inferred types to handlers
 	ConfigureTypeFn func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error
-	// SupportsBuilderFn check if the handlerBuilder supports template.
-	SupportsBuilderFn func(hndlrBuilder adptConfig.HandlerBuilder) bool
+	// SupportsTemplateFn check if the handlerBuilder supports template.
+	SupportsTemplateFn func(hndlrBuilder adptConfig.HandlerBuilder) bool
 	// Info contains all the information related a template like
 	// Default constructor params, type inference method etc.
 	Info struct {
-		CnstrDefConfig    proto.Message
-		InferTypeFn       InferTypeFn
-		ConfigureTypeFn   ConfigureTypeFn
-		SupportsBuilderFn SupportsBuilderFn
-		BuilderName       string
+		CtrCfg           proto.Message
+		InferType        InferTypeFn
+		ConfigureType    ConfigureTypeFn
+		SupportsTemplate SupportsTemplateFn
+		BldrName         string
 	}
 	// templateRepo implements Repository
-	templateRepo struct {
-		templateInfos map[string]Info
+	repo struct {
+		infos map[string]Info
 
 		allSupportedTmpls  []string
 		tmplToBuilderNames map[string]string
 	}
 )
 
-func (t templateRepo) GetTemplateInfo(template string) (Info, bool) {
-	if v, ok := t.templateInfos[template]; ok {
+func (t repo) GetTemplateInfo(template string) (Info, bool) {
+	if v, ok := t.infos[template]; ok {
 		return v, true
 	}
 	return Info{}, false
 }
 
-// NewTemplateRepository returns an implementation of Repository
-func NewTemplateRepository(templateInfos map[string]Info) Repository {
+// NewRepository returns an implementation of Repository
+func NewRepository(templateInfos map[string]Info) Repository {
 	if templateInfos == nil {
-		return templateRepo{
-			templateInfos:      make(map[string]Info),
+		return repo{
+			infos:              make(map[string]Info),
 			allSupportedTmpls:  make([]string, 0),
 			tmplToBuilderNames: make(map[string]string),
 		}
@@ -77,18 +77,18 @@ func NewTemplateRepository(templateInfos map[string]Info) Repository {
 
 	for t, v := range templateInfos {
 		allSupportedTmpls = append(allSupportedTmpls, t)
-		tmplToBuilderNames[t] = v.BuilderName
+		tmplToBuilderNames[t] = v.BldrName
 	}
-	return templateRepo{templateInfos: templateInfos, tmplToBuilderNames: tmplToBuilderNames, allSupportedTmpls: allSupportedTmpls}
+	return repo{infos: templateInfos, tmplToBuilderNames: tmplToBuilderNames, allSupportedTmpls: allSupportedTmpls}
 }
 
-func (t templateRepo) DoesBuilderSupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string) {
+func (t repo) SupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string) {
 	i, ok := t.GetTemplateInfo(tmpl)
 	if !ok {
 		return false, fmt.Sprintf("Supported template %v is not one of the allowed supported templates %v", tmpl, t.allSupportedTmpls)
 	}
 
-	if b := i.SupportsBuilderFn(hndlrBuilder); !b {
+	if b := i.SupportsTemplate(hndlrBuilder); !b {
 		return false, fmt.Sprintf("HandlerBuilder does not implement interface %s. "+
 			"Therefore, it cannot support template %v", t.tmplToBuilderNames[tmpl], tmpl)
 	}

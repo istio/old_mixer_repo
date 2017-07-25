@@ -229,7 +229,7 @@ func NewAPI(version string, port uint16, tc expr.TypeChecker, aspectFinder Aspec
 		store:    store,
 		readBody: ioutil.ReadAll,
 		validate: func(cfg map[string]string) (*Validated, descriptor.Finder, *adapter.ConfigErrors) {
-			r := newRegistry2(getBuilderInfoFns, repository.DoesBuilderSupportsTemplate)
+			r := newRegistry2(getBuilderInfoFns, repository.SupportsTemplate)
 			v := newValidator(aspectFinder, builderFinder, r.FindBuilderInfo, SetupHandlers, repository, findAspects, true, tc)
 			rt, ce := v.validate(cfg)
 			return rt, v.descriptorFinder, ce

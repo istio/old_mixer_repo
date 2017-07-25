@@ -23,7 +23,7 @@ import (
 )
 
 func getSupportedTemplateInfos() template.Repository {
-	return template.NewTemplateRepository(template.TemplateInfos)
+	return template.NewRepository(template.TemplateInfos)
 }
 
 func main() {
