@@ -23,14 +23,21 @@ import (
 )
 
 var (
-	templateInfos = map[string]Info{
+	TemplateInfos = map[string]Info{
 		sample_report.TemplateName: {
-			InferTypeFn:     inferTypeForSampleReport,
-			CnstrDefConfig:  &sample_report.ConstructorParam{},
-			ConfigureTypeFn: configureTypeForSampleReport,
+			InferTypeFn:       inferTypeForSampleReport,
+			CnstrDefConfig:    &sample_report.ConstructorParam{},
+			ConfigureTypeFn:   configureTypeForSampleReport,
+			SupportsBuilderFn: supportsSampleReportBuilder,
+			BuilderName:       "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
 		},
 	}
 )
+
+func supportsSampleReportBuilder(hndlrBuilder adptConfig.HandlerBuilder) bool {
+	_, ok := hndlrBuilder.(sample_report.SampleProcessorBuilder)
+	return ok
+}
 
 func inferTypeForSampleReport(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 	var err error

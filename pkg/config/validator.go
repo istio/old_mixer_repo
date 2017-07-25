@@ -159,14 +159,14 @@ type (
 		handlerBuilder     *config.HandlerBuilder
 		isBroken           bool
 		handlerCnfg        *pb.Handler
-		supportedTemplates []adapter.SupportedTemplates
+		supportedTemplates []string
 	}
 
 	// HandlerInfo stores validated and configured Handlers.
 	HandlerInfo struct {
 		instance       *config.Handler
 		adapterName    string
-		supportedTmpls []adapter.SupportedTemplates
+		supportedTmpls []string
 	}
 )
 
@@ -460,9 +460,9 @@ func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.Co
 	return ce
 }
 
-func containsTmpl(s []adapter.SupportedTemplates, e string) bool {
+func containsTmpl(s []string, e string) bool {
 	for _, a := range s {
-		if a == adapter.SupportedTemplates(e) {
+		if a == e {
 			return true
 		}
 	}

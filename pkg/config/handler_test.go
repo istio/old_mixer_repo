@@ -40,6 +40,7 @@ type fakeTmplRepo struct {
 func newFakeTmplRepo(err error, result proto.Message) tmpl.Repository {
 	return fakeTmplRepo{err: err, typeResult: result, exists: true}
 }
+
 func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
 		InferTypeFn: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
@@ -47,6 +48,11 @@ func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 		},
 		CnstrDefConfig: nil,
 	}, t.exists
+}
+
+func (t fakeTmplRepo) DoesBuilderSupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+	// always succeed
+	return true, ""
 }
 
 type instancesPerCall [][]string
@@ -74,6 +80,11 @@ func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 			return t.err
 		},
 	}, true
+}
+
+func (t fakeTmplRepo2) DoesBuilderSupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+	// always succeed
+	return true, ""
 }
 
 func TestDispatchToHandlers(t *testing.T) {

@@ -16,28 +16,61 @@ package template
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
-	sample_report "istio.io/mixer/template/sample/report"
+	"istio.io/mixer/pkg/adapter/config"
 )
 
 func TestGetTemplateInfo(t *testing.T) {
 	for _, tst := range []struct {
-		template string
-		expected Info
-		present  bool
+		tmplToFind   string
+		allTmplInfos map[string]Info
+		expected     Info
+		present      bool
 	}{
-		{sample_report.TemplateName, Info{&sample_report.ConstructorParam{}, inferTypeForSampleReport, configureTypeForSampleReport}, true},
-		{"unknown template", Info{}, false},
+		{"ValidTmpl", map[string]Info{"ValidTmpl": {BuilderName: "FooTmplBuilder"}},
+			Info{BuilderName: "FooTmplBuilder"}, true},
+		{"unknown template", nil, Info{}, false},
 	} {
-		t.Run(tst.template, func(t *testing.T) {
-			tdf := templateRepo{}
-			k, rpresent := tdf.GetTemplateInfo(tst.template)
+		t.Run(tst.tmplToFind, func(t *testing.T) {
+			tdf := NewTemplateRepository(tst.allTmplInfos)
+			k, rpresent := tdf.GetTemplateInfo(tst.tmplToFind)
 			if rpresent != tst.present ||
 				!reflect.DeepEqual(k.CnstrDefConfig, tst.expected.CnstrDefConfig) ||
 				!reflect.DeepEqual(reflect.TypeOf(k.InferTypeFn), reflect.TypeOf(tst.expected.InferTypeFn)) {
-				t.Errorf("got GetConstructorDefaultConfig(%s) = {%v,%v,%v}, want {%v,%v,%v}", tst.template, k.CnstrDefConfig, reflect.TypeOf(k.InferTypeFn), rpresent,
+				t.Errorf("got GetConstructorDefaultConfig(%s) = {%v,%v,%v}, want {%v,%v,%v}", tst.tmplToFind,
+					k.CnstrDefConfig, reflect.TypeOf(k.InferTypeFn), rpresent,
 					tst.expected.CnstrDefConfig, reflect.TypeOf(tst.expected.InferTypeFn), tst.present)
+			}
+		})
+	}
+}
+
+func TestDoesBuilderSupportsTemplate(t *testing.T) {
+	for _, tst := range []struct {
+		tmplToCheck  string
+		allTmplInfos map[string]Info
+		expectedErr  string
+	}{
+		{"ValidTmpl", map[string]Info{"ValidTmpl": {BuilderName: "ValidTmplBuilder",
+			SupportsBuilderFn: func(h config.HandlerBuilder) bool { return true }}}, ""},
+		{"unknown template", nil, "is not one of the allowed supported templates"},
+		{"interface_not_implemented", map[string]Info{"interface_not_implemented": {BuilderName: "interface_not_implementedBuilder",
+			SupportsBuilderFn: func(h config.HandlerBuilder) bool { return false }}},
+			"does not implement interface interface_not_implementedBuilder"},
+	} {
+		t.Run(tst.tmplToCheck, func(t *testing.T) {
+			tdf := NewTemplateRepository(tst.allTmplInfos)
+			actualSuccess, cerr := tdf.DoesBuilderSupportsTemplate(nil, tst.tmplToCheck)
+			expectSuccess := tst.expectedErr == ""
+			if expectSuccess != actualSuccess {
+				t.Fatalf("got DoesBuilderSupportsTemplate(%s) = %t, expect %t", tst.tmplToCheck, actualSuccess,
+					expectSuccess)
+			}
+			if !strings.Contains(cerr, tst.expectedErr) {
+				t.Errorf("got error for DoesBuilderSupportsTemplate(%s) = '%s', want string containing '%s'",
+					tst.tmplToCheck, cerr, tst.expectedErr)
 			}
 		})
 	}
