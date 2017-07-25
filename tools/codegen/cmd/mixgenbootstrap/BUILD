@@ -8,6 +8,7 @@ go_binary(
         "main.go",
     ],
     deps = [
+        "//tools/codegen/pkg/bootstrapgen:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],
 )

@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"istio.io/mixer/tools/codegen/pkg/bootstrapgen"
 )
 
 func withArgs(args []string, errorf func(format string, a ...interface{})) {
@@ -37,7 +39,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			" the required Go file that mixer framework will be compiled with to add support for the pass in templates.",
 		Long: "Each of the input <File descriptor set protobuf> must contain a proto file that defines the template.\n" +
 			"This code generator is meant to be used for creating a new mixer build. The output file suppose to be integrated \n" +
-			"in the mixers build system.\n" +
+			"in the mixer's build system.\n" +
 			"Example: mixgenbootstrap metricTemplateFileDescriptorSet.pb quotaTemplateFileDescriptorSet.pb quotaTemplateFileDescriptorSet.pb -o template.gen.go",
 		Run: func(cmd *cobra.Command, args []string) {
 
@@ -54,7 +56,11 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 				m := strings.Split(maps, ":")
 				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
-			fmt.Println(outFileFullPath, importMapping, args)
+
+			generator := bootstrapgen.Generator{OutFilePath: outFileFullPath, ImportMapping: importMapping}
+			if err := generator.Generate(args); err != nil {
+				errorf("%v", err)
+			}
 		},
 	}
 
