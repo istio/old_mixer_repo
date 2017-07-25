@@ -27,7 +27,7 @@ type Generator struct {
 
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
-func (g *Generator) Generate(fdsFiles []string) error {
+func (g *Generator) Generate(_ []string) error {
 
 	// TODO Complete the imlementation here.. Next PR.
 	// ..
@@ -36,7 +36,7 @@ func (g *Generator) Generate(fdsFiles []string) error {
 	if err != nil {
 		return err
 	}
-	defer f1.Close()
+	defer func() { _ = f1.Close() }()
 	if _, err = f1.Write([]byte{}); err != nil {
 		_ = f1.Close()
 		_ = os.Remove(f1.Name())
