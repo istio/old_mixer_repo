@@ -83,7 +83,7 @@ func NewTemplateRepository(templateInfos map[string]Info) Repository {
 }
 
 func (t templateRepo) DoesBuilderSupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string) {
-	i, ok := t.GetTemplateInfo(string(tmpl))
+	i, ok := t.GetTemplateInfo(tmpl)
 	if !ok {
 		return false, fmt.Sprintf("Supported template %v is not one of the allowed supported templates %v", tmpl, t.allSupportedTmpls)
 	}
