@@ -31,6 +31,8 @@ import (
 const (
 	keyTargetService = "target.service"
 	keyServiceDomain = "svc.cluster.local"
+
+	loopDelay = time.Millisecond * 50
 )
 
 type mtest struct {
@@ -83,7 +85,6 @@ func TestConfigManager(t *testing.T) {
 	}
 	for idx, mt := range mlist {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
-			loopDelay := time.Millisecond * 50
 			vf := newVfinder(mt.ada, mt.asp, mt.hbi)
 			store := newFakeStore(mt.gcContent, mt.scContent)
 			if mt.errStr != "" {
@@ -91,13 +92,12 @@ func TestConfigManager(t *testing.T) {
 			}
 			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, nil, vf.AdapterToAspectMapperFunc,
 				template.NewTemplateRepository(nil), store, loopDelay, keyTargetService, keyServiceDomain)
-			testConfigManager(t, ma, mt, loopDelay)
+			testConfigManager(t, ma, mt)
 		})
 	}
 }
 
 func TestManager_FetchError(t *testing.T) {
-	loopDelay := time.Millisecond * 50
 	errStr := "TestManager_FetchError"
 	store := newFakeStore("{}", "{}")
 	mgr := NewManager(nil, nil, nil, nil, nil,
@@ -108,7 +108,7 @@ func TestManager_FetchError(t *testing.T) {
 		return nil, nil, ce
 	}
 
-	testConfigManager(t, mgr, mtest{errStr: errStr}, loopDelay)
+	testConfigManager(t, mgr, mtest{errStr: errStr})
 
 }
 
@@ -136,7 +136,7 @@ func TestManager_readdb(t *testing.T) {
 	}
 }
 
-func testConfigManager(t *testing.T, mgr *Manager, mt mtest, loopDelay time.Duration) {
+func testConfigManager(t *testing.T, mgr *Manager, mt mtest) {
 	fl := &fakelistener{}
 	mgr.Register(fl)
 
