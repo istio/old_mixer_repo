@@ -66,7 +66,7 @@ func fakeValidateSupportedTmpl(hndlrBuilder config.HandlerBuilder, t string) (bo
 func TestRegisterSampleProcessor(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
 	reg := newRegistry2([]adapter.GetBuilderInfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
-		template.NewRepository(template.TemplateInfos).SupportsTemplate)
+		template.NewRepository(template.SupportedTmplInfo).SupportsTemplate)
 
 	builderInfo, ok := reg.FindBuilderInfo(testBuilderInfoInventory.name)
 	if !ok {
@@ -189,7 +189,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 	}()
 
 	_ = newRegistry2([]adapter.GetBuilderInfoFn{
-		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(template.TemplateInfos).SupportsTemplate,
+		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(template.SupportedTmplInfo).SupportsTemplate,
 	)
 
 	t.Error("Should not reach this statement due to panic.")

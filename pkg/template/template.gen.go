@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	TemplateInfos = map[string]Info{
+	SupportedTmplInfo = map[string]Info{
 		sample_report.TemplateName: {
 			InferType:        inferTypeForSampleReport,
 			CtrCfg:           &sample_report.ConstructorParam{},

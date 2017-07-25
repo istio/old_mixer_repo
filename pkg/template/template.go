@@ -48,7 +48,7 @@ type (
 	}
 	// templateRepo implements Repository
 	repo struct {
-		infos map[string]Info
+		info map[string]Info
 
 		allSupportedTmpls  []string
 		tmplToBuilderNames map[string]string
@@ -56,7 +56,7 @@ type (
 )
 
 func (t repo) GetTemplateInfo(template string) (Info, bool) {
-	if v, ok := t.infos[template]; ok {
+	if v, ok := t.info[template]; ok {
 		return v, true
 	}
 	return Info{}, false
@@ -66,7 +66,7 @@ func (t repo) GetTemplateInfo(template string) (Info, bool) {
 func NewRepository(templateInfos map[string]Info) Repository {
 	if templateInfos == nil {
 		return repo{
-			infos:              make(map[string]Info),
+			info:               make(map[string]Info),
 			allSupportedTmpls:  make([]string, 0),
 			tmplToBuilderNames: make(map[string]string),
 		}
@@ -79,7 +79,7 @@ func NewRepository(templateInfos map[string]Info) Repository {
 		allSupportedTmpls = append(allSupportedTmpls, t)
 		tmplToBuilderNames[t] = v.BldrName
 	}
-	return repo{infos: templateInfos, tmplToBuilderNames: tmplToBuilderNames, allSupportedTmpls: allSupportedTmpls}
+	return repo{info: templateInfos, tmplToBuilderNames: tmplToBuilderNames, allSupportedTmpls: allSupportedTmpls}
 }
 
 func (t repo) SupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string) {

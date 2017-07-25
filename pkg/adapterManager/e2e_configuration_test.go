@@ -164,7 +164,7 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 	}
 
 	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, []adapter.GetBuilderInfoFn{GetFakeHndlrBuilderInfo},
-		adapterMgr.SupportedKinds, template.NewRepository(template.TemplateInfos), store,
+		adapterMgr.SupportedKinds, template.NewRepository(template.SupportedTmplInfo), store,
 		loopDelay,
 		identityAttribute, identityDomainAttribute)
 	cnfgMgr.Register(adapterMgr)
