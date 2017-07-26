@@ -14,10 +14,6 @@
 
 package bootstrapgen
 
-import (
-	"os"
-)
-
 // Generator creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
 type Generator struct {
@@ -32,16 +28,16 @@ func (g *Generator) Generate(_ []string) error {
 	// TODO Complete the imlementation here.. Next PR.
 	// ..
 
-	f1, err := os.Create(g.OutFilePath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = f1.Close() }()
-	if _, err = f1.Write([]byte{}); err != nil {
-		_ = f1.Close()
-		_ = os.Remove(f1.Name())
-		return err
-	}
+	//f1, err := os.Create(g.OutFilePath)
+	//if err != nil {
+	//	return err
+	//}
+	//defer func() { _ = f1.Close() }()
+	//if _, err = f1.Write([]byte{}); err != nil {
+	//	_ = f1.Close()
+	//	_ = os.Remove(f1.Name())
+	//	return err
+	//}
 
 	return nil
 }
