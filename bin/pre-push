@@ -29,5 +29,4 @@ if ! [[ -f WORKSPACE ]]; then
 fi
 
 bazel test --features=race //...
-# bin/racetest.sh
 bin/linters.sh
