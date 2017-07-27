@@ -121,7 +121,13 @@ func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, templateProt
 				templateProto.getLineNumber(getPathForField(tmplDesc, i)),
 				err.Error())
 		}
-		m.TemplateMessage.Fields = append(m.TemplateMessage.Fields, fieldInfo{Name: fieldName, GoName: camelCase(fieldName), GoType: parser.goType(tmplDesc.DescriptorProto, fieldDesc), Type: typename, Number: strconv.FormatInt(int64(fieldDesc.GetNumber()), 10)})
+		m.TemplateMessage.Fields = append(m.TemplateMessage.Fields, fieldInfo{
+			Name: fieldName,
+			GoName: camelCase(fieldName),
+			GoType: parser.goType(tmplDesc.DescriptorProto, fieldDesc),
+			Type: typename,
+			Number: strconv.FormatInt(int64(fieldDesc.GetNumber()), 10),
+		})
 	}
 }
 
