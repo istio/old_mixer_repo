@@ -8,4 +8,5 @@ go_library(
         "interface.go",
         "templateproto.go",
     ],
+    visibility = ["//visibility:public"],
 )
