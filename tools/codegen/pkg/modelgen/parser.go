@@ -102,8 +102,8 @@ type Object interface {
 }
 
 // CreateFileDescriptorSetParser builds a FileDescriptorSetParser instance.
-func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string) (*FileDescriptorSetParser, error) {
-	parser := &FileDescriptorSetParser{ImportMap: importMap}
+func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string, packageImportPath string) (*FileDescriptorSetParser, error) {
+	parser := &FileDescriptorSetParser{ImportMap: importMap, PackageImportPath: packageImportPath}
 	parser.WrapTypes(fds)
 	parser.BuildTypeNameMap()
 	return parser, nil
