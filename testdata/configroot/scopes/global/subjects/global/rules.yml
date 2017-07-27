@@ -9,10 +9,9 @@ rules:
   - kind: attributes
     params:
       input_expressions:
-        sourceUID: source.uid | ""
-        targetUID: target.uid | ""
-        originUID: origin.uid | ""
-        targetService: target.service | request.headers["authority"] | request.host | ""
+        sourceUID: source.uid
+        targetUID: target.uid
+        originUID: origin.uid
       attribute_bindings:
         source.ip: sourcePodIp
         source.labels: sourceLabels
