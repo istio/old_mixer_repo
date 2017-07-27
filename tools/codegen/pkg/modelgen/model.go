@@ -64,7 +64,7 @@ func Create(parser *FileDescriptorSetParser) (*Model, error) {
 
 	templateProto, diags := getTmplFileDesc(parser.allFiles)
 	if len(diags) != 0 {
-		return nil, createError(diags)
+		return nil, createGoError(diags)
 	}
 
 	// set the current generated code package to the package of the
@@ -76,13 +76,13 @@ func Create(parser *FileDescriptorSetParser) (*Model, error) {
 
 	model.fillModel(templateProto, parser)
 	if len(model.diags) > 0 {
-		return nil, createError(model.diags)
+		return nil, createGoError(model.diags)
 	}
 
 	return model, nil
 }
 
-func createError(diags []diag) error {
+func createGoError(diags []diag) error {
 	return fmt.Errorf("errors during parsing:\n%s", stringifyDiags(diags))
 }
 
@@ -92,7 +92,7 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 
 	m.addTopLevelFields(templateProto)
 	// ensure Template is present
-	if tmplDesc, ok := getRequiredMsg(templateProto, "Template"); !ok {
+	if tmplDesc, ok := getRequiredTmplMsg(templateProto); !ok {
 		m.addError(templateProto.GetName(), unknownLine, "message 'Template' not defined")
 	} else {
 		m.addTemplateMessage(parser, templateProto, tmplDesc)
@@ -122,10 +122,10 @@ func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, templateProt
 				err.Error())
 		}
 		m.TemplateMessage.Fields = append(m.TemplateMessage.Fields, fieldInfo{
-			Name: fieldName,
+			Name:   fieldName,
 			GoName: camelCase(fieldName),
 			GoType: parser.goType(tmplDesc.DescriptorProto, fieldDesc),
-			Type: typename,
+			Type:   typename,
 			Number: strconv.FormatInt(int64(fieldDesc.GetNumber()), 10),
 		})
 	}
@@ -144,14 +144,14 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 		}
 
 		if !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateName) || !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateVariety) {
-			diags = append(diags, createDiag(errorDiag, fd.GetName(), unknownLine,
+			diags = append(diags, createError(fd.GetName(), unknownLine,
 				"Contains only one of the following two options %s and %s. Both options are required.",
 				[]interface{}{tmpl.E_TemplateVariety.Name, tmpl.E_TemplateName.Name}))
 			continue
 		}
 
 		if templateDescriptorProto != nil {
-			diags = append(diags, createDiag(errorDiag, fd.GetName(), unknownLine,
+			diags = append(diags, createError(fd.GetName(), unknownLine,
 				"Proto files %s and %s, both have the options %s and %s. Only one proto file is allowed with those options",
 				[]interface{}{fd.GetName(), templateDescriptorProto.Name, tmpl.E_TemplateVariety.Name, tmpl.E_TemplateName.Name}))
 			continue
@@ -161,7 +161,7 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 	}
 
 	if templateDescriptorProto == nil {
-		diags = append(diags, createDiag(errorDiag, unknownFile, unknownLine, "There has to be one proto file that has both extensions %s and %s",
+		diags = append(diags, createError(unknownFile, unknownLine, "There has to be one proto file that has both extensions %s and %s",
 			[]interface{}{tmpl.E_TemplateVariety.Name, tmpl.E_TemplateVariety.Name}))
 	}
 
@@ -207,10 +207,10 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 }
 
-func getRequiredMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
+func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {
 	var cstrDesc *Descriptor
 	for _, desc := range fdp.desc {
-		if desc.GetName() == msgName {
+		if desc.GetName() == "Template" {
 			cstrDesc = desc
 			break
 		}

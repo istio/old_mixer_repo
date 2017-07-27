@@ -118,7 +118,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	defer f1.Close()
+	defer func() { _ = f1.Close() }()
 
 	if _, err = f1.Write(imptd); err != nil {
 		_ = f1.Close()
@@ -130,7 +130,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	defer f2.Close()
+	defer func() { _ = f2.Close() }()
 	if _, err = f2.Write(tmplBuf.Bytes()); err != nil {
 		_ = f2.Close()
 		_ = os.Remove(f2.Name())

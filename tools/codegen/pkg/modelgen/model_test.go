@@ -82,18 +82,19 @@ func TestTypeFields(t *testing.T) {
 	if len(model.TemplateMessage.Fields) != 3 {
 		t.Fatalf("len(CreateModel(%s).TypeMessage.Fields) = %v, wanted %d", testFilename, len(model.TemplateMessage.Fields), 3)
 	}
-	testField(t, testFilename, model.TemplateMessage.Fields,
+	testField(t, model.TemplateMessage.Fields,
 		"blacklist", "bool", "Blacklist", "bool")
-	testField(t, testFilename, model.TemplateMessage.Fields,
+	testField(t, model.TemplateMessage.Fields,
 		"val", "istio.mixer.v1.config.descriptor.ValueType", "Val",
 		"istio_mixer_v1_config_descriptor.ValueType")
-	testField(t, testFilename, model.TemplateMessage.Fields,
+	testField(t, model.TemplateMessage.Fields,
 		"dimensions", "map<string, istio.mixer.v1.config.descriptor.ValueType>",
 		"Dimensions", "map[string]istio_mixer_v1_config_descriptor.ValueType")
 }
 
-func testField(t *testing.T, testFilename string, fields []fieldInfo, protoFldName string, protoFldType string,
+func testField(t *testing.T, fields []fieldInfo, protoFldName string, protoFldType string,
 	goFldName string, goFldType string) {
+	testFilename := "testdata/simple_template.descriptor_set"
 	found := false
 	for _, cf := range fields {
 		if cf.Name == protoFldName {
