@@ -81,16 +81,16 @@ type AspectDispatcher interface {
 
 	// Preprocess dispatches to the set of aspects that will run before any
 	// other aspects in Mixer (aka: the Check, Report, Quota aspects).
-	Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status
+	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
 
 	// Check dispatches to the set of aspects associated with the Check API method
-	Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
+	Check(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
 
 	// Report dispatches to the set of aspects associated with the Report API method
-	Report(ctx context.Context, requestBag *attribute.MutableBag) rpc.Status
+	Report(ctx context.Context, requestBag attribute.Bag) rpc.Status
 
 	// Quota dispatches to the set of aspects associated with the Quota API method
-	Quota(ctx context.Context, requestBag *attribute.MutableBag,
+	Quota(ctx context.Context, requestBag attribute.Bag,
 		qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status)
 }
 
@@ -164,16 +164,16 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 	return mg
 }
 
-func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 			cw := executor.(aspect.CheckExecutor)
 			return cw.Execute(requestBag, evaluator)
 		})
 }
 
 // Check dispatches to the set of aspects associated with the Check API method
-func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) Check(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 	configs, err := m.loadConfigs(requestBag, m.checkKindSet, false, true /* fail if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
@@ -182,16 +182,16 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 	return m.dispatchCheck(ctx, configs, requestBag, responseBag)
 }
 
-func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag attribute.Bag) rpc.Status {
 	return m.dispatch(ctx, requestBag, nil, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, _ *attribute.MutableBag) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag attribute.Bag, _ *attribute.MutableBag) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
 		})
 }
 
 // Report dispatches to the set of aspects associated with the Report API method
-func (m *Manager) Report(ctx context.Context, requestBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) Report(ctx context.Context, requestBag attribute.Bag) rpc.Status {
 	configs, err := m.loadConfigs(requestBag, m.reportKindSet, false, false /* carry on if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
@@ -202,7 +202,7 @@ func (m *Manager) Report(ctx context.Context, requestBag *attribute.MutableBag) 
 }
 
 // Quota dispatches to the set of aspects associated with the Quota API method
-func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag,
+func (m *Manager) Quota(ctx context.Context, requestBag attribute.Bag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	configs, err := m.loadConfigs(requestBag, m.quotaKindSet, false, true /* fail if unable to eval all selectors */)
@@ -214,7 +214,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag,
 	var qmr *aspect.QuotaMethodResp
 
 	o := m.dispatch(ctx, requestBag, nil, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, _ *attribute.MutableBag) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag attribute.Bag, _ *attribute.MutableBag) rpc.Status {
 			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
 			o, qmr = qw.Execute(requestBag, evaluator, qma)
@@ -246,7 +246,7 @@ func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreproce
 
 // Preprocess dispatches to the set of aspects that must run before any other
 // configured aspects.
-func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 	// We may be missing attributes used in selectors, so we must be non-strict during evaluation.
 	configs, err := m.loadConfigs(requestBag, m.preprocessKindSet, true, false)
 	if err != nil {
@@ -254,7 +254,7 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 		return status.WithError(err)
 	}
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, eval expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+		func(executor aspect.Executor, eval expr.Evaluator, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 			ppw := executor.(aspect.PreprocessExecutor)
 			result, rpcStatus := ppw.Execute(requestBag, eval)
 			if status.IsOK(rpcStatus) {
@@ -267,10 +267,10 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 		})
 }
 
-type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status
+type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
 
 // runAsync runs a given invokeFunc thru scheduler.
-func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
+func (m *Manager) runAsync(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag,
 	cfg *cpb.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
 	df, _ := m.df.Load().(descriptor.Finder)
 	m.gp.ScheduleWork(func() {
@@ -310,7 +310,8 @@ func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribu
 }
 
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
-func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
+func (m *Manager) dispatch(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag,
+	cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
 	numCfgs := len(cfgs)
 
 	// TODO: consider implementing a fast path when there is only a single config.
@@ -331,7 +332,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 			child = responseBag.Child()
 		}
 
-		m.runAsync(ctx, requestBag.Child(), child, cfgs[idx], invokeFunc, resultChan)
+		m.runAsync(ctx, requestBag, child, cfgs[idx], invokeFunc, resultChan)
 	}
 
 	requestBag = nil
@@ -403,7 +404,7 @@ type result struct {
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag, responseBag *attribute.MutableBag,
+func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
 	df descriptor.Finder, invokeFunc invokeExecutorFunc) (out rpc.Status) {
 	var mgr aspect.Manager
 	var found bool
