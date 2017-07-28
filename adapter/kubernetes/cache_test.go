@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -171,7 +172,7 @@ func TestClusterInfoCache(t *testing.T) {
 		{"Run", func(c *controllerImpl, informer *fakeInformer) {
 			informer.SetSynced(true)
 			c.mutationsChan <- resourceMutation{kind: addition, obj: &v1.Pod{
-				ObjectMeta: v1.ObjectMeta{Name: "pod", Namespace: "ns"},
+				ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "ns"},
 			}}
 			c.mutationsChan <- resourceMutation{kind: update, obj: v1.Pod{}}
 		}},

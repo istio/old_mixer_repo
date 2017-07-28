@@ -275,7 +275,7 @@ new_go_repository(
 
 new_go_repository(
     name = "io_k8s_apimachinery",
-    commit = "20e10d54608f05c3059443a6c0afb9979641e88d",
+    commit = "20e10d54608f05c3059443a6c0afb9979641e88d",  # Mar 31, 2017 (pre 1.6)
     importpath = "k8s.io/apimachinery",
 )
 
