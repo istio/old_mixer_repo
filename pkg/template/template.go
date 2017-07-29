@@ -18,9 +18,14 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	rpc "github.com/googleapis/googleapis/google/rpc"
+	multierror "github.com/hashicorp/go-multierror"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/pkg/adapter"
 	adptConfig "istio.io/mixer/pkg/adapter/config"
+	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
 )
 
 type (
@@ -35,6 +40,17 @@ type (
 	InferTypeFn func(proto.Message, TypeEvalFn) (proto.Message, error)
 	// ConfigureTypeFn dispatches the inferred types to handlers
 	ConfigureTypeFn func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error
+
+	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
+	ProcessReportFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status
+
+	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
+	ProcessCheckFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status
+
+	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.
+	ProcessQuotaFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
+		args adapter.QuotaRequestArgs) (rpc.Status, adapter.QuotaResult)
+
 	// SupportsTemplateFn check if the handlerBuilder supports template.
 	SupportsTemplateFn func(hndlrBuilder adptConfig.HandlerBuilder) bool
 	// Info contains all the information related a template like
@@ -45,6 +61,9 @@ type (
 		ConfigureType    ConfigureTypeFn
 		SupportsTemplate SupportsTemplateFn
 		BldrName         string
+		ProcessReport    ProcessReportFn
+		ProcessCheck     ProcessCheckFn
+		ProcessQuota     ProcessQuotaFn
 	}
 	// templateRepo implements Repository
 	repo struct {
@@ -94,4 +113,18 @@ func (t repo) SupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl stri
 	}
 
 	return true, ""
+}
+
+func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
+	result := &multierror.Error{}
+	labels := make(map[string]interface{}, len(expressions))
+	for label, texpr := range expressions {
+		val, err := eval.Eval(texpr, attrs)
+		if err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s': %v", label, err))
+			continue
+		}
+		labels[label] = val
+	}
+	return labels, result.ErrorOrNil()
 }

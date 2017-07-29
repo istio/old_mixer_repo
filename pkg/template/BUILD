@@ -11,12 +11,16 @@ go_library(
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/config:go_default_library",
+        "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
+        "//pkg/status:go_default_library",
         "//template/sample/check:go_default_library",
         "//template/sample/quota:go_default_library",
         "//template/sample/report:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",
     ],
 )
