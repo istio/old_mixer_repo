@@ -18,14 +18,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/googleapis/gax-go"
-	xcontext "golang.org/x/net/context"
 	gapiopts "google.golang.org/api/option"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -35,6 +32,14 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
 )
+
+type fakebuf struct {
+	buf []*monitoringpb.TimeSeries
+}
+
+func (f *fakebuf) Record(in []*monitoringpb.TimeSeries) {
+	f.buf = append(f.buf, in...)
+}
 
 var clientFunc = func(err error) createClientFunc {
 	return func(cfg *config.Params) (*monitoring.MetricClient, error) {
@@ -190,6 +195,7 @@ func TestRecord(t *testing.T) {
 			{
 				Definition:  &adapter.MetricDefinition{Name: "gauge", Value: adapter.Int64},
 				MetricValue: int64(7),
+				StartTime:   now,
 				EndTime:     now,
 				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
 			},
@@ -200,7 +206,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_GAUGE,
 				ValueType:  metricpb.MetricDescriptor_INT64,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
 					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_Int64Value{Int64Value: int64(7)}},
 				}},
 			},
@@ -209,6 +215,7 @@ func TestRecord(t *testing.T) {
 			{
 				Definition:  &adapter.MetricDefinition{Name: "cumulative", Value: adapter.String},
 				MetricValue: "s",
+				StartTime:   now,
 				EndTime:     now,
 				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
 			},
@@ -219,7 +226,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_STRING,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
 					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: "s"}},
 				}},
 			},
@@ -228,6 +235,7 @@ func TestRecord(t *testing.T) {
 			{
 				Definition:  &adapter.MetricDefinition{Name: "delta", Value: adapter.Bool},
 				MetricValue: true,
+				StartTime:   now,
 				EndTime:     now,
 				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
 			},
@@ -238,7 +246,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_DELTA,
 				ValueType:  metricpb.MetricDescriptor_BOOL,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
 					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: true}},
 				}},
 			},
@@ -247,57 +255,20 @@ func TestRecord(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			s := &sd{metricInfo: info, m: sync.Mutex{}, projectID: projectID, env: test.NewEnv(t)}
+			buf := &fakebuf{}
+			s := &sd{metricInfo: info, projectID: projectID, client: buf, l: test.NewEnv(t).Logger()}
 			_ = s.Record(tt.vals)
 
-			if len(s.toSend) != len(tt.expected) {
-				t.Errorf("Want %d values to send, got %d", len(tt.expected), len(s.toSend))
+			if len(buf.buf) != len(tt.expected) {
+				t.Errorf("Want %d values to send, got %d", len(tt.expected), len(buf.buf))
 			}
 			for _, expected := range tt.expected {
 				found := false
-				for _, actual := range s.toSend {
+				for _, actual := range buf.buf {
 					found = found || reflect.DeepEqual(expected, actual)
 				}
 				if !found {
-					t.Errorf("Want timeseries %v, but not present: %v", expected, s.toSend)
-				}
-			}
-		})
-	}
-}
-
-func TestPushData(t *testing.T) {
-	mkfunc := func(f func() error) pushFunc {
-		return func(ctx xcontext.Context, req *monitoringpb.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
-			return f()
-		}
-	}
-
-	tests := []struct {
-		name         string
-		toSend       []*monitoringpb.TimeSeries
-		push         pushFunc
-		expectedLogs []string // we don't have a good handle into error cases other than logs
-	}{
-		{"no data", []*monitoringpb.TimeSeries{}, mkfunc(func() error { panic("") }), []string{"No data to send"}},
-		{"push err", []*monitoringpb.TimeSeries{{}}, mkfunc(func() error { return fmt.Errorf("expected") }), []string{"expected"}},
-		{"happy path", []*monitoringpb.TimeSeries{{}}, mkfunc(func() error { return nil }), []string{"1 timeseries"}},
-	}
-
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			env := test.NewEnv(t)
-			s := &sd{pushMetrics: tt.push, toSend: tt.toSend, env: env, projectID: "pid"}
-			s.pushData()
-
-			logs := env.GetLogs()
-			for _, expected := range tt.expectedLogs {
-				found := false
-				for _, actual := range logs {
-					found = found || strings.Contains(actual, expected)
-				}
-				if !found {
-					t.Errorf("Want log '%s', got: %v", expected, logs)
+					t.Errorf("Want timeseries %v, but not present: %v", expected, buf.buf)
 				}
 			}
 		})

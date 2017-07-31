@@ -34,10 +34,8 @@ message Params {
     string project_id = 2;
 
     // This adapter batches the data it sends to Stackdriver; we will push to stackdriver every push_interval.
-    // If no value is provided we default to once per second.
+    // If no value is provided we default to once per minute.
     google.protobuf.Duration push_interval = 3 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
-
-    message GoogleApplicationCredentials {}
 
     // Credentials must be attached to every call made to StackDriver. This
     // can be an API key, a service account secret key, or Oauth2 tokens.
@@ -48,7 +46,7 @@ message Params {
         // by the StackDriver SDK.
         //
         // [See Google's documentation](https://developers.google.com/identity/protocols/application-default-credentials).
-        GoogleApplicationCredentials app_credentials = 4;
+        bool app_credentials = 4;
 
         // The API Key to be used for auth.
         string api_key = 5;

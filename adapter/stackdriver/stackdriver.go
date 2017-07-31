@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stackdriver
+package stackdriver // import "istio.io/mixer/adapter/stackdriver"
 
 import (
 	"context"
@@ -38,6 +38,9 @@ import (
 // TODO: change batching to be size aware: right now we batch and send data to stackdriver based on only a ticker.
 // Ideally we'd also size our buffer and send data whenever we hit the size limit or config.push_interval time has passed
 // since the last push.
+// TODO: today we start a ticker per aspect instance, each keeping an independent data set it pushes to SD. This needs to
+// be promoted up to the factory, which will hold a buffer that all aspects write in to, with a single ticker/loop responsible
+// for pushing the data from all aspect instances.
 
 type (
 
@@ -47,6 +50,11 @@ type (
 	factory struct {
 		adapter.DefaultBuilder
 		createClient createClientFunc
+
+		// buffered and t are initialized by once during NewMetricsAspect (we need the config in hand to create them)
+		once     sync.Once
+		buffered *buffered
+		t        *time.Ticker
 	}
 
 	sdinfo struct {
@@ -59,18 +67,11 @@ type (
 	pushFunc func(ctx xcontext.Context, req *monitoringpb.CreateTimeSeriesRequest, opts ...gax.CallOption) error
 
 	sd struct {
-		// TODO: remove when env is request scoped
-		env adapter.Env // used for logging
+		l adapter.Logger
 
-		projectID   string
-		metricInfo  map[string]sdinfo
-		client      *monitoring.MetricClient
-		pushMetrics pushFunc
-		// Stackdriver's SDK doesn't perform batching, though their API supports it.
-		// We'll roll our own batching by aggregating timeseries and periodically sending them to Stackdriver.
-		t      *time.Ticker // we hold on to a ref so we can stop it during Close()
-		m      sync.Mutex   // guards toSend
-		toSend []*monitoringpb.TimeSeries
+		projectID  string
+		metricInfo map[string]sdinfo
+		client     bufferedClient
 	}
 )
 
@@ -90,9 +91,9 @@ var (
 		adapter.String:       labelpb.LabelDescriptor_STRING,
 		adapter.Int64:        labelpb.LabelDescriptor_INT64,
 		adapter.Float64:      labelpb.LabelDescriptor_INT64,
+		adapter.Time:         labelpb.LabelDescriptor_INT64,
+		adapter.Duration:     labelpb.LabelDescriptor_INT64,
 		adapter.Bool:         labelpb.LabelDescriptor_BOOL,
-		adapter.Time:         labelpb.LabelDescriptor_STRING,
-		adapter.Duration:     labelpb.LabelDescriptor_STRING,
 		adapter.IPAddress:    labelpb.LabelDescriptor_STRING,
 		adapter.EmailAddress: labelpb.LabelDescriptor_STRING,
 		adapter.URI:          labelpb.LabelDescriptor_STRING,
@@ -106,11 +107,14 @@ func Register(r adapter.Registrar) {
 	r.RegisterMetricsBuilder(newFactory(createClient))
 }
 
-func newFactory(createClient createClientFunc) factory {
-	return factory{DefaultBuilder: adapter.NewDefaultBuilder(adapterName, adapterDesc, &config.Params{}), createClient: createClient}
+func newFactory(createClient createClientFunc) *factory {
+	return &factory{DefaultBuilder: adapter.NewDefaultBuilder(adapterName, adapterDesc, &config.Params{}), createClient: createClient}
 }
 
-func (f factory) Close() error { return nil }
+func (f *factory) Close() error {
+	f.t.Stop()
+	return nil
+}
 
 func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
 	return monitoring.NewMetricClient(context.Background(), toOpts(cfg)...)
@@ -133,7 +137,7 @@ func toOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 }
 
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
-func (f factory) NewMetricsAspect(env adapter.Env, c adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (f *factory) NewMetricsAspect(env adapter.Env, c adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	cfg := c.(*config.Params)
 	types := make(map[string]sdinfo, len(metrics))
 	for name, def := range metrics {
@@ -150,42 +154,42 @@ func (f factory) NewMetricsAspect(env adapter.Env, c adapter.Config, metrics map
 		}
 	}
 
-	// Per the documentation on config.proto, if push_interval is zero we'll default to a 1s push interval
+	// Per the documentation on config.proto, if push_interval is zero we'll default to a 1 minute push interval
 	if cfg.PushInterval == time.Duration(0) {
-		cfg.PushInterval = 1 * time.Second
+		cfg.PushInterval = 1 * time.Minute
 	}
 
 	var err error
-	var client *monitoring.MetricClient
-	// TODO: in theory this client could live in the factory and be shared amongst many adapter instances
-	if client, err = f.createClient(cfg); err != nil {
-		return nil, env.Logger().Errorf("Failed to construct stackdriver client: %v", err)
+	f.once.Do(func() {
+		var client *monitoring.MetricClient
+		if client, err = f.createClient(cfg); err != nil {
+			return
+		}
+		f.buffered = &buffered{
+			pushMetrics: client.CreateTimeSeries,
+			project:     cfg.ProjectId,
+			m:           sync.Mutex{},
+			l:           env.Logger(),
+		}
+		// We hold on to the ref to the ticker so we can stop it later
+		f.t = time.NewTicker(cfg.PushInterval)
+		f.buffered.start(env, f.t)
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	s := &sd{
-		env:         env,
-		projectID:   cfg.ProjectId,
-		client:      client,
-		pushMetrics: client.CreateTimeSeries,
-		metricInfo:  types,
-		t:           time.NewTicker(cfg.PushInterval),
-		m:           sync.Mutex{},
+		l:          env.Logger(),
+		projectID:  cfg.ProjectId,
+		client:     f.buffered,
+		metricInfo: types,
 	}
-	s.startTicker(env)
 	return s, nil
 }
 
-// Extracted from NewMetricsAspect for testing - it shouldn't be possible to get an Env any other time.
-func (s *sd) startTicker(env adapter.Env) {
-	env.ScheduleDaemon(func() {
-		for range s.t.C {
-			s.pushData()
-		}
-	})
-}
-
 func (s *sd) Record(vals []adapter.Value) error {
-	s.env.Logger().Infof("stackdriver.Record called with %d vals", len(vals))
+	s.l.Infof("stackdriver.Record called with %d vals", len(vals))
 
 	// TODO: len(vals) is constant for config lifetime, consider pooling
 	data := make([]*monitoringpb.TimeSeries, 0, len(vals))
@@ -193,10 +197,13 @@ func (s *sd) Record(vals []adapter.Value) error {
 		info, found := s.metricInfo[val.Definition.Name]
 		if !found {
 			// We weren't configured with stackdriver data about this metric, so we don't know how to publish it.
-			s.env.Logger().Infof("Skipping metric %s due to not being configured with stackdriver info about it.", val.Definition.Name)
+			if s.l.VerbosityLevel(4) {
+				s.l.Warningf("Skipping metric %s due to not being configured with stackdriver info about it.", val.Definition.Name)
+			}
 			continue
 		}
 
+		start, _ := ptypes.TimestampProto(val.StartTime)
 		end, _ := ptypes.TimestampProto(val.EndTime)
 		data = append(data, &monitoringpb.TimeSeries{
 			Metric: &metricpb.Metric{
@@ -216,56 +223,18 @@ func (s *sd) Record(vals []adapter.Value) error {
 			// the documentation on the `points` field: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
 			Points: []*monitoringpb.Point{{
 				Interval: &monitoringpb.TimeInterval{
-					// StartTime is only used for DELTA metrics; all of our metrics are custom so
-					// start time can only cause errors. Plus the API defaults to setting StartTime = EndTime
-					// if no StartTime is provided: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeInterval
-					EndTime: end,
+					StartTime: start,
+					EndTime:   end,
 				},
 				Value: toTypedVal(val.MetricValue, val.Definition.Value)},
 			},
 		})
 	}
-	s.m.Lock()
-	s.toSend = append(s.toSend, data...)
-	s.m.Unlock()
+	s.client.Record(data)
 	return nil
 }
 
-func (s *sd) pushData() {
-	l := s.env.Logger()
-
-	l.Infof("Pushing data to Stackdriver")
-	s.m.Lock()
-	if len(s.toSend) == 0 {
-		s.m.Unlock()
-		l.Infof("No data to send to Stackdriver")
-		return
-	}
-	// Take the ref to the data we're pushing and create a new one to be written in to. We assume it'll be similarly
-	// sized to the last one.
-	// TODO: evaluate just swapping between two arrays (old, new) rather than creating new ones. Could run into
-	// problems if latency is high (> cfg.PushInterval) due to sending a lot of data in one go. Otherwise, maybe pool things
-	toSend := s.toSend
-	s.toSend = make([]*monitoringpb.TimeSeries, 0, len(toSend))
-	s.m.Unlock()
-	l.Infof("Pushing %d timeseries to stackdriver", len(toSend))
-
-	err := s.pushMetrics(context.Background(),
-		&monitoringpb.CreateTimeSeriesRequest{
-			Name:       monitoring.MetricProjectPath(s.projectID),
-			TimeSeries: toSend,
-		})
-
-	// TODO: this is executed in a daemon, so we can't get out info about errors other than logging.
-	// We need to build framework level support for these kinds of async tasks. Perhaps a generic batching adapter
-	// can handle some of this complexity?
-	l.Infof("Stackdriver returned: %v", err)
-}
-
-func (s *sd) Close() error {
-	s.t.Stop()
-	return s.client.Close()
-}
+func (s *sd) Close() error { return nil }
 
 func toStringMap(in map[string]interface{}) map[string]string {
 	out := make(map[string]string, len(in))
@@ -280,9 +249,14 @@ func toTypedVal(val interface{}, t adapter.LabelType) *monitoringpb.TypedValue {
 	case labelpb.LabelDescriptor_BOOL:
 		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: val.(bool)}}
 	case labelpb.LabelDescriptor_INT64:
+		if t, ok := val.(time.Time); ok {
+			val = t.Nanosecond() / int(time.Microsecond)
+		} else if d, ok := val.(time.Duration); ok {
+			val = d.Nanoseconds() / int64(time.Microsecond)
+		}
 		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_Int64Value{Int64Value: val.(int64)}}
 	case labelpb.LabelDescriptor_STRING:
-		fallthrough
+		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: val.(string)}}
 	default:
 		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: fmt.Sprintf("%v", val)}}
 	}
