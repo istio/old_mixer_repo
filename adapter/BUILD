@@ -11,6 +11,7 @@ go_library(
     library = ":inventory_lib",  # keep
     visibility = ["//visibility:public"],
     deps = [
+        "//adapter/circonus:go_default_library",
         "//adapter/denyChecker:go_default_library",
         "//adapter/genericListChecker:go_default_library",
         "//adapter/ipListChecker:go_default_library",
