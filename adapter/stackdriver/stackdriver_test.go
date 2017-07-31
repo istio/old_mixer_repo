@@ -190,6 +190,7 @@ func TestRecord(t *testing.T) {
 			{
 				Definition:  &adapter.MetricDefinition{Name: "gauge", Value: adapter.Int64},
 				MetricValue: int64(7),
+				StartTime:   now,
 				EndTime:     now,
 				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
 			},
@@ -200,7 +201,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_GAUGE,
 				ValueType:  metricpb.MetricDescriptor_INT64,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
 					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_Int64Value{Int64Value: int64(7)}},
 				}},
 			},
@@ -209,6 +210,7 @@ func TestRecord(t *testing.T) {
 			{
 				Definition:  &adapter.MetricDefinition{Name: "cumulative", Value: adapter.String},
 				MetricValue: "s",
+				StartTime:   now,
 				EndTime:     now,
 				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
 			},
@@ -219,7 +221,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_STRING,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
 					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: "s"}},
 				}},
 			},
@@ -228,6 +230,7 @@ func TestRecord(t *testing.T) {
 			{
 				Definition:  &adapter.MetricDefinition{Name: "delta", Value: adapter.Bool},
 				MetricValue: true,
+				StartTime:   now,
 				EndTime:     now,
 				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
 			},
@@ -238,7 +241,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_DELTA,
 				ValueType:  metricpb.MetricDescriptor_BOOL,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
 					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: true}},
 				}},
 			},
