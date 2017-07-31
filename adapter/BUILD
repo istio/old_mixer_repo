@@ -12,6 +12,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/denier:go_default_library",
+        "//adapter/circonus:go_default_library",
         "//adapter/denyChecker:go_default_library",
         "//adapter/genericListChecker:go_default_library",
         "//adapter/ipListChecker:go_default_library",
