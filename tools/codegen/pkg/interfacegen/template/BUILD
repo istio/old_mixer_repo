@@ -1,4 +1,4 @@
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//tools/codegen/pkg/interfacegen:__pkg__"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
@@ -8,5 +8,4 @@ go_library(
         "interface.go",
         "templateproto.go",
     ],
-    visibility = ["//visibility:public"],
 )
