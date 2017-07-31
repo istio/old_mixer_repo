@@ -1,4 +1,4 @@
-## Copyright 2016 Istio Authors
+## Copyright 2017 Istio Authors
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -12,23 +12,32 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+SHELL := /bin/bash
+
+.PHONY: build
 build:
-	@bazel build ...:all
+	@bazel build //...
 
+.PHONY: clean
 clean:
-	@bazel clean
+	@bazel clean //...
 
+.PHONY: test
 test:
-	@bazel test ...
+	@bazel test //...
 
+.PHONY: lint
 lint: build
 	@bin/linters.sh
 
+.PHONY: fmt
 fmt:
 	@bin/fmt.sh
 
+.PHONY: coverage
 coverage:
 	@bin/codecov.sh
 
+.PHONY: racetest
 racetest:
 	@bin/racetest.sh
