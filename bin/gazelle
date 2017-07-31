@@ -11,7 +11,6 @@ if ! gazelle --help 2>&1 | grep build_file_name >/dev/null; then
     go get -u github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
 fi
 
-
 gazelle \
     -go_prefix istio.io/mixer \
     -build_file_name BUILD
