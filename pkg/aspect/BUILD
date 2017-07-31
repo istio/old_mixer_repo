@@ -20,6 +20,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
+        "//pkg/adapter/config:go_default_library",
         "//pkg/aspect/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config:go_default_library",
@@ -53,6 +54,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
+        "//adapter/noop:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
         "//pkg/aspect/config:go_default_library",
