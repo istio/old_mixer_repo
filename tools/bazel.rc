@@ -3,6 +3,3 @@ test --test_size_filters=-large,-enormous
 
 # Always include the version information in the build
 build --workspace_status_command=./bin/build_stamp.sh --action_env=ISTIO_VERSION
-
-# Ensure binaries built using static linking mode
-build --output_groups=static
