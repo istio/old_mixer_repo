@@ -197,6 +197,7 @@ func (s *sd) Record(vals []adapter.Value) error {
 			continue
 		}
 
+		start, _ := ptypes.TimestampProto(val.StartTime)
 		end, _ := ptypes.TimestampProto(val.EndTime)
 		data = append(data, &monitoringpb.TimeSeries{
 			Metric: &metricpb.Metric{
@@ -216,10 +217,8 @@ func (s *sd) Record(vals []adapter.Value) error {
 			// the documentation on the `points` field: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
 			Points: []*monitoringpb.Point{{
 				Interval: &monitoringpb.TimeInterval{
-					// StartTime is only used for DELTA metrics; all of our metrics are custom so
-					// start time can only cause errors. Plus the API defaults to setting StartTime = EndTime
-					// if no StartTime is provided: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeInterval
-					EndTime: end,
+					StartTime: start,
+					EndTime:   end,
 				},
 				Value: toTypedVal(val.MetricValue, val.Definition.Value)},
 			},
@@ -249,6 +248,9 @@ func (s *sd) pushData() {
 	s.toSend = make([]*monitoringpb.TimeSeries, 0, len(toSend))
 	s.m.Unlock()
 	l.Infof("Pushing %d timeseries to stackdriver", len(toSend))
+
+	// Mutates the TimeSeries to ensure no times collide in this batch for DELTA metric series.
+	toSend = massageTimes(toSend)
 
 	err := s.pushMetrics(context.Background(),
 		&monitoringpb.CreateTimeSeriesRequest{
