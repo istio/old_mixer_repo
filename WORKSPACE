@@ -60,9 +60,11 @@ go_repository(
     importpath = "github.com/gogo/protobuf",
 )
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
-
-gogo_proto_repositories()
+go_repository(
+    name = "org_golang_google_grpc",
+    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
+    importpath = "google.golang.org/grpc",
+)
 
 git_repository(
     name = "com_github_grpc_grpc",
@@ -147,12 +149,6 @@ new_git_repository(
     build_file_content = GOOGLEAPIS_BUILD_FILE,
     commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15",  # Oct 21, 2016 (only release pre-dates sha)
     remote = "https://github.com/googleapis/googleapis.git",
-)
-
-go_repository(
-    name = "org_golang_google_grpc",
-    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
-    importpath = "google.golang.org/grpc",
 )
 
 go_repository(
@@ -299,8 +295,7 @@ go_repository(
     importpath = "github.com/bsm/redeo",
 )
 
-<<<<<<< HEAD
-new_go_repository(
+go_repository(
     name = "io_k8s_api",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
@@ -308,7 +303,7 @@ new_go_repository(
     importpath = "k8s.io/api",
 )
 
-new_go_repository(
+go_repository(
     name = "io_k8s_apimachinery",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
@@ -316,10 +311,7 @@ new_go_repository(
     importpath = "k8s.io/apimachinery",
 )
 
-new_go_repository(
-=======
 go_repository(
->>>>>>> Update rules_go and use added race-detection feature
     name = "io_k8s_client_go",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
