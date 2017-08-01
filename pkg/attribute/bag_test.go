@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -564,6 +565,119 @@ func TestMessageDictEdge(t *testing.T) {
 
 	if s != "N2" {
 		t.Errorf("Expecting to get N2, got %s", s)
+	}
+}
+
+func TestDoubleStrings(t *testing.T) {
+	globalWordList := []string{"HELLO"}
+	globalDict := map[string]int32{globalWordList[0]: 0}
+	messageWordList := []string{"HELLO", "GOOD", "BAD"}
+
+	attrs := mixerpb.Attributes{
+		Words:   messageWordList,
+		Strings: map[int32]int32{0: -3, -1: -2},
+	}
+
+	for i := 0; i < 2; i++ {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var b Bag
+
+			if i == 0 {
+				b = NewProtoBag(&attrs, globalDict, globalWordList)
+			} else {
+				var err error
+				b, err = GetBagFromProto(&attrs, globalWordList)
+				if err != nil {
+					t.Error("Expecting success, got %v", err)
+				}
+			}
+
+			v, ok := b.Get("HELLO")
+			if !ok {
+				t.Error("Expecting true, got false")
+			}
+
+			s, ok := v.(string)
+			if !ok {
+				t.Errorf("Expecting to get a string, got %v", v)
+			}
+
+			if s != "GOOD" {
+				t.Errorf("Expecting GOOD got %s", s)
+			}
+		})
+	}
+}
+
+func TestReferenceTracking(t *testing.T) {
+	globalWordList := []string{"G0", "G1", "G2"}
+	globalDict := map[string]int32{globalWordList[0]: 0, globalWordList[1]: 1, globalWordList[2]: 2}
+	messageWordList := []string{"N1", "N2", "N3"}
+
+	attrs := mixerpb.Attributes{
+		Words: messageWordList,
+		Strings: map[int32]int32{
+			0:  0,
+			1:  0,
+			-1: 0,
+			-2: 0,
+		},
+	}
+
+	b := NewProtoBag(&attrs, globalDict, globalWordList)
+	_, _ = b.Get("G0")
+	_, _ = b.Get("N1")
+	_, _ = b.Get("G33")
+
+	cases := []struct {
+		name string
+		cond mixerpb.ReferencedAttributes_Condition
+	}{
+		{"G0", mixerpb.EXACT},
+		{"N1", mixerpb.EXACT},
+		{"G33", mixerpb.ABSENCE},
+		{"DUD", -1},
+	}
+
+	ra := b.GetReferencedAttributes()
+	if len(ra.AttributeMatches) != 3 {
+		t.Errorf("Expecting 3 matches, got %d", len(ra.AttributeMatches))
+	}
+
+	for i, c := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			found := false
+			for _, am := range ra.AttributeMatches {
+				var name string
+				index := am.Name
+				if index >= 0 {
+					name = globalWordList[index]
+				} else {
+					name = ra.Words[-index-1]
+				}
+
+				if name == c.name {
+					if c.cond != am.Condition {
+						t.Errorf("Expecting condition %d, got %d", c.cond, am.Condition)
+					}
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				if c.cond != -1 {
+					t.Errorf("Expecting to find a match for %s, did not", c.name)
+				}
+			}
+		})
+	}
+
+	b.ClearReferencedAttributes()
+
+	ra = b.GetReferencedAttributes()
+	if len(ra.AttributeMatches) != 0 {
+		t.Errorf("Expecting no attributes matches, got %d", len(ra.AttributeMatches))
 	}
 }
 

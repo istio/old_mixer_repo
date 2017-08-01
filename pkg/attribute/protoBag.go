@@ -33,14 +33,28 @@ type ProtoBag struct {
 	messageDict         map[string]int32
 	convertedStringMaps map[int32]map[string]string
 	stringMapMutex      sync.RWMutex
+
+	// to keep track of attributes that are referenced
+	referencedAttrs      map[string]mixerpb.ReferencedAttributes_Condition
+	referencedAttrsMutex sync.Mutex
 }
 
 // NewProtoBag creates a new proto-based attribute bag.
 func NewProtoBag(proto *mixerpb.Attributes, globalDict map[string]int32, globalWordList []string) *ProtoBag {
+	// build the message-level dictionary
+
+	d := make(map[string]int32, len(proto.Words))
+	for i, name := range proto.Words {
+		// indexes into the message-level dictionary are negative
+		d[name] = -int32(i) - 1
+	}
+
 	return &ProtoBag{
-		proto:          proto,
-		globalDict:     globalDict,
-		globalWordList: globalWordList,
+		proto:           proto,
+		globalDict:      globalDict,
+		globalWordList:  globalWordList,
+		messageDict:     d,
+		referencedAttrs: make(map[string]mixerpb.ReferencedAttributes_Condition, 16),
 	}
 }
 
@@ -50,9 +64,56 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 	index, ok := pb.getIndex(name)
 	if !ok {
 		// the string is not in the dictionary, and hence the attribute is not in the proto either
+		pb.trackReference(name, mixerpb.ABSENCE)
 		return nil, false
 	}
 
+	result, ok := pb.internalGet(name, index)
+	if !ok {
+		// the named attribute was not present
+		pb.trackReference(name, mixerpb.ABSENCE)
+		return nil, false
+	}
+
+	pb.trackReference(name, mixerpb.EXACT)
+	return result, ok
+}
+
+// Get the set of attributes that have been referenced through this bag.
+func (pb *ProtoBag) GetReferencedAttributes() mixerpb.ReferencedAttributes {
+	output := mixerpb.ReferencedAttributes{}
+
+	ds := newDictState(nil)
+
+	output.AttributeMatches = make([]mixerpb.ReferencedAttributes_AttributeMatch, len(pb.referencedAttrs))
+	i := 0
+	for k, v := range pb.referencedAttrs {
+		output.AttributeMatches[i] = mixerpb.ReferencedAttributes_AttributeMatch{
+			Name:      ds.getIndex(k),
+			Condition: v,
+		}
+		i++
+	}
+
+	output.Words = ds.getMessageWordList()
+
+	return output
+}
+
+// Clears the list of referenced attributes being tracked
+func (pb *ProtoBag) ClearReferencedAttributes() {
+	for k := range pb.referencedAttrs {
+		delete(pb.referencedAttrs, k)
+	}
+}
+
+func (pb *ProtoBag) trackReference(name string, condition mixerpb.ReferencedAttributes_Condition) {
+	pb.referencedAttrsMutex.Lock()
+	pb.referencedAttrs[name] = condition
+	pb.referencedAttrsMutex.Unlock()
+}
+
+func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 	strIndex, ok := pb.proto.Strings[index]
 	if ok {
 		// found the attribute, now convert its value from a dictionary index to a string
@@ -67,7 +128,7 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 
 	var value interface{}
 
-	// see if the requested attribte is a string map that's already been converted
+	// see if the requested attribute is a string map that's already been converted
 	pb.stringMapMutex.RLock()
 	value, ok = pb.convertedStringMaps[index]
 	pb.stringMapMutex.RUnlock()
@@ -133,13 +194,11 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 
 // given a string, find the corresponding dictionary index if it exists
 func (pb *ProtoBag) getIndex(str string) (int32, bool) {
-	if index, ok := pb.globalDict[str]; ok {
+	if index, ok := pb.messageDict[str]; ok {
 		return index, true
 	}
 
-	md := pb.getMessageDict()
-
-	if index, ok := md[str]; ok {
+	if index, ok := pb.globalDict[str]; ok {
 		return index, true
 	}
 
@@ -243,22 +302,4 @@ func (pb *ProtoBag) Names() []string {
 // Done indicates the bag can be reclaimed.
 func (pb *ProtoBag) Done() {
 	// NOP
-}
-
-// Lazily produce the message-level dictionary
-func (pb *ProtoBag) getMessageDict() map[string]int32 {
-	if pb.messageDict == nil {
-		// build the message-level dictionary
-
-		d := make(map[string]int32, len(pb.proto.Words))
-		for i, name := range pb.proto.Words {
-			// indexes into the message-level dictionary are negative
-			d[name] = -int32(i) - 1
-		}
-
-		// potentially racy update, but that's fine since all generate maps are equivalent
-		pb.messageDict = d
-	}
-
-	return pb.messageDict
 }
