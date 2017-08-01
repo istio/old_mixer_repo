@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/mixer/adapter/kubernetes/config"
 	"istio.io/mixer/pkg/adapter"
@@ -195,7 +195,7 @@ func TestKubegen_Close(t *testing.T) {
 func TestKubegen_Generate(t *testing.T) {
 	pods := map[string]*v1.Pod{
 		"testns/testsvc": {
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test_pod",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -212,7 +212,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/empty": {
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test_pod",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -221,7 +221,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/badapplabel": {
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test_pod",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -230,7 +230,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/alt-svc": {
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "alt-svc",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -239,7 +239,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/alt-svc-with-cluster": {
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "alt-svc-with-cluster",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -248,7 +248,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/long-svc": {
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "long-svc",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -257,7 +257,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/ipaddr-svc": {
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ipaddr-svc",
 				Namespace: "testns",
 				Labels: map[string]string{

@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -88,10 +88,10 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 
 	c.pods = cache.NewSharedIndexInformer(
 		&cache.ListWatch{
-			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				return clientset.Pods(namespace).List(opts)
 			},
-			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				return clientset.Pods(namespace).Watch(opts)
 			},
 		},
