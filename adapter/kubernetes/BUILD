@@ -8,6 +8,7 @@ go_library(
         "cache.go",
         "kubernetes.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//adapter/kubernetes/config:go_default_library",
         "//pkg/adapter:go_default_library",
@@ -23,12 +24,19 @@ go_library(
 )
 
 go_test(
-    name = "small_tests",
+    name = "go_default_test",
     size = "small",
     srcs = [
         "cache_test.go",
         "kubernetes_test.go",
     ],
     library = ":go_default_library",
-    deps = ["//pkg/adapter/test:go_default_library"],
+    deps = [
+        "//adapter/kubernetes/config:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//pkg/adapter/test:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_client_go//tools/cache:go_default_library",
+    ],
 )
