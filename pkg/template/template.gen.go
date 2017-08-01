@@ -20,12 +20,18 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/api/mixer/v1/config/descriptor"
-	adptConfig "istio.io/mixer/pkg/adapter/config"
 
 	"istio.io/mixer/template/sample/check"
 
 	"istio.io/mixer/template/sample/quota"
 
+	"fmt"
+	rpc "github.com/googleapis/googleapis/google/rpc"
+	"github.com/hashicorp/go-multierror"
+	adptConfig "istio.io/mixer/pkg/adapter/config"
+	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/sample/report"
 )
 
@@ -134,6 +140,49 @@ var (
 				}
 				return castedBuilder.ConfigureSample(castedTypes)
 			},
+			ProcessReport: func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+				result := &multierror.Error{}
+				var instances []*istio_mixer_adapter_sample_report.Instance
+
+				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_report.ConstructorParam)
+				for k, v := range allCnstrs {
+					v1 := v.(*istio_mixer_adapter_sample_report.ConstructorParam)
+					castedCnstrs[k] = v1
+				}
+
+				for name, md := range castedCnstrs {
+
+					value, err := mapper.Eval(md.Value, attrs)
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval value for constructor '%s': %v", name, err))
+						continue
+					}
+
+					dimensions, err := evalAll(md.Dimensions, attrs, mapper)
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval dimensions for constructor '%s': %v", name, err))
+						continue
+					}
+
+					instances = append(instances, &istio_mixer_adapter_sample_report.Instance{
+						Dimensions: dimensions,
+						Value:      value,
+					})
+				}
+
+				if err := handler.(istio_mixer_adapter_sample_report.SampleProcessor).ReportSample(instances); err != nil {
+					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+				}
+
+				err := result.ErrorOrNil()
+				if err != nil {
+					return status.WithError(err)
+				}
+
+				return status.OK
+			},
+			ProcessCheck: nil,
+			ProcessQuota: nil,
 		},
 	}
 )
