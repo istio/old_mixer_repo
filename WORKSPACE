@@ -371,7 +371,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_juju_ratelimit",
-    commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",
+    commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",  # May 23, 2017 (no releases)
     importpath = "github.com/juju/ratelimit",
 )
 
