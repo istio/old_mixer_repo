@@ -349,7 +349,6 @@ go_repository(
     importpath = "github.com/google/gofuzz",
 )
 
-
 go_repository(
     name = "com_github_googleapis_gnostic",
     commit = "0c5108395e2debce0d731cf0287ddf7242066aba",  # Jul 29, 2017 (no releases)
