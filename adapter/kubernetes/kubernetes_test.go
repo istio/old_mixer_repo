@@ -21,7 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	api "k8s.io/client-go/pkg/api/v1"
 
 	"istio.io/mixer/adapter/kubernetes/config"
 	"istio.io/mixer/pkg/adapter"
@@ -32,7 +33,7 @@ type fakeCache struct {
 	cacheController
 
 	getPodErr bool
-	pods      map[string]*v1.Pod
+	pods      map[string]*api.Pod
 	path      string
 }
 
@@ -44,7 +45,7 @@ func (fakeCache) Run(<-chan struct{}) {
 	// do nothing
 }
 
-func (f fakeCache) GetPod(pod string) (*v1.Pod, error) {
+func (f fakeCache) GetPod(pod string) (*api.Pod, error) {
 	if f.getPodErr {
 		return nil, errors.New("get pod error")
 	}
@@ -192,7 +193,7 @@ func TestKubegen_Close(t *testing.T) {
 }
 
 func TestKubegen_Generate(t *testing.T) {
-	pods := map[string]*v1.Pod{
+	pods := map[string]*api.Pod{
 		"testns/testsvc": {
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "test_pod",
@@ -202,11 +203,11 @@ func TestKubegen_Generate(t *testing.T) {
 					"something": "",
 				},
 			},
-			Status: v1.PodStatus{
+			Status: api.PodStatus{
 				HostIP: "10.1.1.10",
 				PodIP:  "10.10.10.1",
 			},
-			Spec: v1.PodSpec{
+			Spec: api.PodSpec{
 				ServiceAccountName: "test",
 			},
 		},

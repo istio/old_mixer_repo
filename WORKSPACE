@@ -300,8 +300,14 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "io_k8s_apimachinery",
+    commit = "20e10d54608f05c3059443a6c0afb9979641e88d",  # Mar 31, 2017 (pre 1.6)
+    importpath = "k8s.io/apimachinery",
+)
+
+new_go_repository(
     name = "io_k8s_client_go",
-    commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",  # Dec 11, 2016 (matches istio manager)
+    commit = "4e221f82e2ad6e61bd6190602de9c3400d79f1aa",  # Apr 4, 2017
     importpath = "k8s.io/client-go",
 )
 

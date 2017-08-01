@@ -20,20 +20,21 @@ import (
 	"reflect"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/mixer/pkg/adapter"
+	api "k8s.io/client-go/pkg/api/v1"
 )
 
 type (
 	// internal interface used to support testing
 	cacheController interface {
 		Run(<-chan struct{})
-		GetPod(string) (*v1.Pod, error)
+		GetPod(string) (*api.Pod, error)
 		HasSynced() bool
 	}
 
@@ -94,14 +95,14 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 				return clientset.Pods(namespace).Watch(opts)
 			},
 		},
-		&v1.Pod{},
+		&api.Pod{},
 		refreshDuration,
 		cache.Indexers{},
 	)
 
 	// debug logging for pod update events
 	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-		eventErr := c.pods.AddEventHandler(
+		c.pods.AddEventHandler(
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					c.mutationsChan <- resourceMutation{addition, obj}
@@ -116,10 +117,6 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 				},
 			},
 		)
-
-		if eventErr != nil {
-			c.env.Logger().Warningf("could not add logging event handlers: %v", eventErr)
-		}
 	}
 
 	return c
@@ -191,7 +188,7 @@ func (c *controllerImpl) log(obj interface{}, kind eventType) error {
 // GetPod returns a Pod object that corresponds to the supplied key, if one
 // exists (and is known to the store). Keys are expected in the form of:
 // namespace/name (example: "default/curl-2421989462-b2g2d.default").
-func (c *controllerImpl) GetPod(podKey string) (*v1.Pod, error) {
+func (c *controllerImpl) GetPod(podKey string) (*api.Pod, error) {
 	item, exists, err := c.pods.GetStore().GetByKey(podKey)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving pod: %v", err)
@@ -199,7 +196,7 @@ func (c *controllerImpl) GetPod(podKey string) (*v1.Pod, error) {
 	if !exists {
 		return nil, fmt.Errorf("pod '%s' does not exist", podKey)
 	}
-	return item.(*v1.Pod), nil
+	return item.(*api.Pod), nil
 }
 
 func (e eventType) String() string {
