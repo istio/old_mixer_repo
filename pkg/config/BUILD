@@ -20,6 +20,7 @@ go_library(
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/config:go_default_library",
         "//pkg/attribute:go_default_library",
+        "//pkg/config/crd:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "//pkg/config/proto:go_default_library",
         "//pkg/config/redis:go_default_library",
