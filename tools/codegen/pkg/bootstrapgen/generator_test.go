@@ -53,9 +53,9 @@ func TestGenerator_Generate(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer func() {
-				//if removeErr := os.Remove(outFile.Name()); removeErr != nil {
-				//	t.Logf("Could not remove temporary file %s: %v", outFile.Name(), removeErr)
-				//}
+				if removeErr := os.Remove(outFile.Name()); removeErr != nil {
+					t.Logf("Could not remove temporary file %s: %v", outFile.Name(), removeErr)
+				}
 			}()
 
 			g := Generator{OutFilePath: outFile.Name(), ImportMapping: importmap}
