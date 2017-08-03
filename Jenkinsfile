@@ -84,7 +84,7 @@ def postsubmit(gitUtils, bazel, utils) {
       sh('bin/codecov.sh | tee codecov.report')
       sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('MIXER_CODECOV_TOKEN')
-
+    }
     stage('Docker Push') {
       def images = 'mixer'
       def tags = env.GIT_SHA
