@@ -40,7 +40,7 @@ import (
 type fakeBadHandler struct{}
 
 func (h fakeBadHandler) Close() error                                         { return nil }
-func (h fakeBadHandler) Build(cnfg proto.Message) (adptConfig.Handler, error) { return nil, nil }
+func (h fakeBadHandler) Build(_ proto.Message) (adptConfig.Handler, error) { return nil, nil }
 
 type fakeReportHandler struct {
 	adptConfig.Handler
