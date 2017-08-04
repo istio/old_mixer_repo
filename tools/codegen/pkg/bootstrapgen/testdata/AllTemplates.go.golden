@@ -79,18 +79,18 @@ var (
 				return castedBuilder.ConfigureList(castedTypes)
 			},
 
-			ProcessCheck: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
 				var found bool
 				var err error
 
 				var instances []*istio_mixer_template_list.Instance
-				castedCnstrs := make(map[string]*istio_mixer_template_list.InstanceParam)
-				for k, v := range ctrs {
+				castedInsts := make(map[string]*istio_mixer_template_list.InstanceParam)
+				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_list.InstanceParam)
-					castedCnstrs[k] = v1
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					CheckExpression, err := mapper.Eval(md.CheckExpression, attrs)
 
@@ -159,16 +159,16 @@ var (
 				return castedBuilder.ConfigureLog(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_log.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_template_log.InstanceParam)
-				for k, v := range ctrs {
+				castedInsts := make(map[string]*istio_mixer_template_log.InstanceParam)
+				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_log.InstanceParam)
-					castedCnstrs[k] = v1
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
 
@@ -243,16 +243,16 @@ var (
 				return castedBuilder.ConfigureMetric(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_metric.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_template_metric.InstanceParam)
-				for k, v := range ctrs {
+				castedInsts := make(map[string]*istio_mixer_template_metric.InstanceParam)
+				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_metric.InstanceParam)
-					castedCnstrs[k] = v1
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					Value, err := mapper.Eval(md.Value, attrs)
 
@@ -332,16 +332,16 @@ var (
 				return castedBuilder.ConfigureQuota(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_quota.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_template_quota.InstanceParam)
-				for k, v := range ctrs {
+				castedInsts := make(map[string]*istio_mixer_template_quota.InstanceParam)
+				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_quota.InstanceParam)
-					castedCnstrs[k] = v1
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
 

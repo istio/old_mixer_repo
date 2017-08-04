@@ -75,9 +75,9 @@ func TestCheckManager_NewCheckExecutor(t *testing.T) {
 		if qe.tmplName != tmplName {
 			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).tmplName = %v; wanted %v", qe.tmplName, tmplName)
 		}
-		wantCtrs := map[string]proto.Message{instName: conf.Instances[0].Params.(proto.Message)}
-		if !reflect.DeepEqual(qe.ctrs, wantCtrs) {
-			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).ctrs = %v; wanted %v", qe.ctrs, wantCtrs)
+		wantInsts := map[string]proto.Message{instName: conf.Instances[0].Params.(proto.Message)}
+		if !reflect.DeepEqual(qe.insts, wantInsts) {
+			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).insts = %v; wanted %v", qe.insts, wantInsts)
 		}
 	}
 }
@@ -134,7 +134,7 @@ func TestCheckManager_NewCheckExecutorErrors(t *testing.T) {
 
 func TestNewCheckExecutor_Execute(t *testing.T) {
 	instName := "TestCheckInstanceName"
-	ctrs := map[string]proto.Message{
+	insts := map[string]proto.Message{
 		instName: &types.Empty{},
 	}
 
@@ -154,11 +154,11 @@ func TestNewCheckExecutor_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cProc := func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			cProc := func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
 				return tt.retStatus, adptConfig.CacheabilityInfo{}
 			}
-			e := &checkExecutor{"TestCheckTemplate", cProc, nil, ctrs}
+			e := &checkExecutor{"TestCheckTemplate", cProc, nil, insts}
 			s := e.Execute(nil, nil)
 
 			if !reflect.DeepEqual(s, tt.retStatus) {

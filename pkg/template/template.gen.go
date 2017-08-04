@@ -77,14 +77,14 @@ var (
 				return castedBuilder.ConfigureSample(castedTypes)
 			},
 
-			ProcessCheck: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
 				var found bool
 				var err error
 
 				var instances []*istio_mixer_adapter_sample_check.Instance
 				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam)
-				for k, v := range ctrs {
+				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_check.InstanceParam)
 					castedCnstrs[k] = v1
 				}
@@ -239,12 +239,12 @@ var (
 				return castedBuilder.ConfigureSample(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_adapter_sample_report.Instance
 
 				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam)
-				for k, v := range ctrs {
+				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_report.InstanceParam)
 					castedCnstrs[k] = v1
 				}

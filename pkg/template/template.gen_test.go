@@ -513,7 +513,7 @@ func TestConfigureType(t *testing.T) {
 
 type ProcessTest struct {
 	name          string
-	ctrs          map[string]proto.Message
+	insts         map[string]proto.Message
 	hdlr          adptConfig.Handler
 	wantInstance  interface{}
 	wantCache     config.CacheabilityInfo // not for report calls
@@ -525,7 +525,7 @@ func TestProcessReport(t *testing.T) {
 	for _, tst := range []ProcessTest{
 		{
 			name: "Simple",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
 				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}},
 			},
@@ -537,7 +537,7 @@ func TestProcessReport(t *testing.T) {
 		},
 		{
 			name: "EvalAllError",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "bad.attributeName"}},
 			},
 			hdlr:      &fakeReportHandler{},
@@ -545,7 +545,7 @@ func TestProcessReport(t *testing.T) {
 		},
 		{
 			name: "EvalError",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{Value: "bad.attributeName", Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeReportHandler{},
@@ -553,7 +553,7 @@ func TestProcessReport(t *testing.T) {
 		},
 		{
 			name: "ProcessError",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeReportHandler{retProcError: fmt.Errorf("error from process method")},
@@ -563,14 +563,14 @@ func TestProcessReport(t *testing.T) {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			s := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(tst.ctrs, fakeBag{}, ev, *h)
+			s := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(tst.insts, fakeBag{}, ev, *h)
 			v := (*h).(*fakeReportHandler).procCallInput.([]*sample_report.Instance)
 			if tst.wantError != "" {
 				if !strings.Contains(s.Message, tst.wantError) {
-					t.Errorf("SupportedTmplInfo[sample_report.TemplateName].ProcessReport(%v) got error = %s, want %s", tst.ctrs, s.Message, tst.wantError)
+					t.Errorf("SupportedTmplInfo[sample_report.TemplateName].ProcessReport(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
 				}
 			} else if !cmp(v, tst.wantInstance) {
-				t.Errorf("SupportedTmplInfo[sample_report.TemplateName].ProcessReport(%v) handler invoked value = %v, want %v", tst.ctrs, v, tst.wantInstance)
+				t.Errorf("SupportedTmplInfo[sample_report.TemplateName].ProcessReport(%v) handler invoked value = %v, want %v", tst.insts, v, tst.wantInstance)
 			}
 		})
 	}
@@ -580,7 +580,7 @@ func TestProcessCheck(t *testing.T) {
 	for _, tst := range []ProcessTest{
 		{
 			name: "Simple",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 				"bar": &sample_check.InstanceParam{CheckExpression: `"pqrs asd"`},
 			},
@@ -593,7 +593,7 @@ func TestProcessCheck(t *testing.T) {
 		},
 		{
 			name: "EvalError",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_check.InstanceParam{CheckExpression: `bad.attributeName`},
 			},
 			hdlr:      &fakeCheckHandler{ret: true},
@@ -601,7 +601,7 @@ func TestProcessCheck(t *testing.T) {
 		},
 		{
 			name: "ProcessError",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 			},
 			hdlr:      &fakeCheckHandler{retProcError: fmt.Errorf("error from process method")},
@@ -609,7 +609,7 @@ func TestProcessCheck(t *testing.T) {
 		},
 		{
 			name: "ProcRetFalse",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 			},
 			hdlr:      &fakeCheckHandler{ret: false},
@@ -619,17 +619,17 @@ func TestProcessCheck(t *testing.T) {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			s, cInfo := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(tst.ctrs, fakeBag{}, ev, *h)
+			s, cInfo := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(tst.insts, fakeBag{}, ev, *h)
 
 			if tst.wantError != "" {
 				if !strings.Contains(s.Message, tst.wantError) {
-					t.Errorf("SupportedTmplInfo[sample_check.TemplateName].CheckSample(%v) got error = %s, want %s", tst.ctrs, s.Message, tst.wantError)
+					t.Errorf("SupportedTmplInfo[sample_check.TemplateName].CheckSample(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
 				}
 			} else {
 				v := (*h).(*fakeCheckHandler).procCallInput
 				if !cmp(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) {
 					t.Errorf("SupportedTmplInfo[sample_check.TemplateName].CheckSample(%v) handler "+
-						"invoked value = %v,%v want %v,%v", tst.ctrs, v, cInfo, tst.wantInstance, tst.wantCache)
+						"invoked value = %v,%v want %v,%v", tst.insts, v, cInfo, tst.wantInstance, tst.wantCache)
 				}
 			}
 		})
@@ -640,7 +640,7 @@ func TestProcessQuota(t *testing.T) {
 	for _, tst := range []ProcessTest{
 		{
 			name: "Simple",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr: &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 100}, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
@@ -651,7 +651,7 @@ func TestProcessQuota(t *testing.T) {
 		},
 		{
 			name: "EvalError",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "bad.attributeName"}},
 			},
 			hdlr:      &fakeQuotaHandler{},
@@ -659,7 +659,7 @@ func TestProcessQuota(t *testing.T) {
 		},
 		{
 			name: "ProcessError",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeQuotaHandler{retProcError: fmt.Errorf("error from process method")},
@@ -667,7 +667,7 @@ func TestProcessQuota(t *testing.T) {
 		},
 		{
 			name: "AmtZero",
-			ctrs: map[string]proto.Message{
+			insts: map[string]proto.Message{
 				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 0}, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
@@ -677,17 +677,17 @@ func TestProcessQuota(t *testing.T) {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			s, cInfo, qr := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota("foo", tst.ctrs["foo"], fakeBag{}, ev, *h, adapter.QuotaRequestArgs{})
+			s, cInfo, qr := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota("foo", tst.insts["foo"], fakeBag{}, ev, *h, adapter.QuotaRequestArgs{})
 
 			if tst.wantError != "" {
 				if !strings.Contains(s.Message, tst.wantError) {
-					t.Errorf("SupportedTmplInfo[sample_quota.TemplateName].AllocQuota(%v) got error = %s, want %s", tst.ctrs, s.Message, tst.wantError)
+					t.Errorf("SupportedTmplInfo[sample_quota.TemplateName].AllocQuota(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
 				}
 			} else {
 				v := (*h).(*fakeQuotaHandler).procCallInput
 				if !reflect.DeepEqual(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) || !reflect.DeepEqual(tst.wantQuotaResp, qr) {
 					t.Errorf("SupportedTmplInfo[sample_quota.TemplateName].AllocQuota(%v) "+
-						"handler invoked value = %v,%v,%v  want %v,%v,%v", tst.ctrs, v, cInfo, qr, tst.wantInstance, tst.wantCache, tst.wantQuotaResp)
+						"handler invoked value = %v,%v,%v  want %v,%v,%v", tst.insts, v, cInfo, qr, tst.wantInstance, tst.wantCache, tst.wantQuotaResp)
 				}
 			}
 		})

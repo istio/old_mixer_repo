@@ -76,9 +76,9 @@ func TestQuotaManager_NewQuotaExecutor(t *testing.T) {
 			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).tmplName = %v; wanted %v", qe.tmplName, tmplName)
 		}
 
-		wantCtrs := map[string]proto.Message{instName: conf.Instances[0].Params.(proto.Message)}
-		if !reflect.DeepEqual(qe.ctrs, wantCtrs) {
-			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).ctrs = %v; wanted %v", qe.ctrs, wantCtrs)
+		wantInsts := map[string]proto.Message{instName: conf.Instances[0].Params.(proto.Message)}
+		if !reflect.DeepEqual(qe.insts, wantInsts) {
+			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).insts = %v; wanted %v", qe.insts, wantInsts)
 		}
 	}
 }
@@ -135,7 +135,7 @@ func TestQuotaManager_NewQuotaExecutorErrors(t *testing.T) {
 
 func TestNewQuotaExecutor_Execute(t *testing.T) {
 	instName := "TestQuotaInstanceName"
-	ctrs := map[string]proto.Message{
+	insts := map[string]proto.Message{
 		instName: &types.Empty{},
 	}
 
@@ -165,7 +165,7 @@ func TestNewQuotaExecutor_Execute(t *testing.T) {
 				qma adapter.QuotaRequestArgs) (rpc.Status, adptConfig.CacheabilityInfo, adapter.QuotaResult) {
 				return tt.retStatus, adptConfig.CacheabilityInfo{}, tt.retQR
 			}
-			e := &quotaExecutor{"TestQuotaTemplate", qProc, nil, ctrs}
+			e := &quotaExecutor{"TestQuotaTemplate", qProc, nil, insts}
 			s, qmr := e.Execute(nil, nil, &QuotaMethodArgs{Quota: tt.quotaName})
 
 			if tt.wantErr == "" {
