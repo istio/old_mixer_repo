@@ -43,9 +43,6 @@ echo "=== Bazel Build ==="
 bazel build //...
 
 echo "=== Bazel Tests ==="
-bazel test //...
-
-echo "=== Bazel Tests (Race) ==="
 bazel test --features=race //...
 
 echo "=== Code Check ==="
