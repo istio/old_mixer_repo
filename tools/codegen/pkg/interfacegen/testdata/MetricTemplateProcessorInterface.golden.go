@@ -65,5 +65,5 @@ type MetricHandlerBuilder interface {
 // need to achieve their primary function.
 type MetricHandler interface {
 	config.Handler
-	HandleMetric(instances []*Instance) error
+	HandleMetric([]*Instance) error
 }

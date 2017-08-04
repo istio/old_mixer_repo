@@ -62,5 +62,5 @@ type LogHandlerBuilder interface {
 // need to achieve their primary function.
 type LogHandler interface {
 	config.Handler
-	HandleLog(instances []*Instance) error
+	HandleLog([]*Instance) error
 }

@@ -67,11 +67,11 @@ type {{.Name}}HandlerBuilder interface {
 type {{.Name}}Handler interface {
   config.Handler
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-    Handle{{.Name}}(instance []*Instance) (bool, config.CacheabilityInfo, error)
+    Handle{{.Name}}([]*Instance) (bool, config.CacheabilityInfo, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
     Handle{{.Name}}(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, config.CacheabilityInfo, error)
   {{else -}}
-    Handle{{.Name}}(instances []*Instance) error
+    Handle{{.Name}}([]*Instance) error
   {{end}}
 }
 `

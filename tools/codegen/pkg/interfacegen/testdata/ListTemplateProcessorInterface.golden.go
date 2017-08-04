@@ -53,5 +53,5 @@ type ListHandlerBuilder interface {
 // need to achieve their primary function.
 type ListHandler interface {
 	config.Handler
-	HandleList(instance []*Instance) (bool, config.CacheabilityInfo, error)
+	HandleList([]*Instance) (bool, config.CacheabilityInfo, error)
 }
