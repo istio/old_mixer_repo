@@ -226,7 +226,7 @@ const (
 	keyHandlers            = "/scopes/global/handlers"
 	keyDescriptors         = "/scopes/global/descriptors"
 	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
-	keyInstancesConfig  = "/scopes/global/subjects/global/instances"
+	keyInstancesConfig     = "/scopes/global/subjects/global/instances"
 	keyActionsConfig       = "/scopes/global/subjects/global/action_rules"
 )
 

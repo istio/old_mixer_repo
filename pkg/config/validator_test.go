@@ -319,7 +319,7 @@ func TestConfigParseError(t *testing.T) {
 		keyAdapters:            "<config>  </config>",
 		keyDescriptors:         "<config>  </config>",
 		keyHandlers:            "<config>  </config>",
-		keyInstancesConfig:  "<config>  </config>",
+		keyInstancesConfig:     "<config>  </config>",
 		keyActionsConfig:       "<config>  </config>",
 	})
 	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {

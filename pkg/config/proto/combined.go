@@ -16,8 +16,8 @@ package istio_mixer_v1_config
 
 // Combined config is given to aspect managers.
 type Combined struct {
-	Builder      *Adapter
-	Aspect       *Aspect
+	Builder   *Adapter
+	Aspect    *Aspect
 	Instances []*Instance
 }
 
