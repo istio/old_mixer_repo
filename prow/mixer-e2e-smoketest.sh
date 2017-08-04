@@ -31,7 +31,7 @@ if [ "${CI:-}" == "bootstrap" ]; then
     GIT_SHA="${PULL_PULL_SHA}"
     # Using fixed directory for bazel cache
     ISTIO_TMP_DIR="${GOPATH}/src/istio.io/istio"
-    mkdir "${ISTIO_TMP_DIR}"
+    mkdir -p "${ISTIO_TMP_DIR}"
   else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
