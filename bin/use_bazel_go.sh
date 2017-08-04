@@ -11,7 +11,7 @@ fi
 
 BDIR=$(dirname $(dirname $(readlink $TARGETBIN)))
 
-export GOROOT=$(ls -1d $BDIR/external/golang_*)
+export GOROOT=$(ls -1d $BDIR/external/go1*)
 export PATH=$GOROOT/bin:$PATH
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
