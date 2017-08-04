@@ -225,7 +225,7 @@ func validateTmplName(name string) error {
 		return fmt.Errorf("Template name cannot be empty")
 	}
 
-	var firstChar = name[0:2]
+	var firstChar = name[0:]
 
 	if firstChar == strings.ToLower(firstChar) {
 		return fmt.Errorf("First character of %s must be capitalized", name)
