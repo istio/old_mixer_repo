@@ -16,10 +16,12 @@ package crd
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -153,6 +155,10 @@ func declareCrds(client *dynamic.ResourceClient, crds map[string]*unstructured.U
 		glog.V(7).Infof("Declaring %+v", crd)
 		_, err := client.Create(crd)
 		if err != nil {
+			if s, ok := err.(*k8serrors.StatusError); ok && s.ErrStatus.Code == http.StatusConflict {
+				glog.V(8).Infof("Already existed: %+v", crd)
+				continue
+			}
 			return err
 		}
 	}
