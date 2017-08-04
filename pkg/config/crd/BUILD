@@ -2,17 +2,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "crdwatcher.go",
-        "resources.go",
-    ],
+    srcs = ["crdwatcher.go"],
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/config/store:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
