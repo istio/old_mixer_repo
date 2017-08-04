@@ -329,7 +329,6 @@ func (m *Manager) dispatch(ctx context.Context, requestBag attribute.Bag, respon
 		m.runAsync(ctx, requestBag, child, cfgs[idx], invokeFunc, resultChan)
 	}
 
-	requestBag = nil
 	// TODO: look into having a pool of these to avoid frequent allocs
 	bags := make([]*attribute.MutableBag, numCfgs)
 
@@ -515,11 +514,11 @@ func (m *Manager) cacheGet(
 	case aspect.PreprocessManager:
 		executor, err = m.NewPreprocessExecutor(cfg, createAspect, env, df)
 	case aspect.CheckManager:
-		executor, err = m.NewCheckExecutor(cfg, createAspect, env, df)
+		executor, err = m.NewCheckExecutor(cfg, createAspect, env, df, "")
 	case aspect.ReportManager:
-		executor, err = m.NewReportExecutor(cfg, createAspect, env, df)
+		executor, err = m.NewReportExecutor(cfg, createAspect, env, df, "")
 	case aspect.QuotaManager:
-		executor, err = m.NewQuotaExecutor(cfg, createAspect, env, df)
+		executor, err = m.NewQuotaExecutor(cfg, createAspect, env, df, "")
 	}
 
 	if err != nil {
