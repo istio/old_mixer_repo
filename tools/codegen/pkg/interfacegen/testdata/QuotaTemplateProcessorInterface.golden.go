@@ -25,7 +25,7 @@ import (
 const TemplateName = "istio.mixer.adapter.quota.Quota"
 
 // Instance is constructed by Mixer for 'istio.mixer.adapter.quota.Quota' template.
-// tempalte ...
+// template ...
 type Instance struct {
 	Name string
 
