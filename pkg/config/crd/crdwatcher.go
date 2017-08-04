@@ -210,13 +210,6 @@ func (w *watcher) init(config *rest.Config) error {
 	if err != nil {
 		return err
 	}
-	crdClient, err := getCrdClient(discovery, config)
-	if err != nil {
-		return err
-	}
-	if err = declareCrds(crdClient, crdResources()); err != nil {
-		return err
-	}
 	config.APIPath = "/apis"
 	config.GroupVersion = &schema.GroupVersion{Group: "config.istio.io", Version: "v1alpha2"}
 	dynamic, err := dynamic.NewClient(config)
