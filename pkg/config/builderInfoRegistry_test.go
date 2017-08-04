@@ -48,13 +48,13 @@ func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo 
 
 type fakeHandlerBuilder struct{}
 
-func (fakeHandlerBuilder) ConfigureSample(map[string]*sample_report.Type) error { return nil }
-func (fakeHandlerBuilder) Build(proto.Message) (config.Handler, error)          { return fakeHandler{}, nil }
+func (fakeHandlerBuilder) ConfigureSampleHandler(map[string]*sample_report.Type) error { return nil }
+func (fakeHandlerBuilder) Build(proto.Message) (config.Handler, error)                 { return fakeHandler{}, nil }
 
 type fakeHandler struct{}
 
 func (fakeHandler) Close() error { return nil }
-func (fakeHandler) ReportSample([]*sample_report.Instance) error {
+func (fakeHandler) HandleSample([]*sample_report.Instance) error {
 	return errors.New("not implemented")
 }
 

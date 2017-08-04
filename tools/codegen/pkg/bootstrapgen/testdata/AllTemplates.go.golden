@@ -76,7 +76,7 @@ var (
 					v1 := v.(*istio_mixer_template_list.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureList(castedTypes)
+				return castedBuilder.ConfigureListHandler(castedTypes)
 			},
 
 			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
@@ -156,7 +156,7 @@ var (
 					v1 := v.(*istio_mixer_template_log.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureLog(castedTypes)
+				return castedBuilder.ConfigureLogHandler(castedTypes)
 			},
 
 			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
@@ -240,7 +240,7 @@ var (
 					v1 := v.(*istio_mixer_template_metric.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureMetric(castedTypes)
+				return castedBuilder.ConfigureMetricHandler(castedTypes)
 			},
 
 			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
@@ -329,7 +329,7 @@ var (
 					v1 := v.(*istio_mixer_template_quota.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureQuota(castedTypes)
+				return castedBuilder.ConfigureQuotaHandler(castedTypes)
 			},
 
 			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {

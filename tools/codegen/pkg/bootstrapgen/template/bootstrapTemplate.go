@@ -103,7 +103,7 @@ var (
 					v1 := v.(*{{.GoPackageName}}.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.Configure{{.Name}}(castedTypes)
+				return castedBuilder.Configure{{.Name}}Handler(castedTypes)
 			},
 			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
 				ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
