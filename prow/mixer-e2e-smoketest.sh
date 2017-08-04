@@ -29,13 +29,16 @@ set -x
 if [ "${CI:-}" == "bootstrap" ]; then
     # Use the provided pull head sha, from prow.
     GIT_SHA="${PULL_PULL_SHA}"
-else
+    # Using fixed directory for bazel cache
+    ISTIO_TMP_DIR="${GOPATH}/src/istio.io/istio"
+    mkdir "${ISTIO_TMP_DIR}"
+  else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
+    ISTIO_TMP_DIR="$(mktemp -d istio-XXXXX)"
 fi
 
 echo "=== Clone istio/istio ==="
-ISTIO_TMP_DIR="$(mktemp -d istio-XXXXX)"
 git clone --depth 1 https://github.com/istio/istio "${ISTIO_TMP_DIR}"
 cd "${ISTIO_TMP_DIR}"
 
