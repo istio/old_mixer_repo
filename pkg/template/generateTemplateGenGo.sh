@@ -1,7 +1,7 @@
 MIXERPATH=$GOPATH/src/istio.io/mixer
 pushd $MIXERPATH
 
-bazel build ...
+bazel build template/...
 
 bazel-bin/tools/codegen/cmd/mixgenbootstrap/mixgenbootstrap \
 bazel-genfiles/template/sample/report/go_default_library_proto.descriptor_set:istio.io/mixer/template/sample/report \

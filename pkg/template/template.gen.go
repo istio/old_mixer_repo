@@ -83,12 +83,12 @@ var (
 				var err error
 
 				var instances []*istio_mixer_adapter_sample_check.Instance
-				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam)
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_check.InstanceParam)
-					castedCnstrs[k] = v1
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					CheckExpression, err := mapper.Eval(md.CheckExpression, attrs)
 
@@ -157,11 +157,11 @@ var (
 				return castedBuilder.ConfigureQuota(castedTypes)
 			},
 
-			ProcessQuota: func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
+			ProcessQuota: func(quotaName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
 				qma adapter.QuotaRequestArgs) (rpc.Status, adptConfig.CacheabilityInfo, adapter.QuotaResult) {
-				castedCnstr := cnstr.(*istio_mixer_adapter_sample_quota.InstanceParam)
+				castedInst := inst.(*istio_mixer_adapter_sample_quota.InstanceParam)
 
-				Dimensions, err := evalAll(castedCnstr.Dimensions, attrs, mapper)
+				Dimensions, err := evalAll(castedInst.Dimensions, attrs, mapper)
 
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
@@ -243,12 +243,12 @@ var (
 				result := &multierror.Error{}
 				var instances []*istio_mixer_adapter_sample_report.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam)
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_report.InstanceParam)
-					castedCnstrs[k] = v1
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					Value, err := mapper.Eval(md.Value, attrs)
 
