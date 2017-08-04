@@ -34,6 +34,8 @@ type (
 
 		PackageImportPath string
 
+		Comment string
+
 		// Info for go interfaces
 		GoPackageName string
 
@@ -52,6 +54,8 @@ type (
 
 		GoName string
 		GoType string
+
+		Comment string
 	}
 
 	messageInfo struct {
@@ -99,7 +103,8 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 	}
 }
 
-func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, templateProto *FileDescriptor, tmplDesc *Descriptor) {
+func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, tmplProto *FileDescriptor, tmplDesc *Descriptor) {
+	m.Comment = tmplProto.getComment(tmplDesc.path)
 	m.TemplateMessage.Fields = make([]fieldInfo, 0)
 	for i, fieldDesc := range tmplDesc.Field {
 		fieldName := fieldDesc.GetName()
@@ -110,7 +115,7 @@ func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, templateProt
 		// specified in the operator Yaml file.
 		if strings.ToLower(fieldName) == "name" {
 			m.addError(tmplDesc.file.GetName(),
-				templateProto.getLineNumber(getPathForField(tmplDesc, i)),
+				tmplProto.getLineNumber(getPathForField(tmplDesc, i)),
 				"Template message must not contain the reserved filed name '%s'", fieldDesc.GetName())
 			continue
 		}
@@ -118,15 +123,16 @@ func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, templateProt
 		typename, err := parser.protoType(fieldDesc)
 		if err != nil {
 			m.addError(tmplDesc.file.GetName(),
-				templateProto.getLineNumber(getPathForField(tmplDesc, i)),
+				tmplProto.getLineNumber(getPathForField(tmplDesc, i)),
 				err.Error())
 		}
 		m.TemplateMessage.Fields = append(m.TemplateMessage.Fields, fieldInfo{
-			Name:   fieldName,
-			GoName: camelCase(fieldName),
-			GoType: parser.goType(tmplDesc.DescriptorProto, fieldDesc),
-			Type:   typename,
-			Number: strconv.Itoa(int(fieldDesc.GetNumber())),
+			Name:    fieldName,
+			GoName:  camelCase(fieldName),
+			GoType:  parser.goType(tmplDesc.DescriptorProto, fieldDesc),
+			Type:    typename,
+			Number:  strconv.Itoa(int(fieldDesc.GetNumber())),
+			Comment: tmplProto.getComment(getPathForField(tmplDesc, i)),
 		})
 	}
 }
