@@ -47,6 +47,8 @@ echo "=== Bazel Tests ==="
 bazel test --features=race //...
 
 echo "=== Code Coverage ==="
+source ./bin/use_bazel_go.sh
+./bin/bazel_to_go.py
 ./bin/codecov.sh | tee codecov.report
 if [ "${CI:-}" == 'bootstrap' ]; then
     BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME='mixer/postsubmit' ./bin/toolbox/presubmit/pkg_coverage.sh
