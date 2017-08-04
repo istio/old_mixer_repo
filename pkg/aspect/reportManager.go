@@ -53,7 +53,7 @@ func (m *reportManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAs
 	df descriptor.Finder, tmpl string) (ReportExecutor, error) {
 	ctrs := make(map[string]proto.Message)
 	for _, cstr := range c.Constructors {
-		ctrs[cstr.InstanceName] = cstr.Params.(proto.Message)
+		ctrs[cstr.Name] = cstr.Params.(proto.Message)
 		if cstr.Template != tmpl {
 			return nil, fmt.Errorf("resolved constructor's '%v' template is different than expected template name : %s", cstr, tmpl)
 		}

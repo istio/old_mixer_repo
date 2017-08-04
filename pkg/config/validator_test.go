@@ -110,7 +110,7 @@ func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValid
 }
 
 func fakeSetupHandler(
-	[]*pb.Action, map[string]*pb.Constructor, map[string]*HandlerBuilderInfo, tmpl.Repository, expr.TypeChecker, expr.AttributeDescriptorFinder) error {
+	[]*pb.Action, map[string]*pb.Instance, map[string]*HandlerBuilderInfo, tmpl.Repository, expr.TypeChecker, expr.AttributeDescriptorFinder) error {
 	return nil
 }
 
@@ -839,7 +839,7 @@ func (f fakePanicHndlrBldr) Build(cnfg proto.Message) (config.Handler, error) {
 }
 
 func getSetupHandlerFn(err error) SetupHandlerFn {
-	return func(actions []*pb.Action, constructors map[string]*pb.Constructor,
+	return func(actions []*pb.Action, instances map[string]*pb.Instance,
 		handlers map[string]*HandlerBuilderInfo, tmplRepo tmpl.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error {
 		return err
 	}
@@ -1057,7 +1057,7 @@ action_rules:
 		name       string
 		cfg        string
 		nerrors    int
-		cnstrMap   map[string]*pb.Constructor
+		cnstrMap   map[string]*pb.Instance
 		handlerMap map[string]*HandlerBuilderInfo
 		cerr       []string
 		nActions   int
@@ -1067,7 +1067,7 @@ action_rules:
 			"Simple Rule",
 			sSvcConfigValid,
 			0,
-			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
+			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
 			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			nil,
 			1,
@@ -1077,7 +1077,7 @@ action_rules:
 			"Nested Rule",
 			sSvcConfigNestedValid,
 			0,
-			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
+			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
 			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			nil,
 			2,
@@ -1087,7 +1087,7 @@ action_rules:
 			"HandlerNotFoundInstanceNotFound",
 			sSvcConfigValid,
 			2,
-			map[string]*pb.Constructor{},
+			map[string]*pb.Instance{},
 			map[string]*HandlerBuilderInfo{},
 			[]string{"handler not specified or is invalid", "instance 'RequestCountByService' is not defined"},
 			0,
@@ -1097,7 +1097,7 @@ action_rules:
 			"MissingHandler",
 			sSvcConfigMissingHandler,
 			1,
-			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
+			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
 			map[string]*HandlerBuilderInfo{"somehandler": {}},
 			[]string{"handler not specified or is invalid"},
 			0,
@@ -1107,7 +1107,7 @@ action_rules:
 			"MissingHandlerNestedCnfg",
 			sSvcConfigNestedMissingHandler,
 			1,
-			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
+			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
 			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			[]string{"handler not specified or is invalid"},
 			1,
@@ -1117,7 +1117,7 @@ action_rules:
 			"InvalidSelector",
 			sSvcConfigInvalidSelector,
 			1,
-			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
+			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
 			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			[]string{"bad expression"},
 			1, /*even if the selector is wrong the action is correct*/
@@ -1127,7 +1127,7 @@ action_rules:
 			"InstanceTmplAndHandlerSupptedTmplMismatch",
 			sSvcConfigValid,
 			1,
-			map[string]*pb.Constructor{"RequestCountByService": {Template: "TemplateHandlerNotSupport"}},
+			map[string]*pb.Instance{"RequestCountByService": {Template: "TemplateHandlerNotSupport"}},
 			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			[]string{"handler does not support the template"},
 			0,
@@ -1169,8 +1169,8 @@ func TestValidateConstructorConfigs(t *testing.T) {
 	const sSvcConfigInvalidTemplate = `
 subject: namespace:ns
 revision: "2022"
-constructors:
-- instanceName: RequestCountByService
+instances:
+- name: RequestCountByService
   template: invalidtemplate
   params:
     value: 1
@@ -1181,16 +1181,16 @@ constructors:
 	const sSvcConfigValidParams = `
 subject: namespace:ns
 revision: "2022"
-constructors:
-- instanceName: RequestCountByService
+instances:
+- name: RequestCountByService
   template: FooTemplate
   params:
 `
 	const sSvcConfigExtraParamFields = `
 subject: namespace:ns
 revision: "2022"
-constructors:
-- instanceName: RequestCountByService
+instances:
+- name: RequestCountByService
   template: FooTemplate
   params:
     check_expression: src.ip
@@ -1199,11 +1199,11 @@ constructors:
 	const sSvcConfigDuplicateCnstrs = `
 subject: namespace:ns
 revision: "2022"
-constructors:
-- instanceName: RequestCountByService
+instances:
+- name: RequestCountByService
   template: FooTemplate
   params:
-- instanceName: RequestCountByService
+- name: RequestCountByService
   template: FooTemplate
   params:
 `
@@ -1243,7 +1243,7 @@ constructors:
 			sSvcConfigDuplicateCnstrs,
 			1,
 			newFakeTemplateRepo(map[string]proto.Message{FooTemplateName: &types.Empty{}}),
-			[]string{"duplicate constructors with same instanceNames "},
+			[]string{"duplicate instances with same names "},
 		},
 	}
 

@@ -79,7 +79,7 @@ type (
 
 	// SetupHandlerFn is used to configure handler implementation with Types associated with all the templates that
 	// it supports.
-	SetupHandlerFn func(actions []*pb.Action, constructors map[string]*pb.Constructor,
+	SetupHandlerFn func(actions []*pb.Action, instances map[string]*pb.Instance,
 		handlers map[string]*HandlerBuilderInfo, tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error
 )
 
@@ -94,7 +94,7 @@ func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderVali
 		setupHandler:  setupHandlerFn,
 		tmpls:         templateRepo,
 		findAspects:   findAspects,
-		ctors:         make(map[string]*pb.Constructor),
+		ctors:         make(map[string]*pb.Instance),
 		actions:       make([]*pb.Action, 0),
 		strict:        strict,
 		typeChecker:   typeChecker,
@@ -121,7 +121,7 @@ type (
 		findAspects      AdapterToAspectMapper
 		descriptorFinder descriptor.Finder
 		handlers         map[string]*HandlerBuilderInfo
-		ctors            map[string]*pb.Constructor
+		ctors            map[string]*pb.Instance
 		actions          []*pb.Action
 		strict           bool
 		typeChecker      expr.TypeChecker
@@ -212,21 +212,21 @@ func (v *Validated) Clone() *Validated {
 }
 
 const (
-	global       = "global"
-	scopes       = "scopes"
-	subjects     = "subjects"
-	rules        = "rules"
-	constructors = "constructors"
-	actionRules  = "action_rules"
-	adapters     = "adapters"
-	handlers     = "handlers"
-	descriptors  = "descriptors"
+	global      = "global"
+	scopes      = "scopes"
+	subjects    = "subjects"
+	rules       = "rules"
+	instances   = "instances"
+	actionRules = "action_rules"
+	adapters    = "adapters"
+	handlers    = "handlers"
+	descriptors = "descriptors"
 
 	keyAdapters            = "/scopes/global/adapters"
 	keyHandlers            = "/scopes/global/handlers"
 	keyDescriptors         = "/scopes/global/descriptors"
 	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
-	keyConstructorsConfig  = "/scopes/global/subjects/global/constructors"
+	keyConstructorsConfig  = "/scopes/global/subjects/global/instances"
 	keyActionsConfig       = "/scopes/global/subjects/global/action_rules"
 )
 
@@ -469,19 +469,19 @@ func containsTmpl(s []string, e string) bool {
 	return false
 }
 
-// validateConstructors validates the constructors in the service configuration.
-func (p *validator) validateConstructors(constructors []*pb.Constructor) (ce *adapter.ConfigErrors) {
-	for _, cnstr := range constructors {
-		if c, ok := p.ctors[cnstr.GetInstanceName()]; ok {
-			ce = ce.Appendf(fmt.Sprintf("constructor:%s", cnstr.GetInstanceName()), "duplicate constructors with same instanceNames %v and %v", *c, *cnstr)
+// validateConstructors validates the instances in the service configuration.
+func (p *validator) validateConstructors(instances []*pb.Instance) (ce *adapter.ConfigErrors) {
+	for _, cnstr := range instances {
+		if c, ok := p.ctors[cnstr.GetName()]; ok {
+			ce = ce.Appendf(fmt.Sprintf("constructor:%s", cnstr.GetName()), "duplicate instances with same names %v and %v", *c, *cnstr)
 			continue
 		}
 		if ccfg, err := convertConstructorParam(p.tmpls, cnstr.GetTemplate(), cnstr.GetParams(), p.strict); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("constructor:%s", cnstr.GetInstanceName()), "failed to parse params: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("constructor:%s", cnstr.GetName()), "failed to parse params: %v", err)
 			continue
 		} else {
 			cnstr.Params = ccfg
-			p.ctors[cnstr.GetInstanceName()] = cnstr
+			p.ctors[cnstr.GetName()] = cnstr
 		}
 	}
 	return ce
@@ -496,8 +496,8 @@ func classifyKeys(cfg map[string]string) map[string][]string {
 		switch kk[len(kk)-1] {
 		case rules:
 			k = rules
-		case constructors:
-			k = constructors
+		case instances:
+			k = instances
 		case actionRules:
 			k = actionRules
 		case adapters:
@@ -559,7 +559,7 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 		}
 	}
 
-	for _, kk := range keymap[constructors] {
+	for _, kk := range keymap[instances] {
 		ck := parseRulesKey(kk)
 		if ck == nil {
 			continue
@@ -698,7 +698,7 @@ func (p *validator) validateConstructorConfigs(cfg string) (ce *adapter.ConfigEr
 		return ce.Appendf("serviceConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
-	if ce = p.validateConstructors(m.GetConstructors()); ce != nil {
+	if ce = p.validateConstructors(m.GetInstances()); ce != nil {
 		return ce
 	}
 

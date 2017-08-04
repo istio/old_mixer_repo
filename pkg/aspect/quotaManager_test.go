@@ -51,11 +51,11 @@ func TestQuotaManager_NewQuotaExecutor(t *testing.T) {
 	instName := "TestQuotaInstanceName"
 
 	conf := &cfgpb.Combined{
-		Constructors: []*cfgpb.Constructor{
+		Constructors: []*cfgpb.Instance{
 			{
-				Template:     tmplName,
-				InstanceName: instName,
-				Params:       &types.Empty{},
+				Template: tmplName,
+				Name:     instName,
+				Params:   &types.Empty{},
 			},
 		},
 	}
@@ -88,17 +88,17 @@ func TestQuotaManager_NewQuotaExecutorErrors(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		ctr           cfgpb.Constructor
+		ctr           cfgpb.Instance
 		hndlrSuppTmpl bool
 		wantErr       string
 	}{
 		{
 			name:    "NotFoundTemplate",
 			wantErr: "template is different",
-			ctr: cfgpb.Constructor{
-				Template:     "NotFoundTemplate",
-				InstanceName: "SomeInstName",
-				Params:       &types.Empty{},
+			ctr: cfgpb.Instance{
+				Template: "NotFoundTemplate",
+				Name:     "SomeInstName",
+				Params:   &types.Empty{},
 			},
 			hndlrSuppTmpl: true,
 		},
@@ -106,10 +106,10 @@ func TestQuotaManager_NewQuotaExecutorErrors(t *testing.T) {
 			name:          "BadHandlerInterface",
 			wantErr:       "does not implement interface",
 			hndlrSuppTmpl: false,
-			ctr: cfgpb.Constructor{
-				Template:     tmplName,
-				InstanceName: "SomeInstName",
-				Params:       &types.Empty{},
+			ctr: cfgpb.Instance{
+				Template: tmplName,
+				Name:     "SomeInstName",
+				Params:   &types.Empty{},
 			},
 		},
 	}
@@ -118,7 +118,7 @@ func TestQuotaManager_NewQuotaExecutorErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := &fakeQuotaHandler{}
 			conf := &cfgpb.Combined{
-				Constructors: []*cfgpb.Constructor{
+				Constructors: []*cfgpb.Instance{
 					&tt.ctr,
 				},
 			}
