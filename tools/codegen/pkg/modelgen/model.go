@@ -198,6 +198,9 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 			m.addError(fd.GetName(), unknownLine, "%s should be of type string", tmpl.E_TemplateName.Name)
 		} else {
 			m.Name = *tmplName.(*string)
+			if err := validateTmplName(m.Name); err != nil {
+				m.addError(fd.GetName(), unknownLine, err.Error())
+			}
 		}
 	} else {
 		// This func should only get called for FileDescriptor that has this attribute,
@@ -215,6 +218,20 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 
 	// For file level comments, comments from multiple locations are composed.
 	m.Comment = fmt.Sprintf("%s\n%s", fd.getComment(syntaxPath), fd.getComment(packagePath))
+}
+
+func validateTmplName(name string) error {
+	if name == "" {
+		return fmt.Errorf("Template name cannot be empty")
+	}
+
+	var firstChar = name[0:2]
+
+	if firstChar == strings.ToLower(firstChar) {
+		return fmt.Errorf("First character of %s must be capitalized", name)
+	}
+
+	return nil
 }
 
 func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {
