@@ -41,7 +41,7 @@ type (
 		tmplName     string
 		procDispatch template.ProcessQuotaFn
 		hndlr        config2.Handler
-		ctrs         map[string]proto.Message // constructor name -> constructor params
+		ctrs         map[string]proto.Message // instance name -> instance params
 	}
 )
 
@@ -54,10 +54,10 @@ func NewQuotaManager(repo template.Repository) QuotaManager {
 func (m *quotaManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
 	df descriptor.Finder, tmpl string) (QuotaExecutor, error) {
 	ctrs := make(map[string]proto.Message)
-	for _, cstr := range c.Constructors {
+	for _, cstr := range c.Instances {
 		ctrs[cstr.Name] = cstr.GetParams().(proto.Message)
 		if cstr.Template != tmpl {
-			return nil, fmt.Errorf("constructor's '%v' template is different than expected template name : %s", cstr, tmpl)
+			return nil, fmt.Errorf("instance's '%v' template is different than expected template name : %s", cstr, tmpl)
 		}
 	}
 

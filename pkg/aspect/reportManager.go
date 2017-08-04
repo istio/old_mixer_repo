@@ -39,7 +39,7 @@ type (
 		tmplName     string
 		procDispatch template.ProcessReportFn
 		hndlr        config2.Handler
-		ctrs         map[string]proto.Message // constructor name -> constructor params
+		ctrs         map[string]proto.Message // instance name -> instance params
 	}
 )
 
@@ -52,10 +52,10 @@ func NewReportManager(repo template.Repository) ReportManager {
 func (m *reportManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
 	df descriptor.Finder, tmpl string) (ReportExecutor, error) {
 	ctrs := make(map[string]proto.Message)
-	for _, cstr := range c.Constructors {
+	for _, cstr := range c.Instances {
 		ctrs[cstr.Name] = cstr.Params.(proto.Message)
 		if cstr.Template != tmpl {
-			return nil, fmt.Errorf("resolved constructor's '%v' template is different than expected template name : %s", cstr, tmpl)
+			return nil, fmt.Errorf("resolved instance's '%v' template is different than expected template name : %s", cstr, tmpl)
 		}
 	}
 

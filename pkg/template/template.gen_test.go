@@ -116,21 +116,21 @@ func TestGeneratedFields(t *testing.T) {
 	}{
 		{
 			tmpl:      sample_report.TemplateName,
-			ctrCfg:    &sample_report.ConstructorParam{},
+			ctrCfg:    &sample_report.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_REPORT,
 			bldrName:  "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
 			hndlrName: "istio.io/mixer/template/sample/report.SampleProcessor",
 		},
 		{
 			tmpl:      sample_check.TemplateName,
-			ctrCfg:    &sample_check.ConstructorParam{},
+			ctrCfg:    &sample_check.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_CHECK,
 			bldrName:  "istio.io/mixer/template/sample/check.SampleProcessorBuilder",
 			hndlrName: "istio.io/mixer/template/sample/check.SampleProcessor",
 		},
 		{
 			tmpl:      sample_quota.TemplateName,
-			ctrCfg:    &sample_quota.ConstructorParam{},
+			ctrCfg:    &sample_quota.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_QUOTA,
 			bldrName:  "istio.io/mixer/template/sample/quota.QuotaProcessorBuilder",
 			hndlrName: "istio.io/mixer/template/sample/quota.QuotaProcessor",
@@ -267,7 +267,7 @@ dimensions:
   source: source.ip
   target: source.ip
 `,
-			cstrParam:          &sample_report.ConstructorParam{},
+			cstrParam:          &sample_report.InstanceParam{},
 			typeEvalRet:        pb.INT64,
 			typeEvalError:      nil,
 			wantValueType:      pb.INT64,
@@ -276,7 +276,7 @@ dimensions:
 			willPanic:          false,
 		},
 		{
-			name:      "NotValidConstructorParam",
+			name:      "NotValidInstanceParam",
 			ctrCnfg:   ``,
 			cstrParam: &empty.Empty{}, // cnstr type mismatch
 			wantErr:   "is not of type",
@@ -289,7 +289,7 @@ value: response.size
 dimensions:
   source: source.ip
 `,
-			cstrParam:     &sample_report.ConstructorParam{},
+			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: fmt.Errorf("some expression x.y.z is invalid"),
 			wantErr:       "some expression x.y.z is invalid",
 		},
@@ -341,7 +341,7 @@ func TestInferTypeForSampleCheck(t *testing.T) {
 			ctrCnfg: `
 check_expression: response.size
 `,
-			cstrParam:     &sample_check.ConstructorParam{},
+			cstrParam:     &sample_check.InstanceParam{},
 			typeEvalRet:   pb.STRING,
 			typeEvalError: nil,
 			wantValueType: pb.STRING,
@@ -349,7 +349,7 @@ check_expression: response.size
 			willPanic:     false,
 		},
 		{
-			name:      "NotValidConstructorParam",
+			name:      "NotValidInstanceParam",
 			ctrCnfg:   ``,
 			cstrParam: &empty.Empty{}, // cnstr type mismatch
 			willPanic: true,
@@ -397,7 +397,7 @@ dimensions:
   target: source.ip
   env: target.ip
 `,
-			cstrParam:          &sample_quota.ConstructorParam{},
+			cstrParam:          &sample_quota.InstanceParam{},
 			typeEvalRet:        pb.STRING,
 			typeEvalError:      nil,
 			wantValueType:      pb.STRING,
@@ -406,7 +406,7 @@ dimensions:
 			willPanic:          false,
 		},
 		{
-			name:      "NotValidConstructorParam",
+			name:      "NotValidInstanceParam",
 			ctrCnfg:   ``,
 			cstrParam: &empty.Empty{}, // cnstr type mismatch
 			wantErr:   "is not of type",
@@ -418,7 +418,7 @@ dimensions:
 dimensions:
   source: source.ip
 `,
-			cstrParam:     &sample_quota.ConstructorParam{},
+			cstrParam:     &sample_quota.InstanceParam{},
 			typeEvalError: fmt.Errorf("some expression x.y.z is invalid"),
 			wantErr:       "some expression x.y.z is invalid",
 		},
@@ -526,8 +526,8 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "Simple",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_report.ConstructorParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
-				"bar": &sample_report.ConstructorParam{Value: "2", Dimensions: map[string]string{"k": "3"}},
+				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
+				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}},
 			},
 			hdlr: &fakeReportHandler{},
 			wantInstance: []*sample_report.Instance{
@@ -538,7 +538,7 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "EvalAllError",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_report.ConstructorParam{Value: "1", Dimensions: map[string]string{"s": "bad.attributeName"}},
+				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "bad.attributeName"}},
 			},
 			hdlr:      &fakeReportHandler{},
 			wantError: "unresolved attribute bad.attributeName",
@@ -546,7 +546,7 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "EvalError",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_report.ConstructorParam{Value: "bad.attributeName", Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_report.InstanceParam{Value: "bad.attributeName", Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeReportHandler{},
 			wantError: "unresolved attribute bad.attributeName",
@@ -554,7 +554,7 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "ProcessError",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_report.ConstructorParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeReportHandler{retProcError: fmt.Errorf("error from process method")},
 			wantError: "error from process method",
@@ -581,8 +581,8 @@ func TestProcessCheck(t *testing.T) {
 		{
 			name: "Simple",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_check.ConstructorParam{CheckExpression: `"abcd asd"`},
-				"bar": &sample_check.ConstructorParam{CheckExpression: `"pqrs asd"`},
+				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
+				"bar": &sample_check.InstanceParam{CheckExpression: `"pqrs asd"`},
 			},
 			hdlr: &fakeCheckHandler{ret: true, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
 			wantInstance: []*sample_check.Instance{
@@ -594,7 +594,7 @@ func TestProcessCheck(t *testing.T) {
 		{
 			name: "EvalError",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_check.ConstructorParam{CheckExpression: `bad.attributeName`},
+				"foo": &sample_check.InstanceParam{CheckExpression: `bad.attributeName`},
 			},
 			hdlr:      &fakeCheckHandler{ret: true},
 			wantError: "unresolved attribute bad.attributeName",
@@ -602,7 +602,7 @@ func TestProcessCheck(t *testing.T) {
 		{
 			name: "ProcessError",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_check.ConstructorParam{CheckExpression: `"abcd asd"`},
+				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 			},
 			hdlr:      &fakeCheckHandler{retProcError: fmt.Errorf("error from process method")},
 			wantError: "error from process method",
@@ -610,7 +610,7 @@ func TestProcessCheck(t *testing.T) {
 		{
 			name: "ProcRetFalse",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_check.ConstructorParam{CheckExpression: `"abcd asd"`},
+				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 			},
 			hdlr:      &fakeCheckHandler{ret: false},
 			wantError: " rejected",
@@ -641,7 +641,7 @@ func TestProcessQuota(t *testing.T) {
 		{
 			name: "Simple",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_quota.ConstructorParam{Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr: &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 100}, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
 
@@ -652,7 +652,7 @@ func TestProcessQuota(t *testing.T) {
 		{
 			name: "EvalError",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_quota.ConstructorParam{Dimensions: map[string]string{"s": "bad.attributeName"}},
+				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "bad.attributeName"}},
 			},
 			hdlr:      &fakeQuotaHandler{},
 			wantError: "unresolved attribute bad.attributeName",
@@ -660,7 +660,7 @@ func TestProcessQuota(t *testing.T) {
 		{
 			name: "ProcessError",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_quota.ConstructorParam{Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeQuotaHandler{retProcError: fmt.Errorf("error from process method")},
 			wantError: "error from process method",
@@ -668,7 +668,7 @@ func TestProcessQuota(t *testing.T) {
 		{
 			name: "AmtZero",
 			ctrs: map[string]proto.Message{
-				"foo": &sample_quota.ConstructorParam{Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
 			hdlr:      &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 0}, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
 			wantError: "Unable to allocate",

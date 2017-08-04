@@ -308,7 +308,7 @@ func TestConfigParseError(t *testing.T) {
 		t.Error("Expected unmarshal Error", ce)
 	}
 
-	ce = p.validateConstructorConfigs("<config>  </config>")
+	ce = p.validateInstanceConfigs("<config>  </config>")
 
 	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
@@ -319,7 +319,7 @@ func TestConfigParseError(t *testing.T) {
 		keyAdapters:            "<config>  </config>",
 		keyDescriptors:         "<config>  </config>",
 		keyHandlers:            "<config>  </config>",
-		keyConstructorsConfig:  "<config>  </config>",
+		keyInstancesConfig:  "<config>  </config>",
 		keyActionsConfig:       "<config>  </config>",
 	})
 	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
@@ -966,17 +966,17 @@ func TestBuildHandlers(t *testing.T) {
 	}
 }
 
-type fakeTemplateRepo struct{ templateConstructorParamMap map[string]proto.Message }
+type fakeTemplateRepo struct{ templateInstanceParamMap map[string]proto.Message }
 
-func newFakeTemplateRepo(templateConstructorParamMap map[string]proto.Message) tmpl.Repository {
-	return fakeTemplateRepo{templateConstructorParamMap: templateConstructorParamMap}
+func newFakeTemplateRepo(templateInstanceParamMap map[string]proto.Message) tmpl.Repository {
+	return fakeTemplateRepo{templateInstanceParamMap: templateInstanceParamMap}
 }
 
 func (t fakeTemplateRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
-	if t.templateConstructorParamMap == nil {
+	if t.templateInstanceParamMap == nil {
 		return tmpl.Info{}, false
 	}
-	if v, ok := t.templateConstructorParamMap[template]; ok {
+	if v, ok := t.templateInstanceParamMap[template]; ok {
 		return tmpl.Info{
 			CtrCfg: v,
 		}, true
@@ -1165,7 +1165,7 @@ action_rules:
 	}
 }
 
-func TestValidateConstructorConfigs(t *testing.T) {
+func TestValidateInstanceConfigs(t *testing.T) {
 	const sSvcConfigInvalidTemplate = `
 subject: namespace:ns
 revision: "2022"
@@ -1236,7 +1236,7 @@ instances:
 			sSvcConfigExtraParamFields,
 			1,
 			newFakeTemplateRepo(map[string]proto.Message{FooTemplateName: &types.Empty{}}),
-			[]string{"failed to decode constructor params"},
+			[]string{"failed to decode instance params"},
 		},
 		{
 			"DuplicateConstrs",
@@ -1253,7 +1253,7 @@ instances:
 			var ce *adapter.ConfigErrors
 
 			p := newValidator(nil, nil, nil, nil, tt.tdf, nil, true, evaluator)
-			ce = p.validateConstructorConfigs(tt.cfg)
+			ce = p.validateInstanceConfigs(tt.cfg)
 
 			cok := ce == nil
 			ok := tt.nerrors == 0

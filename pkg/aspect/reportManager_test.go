@@ -51,7 +51,7 @@ func TestReportManager_NewReportExecutor(t *testing.T) {
 	instName := "TestReportInstanceName"
 
 	conf := &cfgpb.Combined{
-		Constructors: []*cfgpb.Instance{
+		Instances: []*cfgpb.Instance{
 			{
 				Template: tmplName,
 				Name:     instName,
@@ -75,7 +75,7 @@ func TestReportManager_NewReportExecutor(t *testing.T) {
 		if qe.tmplName != tmplName {
 			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).tmplName = %v; wanted %v", qe.tmplName, tmplName)
 		}
-		wantCtrs := map[string]proto.Message{instName: conf.Constructors[0].Params.(proto.Message)}
+		wantCtrs := map[string]proto.Message{instName: conf.Instances[0].Params.(proto.Message)}
 		if !reflect.DeepEqual(qe.ctrs, wantCtrs) {
 			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).ctrs = %v; wanted %v", qe.ctrs, wantCtrs)
 		}
@@ -117,7 +117,7 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := &fakeReportHandler{}
 			conf := &cfgpb.Combined{
-				Constructors: []*cfgpb.Instance{
+				Instances: []*cfgpb.Instance{
 					&tt.ctr,
 				},
 			}
