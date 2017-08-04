@@ -28,6 +28,8 @@ option (istio.mixer.v1.config.template.template_variety) = {{.VarietyName}};
 option (istio.mixer.v1.config.template.template_name) = "{{.Name}}";
 
 {{.Comment}}
+
+{{.TemplateMessage.Comment}}
 message Type {
   {{range .TemplateMessage.Fields}}
   {{.Comment}}

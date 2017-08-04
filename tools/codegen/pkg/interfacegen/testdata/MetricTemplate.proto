@@ -1,5 +1,11 @@
+/*
+Overview of what metric is etc..
+*/
 syntax = "proto3";
 
+/*
+Additional overview of what metric is etc..
+*/
 package istio.mixer.adapter.metric;
 
 import "mixer/v1/config/descriptor/value_type.proto";

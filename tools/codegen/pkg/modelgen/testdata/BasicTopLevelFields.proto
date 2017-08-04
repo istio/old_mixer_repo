@@ -1,5 +1,7 @@
+// comment for syntax
 syntax = "proto3";
 
+// comment for package
 package foo.bar;
 
 import "pkg/adapter/template/TemplateExtensions.proto";

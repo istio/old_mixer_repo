@@ -637,6 +637,7 @@ func goPackageName(pkg string) string {
 
 const (
 	syntaxPath         = "12" // syntax
+	packagePath        = "2"  // syntax
 	messagePath        = "4"  // message_type
 	enumPath           = "5"  // enum_type
 	messageFieldPath   = "2"  // field

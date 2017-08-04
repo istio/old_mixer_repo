@@ -72,8 +72,12 @@ func TestBasicTopLevelFields(t *testing.T) {
 	if model.VarietyName != "TEMPLATE_VARIETY_CHECK" {
 		t.Fatalf("CreateModel(%s).VarietyName = %v, wanted %s", testFilename, model.VarietyName, "TEMPLATE_VARIETY_CHECK")
 	}
-	if model.Comment != "// My Template comment" {
-		t.Fatalf("CreateModel(%s).TemplateComment = %s, wanted %s", testFilename, model.Comment, "// My Template comment")
+	if model.TemplateMessage.Comment != "// My Template comment" {
+		t.Fatalf("CreateModel(%s).TemplateMessage.Comment = %s, wanted %s", testFilename, model.TemplateMessage.Comment, "// My Template comment")
+	}
+
+	if model.Comment != "// comment for syntax\n// comment for package" {
+		t.Fatalf("CreateModel(%s).Comment = %s, wanted %s", testFilename, model.Comment, "// comment for syntax\n// comment for package")
 	}
 }
 

@@ -59,7 +59,8 @@ type (
 	}
 
 	messageInfo struct {
-		Fields []fieldInfo
+		Comment string
+		Fields  []fieldInfo
 	}
 )
 
@@ -104,7 +105,7 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 }
 
 func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, tmplProto *FileDescriptor, tmplDesc *Descriptor) {
-	m.Comment = tmplProto.getComment(tmplDesc.path)
+	m.TemplateMessage.Comment = tmplProto.getComment(tmplDesc.path)
 	m.TemplateMessage.Fields = make([]fieldInfo, 0)
 	for i, fieldDesc := range tmplDesc.Field {
 		fieldName := fieldDesc.GetName()
@@ -211,6 +212,9 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 		// therefore it is impossible to get to this state.
 		m.addError(fd.GetName(), unknownLine, "file option %s is required", tmpl.E_TemplateVariety.Name)
 	}
+
+	// For file level comments, comments from multiple locations are composed.
+	m.Comment = fmt.Sprintf("%s\n%s", fd.getComment(syntaxPath), fd.getComment(packagePath))
 }
 
 func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {
