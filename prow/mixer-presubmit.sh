@@ -45,6 +45,9 @@ bazel build //...
 echo "=== Bazel Tests ==="
 bazel test //...
 
+echo "=== Bazel Tests (Race) ==="
+bazel test --features=race //...
+
 echo "=== Code Check ==="
 ./bin/linters.sh
 
