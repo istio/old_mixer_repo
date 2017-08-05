@@ -37,7 +37,7 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("did not connect: %v", err)
 	}
 	defer func() {
-		conn.Close()
+		_ := conn.Close()
 		grpcSrv.GracefulStop()
 	}()
 
@@ -70,7 +70,7 @@ func TestReport(t *testing.T) {
 		t.Fatalf("did not connect: %v", err)
 	}
 	defer func() {
-		conn.Close()
+		_ := conn.Close()
 		grpcSrv.GracefulStop()
 	}()
 
