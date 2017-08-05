@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	context "golang.org/x/net/context"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -34,10 +34,10 @@ func TestCheck(t *testing.T) {
 	}
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
-		t.Fatalf("did not connect: %v", err)
+		t.Fatalf("Failed to connect: %v", err)
 	}
 	defer func() {
-		_ := conn.Close()
+		err = conn.Close()
 		grpcSrv.GracefulStop()
 	}()
 
@@ -67,10 +67,10 @@ func TestReport(t *testing.T) {
 	}
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
-		t.Fatalf("did not connect: %v", err)
+		t.Fatalf("Failed to connect: %v", err)
 	}
 	defer func() {
-		_ := conn.Close()
+		err = conn.Close()
 		grpcSrv.GracefulStop()
 	}()
 
@@ -104,7 +104,7 @@ func TestReport(t *testing.T) {
 func setup() (*grpc.Server, *AttributesServer, string, error) {
 	lis, port, err := ListenerAndPort()
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("Could not find suitable listener: %v", err)
+		return nil, nil, "", fmt.Errorf("could not find suitable listener: %v", err)
 	}
 
 	attrSrv := NewAttributesServer(make(chan attribute.Bag))
