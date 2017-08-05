@@ -115,9 +115,9 @@ func NewMixerServer(impl mixerpb.MixerServer) *grpc.Server {
 // ListenerAndPort starts a listener on an available port and returns both the
 // listener and the port on which it is listening.
 func ListenerAndPort() (net.Listener, int, error) {
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", ":0") // nolint: gas
 	if err != nil {
-		return nil, 0, fmt.Errorf("Could not find open port for server: %v", err)
+		return nil, 0, fmt.Errorf("could not find open port for server: %v", err)
 	}
 	return lis, lis.Addr().(*net.TCPAddr).Port, nil
 }
