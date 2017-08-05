@@ -21,10 +21,7 @@ var InterfaceTemplate = `// Copyright 2017 Istio Authors
 package {{.GoPackageName}}
 
 import (
-"istio.io/mixer/pkg/adapter/config"
-{{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
 "istio.io/mixer/pkg/adapter"
-{{end}}
 )
 
 {{.Comment}}
@@ -50,7 +47,7 @@ type Instance struct {
 // will call into the adapter to configure it with adapter specific configuration
 // as well as all inferred types.
 type {{.Name}}HandlerBuilder interface {
-	config.HandlerBuilder
+	adapter.HandlerBuilder
 	// Configure{{.Name}}Handler is invoked by Mixer to pass all possible Types for this template to the adapter.
 	// Type hold information about the shape of the Instances that will be dispatched to the
     // adapters at request time. Adapter can expect to receive corresponding Instance objects at request time.
@@ -65,11 +62,11 @@ type {{.Name}}HandlerBuilder interface {
 // attributes into template specific instances) to the adapters. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
 type {{.Name}}Handler interface {
-  config.Handler
+  adapter.Handler
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-    Handle{{.Name}}([]*Instance) (bool, config.CacheabilityInfo, error)
+    Handle{{.Name}}([]*Instance) (bool, adapter.CacheabilityInfo, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
-    Handle{{.Name}}(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, config.CacheabilityInfo, error)
+    Handle{{.Name}}(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
   {{else -}}
     Handle{{.Name}}([]*Instance) error
   {{end}}
