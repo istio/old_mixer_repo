@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "globalWordList.go",
         "grpcServer.go",
     ],
     visibility = ["//visibility:public"],
@@ -18,6 +17,7 @@ go_library(
         "@com_github_golang_glog//:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_istio_api//:mixer/v1",  # keep
+        "@com_github_istio_api//:mixer/v1/attributes",  # keep
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//log:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
