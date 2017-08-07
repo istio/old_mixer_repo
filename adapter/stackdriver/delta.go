@@ -47,12 +47,7 @@ type byStartTimeUSec []*monitoring.TimeSeries
 func (t byStartTimeUSec) Len() int      { return len(t) }
 func (t byStartTimeUSec) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
 func (t byStartTimeUSec) Less(i, j int) bool {
-	t1 := t[i].Points[0].Interval.StartTime
-	t2 := t[j].Points[0].Interval.StartTime
-	if t1.Seconds == t2.Seconds {
-		return toUSec(t1.Nanos) < toUSec(t2.Nanos)
-	}
-	return t1.Seconds < t2.Seconds
+	return compareUSec(t[i].Points[0].Interval.StartTime, t[j].Points[0].Interval.StartTime) < 0
 }
 
 // Used as our key to group TimeSeries
