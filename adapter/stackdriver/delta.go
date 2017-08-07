@@ -61,24 +61,20 @@ type key struct {
 	mr     *monitoredres.MonitoredResource
 }
 
-// For DELTA metrics, no two can have duplicate StartTimes. This func groups the TimeSeries by metric, and touches the times
-// to ensure no two have duplicate start times. This assumes that all TimeSeries have exactly 1 point, since we're using
-// them with a call to CreateTimeSeries (which has the same requirement).
-//
-// TODO: if we're really paranoid, we could maintain a map[metric]time.Time of the last (greatest) time sent for each metric.
-// We could then reject any writes with time < the stored time, as a safeguard against metrics in different batches
-// stomping on each other's times. This obvious doesn't scale to multiple Mixer instances.
+// In order to report DELTAs to Stackdriver we need to massage the data. Stackdriver disallows custom metrics of kind DELTA,
+// so we transform DELTAs into non-overlapping CUMULATIVE metrics, which have the same semantics as DELTAs when queried.
+// The fact that they're non-overlapping bit is the critical thing. Coalesce takes a set of timeseries, groups them by stream
+// (i.e. by type, metric, and monitored resource) and then merges DELTA timerseries with overlapping time intervals. At the
+// same time we change the metric's kind from DELTA to CUMULATIVE so that Stackdriver doesn't reject our requests out of hand.
 func coalesce(series []*monitoring.TimeSeries, logger adapter.Logger) []*monitoring.TimeSeries {
 	out := make([]*monitoring.TimeSeries, 0, len(series))
 	byMetric := make(map[key][]*monitoring.TimeSeries)
 	for _, ts := range series {
 		if ts.MetricKind == metricpb.MetricDescriptor_DELTA {
 			k := key{ts.Metric, ts.Resource}
-			// Stackdriver does not support custom metrics of kinda DELTA, but if you send cumulative metrics with no
-			// overlapping intervals then DELTA based queries work over the stream. We change the kind here to allow users
-			// to create "DELTA" metrics in config, but have it actually work at the API level.
 			ts.MetricKind = metricpb.MetricDescriptor_CUMULATIVE
-			// Further, DELTAs cannot have the same start and end time, so we massage the data a bit.
+			// DELTA and CUMULATIVE metrics cannot have the same start and end time, so if they are the same we munge
+			// the data by unit of least precision that Stackdriver stores (microsecond).
 			if compareUSec(ts.Points[0].Interval.StartTime, ts.Points[0].Interval.EndTime) == 0 {
 				ts.Points[0].Interval.EndTime.Nanos += usec
 			}
@@ -89,19 +85,15 @@ func coalesce(series []*monitoring.TimeSeries, logger adapter.Logger) []*monitor
 	}
 
 	for _, ts := range byMetric {
-		logger.Infof("ts pre sort = %v", ts)
 		sort.Sort(byStartTimeUSec(ts))
-		logger.Infof("ts post sort = %v", ts)
 		// now we walk the list, combining runs of timeseries with overlapping intervals into a single point.
 		current := ts[0]
-		logger.Infof("current = %v", current)
 		for i := 1; i < len(ts); i++ {
-			logger.Infof("comparing to %v", ts[i])
 			if compareUSec(current.Points[0].Interval.EndTime, ts[i].Points[0].Interval.StartTime) >= 0 {
 				// merge the two; if there's an error then both params are unchanged.
 				var err error
 				if current, err = merge(current, ts[i]); err != nil {
-					logger.Infof("failed to merge timeseries: %v", err)
+					logger.Warningf("failed to merge timeseries: %v", err)
 				}
 			} else {
 				// non-overlapping, move along
