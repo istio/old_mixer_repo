@@ -27,6 +27,7 @@ import (
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/il/compiler"
 	"istio.io/mixer/pkg/il/interpreter"
+	"os"
 )
 
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
@@ -47,6 +48,7 @@ type cacheEntry struct {
 
 // Eval evaluates expr using the attr attribute bag and returns the result as interface{}.
 func (e *IL) Eval(expr string, attrs attribute.Bag) (interface{}, error) {
+	fmt.Fprintf(os.Stderr, "~~~ Eval: expr:'%s', bag:'%v'", expr, attrs)
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
@@ -57,6 +59,7 @@ func (e *IL) Eval(expr string, attrs attribute.Bag) (interface{}, error) {
 
 // EvalString evaluates expr using the attr attribute bag and returns the result as string.
 func (e *IL) EvalString(expr string, attrs attribute.Bag) (string, error) {
+	fmt.Fprintf(os.Stderr, "~~~ EvalString: expr:'%s', bag:'%v'", expr, attrs)
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
@@ -67,6 +70,7 @@ func (e *IL) EvalString(expr string, attrs attribute.Bag) (string, error) {
 
 // EvalPredicate evaluates expr using the attr attribute bag and returns the result as bool.
 func (e *IL) EvalPredicate(expr string, attrs attribute.Bag) (bool, error) {
+	fmt.Fprintf(os.Stderr, "~~~ EvalPredicate: expr:'%s', bag:'%v'", expr, attrs)
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
@@ -77,9 +81,12 @@ func (e *IL) EvalPredicate(expr string, attrs attribute.Bag) (bool, error) {
 
 // EvalType evaluates expr using the attr attribute bag and returns the type of the result.
 func (e *IL) EvalType(expr string, finder expr.AttributeDescriptorFinder) (pb.ValueType, error) {
+	fmt.Fprintf(os.Stderr, "~~~ EvalType: expr:'%s'.", expr)
+
 	var entry cacheEntry
 	var err error
 	if entry, err = e.getOrCreateCacheEntry(expr); err != nil {
+		fmt.Fprintf(os.Stderr, "~~~ Enable to getOrCreateCacheEntry type: expr:'%s', err:'%v'.", expr, err)
 		return pb.VALUE_TYPE_UNSPECIFIED, err
 	}
 
@@ -89,6 +96,9 @@ func (e *IL) EvalType(expr string, finder expr.AttributeDescriptorFinder) (pb.Va
 // AssertType evaluates the type of expr using the attribute set; if the evaluated type is equal to
 // the expected type we return nil, and return an error otherwise.
 func (e *IL) AssertType(expr string, finder expr.AttributeDescriptorFinder, expectedType pb.ValueType) error {
+
+	fmt.Fprintf(os.Stderr, "~~~ Asserting type!: expr:'%s', expected:'%v'.", expr, expectedType)
+
 	if t, err := e.EvalType(expr, finder); err != nil {
 		return err
 	} else if t != expectedType {
@@ -99,6 +109,7 @@ func (e *IL) AssertType(expr string, finder expr.AttributeDescriptorFinder, expe
 
 // ConfigChange handles changing of configuration.
 func (e *IL) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
+	fmt.Fprintf(os.Stderr, "~~~ ConfigChange: finder:'%v' !~~~", df)
 	e.finder = df
 	e.cache.Purge()
 }
@@ -117,8 +128,10 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
 
 	if entry, found := e.cache.Get(expr); found {
+		fmt.Fprintf(os.Stderr, "~~~ getOrCreateCacheEntry hit! expr:'%s'.", expr)
 		return entry.(cacheEntry), nil
 	}
+	fmt.Fprintf(os.Stderr, "~~~ getOrCreateCacheEntry miss! expr:'%s'.", expr)
 
 	if glog.V(4) {
 		glog.Infof("expression cache miss for '%s'", expr)
@@ -127,8 +140,10 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 	var err error
 	var result compiler.Result
 	if result, err = compiler.Compile(expr, e.finder); err != nil {
+		fmt.Fprintf(os.Stderr, "~~~ compile failed! expr:'%s', err:'%v'", expr, err)
 		return cacheEntry{}, err
 	}
+	fmt.Fprintf(os.Stderr, "~~~ compile succeeded! expr:'%s'", expr)
 
 	if glog.V(4) {
 		glog.Infof("caching expression for '%s''", expr)
