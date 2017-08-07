@@ -1,0 +1,94 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package logEntry;
+
+// TODO: STUFF THAT IS COMMENTED OUT NEEDS TO BE TURNED ON ONCE CODE GEN IS FIXED
+
+//import "gogoproto/gogo.proto";
+//import "google/protobuf/timestamp.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
+import "pkg/adapter/template/TemplateExtensions.proto";
+
+option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.v1.config.template.template_name) = "LogEntry";
+
+
+message Template {
+    enum Severity {
+        DEFAULT = 0;
+
+        // Debug indicates that the log entry has debug or trace information.
+        DEBUG = 1;
+
+        // Info indicates that the log entry has routine info, including rpc or performance data
+        INFO = 2;
+
+        // Notice indicates that the log entry has normal, but significant events, such as config changes.
+        NOTICE = 3;
+
+        // Warning indicates that the log entry has data on events that might cause issues.
+        WARNING = 4;
+
+        // Error indicates that the log entry has data on events that are likely to cause issues.
+        ERROR = 5;
+
+        // Critical indicates that the log entry has data on events related to severe problems or outages.
+        CRITICAL = 6;
+
+        // Alert indicates that the log entry has data on which human action should be taken immediately.
+        ALERT = 7;
+
+        // Emergency indicates that the log entry has data on one (or more) systems that are unusable.
+        EMERGENCY = 8;
+    }
+
+    // LogName is the name of the log in which to record this entry.
+    string log_name = 1;
+
+    // Labels are a set of metadata associated with this entry.
+    // For instance, Labels can be used to describe the monitored
+    // resource that corresponds to the log entry.
+    map<string, istio.mixer.v1.config.descriptor.ValueType> labels = 2;
+
+    // Timestamp is the time value for the log entry
+//    google.protobuf.Timestamp timestamp = 3  [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+
+    // Severity indicates the log level for the log entry.
+//    Severity severity = 4;
+
+    // PayloadFormat details the currently supported logging payload formats.
+    // TEXT is the default payload format.
+    enum PayloadFormat {
+        // Invalid, default value.
+        PAYLOAD_FORMAT_UNSPECIFIED = 0;
+
+        // Indicates a payload format of raw text.
+        TEXT = 1;
+
+        // Indicates that the payload is a serialized JSON object.
+        JSON = 2;
+    }
+
+    // Format of the value of the payload attribute.
+//    PayloadFormat payload_format = 5;
+
+    // The template that will be populated with labels at runtime to
+    // generate a log message; the labels describe the parameters for this template.
+    //
+    // The template strings must conform to go's text/template syntax.
+    string log_template = 6;
+}
