@@ -26,20 +26,37 @@ import (
 	"google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	"google.golang.org/genproto/googleapis/monitoring/v3"
+
+	"istio.io/mixer/pkg/adapter/test"
 )
 
 // shorthand to save us some chars in test cases
 type ts []*monitoring.TimeSeries
 
 func makeTS(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32) *monitoring.TimeSeries {
+	return makeTSFull(m, mr, seconds, micros, 1, metric.MetricDescriptor_DELTA)
+}
+
+func makeTSDelta(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32, val int64) *monitoring.TimeSeries {
+	return makeTSFull(m, mr, seconds, micros, val, metric.MetricDescriptor_DELTA)
+}
+
+func makeTSCumulative(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32, val int64) *monitoring.TimeSeries {
+	return makeTSFull(m, mr, seconds, micros, val, metric.MetricDescriptor_CUMULATIVE)
+}
+
+func makeTSFull(m *metric.Metric, mr *monitoredres.MonitoredResource, seconds int64, micros int32, value int64,
+	kind metric.MetricDescriptor_MetricKind) *monitoring.TimeSeries {
+
 	return &monitoring.TimeSeries{
 		Metric:     m,
 		Resource:   mr,
-		MetricKind: metric.MetricDescriptor_DELTA,
+		MetricKind: kind,
 		Points: []*monitoring.Point{{
+			Value: &monitoring.TypedValue{&monitoring.TypedValue_Int64Value{value}},
 			Interval: &monitoring.TimeInterval{
-				StartTime: &timestamp.Timestamp{Seconds: seconds, Nanos: micros * int32(time.Microsecond)},
-				EndTime:   &timestamp.Timestamp{Seconds: seconds, Nanos: micros * int32(time.Microsecond)},
+				StartTime: &timestamp.Timestamp{Seconds: seconds, Nanos: micros * usec},
+				EndTime:   &timestamp.Timestamp{Seconds: seconds, Nanos: (micros * usec) + usec},
 			},
 		}},
 	}
@@ -97,7 +114,7 @@ func TestByStartTimeUSec(t *testing.T) {
 	}
 }
 
-func TestMassageTimes(t *testing.T) {
+func TestCoalesce(t *testing.T) {
 	m1 := &metric.Metric{
 		Type:   "m1",
 		Labels: map[string]string{},
@@ -109,6 +126,19 @@ func TestMassageTimes(t *testing.T) {
 	// TODO: we don't currently test multiple series (different metrics/MRs) as it complicates the test logic:
 	// the order that they're returned can be random, where all the elements in the series are correctly ordered but the
 	// series themselves are not the order we want in `tests.out`; this was causing flakes in the test.
+
+	// This is based on the test input for the "cascading conflicts" test case; we merge several adjacent TSs and the
+	// result is a time interval from (1s1ns, 1s4ns) which our helper functions makes hard to construct in line.
+	cascadingConflictsOut := makeTSCumulative(m1, mr1, 1, 1, 10)
+	cascadingConflictsOut.Points[0].Interval.EndTime.Nanos += 2 * usec
+
+	doubleInput1 := makeTSDelta(m1, mr1, 1, 5, 456)
+	doubleInput1.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{4.5}}
+	doubleInput2 := makeTSDelta(m1, mr1, 1, 5, 456)
+	doubleInput2.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{4.5}}
+	doubleOutput := makeTSCumulative(m1, mr1, 1, 5, 456)
+	doubleOutput.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{9.0}}
+
 	tests := []struct {
 		name string
 		in   ts
@@ -118,34 +148,45 @@ func TestMassageTimes(t *testing.T) {
 			ts{},
 			ts{}},
 		{"one",
-			ts{makeTS(m1, mr1, 1, 5)},
-			ts{makeTS(m1, mr1, 1, 5)}},
+			ts{makeTSDelta(m1, mr1, 1, 5, 456)},
+			ts{makeTSCumulative(m1, mr1, 1, 5, 456)}},
 		{"dupe",
-			ts{makeTS(m1, mr1, 1, 5), makeTS(m1, mr1, 1, 5)},
-			ts{makeTS(m1, mr1, 1, 5), makeTS(m1, mr1, 1, 6)}},
+			ts{makeTSDelta(m1, mr1, 1, 5, 1), makeTSDelta(m1, mr1, 1, 5, 1)},
+			ts{makeTSCumulative(m1, mr1, 1, 5, 2)}},
 		{"out of order",
-			ts{makeTS(m1, mr1, 2, 5), makeTS(m1, mr1, 1, 5)},
-			ts{makeTS(m1, mr1, 1, 5), makeTS(m1, mr1, 2, 5)},
+			ts{makeTSDelta(m1, mr1, 2, 5, 1), makeTSDelta(m1, mr1, 1, 5, 1)},
+			ts{makeTSCumulative(m1, mr1, 1, 5, 1), makeTSCumulative(m1, mr1, 2, 5, 1)},
 		},
 		{"reversed",
-			ts{makeTS(m1, mr1, 4, 1), makeTS(m1, mr1, 3, 1), makeTS(m1, mr1, 2, 1), makeTS(m1, mr1, 1, 1)},
-			ts{makeTS(m1, mr1, 1, 1), makeTS(m1, mr1, 2, 1), makeTS(m1, mr1, 3, 1), makeTS(m1, mr1, 4, 1)},
+			ts{makeTSDelta(m1, mr1, 4, 1, 1), makeTSDelta(m1, mr1, 3, 1, 1), makeTSDelta(m1, mr1, 2, 1, 1), makeTSDelta(m1, mr1, 1, 1, 1)},
+			ts{makeTSCumulative(m1, mr1, 1, 1, 1), makeTSCumulative(m1, mr1, 2, 1, 1), makeTSCumulative(m1, mr1, 3, 1, 1), makeTSCumulative(m1, mr1, 4, 1, 1)},
 		},
 		{"cascading conflicts",
-			ts{makeTS(m1, mr1, 1, 1), makeTS(m1, mr1, 1, 1), makeTS(m1, mr1, 1, 2), makeTS(m1, mr1, 1, 3)},
-			ts{makeTS(m1, mr1, 1, 1), makeTS(m1, mr1, 1, 2), makeTS(m1, mr1, 1, 3), makeTS(m1, mr1, 1, 4)},
+			ts{makeTSDelta(m1, mr1, 1, 1, 1), makeTSDelta(m1, mr1, 1, 1, 2), makeTSDelta(m1, mr1, 1, 3, 3), makeTSDelta(m1, mr1, 1, 2, 4)},
+			ts{cascadingConflictsOut},
+		},
+		{"conflicting and nonconflicting",
+			ts{makeTSDelta(m1, mr1, 1, 1, 7), makeTSDelta(m1, mr1, 1, 1, 3), makeTSDelta(m1, mr1, 1, 7, 4896), makeTSDelta(m1, mr1, 1, 5, 9485367)},
+			ts{makeTSCumulative(m1, mr1, 1, 1, 10), makeTSCumulative(m1, mr1, 1, 5, 9485367), makeTSCumulative(m1, mr1, 1, 7, 4896)},
+		},
+		{"double",
+			ts{doubleInput1, doubleInput2},
+			ts{doubleOutput},
 		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if len(tt.in) != len(tt.out) {
-				t.Fatalf("Expected in and out to be the same size, got size %d and %d respective.", len(tt.in), len(tt.out))
+			out := coalesce(tt.in, test.NewEnv(t))
+			if len(out) != len(tt.out) {
+				t.Fatalf("coalesce(%v) = %v, len = %d, expectd len == %d", tt.in, out, len(out), len(tt.out))
 			}
-			out := massageTimes(tt.in)
 			for idx, expected := range tt.out {
 				if !reflect.DeepEqual(out[idx], expected) {
-					t.Errorf("out[%d] = %v, after massaging expected %v", idx, out[idx], expected)
+					for i, ts := range out {
+						t.Logf("out[%d] = %v", i, ts)
+					}
+					t.Errorf("out[%d] = %v, after coalescing expected %v", idx, out[idx], expected)
 				}
 			}
 		})
