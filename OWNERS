@@ -1,12 +1,13 @@
 reviewers:
-  - geeknoid
-  - mandarjog
   - Douglas-reid
-  - ZackButcher
-  - sebastienvas
-approvers:
   - geeknoid
-  - mandarjog
-  - ZackButcher
   - guptasu
+  - mandarjog
+  - sebastienvas
+  - ZackButcher
+approvers:
   - Douglas-reid
+  - geeknoid
+  - guptasu
+  - mandarjog
+  - ZackButcher
