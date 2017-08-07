@@ -5,8 +5,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "delta.go",
         "stackdriver.go",
-        "time.go",
     ],
     deps = [
         "//adapter/stackdriver/config:go_default_library",
@@ -29,8 +29,8 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "delta_test.go",
         "stackdriver_test.go",
-        "time_test.go",
     ],
     library = ":go_default_library",
     deps = [

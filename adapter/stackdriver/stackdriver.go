@@ -38,6 +38,9 @@ import (
 // TODO: change batching to be size aware: right now we batch and send data to stackdriver based on only a ticker.
 // Ideally we'd also size our buffer and send data whenever we hit the size limit or config.push_interval time has passed
 // since the last push.
+// TODO: today we start a ticker per aspect instance, each keeping an independent data set it pushes to SD. This needs to
+// be promoted up to the factory, which will hold a buffer that all aspects write in to, with a single ticker/loop responsible
+// for pushing the data from all aspect instances.
 
 type (
 
@@ -47,6 +50,9 @@ type (
 	factory struct {
 		adapter.DefaultBuilder
 		createClient createClientFunc
+
+		once sync.Once
+		t    *time.Ticker // we hold on to a ref so we can stop it during Close()
 	}
 
 	sdinfo struct {
@@ -66,10 +72,11 @@ type (
 		metricInfo  map[string]sdinfo
 		client      *monitoring.MetricClient
 		pushMetrics pushFunc
+
+		// TODO: move this up to the factory so there's a single batch being sent to SD for the entire Mixer, rather than one per aspect instance.
 		// Stackdriver's SDK doesn't perform batching, though their API supports it.
 		// We'll roll our own batching by aggregating timeseries and periodically sending them to Stackdriver.
-		t      *time.Ticker // we hold on to a ref so we can stop it during Close()
-		m      sync.Mutex   // guards toSend
+		m      sync.Mutex // guards toSend
 		toSend []*monitoringpb.TimeSeries
 	}
 )
@@ -90,9 +97,9 @@ var (
 		adapter.String:       labelpb.LabelDescriptor_STRING,
 		adapter.Int64:        labelpb.LabelDescriptor_INT64,
 		adapter.Float64:      labelpb.LabelDescriptor_INT64,
+		adapter.Time:         labelpb.LabelDescriptor_INT64,
+		adapter.Duration:     labelpb.LabelDescriptor_INT64,
 		adapter.Bool:         labelpb.LabelDescriptor_BOOL,
-		adapter.Time:         labelpb.LabelDescriptor_STRING,
-		adapter.Duration:     labelpb.LabelDescriptor_STRING,
 		adapter.IPAddress:    labelpb.LabelDescriptor_STRING,
 		adapter.EmailAddress: labelpb.LabelDescriptor_STRING,
 		adapter.URI:          labelpb.LabelDescriptor_STRING,
@@ -106,11 +113,14 @@ func Register(r adapter.Registrar) {
 	r.RegisterMetricsBuilder(newFactory(createClient))
 }
 
-func newFactory(createClient createClientFunc) factory {
-	return factory{DefaultBuilder: adapter.NewDefaultBuilder(adapterName, adapterDesc, &config.Params{}), createClient: createClient}
+func newFactory(createClient createClientFunc) *factory {
+	return &factory{DefaultBuilder: adapter.NewDefaultBuilder(adapterName, adapterDesc, &config.Params{}), createClient: createClient}
 }
 
-func (f factory) Close() error { return nil }
+func (f *factory) Close() error {
+	f.t.Stop()
+	return nil
+}
 
 func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
 	return monitoring.NewMetricClient(context.Background(), toOpts(cfg)...)
@@ -133,7 +143,7 @@ func toOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 }
 
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
-func (f factory) NewMetricsAspect(env adapter.Env, c adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (f *factory) NewMetricsAspect(env adapter.Env, c adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	cfg := c.(*config.Params)
 	types := make(map[string]sdinfo, len(metrics))
 	for name, def := range metrics {
@@ -150,10 +160,13 @@ func (f factory) NewMetricsAspect(env adapter.Env, c adapter.Config, metrics map
 		}
 	}
 
-	// Per the documentation on config.proto, if push_interval is zero we'll default to a 1s push interval
+	// Per the documentation on config.proto, if push_interval is zero we'll default to a 5s push interval
 	if cfg.PushInterval == time.Duration(0) {
 		cfg.PushInterval = 1 * time.Second
 	}
+	f.once.Do(func() {
+		f.t = time.NewTicker(cfg.PushInterval)
+	})
 
 	var err error
 	var client *monitoring.MetricClient
@@ -168,17 +181,16 @@ func (f factory) NewMetricsAspect(env adapter.Env, c adapter.Config, metrics map
 		client:      client,
 		pushMetrics: client.CreateTimeSeries,
 		metricInfo:  types,
-		t:           time.NewTicker(cfg.PushInterval),
 		m:           sync.Mutex{},
 	}
-	s.startTicker(env)
+	s.startTicker(env, f.t)
 	return s, nil
 }
 
 // Extracted from NewMetricsAspect for testing - it shouldn't be possible to get an Env any other time.
-func (s *sd) startTicker(env adapter.Env) {
+func (s *sd) startTicker(env adapter.Env, ticker *time.Ticker) {
 	env.ScheduleDaemon(func() {
-		for range s.t.C {
+		for range ticker.C {
 			s.pushData()
 		}
 	})
@@ -247,10 +259,10 @@ func (s *sd) pushData() {
 	toSend := s.toSend
 	s.toSend = make([]*monitoringpb.TimeSeries, 0, len(toSend))
 	s.m.Unlock()
-	l.Infof("Pushing %d timeseries to stackdriver", len(toSend))
-
-	// Mutates the TimeSeries to ensure no times collide in this batch for DELTA metric series.
-	toSend = massageTimes(toSend)
+	l.Infof("%d timeseries before merging", len(toSend))
+	// Combine timeseries with adjacent/overlapping intervals to ensure no times collide in this batch for DELTA metric series.
+	toSend = coalesce(toSend, l)
+	l.Infof("%d timeseries after merging", len(toSend))
 
 	err := s.pushMetrics(context.Background(),
 		&monitoringpb.CreateTimeSeriesRequest{
@@ -265,7 +277,6 @@ func (s *sd) pushData() {
 }
 
 func (s *sd) Close() error {
-	s.t.Stop()
 	return s.client.Close()
 }
 
@@ -282,6 +293,11 @@ func toTypedVal(val interface{}, t adapter.LabelType) *monitoringpb.TypedValue {
 	case labelpb.LabelDescriptor_BOOL:
 		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: val.(bool)}}
 	case labelpb.LabelDescriptor_INT64:
+		if t, ok := val.(time.Time); ok {
+			val = t.Nanosecond() / int(time.Microsecond)
+		} else if d, ok := val.(time.Duration); ok {
+			val = d.Nanoseconds() / int64(time.Microsecond)
+		}
 		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_Int64Value{Int64Value: val.(int64)}}
 	case labelpb.LabelDescriptor_STRING:
 		fallthrough
