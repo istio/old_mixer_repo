@@ -16,6 +16,7 @@ package modelgen
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -186,8 +187,8 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	if fd.Package != nil {
-		m.GoPackageName = goPackageName(strings.TrimSpace(*fd.Package))
 		m.PackageName = strings.TrimSpace(*fd.Package)
+		m.GoPackageName = goPackageName(m.PackageName)
 	} else {
 		m.addError(fd.GetName(), unknownLine, "package name missing")
 	}
@@ -220,13 +221,14 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	m.Comment = fmt.Sprintf("%s\n%s", fd.getComment(syntaxPath), fd.getComment(packagePath))
 }
 
+// Template name must contain only alphanumerics with underscore. First character must be a capital alphabet.
+const tmplNamePattern = "^[A-Z][a-zA-Z0-9_]+$"
+
 func validateTmplName(name string) error {
-	if name == "" {
-		return fmt.Errorf("Template name cannot be empty")
-	}
-	var firstChar = name[0:1]
-	if firstChar == strings.ToLower(firstChar) {
-		return fmt.Errorf("First character of %s must be capitalized", name)
+	if b, err := regexp.Match(tmplNamePattern, []byte(name)); err != nil {
+		return fmt.Errorf("template name '%s' cannot be validated: %v", name, err)
+	} else if !b {
+		return fmt.Errorf("template name '%s' does not match the pattern %s", name, tmplNamePattern)
 	}
 	return nil
 }
