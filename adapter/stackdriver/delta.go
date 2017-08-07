@@ -71,7 +71,13 @@ func coalesce(series []*monitoring.TimeSeries, logger adapter.Logger) []*monitor
 			// DELTA and CUMULATIVE metrics cannot have the same start and end time, so if they are the same we munge
 			// the data by unit of least precision that Stackdriver stores (microsecond).
 			if compareUSec(ts.Points[0].Interval.StartTime, ts.Points[0].Interval.EndTime) == 0 {
-				ts.Points[0].Interval.EndTime.Nanos += usec
+				ts.Points[0].Interval = &monitoring.TimeInterval{
+					StartTime: ts.Points[0].Interval.StartTime,
+					EndTime: &timestamp.Timestamp{
+						Seconds: ts.Points[0].Interval.EndTime.Seconds,
+						Nanos:   ts.Points[0].Interval.EndTime.Nanos + usec,
+					},
+				}
 			}
 			byMetric[k] = append(byMetric[k], ts)
 		} else {
@@ -124,6 +130,7 @@ func merge(a, b *monitoring.TimeSeries) (*monitoring.TimeSeries, error) {
 		if _, ok = b.Points[0].Value.Value.(*monitoring.TypedValue_DistributionValue); !ok {
 			return a, fmt.Errorf("can't merge two timeseries with different value types; a is a distribution, b is not: %#v", b.Points[0].Value)
 		}
+		return a, fmt.Errorf("not implemented")
 		// TODO: combining distributions is hard. We know that they have the same buckets since they're all for the same metric, so that part is fine.
 		// But we need to update counts of each bucket, as well as the mean, sum of squared deviation, and the range. This is non-trivial.
 	default:

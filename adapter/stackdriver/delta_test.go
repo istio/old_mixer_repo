@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -188,6 +189,110 @@ func TestCoalesce(t *testing.T) {
 					}
 					t.Errorf("out[%d] = %v, after coalescing expected %v", idx, out[idx], expected)
 				}
+			}
+		})
+	}
+}
+
+func TestCoalesce_Errors(t *testing.T) {
+	m1 := &metric.Metric{
+		Type:   "m1",
+		Labels: map[string]string{},
+	}
+	mr1 := &monitoredres.MonitoredResource{
+		Type:   "mr1",
+		Labels: map[string]string{},
+	}
+
+	env := test.NewEnv(t)
+	a := makeTSDelta(m1, mr1, 1, 1, 1)
+	b := makeTSDelta(m1, mr1, 1, 1, 1)
+	b.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{4.7}}
+	_ = coalesce([]*monitoring.TimeSeries{a, b}, env)
+	if len(env.GetLogs()) < 1 {
+		t.Fatalf("Expected bad data to be logged about, got no log entries")
+	} else if !strings.Contains(env.GetLogs()[0], "failed to merge timeseries") {
+		t.Fatalf("Expected log entry for failed merge, got entry: %v", env.GetLogs()[0])
+	}
+
+	c := makeTSDelta(m1, mr1, 1, 1, 1)
+	c.Points[0].Interval.EndTime = c.Points[0].Interval.StartTime
+	out := coalesce([]*monitoring.TimeSeries{c}, env)
+	if reflect.DeepEqual(out[0].Points[0].Interval.EndTime, out[0].Points[0].Interval.StartTime) {
+		t.Fatalf("After coalescing, DELTA metrics must not have the same start and end time, but we do: %v", out[0])
+	}
+}
+
+func TestMerge(t *testing.T) {
+	m1 := &metric.Metric{
+		Type:   "m1",
+		Labels: map[string]string{},
+	}
+	mr1 := &monitoredres.MonitoredResource{
+		Type:   "mr1",
+		Labels: map[string]string{},
+	}
+
+	tests := []struct {
+		name string
+		a    *monitoring.TypedValue
+		b    *monitoring.TypedValue
+		out  *monitoring.TypedValue
+		err  string
+	}{
+		{"happy i64",
+			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
+			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{33}},
+			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{80}},
+			""},
+		{"happy double",
+			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{2.4}},
+			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
+			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{11}},
+			""},
+		{"happy distribution",
+			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
+			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
+			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
+			"not implemented"},
+		{"sad i64",
+			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
+			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
+			nil,
+			"can't merge two timeseries with different value types"},
+		{"sad double",
+			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
+			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
+			nil,
+			"can't merge two timeseries with different value types"},
+		{"sad distribution",
+			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
+			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
+			nil,
+			"can't merge two timeseries with different value types"},
+		{"invalid",
+			&monitoring.TypedValue{&monitoring.TypedValue_StringValue{}},
+			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
+			nil,
+			"invalid type for DELTA metric"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			a := makeTS(m1, mr1, 1, 1)
+			a.Points[0].Value = tt.a
+			b := makeTS(m1, mr1, 1, 1)
+			b.Points[0].Value = tt.b
+
+			out, err := merge(a, b)
+			if err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("merge(%v, %v) = '%s', wanted no err", a, b, err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
+			} else if !reflect.DeepEqual(out.Points[0].Value, tt.out) {
+				t.Fatalf("merge(%v, %v) = %v, wanted value %v", a, b, out, tt.out)
 			}
 		})
 	}
