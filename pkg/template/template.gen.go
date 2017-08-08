@@ -59,15 +59,13 @@ var (
 				cpb := cp.(*istio_mixer_adapter_sample_check.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_check.Type{}
 
-				infrdType.CheckExpression = istio_mixer_v1_config_descriptor.STRING
-
 				_ = cpb
 				return infrdType, err
 			},
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_check.SampleHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_adapter_sample_check.Type)
+				castedTypes := make(map[string]*istio_mixer_adapter_sample_check.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_adapter_sample_check.Type)
@@ -82,7 +80,7 @@ var (
 				var err error
 
 				var instances []*istio_mixer_adapter_sample_check.Instance
-				castedInsts := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_check.InstanceParam)
 					castedInsts[k] = v1
@@ -100,6 +98,7 @@ var (
 
 						CheckExpression: CheckExpression.(string),
 					})
+					_ = md
 				}
 				var cacheInfo adapter.CacheabilityInfo
 				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.SampleHandler).HandleSample(instances); err != nil {
@@ -134,7 +133,7 @@ var (
 				cpb := cp.(*istio_mixer_adapter_sample_quota.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_quota.Type{}
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
 				for k, v := range cpb.Dimensions {
 					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 						return nil, err
@@ -147,7 +146,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_quota.QuotaHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_adapter_sample_quota.Type)
+				castedTypes := make(map[string]*istio_mixer_adapter_sample_quota.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_adapter_sample_quota.Type)
@@ -216,7 +215,7 @@ var (
 					return nil, err
 				}
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
 				for k, v := range cpb.Dimensions {
 					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 						return nil, err
@@ -229,7 +228,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_report.SampleHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_adapter_sample_report.Type)
+				castedTypes := make(map[string]*istio_mixer_adapter_sample_report.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_adapter_sample_report.Type)
@@ -242,7 +241,7 @@ var (
 				result := &multierror.Error{}
 				var instances []*istio_mixer_adapter_sample_report.Instance
 
-				castedInsts := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_report.InstanceParam)
 					castedInsts[k] = v1
@@ -270,6 +269,7 @@ var (
 
 						Dimensions: Dimensions,
 					})
+					_ = md
 				}
 
 				if err := handler.(istio_mixer_adapter_sample_report.SampleHandler).HandleSample(instances); err != nil {

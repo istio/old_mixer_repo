@@ -45,7 +45,8 @@ const (
 	fullGoNameOfValueTypeMessageName = "istio_mixer_v1_config_descriptor.ValueType"
 )
 
-var primitiveToValueType = map[string]string{
+// TODO share the code between this generator and the interfacegen code generator.
+var primitiveHavingValueType = map[string]string{
 	"string":  fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
 	"bool":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
 	"int64":   fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
@@ -60,11 +61,8 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		template.FuncMap{
 			"isPrimitiveValueType": func(goTypeName string) bool {
 				// Is this a primitive type from all types that can be represented as ValueType
-				_, ok := primitiveToValueType[goTypeName]
+				_, ok := primitiveHavingValueType[goTypeName]
 				return ok
-			},
-			"primitiveToValueType": func(goTypeName string) string {
-				return primitiveToValueType[goTypeName]
 			},
 			"isValueType": func(goTypeName string) bool {
 				return goTypeName == fullGoNameOfValueTypeMessageName

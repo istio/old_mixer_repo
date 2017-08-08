@@ -73,16 +73,13 @@ var (
 				infrdType := &{{.GoPackageName}}.Type{}
 
 				{{range .TemplateMessage.Fields}}
-					{{if isPrimitiveValueType .GoType}}
-						infrdType.{{.GoName}} = {{primitiveToValueType .GoType}}
-					{{end}}
 					{{if isValueType .GoType}}
 						if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
 							return nil, err
 						}
 					{{end}}
 					{{if isStringValueTypeMap .GoType}}
-						infrdType.{{.GoName}} = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+						infrdType.{{.GoName}} = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.{{.GoName}}))
 						for k, v := range cpb.{{.GoName}} {
 							if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
 								return nil, err
@@ -96,7 +93,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).({{.GoPackageName}}.{{.Name}}HandlerBuilder)
-				castedTypes := make(map[string]*{{.GoPackageName}}.Type)
+				castedTypes := make(map[string]*{{.GoPackageName}}.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*{{.GoPackageName}}.Type)
@@ -109,7 +106,7 @@ var (
 					result := &multierror.Error{}
 					var instances []*{{.GoPackageName}}.Instance
 
-					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam)
+					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam, len(insts))
 					for k, v := range insts {
 						v1 := v.(*{{.GoPackageName}}.InstanceParam)
 						castedInsts[k] = v1
@@ -137,6 +134,7 @@ var (
 								{{end}}
 							{{end}}
 						})
+						_ = md
 					}
 
 					if err := handler.({{.GoPackageName}}.{{.Name}}Handler).Handle{{.Name}}(instances); err != nil {
@@ -159,7 +157,7 @@ var (
 					var err error
 
 					var instances []*{{.GoPackageName}}.Instance
-					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam)
+					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam, len(insts))
 					for k, v := range insts {
 						v1 := v.(*{{.GoPackageName}}.InstanceParam)
 						castedInsts[k] = v1
@@ -186,6 +184,7 @@ var (
 								{{end}}
 							{{end}}
 						})
+						_ = md
 					}
 					var cacheInfo adapter.CacheabilityInfo
 					if found, cacheInfo, err = handler.({{.GoPackageName}}.{{.Name}}Handler).Handle{{.Name}}(instances); err != nil {

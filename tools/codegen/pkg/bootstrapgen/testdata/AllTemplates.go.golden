@@ -61,15 +61,13 @@ var (
 				cpb := cp.(*istio_mixer_template_list.InstanceParam)
 				infrdType := &istio_mixer_template_list.Type{}
 
-				infrdType.CheckExpression = istio_mixer_v1_config_descriptor.STRING
-
 				_ = cpb
 				return infrdType, err
 			},
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_list.ListHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_template_list.Type)
+				castedTypes := make(map[string]*istio_mixer_template_list.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_template_list.Type)
@@ -84,7 +82,7 @@ var (
 				var err error
 
 				var instances []*istio_mixer_template_list.Instance
-				castedInsts := make(map[string]*istio_mixer_template_list.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_template_list.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_list.InstanceParam)
 					castedInsts[k] = v1
@@ -102,6 +100,7 @@ var (
 
 						CheckExpression: CheckExpression.(string),
 					})
+					_ = md
 				}
 				var cacheInfo adapter.CacheabilityInfo
 				if found, cacheInfo, err = handler.(istio_mixer_template_list.ListHandler).HandleList(instances); err != nil {
@@ -136,7 +135,7 @@ var (
 				cpb := cp.(*istio_mixer_template_log.InstanceParam)
 				infrdType := &istio_mixer_template_log.Type{}
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
 				for k, v := range cpb.Dimensions {
 					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 						return nil, err
@@ -149,7 +148,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_log.LogHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_template_log.Type)
+				castedTypes := make(map[string]*istio_mixer_template_log.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_template_log.Type)
@@ -162,7 +161,7 @@ var (
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_log.Instance
 
-				castedInsts := make(map[string]*istio_mixer_template_log.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_template_log.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_log.InstanceParam)
 					castedInsts[k] = v1
@@ -181,6 +180,7 @@ var (
 
 						Dimensions: Dimensions,
 					})
+					_ = md
 				}
 
 				if err := handler.(istio_mixer_template_log.LogHandler).HandleLog(instances); err != nil {
@@ -220,7 +220,7 @@ var (
 					return nil, err
 				}
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
 				for k, v := range cpb.Dimensions {
 					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 						return nil, err
@@ -233,7 +233,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_metric.MetricHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_template_metric.Type)
+				castedTypes := make(map[string]*istio_mixer_template_metric.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_template_metric.Type)
@@ -246,7 +246,7 @@ var (
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_metric.Instance
 
-				castedInsts := make(map[string]*istio_mixer_template_metric.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_template_metric.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_metric.InstanceParam)
 					castedInsts[k] = v1
@@ -274,6 +274,7 @@ var (
 
 						Dimensions: Dimensions,
 					})
+					_ = md
 				}
 
 				if err := handler.(istio_mixer_template_metric.MetricHandler).HandleMetric(instances); err != nil {
@@ -309,7 +310,7 @@ var (
 				cpb := cp.(*istio_mixer_template_quota.InstanceParam)
 				infrdType := &istio_mixer_template_quota.Type{}
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
 				for k, v := range cpb.Dimensions {
 					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 						return nil, err
@@ -322,7 +323,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_quota.QuotaHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_template_quota.Type)
+				castedTypes := make(map[string]*istio_mixer_template_quota.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_template_quota.Type)
@@ -335,7 +336,7 @@ var (
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_quota.Instance
 
-				castedInsts := make(map[string]*istio_mixer_template_quota.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_template_quota.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_template_quota.InstanceParam)
 					castedInsts[k] = v1
@@ -354,6 +355,7 @@ var (
 
 						Dimensions: Dimensions,
 					})
+					_ = md
 				}
 
 				if err := handler.(istio_mixer_template_quota.QuotaHandler).HandleQuota(instances); err != nil {

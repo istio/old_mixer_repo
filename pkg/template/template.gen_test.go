@@ -373,16 +373,13 @@ check_expression: response.size
 					t.Errorf("got panic %v, expected success.", r)
 				}
 			}()
-			cv, cerr := SupportedTmplInfo[sample_check.TemplateName].InferType(cp.(proto.Message), typeEvalFn)
+			_, cerr := SupportedTmplInfo[sample_check.TemplateName].InferType(cp.(proto.Message), typeEvalFn)
 			if tst.willPanic {
 				t.Error("Should not reach this statement due to panic.")
 			}
 			if tst.wantErr == "" {
 				if cerr != nil {
 					t.Errorf("got err %v\nwant <nil>", cerr)
-				}
-				if tst.wantValueType != cv.(*sample_check.Type).CheckExpression {
-					t.Errorf("got inferTypeForSampleCheck(\n%s\n).value=%v\nwant %v", tst.ctrCnfg, cv.(*sample_check.Type).CheckExpression, tst.wantValueType)
 				}
 			} else {
 				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
