@@ -262,12 +262,48 @@ var (
 						continue
 					}
 
+					Int64Primitive, err := mapper.Eval(md.Int64Primitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval Int64Primitive for instance '%s': %v", name, err))
+						continue
+					}
+
+					BoolPrimitive, err := mapper.Eval(md.BoolPrimitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval BoolPrimitive for instance '%s': %v", name, err))
+						continue
+					}
+
+					DoublePrimitive, err := mapper.Eval(md.DoublePrimitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval DoublePrimitive for instance '%s': %v", name, err))
+						continue
+					}
+
+					StringPrimitive, err := mapper.Eval(md.StringPrimitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval StringPrimitive for instance '%s': %v", name, err))
+						continue
+					}
+
 					instances = append(instances, &istio_mixer_adapter_sample_report.Instance{
 						Name: name,
 
 						Value: Value,
 
 						Dimensions: Dimensions,
+
+						Int64Primitive: Int64Primitive.(int64),
+
+						BoolPrimitive: BoolPrimitive.(bool),
+
+						DoublePrimitive: DoublePrimitive.(float64),
+
+						StringPrimitive: StringPrimitive.(string),
 					})
 					_ = md
 				}
