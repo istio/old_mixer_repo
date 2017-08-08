@@ -144,9 +144,11 @@ func (s *Stepper) String() string {
 	}
 	b.WriteString("]\n\n")
 
-	b.WriteString("code:   [\n")
-	text.WriteFn(&b, s.program.ByteCode(), s.fn, s.program.Strings(), s.ip)
-	b.WriteString("]\n\n")
+	if s.fn != nil {
+		b.WriteString("code:   [\n")
+		text.WriteFn(&b, s.program.ByteCode(), s.fn, s.program.Strings(), s.ip)
+		b.WriteString("]\n\n")
+	}
 
 	return b.String()
 }

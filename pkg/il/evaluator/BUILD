@@ -17,6 +17,7 @@ go_library(
         "//pkg/il:go_default_library",
         "//pkg/il/compiler:go_default_library",
         "//pkg/il/interpreter:go_default_library",
+        "//pkg/il/text:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_golang_lru//:go_default_library",
         "@com_github_istio_api//:mixer/v1",

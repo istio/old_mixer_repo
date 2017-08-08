@@ -32,8 +32,11 @@ package interpreter
 import (
 	"fmt"
 
+	"github.com/golang/glog"
+
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/il"
+	"istio.io/mixer/pkg/il/text"
 )
 
 const (
@@ -76,6 +79,31 @@ func (i *Interpreter) EvalFnID(fnID uint32, bag attribute.Bag) (Result, error) {
 	fn := i.program.Functions.GetByID(fnID)
 
 	return i.run(fn, bag, false)
+}
+
+// Trace doesn't need comments right now.
+func (i *Interpreter) Trace(fnName string, bag attribute.Bag) {
+	glog.Warning("~~~beginning trace...")
+	txt := text.WriteText(i.program)
+	glog.Warningf("~~~program:\n%v\n-------\n", txt)
+
+	s := NewStepper(i.program, i.externs)
+	for err := s.Begin(fnName, bag); !s.Done(); s.Step() {
+		if err == nil {
+			err = s.Error()
+		}
+
+		if err != nil {
+			glog.Warningf("~~~error: '%v'", s.Error())
+		}
+
+		glog.Warningf("~~~ step: %s", s.String())
+	}
+
+	if s.Error() == nil {
+		glog.Warningf("~~~~ result: %#v", s.Result().Interface())
+	}
+	glog.Warning("~~~end trace")
 }
 
 func newIntr(p *il.Program, es map[string]Extern, s *Stepper) *Interpreter {
