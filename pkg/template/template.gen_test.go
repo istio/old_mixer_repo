@@ -529,13 +529,17 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true", DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
-				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}, BoolPrimitive: "true", DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
+				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
+				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}, BoolPrimitive: "true",
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
 			},
 			hdlr: &fakeReportHandler{},
 			wantInstance: []*sample_report.Instance{
-				{Name: "foo", Value: int64(1), Dimensions: map[string]interface{}{"s": int64(2)}, BoolPrimitive: true, DoublePrimitive: 1.2, Int64Primitive: 54362, StringPrimitive: "myString"},
-				{Name: "bar", Value: int64(2), Dimensions: map[string]interface{}{"k": int64(3)}, BoolPrimitive: true, DoublePrimitive: 1.2, Int64Primitive: 54362, StringPrimitive: "myString"},
+				{Name: "foo", Value: int64(1), Dimensions: map[string]interface{}{"s": int64(2)}, BoolPrimitive: true,
+					DoublePrimitive: 1.2, Int64Primitive: 54362, StringPrimitive: "myString"},
+				{Name: "bar", Value: int64(2), Dimensions: map[string]interface{}{"k": int64(3)}, BoolPrimitive: true,
+					DoublePrimitive: 1.2, Int64Primitive: 54362, StringPrimitive: "myString"},
 			},
 		},
 		{

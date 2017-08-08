@@ -39,7 +39,6 @@ type Generator struct {
 }
 
 const (
-	fullGoNameOfValueTypePkgName = "istio_mixer_v1_config_descriptor."
 	fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
 	fullGoNameOfValueTypeEnum    = "istio_mixer_v1_config_descriptor.ValueType"
 )
