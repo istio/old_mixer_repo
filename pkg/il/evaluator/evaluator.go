@@ -59,6 +59,7 @@ func (e *IL) Eval(expr string, attrs attribute.Bag) (interface{}, error) {
 func (e *IL) EvalString(expr string, attrs attribute.Bag) (string, error) {
 	var result interpreter.Result
 	var err error
+
 	if result, err = e.evalResult(expr, attrs); err != nil {
 		return "", err
 	}
