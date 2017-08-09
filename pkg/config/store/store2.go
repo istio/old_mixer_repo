@@ -57,8 +57,8 @@ type Store2 interface {
 	// be closed after ctx is done.
 	Init(ctx context.Context) error
 
-	// Watch creates a channel to receive the events on the given kinds and namespaces.
-	Watch(ctx context.Context, kinds, namespaces []string) (<-chan Event, error)
+	// Watch creates a channel to receive the events on the given kinds.
+	Watch(ctx context.Context, kinds []string) (<-chan Event, error)
 
 	// Get returns a resource's spec to the key.
 	Get(key Key, spec proto.Message) error
