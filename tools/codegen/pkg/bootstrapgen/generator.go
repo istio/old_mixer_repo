@@ -46,7 +46,7 @@ const (
 )
 
 // TODO share the code between this generator and the interfacegen code generator.
-var primitiveHavingValueType = map[string]string{
+var primitiveToValueType = map[string]string{
 	"string":  fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
 	"bool":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
 	"int64":   fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
@@ -61,7 +61,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		template.FuncMap{
 			"isPrimitiveValueType": func(goTypeName string) bool {
 				// Is this a primitive type from all types that can be represented as ValueType
-				_, ok := primitiveHavingValueType[goTypeName]
+				_, ok := primitiveToValueType[goTypeName]
 				return ok
 			},
 			"isValueType": func(goTypeName string) bool {
@@ -69,6 +69,9 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			},
 			"isStringValueTypeMap": func(goTypeName string) bool {
 				return strings.Replace(goTypeName, " ", "", -1) == "map[string]"+fullGoNameOfValueTypeMessageName
+			},
+			"primitiveToValueType": func(goTypeName string) string {
+				return primitiveToValueType[goTypeName]
 			},
 		}).Parse(tmplPkg.InterfaceTemplate)
 
@@ -112,7 +115,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	}
 	fmtd, err := format.Source(buf.Bytes())
 	if err != nil {
-		return fmt.Errorf("could not format generated code: %v", err)
+		return fmt.Errorf("could not format generated code: %v. Source code is %s", err, string(buf.Bytes()))
 	}
 
 	imports.LocalPrefix = "istio.io"

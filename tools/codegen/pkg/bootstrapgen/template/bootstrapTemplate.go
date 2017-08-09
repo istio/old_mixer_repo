@@ -73,11 +73,6 @@ var (
 				infrdType := &{{.GoPackageName}}.Type{}
 
 				{{range .TemplateMessage.Fields}}
-					{{if isValueType .GoType}}
-						if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
-							return nil, err
-						}
-					{{end}}
 					{{if isStringValueTypeMap .GoType}}
 						infrdType.{{.GoName}} = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.{{.GoName}}))
 						for k, v := range cpb.{{.GoName}} {
@@ -85,7 +80,25 @@ var (
 								return nil, err
 							}
 						}
+					{{else}}
+						if cpb.{{.GoName}} == "" {
+							return nil, fmt.Errorf("expression for field {{.GoName}} cannot be empty")
+						}
+						{{if isPrimitiveValueType .GoType}}
+							if t, e := tEvalFn(cpb.{{.GoName}}); e != nil || t != {{primitiveToValueType .GoType}} {
+								if e != nil {
+								    return nil, fmt.Errorf("failed to evaluate expression for field {{.GoName}}: %v", e)
+								}
+								return nil, fmt.Errorf("error type checking for field {{.GoName}}: Evaluated expression type %v want %v", t, {{primitiveToValueType .GoType}})
+							}
+						{{end}}
+						{{if isValueType .GoType}}
+							if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
+								return nil, err
+							}
+						{{end}}
 					{{end}}
+
 				{{end}}
 				_ = cpb
 				return infrdType, err
