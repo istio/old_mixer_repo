@@ -95,7 +95,12 @@ func (r Result) Interface() interface{} {
 	case il.Bool:
 		return r.Bool()
 	case il.String:
-		return r.String()
+		s := r.String()
+		// Align with the mechanics of the old expr evaluator.
+		if s == "" {
+			return nil
+		}
+		return s
 	case il.Integer:
 		return r.Integer()
 	case il.Double:

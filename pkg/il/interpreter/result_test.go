@@ -100,6 +100,20 @@ func Test_String_WithNonString(t *testing.T) {
 	}
 }
 
+func Test_Interface_EmptyStringReturnsNull(t *testing.T) {
+	p := il.NewProgram()
+	sid := p.Strings().GetID("")
+	r := Result{
+		t:  il.String,
+		v1: sid,
+		s:  p.Strings(),
+	}
+
+	if r.Interface() != nil {
+		t.Fatalf("Expected empty string to be converted to nil.")
+	}
+}
+
 func Test_Type(t *testing.T) {
 	r := Result{
 		t: il.Integer,
