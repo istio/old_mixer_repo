@@ -110,7 +110,9 @@ func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, e
 		return interpreter.Result{}, err
 	}
 
-	return entry.interpreter.Eval("eval", attrs)
+	r, err := entry.interpreter.Eval("eval", attrs)
+	glog.Warningf("~~~ evalResult expr:'%s' => r:'%v', err:'%v'   bag:'%#v'", expr, r, err, attrs)
+	return r, err
 }
 
 func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {

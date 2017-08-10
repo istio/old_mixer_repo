@@ -19,6 +19,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/golang/glog"
 	"istio.io/mixer/pkg/il"
 )
 
@@ -113,6 +114,8 @@ func (r Result) Interface() interface{} {
 	case il.Interface:
 		return r.vi
 	default:
-		panic("interpreter.Interface: unrecognized type encountered.")
+		glog.Warningf("~~~ Result.Interface: '%v'", r.t)
+		return nil
+		//panic("interpreter.Interface: unrecognized type encountered.")
 	}
 }
