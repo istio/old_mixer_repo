@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/api/mixer/v1/attributes"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -54,7 +53,7 @@ type (
 
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
-	list := attributes.GlobalList()
+	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
 		globalDict[list[i]] = int32(i)

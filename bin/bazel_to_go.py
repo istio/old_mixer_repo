@@ -238,8 +238,8 @@ def config_proto(WKSPC, genfiles):
         makelink(genfiles + "com_github_istio_api/fixed_cfg.pb.go", WKSPC + "/pkg/config/proto/fixed_cfg.pb.go")
 
 def attributes_list(WKSPC, genfiles):
-    if os.path.exists(genfiles + "com_github_istio_api/mixer/v1/attributes/attributes.gen.go"):
-        makelink(genfiles + "com_github_istio_api/mixer/v1/attributes/attributes.gen.go", WKSPC + "vendor/istio.io/api/mixer/v1/attributes/attributes.gen.go")
+    if os.path.exists(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go"):
+        makelink(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go", WKSPC + "/pkg/attribute/list.gen.go")
 
 if __name__ == "__main__":
     import sys

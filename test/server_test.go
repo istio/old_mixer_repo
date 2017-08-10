@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/api/mixer/v1/attributes"
 	"istio.io/mixer/pkg/attribute"
 )
 
@@ -73,28 +72,15 @@ func clearGRPCErr(s *AttributesServer) {
 	s.GenerateGRPCError = false
 }
 
-func setInvalidResp(s *AttributesServer) {
-	s.CheckResponseStatus = invalid
+func setCheckResponse(s *AttributesServer) {
+	s.CheckResponse = &mixerpb.CheckResponse{
+		Precondition: precondition(invalid, attrs, refAttrs),
+		Quotas:       quotaOverrides,
+	}
 }
 
-func setOkResp(s *AttributesServer) {
-	s.CheckResponseStatus = ok
-}
-
-func setRefAttrs(s *AttributesServer) {
-	s.ReferencedAttributes = refAttrs
-}
-
-func clearRefAttrs(s *AttributesServer) {
-	s.ReferencedAttributes = mixerpb.ReferencedAttributes{}
-}
-
-func setQuotaResults(s *AttributesServer) {
-	s.QuotaResults = quotaOverrides
-}
-
-func clearQuotaResults(s *AttributesServer) {
-	s.QuotaResults = make(map[string]mixerpb.CheckResponse_QuotaResult)
+func clearCheckResponse(s *AttributesServer) {
+	s.CheckResponse = nil
 }
 
 func TestCheck(t *testing.T) {
@@ -113,22 +99,13 @@ func TestCheck(t *testing.T) {
 
 	client := mixerpb.NewMixerClient(conn)
 
-	attrBag := attribute.CopyBag(attribute.NewProtoBag(&attrs, attrSrv.GlobalDict, attributes.GlobalList()))
+	attrBag := attribute.CopyBag(attribute.NewProtoBag(&attrs, attrSrv.GlobalDict, attribute.GlobalList()))
 
 	noQuotaReq := &mixerpb.CheckRequest{Attributes: attrs}
 	quotaReq := &mixerpb.CheckRequest{Attributes: attrs, Quotas: testQuotas, DeduplicationId: "baz"}
-	okCheckResp := &mixerpb.CheckResponse{Precondition: precondition(ok, attrs, emptyRefAttrs)}
-	invalidCheckResp := &mixerpb.CheckResponse{Precondition: precondition(invalid, attrs, emptyRefAttrs)}
-	refAttrsCheckResp := &mixerpb.CheckResponse{Precondition: precondition(ok, attrs, refAttrs)}
-	quotaResp := &mixerpb.CheckResponse{
-		Precondition: precondition(ok, attrs, emptyRefAttrs),
-		Quotas: map[string]mixerpb.CheckResponse_QuotaResult{
-			"foo": {ValidDuration: DefaultValidDuration, GrantedAmount: 55, ReferencedAttributes: emptyRefAttrs},
-			"bar": {ValidDuration: DefaultValidDuration, GrantedAmount: 21, ReferencedAttributes: emptyRefAttrs},
-		},
-	}
-	quotaOverridesResp := &mixerpb.CheckResponse{
-		Precondition: precondition(ok, attrs, emptyRefAttrs),
+	okCheckResp := &mixerpb.CheckResponse{Precondition: precondition(ok, mixerpb.Attributes{}, emptyRefAttrs)}
+	customResp := &mixerpb.CheckResponse{
+		Precondition: precondition(invalid, attrs, refAttrs),
 		Quotas: map[string]mixerpb.CheckResponse_QuotaResult{
 			"foo": {ValidDuration: 3 * time.Second, GrantedAmount: 55, ReferencedAttributes: emptyRefAttrs},
 			"bar": {ValidDuration: 15 * time.Second, GrantedAmount: 7, ReferencedAttributes: refAttrs},
@@ -151,10 +128,7 @@ func TestCheck(t *testing.T) {
 	}{
 		{"basic", noQuotaReq, noop, noop, false, okCheckResp, attrBag, nil},
 		{"grpc err", noQuotaReq, setGRPCErr, clearGRPCErr, true, okCheckResp, nil, nil},
-		{"invalid", noQuotaReq, setInvalidResp, setOkResp, false, invalidCheckResp, attrBag, nil},
-		{"ref attrs", noQuotaReq, setRefAttrs, clearRefAttrs, false, refAttrsCheckResp, attrBag, nil},
-		{"quotas", quotaReq, noop, noop, false, quotaResp, attrBag, quotaDispatches},
-		{"quota overrides", quotaReq, setQuotaResults, clearQuotaResults, false, quotaOverridesResp, attrBag, quotaDispatches},
+		{"check response", quotaReq, setCheckResponse, clearCheckResponse, false, customResp, attrBag, quotaDispatches},
 	}
 
 	for _, v := range cases {
@@ -177,7 +151,7 @@ func TestCheck(t *testing.T) {
 					return
 				}
 				if !proto.Equal(resp, wantResp) {
-					t.Errorf("Check() => %#v, wanted: %#v", resp, wantResp)
+					t.Errorf("Check() => %#v, \n\n wanted: %#v", resp, wantResp)
 				}
 			}(v.req, v.wantCallErr, v.wantResponse)
 
@@ -253,15 +227,15 @@ func TestReport(t *testing.T) {
 
 	words := []string{"foo", "bar", "baz"}
 
-	baseBag := attribute.CopyBag(attribute.NewProtoBag(&attrs[0], attrSrv.GlobalDict, attributes.GlobalList()))
+	baseBag := attribute.CopyBag(attribute.NewProtoBag(&attrs[0], attrSrv.GlobalDict, attribute.GlobalList()))
 	middleBag := attribute.CopyBag(baseBag)
-	if err = middleBag.UpdateBagFromProto(&attrs[1], attributes.GlobalList()); err != nil {
+	if err = middleBag.UpdateBagFromProto(&attrs[1], attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
 	}
 
 	finalAttr := &mixerpb.Attributes{Words: words, Strings: attrs[2].Strings}
 	finalBag := attribute.CopyBag(middleBag)
-	if err = finalBag.UpdateBagFromProto(finalAttr, attributes.GlobalList()); err != nil {
+	if err = finalBag.UpdateBagFromProto(finalAttr, attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
 	}
 
