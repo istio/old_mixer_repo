@@ -122,51 +122,5 @@ genrule(
 filegroup(
     name = "mixer/v1/attributes_file",
     srcs = ["mixer/v1/global_dictionary.yaml"],
-    visibility = ["//visibility:private"],
-)
-
-genrule(
-    name = "mixer/v1/attributes_list",
-    srcs = [":mixer/v1/attributes_file"],
-    outs = ["attributes_list.txt"],
-    cmd = "grep -e '^- ' $(location :mixer/v1/attributes_file) | sed -e 's/- /\"/g' -e 's/$$/\",/g' > $@",
-    message = "Extracting strings",
-    visibility = ["//visibility:private"],
-)
-
-PRE = """package attributes; func GlobalList() ([]string) { tmp := make([]string, len(globalList)); copy(tmp, globalList); return tmp;}; var ( globalList = []string{"""
-
-POST = """})"""
-
-genrule(
-    name = "header",
-    outs = ["header.go"],
-    cmd = "echo \"" + PRE + "\" > $@",
-    visibility = ["//visibility:private"],
-)
-
-genrule(
-    name = "footer",
-    outs = ["footer.go"],
-    cmd = "echo \"" + POST + "\" > $@",
-    visibility = ["//visibility:private"],
-)
-
-genrule(
-    name = "mixer/v1/attributes_gen",
-    srcs = [
-        ":mixer/v1/attributes_list",
-        ":header",
-        ":footer",
-    ],
-    outs = ["mixer/v1/attributes/attributes.gen.go"],
-    cmd = "cat $(location :header) $(location mixer/v1/attributes_list) $(location :footer) | $(location @org_golang_x_tools_imports//:goimports) > $@",
-    message = "Writing go file",
-    tools = ["@org_golang_x_tools_imports//:goimports"],
-    visibility = ["//visibility:private"],
-)
-
-go_library(
-    name = "mixer/v1/attributes",
-    srcs = ["mixer/v1/attributes/attributes.gen.go"],
+    visibility = ["//visibility:public"],
 )
