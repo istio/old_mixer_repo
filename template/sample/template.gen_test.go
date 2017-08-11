@@ -126,22 +126,22 @@ func TestGeneratedFields(t *testing.T) {
 			tmpl:      sample_report.TemplateName,
 			ctrCfg:    &sample_report.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_REPORT,
-			bldrName:  "istio.io/mixer/template/sample/report.SampleHandlerBuilder",
-			hndlrName: "istio.io/mixer/template/sample/report.SampleHandler",
+			bldrName:  "istio.io/mixer/template/sample/report.HandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/report.Handler",
 		},
 		{
 			tmpl:      sample_check.TemplateName,
 			ctrCfg:    &sample_check.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_CHECK,
-			bldrName:  "istio.io/mixer/template/sample/check.SampleHandlerBuilder",
-			hndlrName: "istio.io/mixer/template/sample/check.SampleHandler",
+			bldrName:  "istio.io/mixer/template/sample/check.HandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/check.Handler",
 		},
 		{
 			tmpl:      sample_quota.TemplateName,
 			ctrCfg:    &sample_quota.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_QUOTA,
-			bldrName:  "istio.io/mixer/template/sample/quota.QuotaHandlerBuilder",
-			hndlrName: "istio.io/mixer/template/sample/quota.QuotaHandler",
+			bldrName:  "istio.io/mixer/template/sample/quota.HandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/quota.Handler",
 		},
 	} {
 		t.Run(tst.tmpl, func(t *testing.T) {

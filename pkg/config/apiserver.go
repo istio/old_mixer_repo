@@ -220,7 +220,7 @@ func (a *API) register(c *restful.Container) {
 
 // NewAPI creates a new API server
 func NewAPI(version string, port uint16, tc expr.TypeChecker, aspectFinder AspectValidatorFinder,
-	builderFinder BuilderValidatorFinder, getBuilderInfoFns []adapter.GetBuilderInfoFn, findAspects AdapterToAspectMapper,
+	builderFinder BuilderValidatorFinder, getBuilderInfoFns []adapter.InfoFn, findAspects AdapterToAspectMapper,
 	store store.KeyValueStore, repository template.Repository) *API {
 	c := restful.NewContainer()
 	a := &API{

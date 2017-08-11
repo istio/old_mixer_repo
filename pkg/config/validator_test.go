@@ -38,7 +38,7 @@ import (
 
 type fakeVFinder struct {
 	ada   map[string]adapter.ConfigValidator
-	hbi   map[string]*adapter.BuilderInfo
+	hbi   map[string]*adapter.AdapterInfo
 	asp   map[Kind]AspectValidator
 	kinds KindSet
 }
@@ -48,7 +48,7 @@ func (f *fakeVFinder) FindAdapterValidator(name string) (adapter.ConfigValidator
 	return v, found
 }
 
-func (f *fakeVFinder) FindBuilderInfo(name string) (*adapter.BuilderInfo, bool) {
+func (f *fakeVFinder) FindBuilderInfo(name string) (*adapter.AdapterInfo, bool) {
 	v, found := f.hbi[name]
 	return v, found
 }
@@ -91,7 +91,7 @@ func (a *ac) ValidateConfig(AspectParams, expr.TypeChecker, descriptor.Finder) *
 type configTable struct {
 	cerr     *adapter.ConfigErrors
 	ada      map[string]adapter.ConfigValidator
-	hbi      map[string]*adapter.BuilderInfo
+	hbi      map[string]*adapter.AdapterInfo
 	asp      map[Kind]AspectValidator
 	nerrors  int
 	selector string
@@ -100,7 +100,7 @@ type configTable struct {
 }
 
 func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValidator,
-	hbi map[string]*adapter.BuilderInfo) *fakeVFinder {
+	hbi map[string]*adapter.AdapterInfo) *fakeVFinder {
 	var kinds KindSet
 	for k := range asp {
 		kinds = kinds.Set(k)
@@ -646,7 +646,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 	tTable := []struct {
 		params            interface{}
 		defaultCnfg       proto.Message
-		hndlrValidateCnfg adapter.ValidateConfig
+		hndlrValidateCnfg adapter.ValidateConfigFn
 		errorStr          string
 	}{
 		{
@@ -682,7 +682,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 	for _, tt := range tTable {
 		t.Run(tt.errorStr, func(t *testing.T) {
 			_, ce := convertHandlerParams(
-				&adapter.BuilderInfo{
+				&adapter.AdapterInfo{
 					DefaultConfig:  tt.defaultCnfg,
 					ValidateConfig: tt.hndlrValidateCnfg,
 				}, "TestConvertHandlerParamsErrors", tt.params, true)
@@ -701,11 +701,11 @@ func TestValidateHandlers(t *testing.T) {
 		{
 			nil,
 			nil,
-			map[string]*adapter.BuilderInfo{
+			map[string]*adapter.AdapterInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:          &types.Empty{},
-					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig:        &types.Empty{},
+					ValidateConfig:       func(c proto.Message) error { return nil },
+					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 0, "service.name == “*”", false, ConstGlobalConfig,
@@ -713,17 +713,17 @@ func TestValidateHandlers(t *testing.T) {
 		{
 			nil,
 			nil,
-			map[string]*adapter.BuilderInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			map[string]*adapter.AdapterInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			nil, 1, "service.name == “*”", false, ConstGlobalConfig,
 		},
 		{
 			nil,
 			nil,
-			map[string]*adapter.BuilderInfo{
+			map[string]*adapter.AdapterInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:          &types.Empty{},
-					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig:        &types.Empty{},
+					ValidateConfig:       func(c proto.Message) error { return nil },
+					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 1, "service.name == “*”", false, duplicateCnstrs,
@@ -769,19 +769,19 @@ handlers:
 	const testSupportedTemplate = "testSupportedTemplate"
 	tests := []*configTable{
 		{
-			hbi: map[string]*adapter.BuilderInfo{
+			hbi: map[string]*adapter.AdapterInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:          &types.Empty{},
-					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
-					SupportedTemplates:     []string{testSupportedTemplate},
+					DefaultConfig:        &types.Empty{},
+					ValidateConfig:       func(c proto.Message) error { return nil },
+					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
+					SupportedTemplates:   []string{testSupportedTemplate},
 				},
 			},
 			cfg:     globalConfig,
 			nerrors: 0,
 		},
 		{
-			hbi:     map[string]*adapter.BuilderInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			hbi:     map[string]*adapter.AdapterInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			cfg:     globalConfig,
 			nerrors: 1,
 		},

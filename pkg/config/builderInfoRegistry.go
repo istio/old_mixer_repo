@@ -24,60 +24,60 @@ import (
 )
 
 type builderInfoRegistry struct {
-	builderInfosByName map[string]*adapter.BuilderInfo
+	builderInfosByName map[string]*adapter.AdapterInfo
 }
 
 type handlerBuilderValidator func(hndlrBuilder adapter.HandlerBuilder, t string) (bool, string)
 
 // newRegistry2 returns a new BuilderInfo registry.
-func newRegistry2(getBuilderInfos []adapter.GetBuilderInfoFn, hndlrBldrValidator handlerBuilderValidator) *builderInfoRegistry {
-	r := &builderInfoRegistry{make(map[string]*adapter.BuilderInfo)}
-	for idx, getBuilderInfo := range getBuilderInfos {
-		glog.V(3).Infof("Registering [%d] %#v", idx, getBuilderInfo)
-		bldrInfo := getBuilderInfo()
-		if a, ok := r.builderInfosByName[bldrInfo.Name]; ok {
+func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *builderInfoRegistry {
+	r := &builderInfoRegistry{make(map[string]*adapter.AdapterInfo)}
+	for idx, info := range infos {
+		glog.V(3).Infof("Registering [%d] %#v", idx, info)
+		adptInfo := info()
+		if a, ok := r.builderInfosByName[adptInfo.Name]; ok {
 			// panic only if 2 different builderInfo objects are trying to identify by the
 			// same Name.
-			msg := fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", a.Name, bldrInfo, a)
+			msg := fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", a.Name, adptInfo, a)
 			glog.Error(msg)
 			panic(msg)
 		} else {
-			if bldrInfo.ValidateConfig == nil {
+			if adptInfo.ValidateConfig == nil {
 				// panic if adapter has not provided the ValidateConfig func.
 				msg := fmt.Errorf("BuilderInfo %v from adapter %s does not contain value for ValidateConfig"+
-					" function field.", bldrInfo, bldrInfo.Name)
+					" function field.", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
 			}
-			if bldrInfo.DefaultConfig == nil {
+			if adptInfo.DefaultConfig == nil {
 				// panic if adapter has not provided the DefaultConfig func.
 				msg := fmt.Errorf("BuilderInfo %v from adapter %s does not contain value for DefaultConfig "+
-					"field.", bldrInfo, bldrInfo.Name)
+					"field.", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
 			}
-			if ok, errMsg := doesBuilderSupportsTemplates(bldrInfo, hndlrBldrValidator); !ok {
+			if ok, errMsg := doesBuilderSupportsTemplates(adptInfo, hndlrBldrValidator); !ok {
 				// panic if an Adapter's HandlerBuilder does not implement interfaces that it says it wants to support.
 				msg := fmt.Errorf("HandlerBuilder from adapter %s does not implement the required interfaces"+
-					" for the templates it supports: %s", bldrInfo.Name, errMsg)
+					" for the templates it supports: %s", adptInfo.Name, errMsg)
 				glog.Error(msg)
 				panic(msg)
 			}
 
-			r.builderInfosByName[bldrInfo.Name] = &bldrInfo
+			r.builderInfosByName[adptInfo.Name] = &adptInfo
 		}
 	}
 	return r
 }
 
 // BuilderInfoMap returns the known BuilderInfos, indexed by their names.
-func BuilderInfoMap(handlerRegFns []adapter.GetBuilderInfoFn,
-	hndlrBldrValidator handlerBuilderValidator) map[string]*adapter.BuilderInfo {
+func BuilderInfoMap(handlerRegFns []adapter.InfoFn,
+	hndlrBldrValidator handlerBuilderValidator) map[string]*adapter.AdapterInfo {
 	return newRegistry2(handlerRegFns, hndlrBldrValidator).builderInfosByName
 }
 
 // FindBuilderInfo returns the BuilderInfo object with the given name.
-func (r *builderInfoRegistry) FindBuilderInfo(name string) (b *adapter.BuilderInfo, found bool) {
+func (r *builderInfoRegistry) FindBuilderInfo(name string) (b *adapter.AdapterInfo, found bool) {
 	bi, found := r.builderInfosByName[name]
 	if !found {
 		return nil, false
@@ -85,8 +85,8 @@ func (r *builderInfoRegistry) FindBuilderInfo(name string) (b *adapter.BuilderIn
 	return bi, true
 }
 
-func doesBuilderSupportsTemplates(info adapter.BuilderInfo, hndlrBldrValidator handlerBuilderValidator) (bool, string) {
-	handlerBuilder := info.CreateHandlerBuilderFn()
+func doesBuilderSupportsTemplates(info adapter.AdapterInfo, hndlrBldrValidator handlerBuilderValidator) (bool, string) {
+	handlerBuilder := info.CreateHandlerBuilder()
 	resultMsgs := make([]string, 0)
 	for _, t := range info.SupportedTemplates {
 		if ok, errMsg := hndlrBldrValidator(handlerBuilder, t); !ok {
