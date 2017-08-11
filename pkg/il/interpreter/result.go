@@ -117,6 +117,6 @@ func (r Result) AsInterface() interface{} {
 		return r.vi
 	default:
 		glog.Warningf("interpreter.Result: Unknown type encountered. Returning nil. type: '%v'", r.t)
-		return nil
+		panic("interpreter.Result: unknown type encountered.")
 	}
 }
