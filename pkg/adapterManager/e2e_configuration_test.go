@@ -63,11 +63,11 @@ func (fakeHndlr) Close() error {
 }
 func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:                   "fakeHandler",
-		Description:            "",
-		SupportedTemplates:     []string{sample_report.TemplateName},
-		CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
-		DefaultConfig:          &types.Empty{},
+		Name:                 "fakeHandler",
+		Description:          "",
+		SupportedTemplates:   []string{sample_report.TemplateName},
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
+		DefaultConfig:        &types.Empty{},
 		ValidateConfig: func(msg proto.Message) error {
 			return nil
 		},

@@ -133,8 +133,8 @@ func GetBuilderInfo() adapter.BuilderInfo {
 			metric.TemplateName,
 			quota.TemplateName,
 		},
-		CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return builder{} },
-		DefaultConfig:          &types.Empty{},
-		ValidateConfig:         func(msg proto.Message) error { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
+		DefaultConfig:        &types.Empty{},
+		ValidateConfig:       func(msg proto.Message) error { return nil },
 	}
 }

@@ -86,7 +86,7 @@ func (r *builderInfoRegistry) FindBuilderInfo(name string) (b *adapter.BuilderIn
 }
 
 func doesBuilderSupportsTemplates(info adapter.BuilderInfo, hndlrBldrValidator handlerBuilderValidator) (bool, string) {
-	handlerBuilder := info.CreateHandlerBuilderFn()
+	handlerBuilder := info.CreateHandlerBuilder()
 	resultMsgs := make([]string, 0)
 	for _, t := range info.SupportedTemplates {
 		if ok, errMsg := hndlrBldrValidator(handlerBuilder, t); !ok {
