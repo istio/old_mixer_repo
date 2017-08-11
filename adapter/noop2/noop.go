@@ -121,8 +121,8 @@ func (handler) Close() error { return nil }
 ////////////////// Bootstrap //////////////////////////
 
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
-func GetBuilderInfo() adapter.AdapterInfo {
-	return adapter.AdapterInfo{
+func GetBuilderInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:        "istio.io/mixer/adapters/noop",
 		Description: "An adapter that does nothing",
 		SupportedTemplates: []string{

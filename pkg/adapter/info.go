@@ -20,7 +20,7 @@ import (
 
 // BuilderInfo describes the Adapter and provides a function to a Handler Builder method.
 // TODO change this to Info when we delete the ApplicationLog.Info enum.
-type AdapterInfo struct {
+type BuilderInfo struct {
 	// Name returns the official name of the adapter.
 	Name string
 	// Description returns a user-friendly description of the adapter.
@@ -47,4 +47,4 @@ type CreateHandlerBuilderFn func() HandlerBuilder
 type ValidateConfigFn func(proto.Message) error
 
 // InfoFn returns an AdapterInfo object that Mixer will use to create HandlerBuilder
-type InfoFn func() AdapterInfo
+type InfoFn func() BuilderInfo

@@ -41,7 +41,7 @@ type mtest struct {
 	scContent string
 	sc        string
 	ada       map[string]adapter.ConfigValidator
-	hbi       map[string]*adapter.AdapterInfo
+	hbi       map[string]*adapter.BuilderInfo
 	asp       map[Kind]AspectValidator
 	errStr    string
 }

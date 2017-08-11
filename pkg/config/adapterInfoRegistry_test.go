@@ -31,8 +31,8 @@ type TestBuilderInfoInventory struct {
 	name string
 }
 
-func createBuilderInfo(name string) adapter.AdapterInfo {
-	return adapter.AdapterInfo{
+func createBuilderInfo(name string) adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:                 name,
 		Description:          "mock adapter for testing",
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
@@ -42,7 +42,7 @@ func createBuilderInfo(name string) adapter.AdapterInfo {
 	}
 }
 
-func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.AdapterInfo {
+func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo {
 	return createBuilderInfo(t.name)
 }
 
@@ -70,7 +70,7 @@ func TestRegisterSampleProcessor(t *testing.T) {
 	reg := newRegistry2([]adapter.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
 		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 
-	builderInfo, ok := reg.FindBuilderInfo(testBuilderInfoInventory.name)
+	builderInfo, ok := reg.FindAdapterInfo(testBuilderInfoInventory.name)
 	if !ok {
 		t.Errorf("No builderInfo by name %s, expected %v", testBuilderInfoInventory.name, testBuilderInfoInventory)
 	}
@@ -111,7 +111,7 @@ func TestMissingDefaultValue(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.AdapterInfo { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]adapter.InfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -128,7 +128,7 @@ func TestMissingValidateConfigFn(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.AdapterInfo { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]adapter.InfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -137,7 +137,7 @@ func TestHandlerMap(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
 	testBuilderInfoInventory2 := TestBuilderInfoInventory{"bar"}
 
-	mp := BuilderInfoMap([]adapter.InfoFn{
+	mp := AdapterInfoMap([]adapter.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn,
 	}, fakeValidateSupportedTmpl)
@@ -164,8 +164,8 @@ func (badHandlerBuilder) Build(proto.Message, adapter.Env) (adapter.Handler, err
 }
 
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
-	badHandlerBuilderBuilderInfo1 := func() adapter.AdapterInfo {
-		return adapter.AdapterInfo{
+	badHandlerBuilderBuilderInfo1 := func() adapter.BuilderInfo {
+		return adapter.BuilderInfo{
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
@@ -174,8 +174,8 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			SupportedTemplates:   []string{sample_report.TemplateName},
 		}
 	}
-	badHandlerBuilderBuilderInfo2 := func() adapter.AdapterInfo {
-		return adapter.AdapterInfo{
+	badHandlerBuilderBuilderInfo2 := func() adapter.BuilderInfo {
+		return adapter.BuilderInfo{
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},

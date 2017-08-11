@@ -61,8 +61,8 @@ func (fakeHndlr) Close() error {
 	globalActualHandlerCallInfoToValidate["Close"] = nil
 	return nil
 }
-func GetFakeHndlrBuilderInfo() adapter.AdapterInfo {
-	return adapter.AdapterInfo{
+func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:                 "fakeHandler",
 		Description:          "",
 		SupportedTemplates:   []string{sample_report.TemplateName},

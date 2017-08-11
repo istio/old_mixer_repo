@@ -23,20 +23,20 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-type builderInfoRegistry struct {
-	builderInfosByName map[string]*adapter.AdapterInfo
+type adapterInfoRegistry struct {
+	adapterInfosByName map[string]*adapter.BuilderInfo
 }
 
 type handlerBuilderValidator func(hndlrBuilder adapter.HandlerBuilder, t string) (bool, string)
 
-// newRegistry2 returns a new BuilderInfo registry.
-func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *builderInfoRegistry {
-	r := &builderInfoRegistry{make(map[string]*adapter.AdapterInfo)}
+// newRegistry2 returns a new adapterInfoRegistry.
+func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *adapterInfoRegistry {
+	r := &adapterInfoRegistry{make(map[string]*adapter.BuilderInfo)}
 	for idx, info := range infos {
 		glog.V(3).Infof("Registering [%d] %#v", idx, info)
 		adptInfo := info()
-		if a, ok := r.builderInfosByName[adptInfo.Name]; ok {
-			// panic only if 2 different builderInfo objects are trying to identify by the
+		if a, ok := r.adapterInfosByName[adptInfo.Name]; ok {
+			// panic only if 2 different adapter.Info objects are trying to identify by the
 			// same Name.
 			msg := fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", a.Name, adptInfo, a)
 			glog.Error(msg)
@@ -44,14 +44,14 @@ func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValid
 		} else {
 			if adptInfo.ValidateConfig == nil {
 				// panic if adapter has not provided the ValidateConfig func.
-				msg := fmt.Errorf("BuilderInfo %v from adapter %s does not contain value for ValidateConfig"+
+				msg := fmt.Errorf("Adapter info %v from adapter %s does not contain value for ValidateConfig"+
 					" function field.", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
 			}
 			if adptInfo.DefaultConfig == nil {
 				// panic if adapter has not provided the DefaultConfig func.
-				msg := fmt.Errorf("BuilderInfo %v from adapter %s does not contain value for DefaultConfig "+
+				msg := fmt.Errorf("Adapter info %v from adapter %s does not contain value for DefaultConfig "+
 					"field.", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
@@ -64,28 +64,28 @@ func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValid
 				panic(msg)
 			}
 
-			r.builderInfosByName[adptInfo.Name] = &adptInfo
+			r.adapterInfosByName[adptInfo.Name] = &adptInfo
 		}
 	}
 	return r
 }
 
-// BuilderInfoMap returns the known BuilderInfos, indexed by their names.
-func BuilderInfoMap(handlerRegFns []adapter.InfoFn,
-	hndlrBldrValidator handlerBuilderValidator) map[string]*adapter.AdapterInfo {
-	return newRegistry2(handlerRegFns, hndlrBldrValidator).builderInfosByName
+// AdapterInfoMap returns the known adapter.Infos, indexed by their names.
+func AdapterInfoMap(handlerRegFns []adapter.InfoFn,
+	hndlrBldrValidator handlerBuilderValidator) map[string]*adapter.BuilderInfo {
+	return newRegistry2(handlerRegFns, hndlrBldrValidator).adapterInfosByName
 }
 
-// FindBuilderInfo returns the BuilderInfo object with the given name.
-func (r *builderInfoRegistry) FindBuilderInfo(name string) (b *adapter.AdapterInfo, found bool) {
-	bi, found := r.builderInfosByName[name]
+// FindAdapterInfo returns the adapter.Info object with the given name.
+func (r *adapterInfoRegistry) FindAdapterInfo(name string) (b *adapter.BuilderInfo, found bool) {
+	bi, found := r.adapterInfosByName[name]
 	if !found {
 		return nil, false
 	}
 	return bi, true
 }
 
-func doesBuilderSupportsTemplates(info adapter.AdapterInfo, hndlrBldrValidator handlerBuilderValidator) (bool, string) {
+func doesBuilderSupportsTemplates(info adapter.BuilderInfo, hndlrBldrValidator handlerBuilderValidator) (bool, string) {
 	handlerBuilder := info.CreateHandlerBuilder()
 	resultMsgs := make([]string, 0)
 	for _, t := range info.SupportedTemplates {

@@ -74,7 +74,7 @@ type (
 	AdapterToAspectMapper func(builder string) KindSet
 
 	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
-	BuilderInfoFinder func(name string) (*adapter.AdapterInfo, bool)
+	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
 
 	// SetupHandlerFn is used to configure handler implementation with Types associated with all the templates that
 	// it supports.
@@ -744,7 +744,7 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func convertHandlerParams(bi *adapter.AdapterInfo, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
+func convertHandlerParams(bi *adapter.BuilderInfo, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
 	hc = bi.DefaultConfig
 	if err := decode(params, hc, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)
