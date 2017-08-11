@@ -33,12 +33,12 @@ type TestBuilderInfoInventory struct {
 
 func createBuilderInfo(name string) adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:                 name,
-		Description:          "mock adapter for testing",
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
-		SupportedTemplates:   []string{sample_report.TemplateName},
-		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(c proto.Message) error { return nil },
+		Name:                   name,
+		Description:            "mock adapter for testing",
+		CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
+		SupportedTemplates:     []string{sample_report.TemplateName},
+		DefaultConfig:          &types.Empty{},
+		ValidateConfig:         func(c proto.Message) error { return nil },
 	}
 }
 
@@ -166,22 +166,22 @@ func (badHandlerBuilder) Build(proto.Message, adapter.Env) (adapter.Handler, err
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 	badHandlerBuilderBuilderInfo1 := func() adapter.BuilderInfo {
 		return adapter.BuilderInfo{
-			Name:                 "badAdapter1",
-			Description:          "mock adapter for testing",
-			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c proto.Message) error { return nil },
-			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:   []string{sample_report.TemplateName},
+			Name:                   "badAdapter1",
+			Description:            "mock adapter for testing",
+			DefaultConfig:          &types.Empty{},
+			ValidateConfig:         func(c proto.Message) error { return nil },
+			CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
+			SupportedTemplates:     []string{sample_report.TemplateName},
 		}
 	}
 	badHandlerBuilderBuilderInfo2 := func() adapter.BuilderInfo {
 		return adapter.BuilderInfo{
-			Name:                 "badAdapter1",
-			Description:          "mock adapter for testing",
-			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c proto.Message) error { return nil },
-			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:   []string{sample_report.TemplateName},
+			Name:                   "badAdapter1",
+			Description:            "mock adapter for testing",
+			DefaultConfig:          &types.Empty{},
+			ValidateConfig:         func(c proto.Message) error { return nil },
+			CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
+			SupportedTemplates:     []string{sample_report.TemplateName},
 		}
 	}
 

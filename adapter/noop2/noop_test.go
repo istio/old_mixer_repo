@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
+	builder := info.CreateHandlerBuilderFn()
 	cfg := info.DefaultConfig
 
 	if err := info.ValidateConfig(cfg); err != nil {
