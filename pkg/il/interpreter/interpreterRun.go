@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/il"
@@ -39,6 +40,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 	var tf64 float64
 	var tVal interface{}
 	var tStr string
+	var tDur time.Duration
 	var tBool bool
 	var tFound bool
 	var tErr error
@@ -438,8 +440,12 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			ti64, tFound = tVal.(int64)
 			if !tFound {
-				tErr = fmt.Errorf("error converting value to integer: '%v'", tVal)
-				goto RETURN_ERR
+				tDur, tFound = tVal.(time.Duration)
+				if !tFound {
+					tErr = fmt.Errorf("error converting value to integer or duration: '%v'", tVal)
+					goto RETURN_ERR
+				}
+				ti64 = int64(tDur)
 			}
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
@@ -468,7 +474,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
 			sp = sp + 2
 
-		case il.ResolveM:
+		case il.ResolveF:
 			if sp > opStackSize-2 {
 				goto STACK_OVERFLOW
 			}
@@ -478,11 +484,6 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tVal, tFound = bag.Get(tStr)
 			if !tFound {
 				tErr = fmt.Errorf("lookup failed: '%v'", tStr)
-				goto RETURN_ERR
-			}
-			_, tBool = tVal.(map[string]string)
-			if !tBool {
-				tErr = fmt.Errorf("error converting value to record: '%v'", tVal)
 				goto RETURN_ERR
 			}
 			if hp == heapSize-1 {
@@ -559,8 +560,12 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			} else {
 				ti64, tFound = tVal.(int64)
 				if !tFound {
-					tErr = fmt.Errorf("error converting value to integer: '%v'", tVal)
-					goto RETURN_ERR
+					tDur, tFound = tVal.(time.Duration)
+					if !tFound {
+						tErr = fmt.Errorf("error converting value to integer or duration: '%v'", tVal)
+						goto RETURN_ERR
+					}
+					ti64 = int64(tDur)
 				}
 				opstack[sp] = uint32(ti64 >> 32)
 				opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
@@ -595,7 +600,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				sp++
 			}
 
-		case il.TResolveM:
+		case il.TResolveF:
 			if sp > opStackSize-2 {
 				goto STACK_OVERFLOW
 			}
@@ -607,11 +612,6 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				opstack[sp] = 0
 				sp++
 			} else {
-				_, tBool = tVal.(map[string]string)
-				if !tBool {
-					tErr = fmt.Errorf("error converting value to record: '%v'", tVal)
-					goto RETURN_ERR
-				}
 				if hp == heapSize-1 {
 					goto HEAP_OVERFLOW
 				}
@@ -826,26 +826,46 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 
 				r := Result{
 					t: fn.ReturnType,
-					s: strings,
 				}
-				switch typeStackAllocSize(fn.ReturnType) {
-				case 0:
+				switch fn.ReturnType {
+				case il.Void, il.Integer, il.Double, il.Bool, il.Duration:
 
-				case 1:
+					switch typeStackAllocSize(fn.ReturnType) {
+					case 0:
+
+					case 1:
+						if sp < 1 {
+							goto STACK_UNDERFLOW
+						}
+						r.v1 = opstack[sp-1]
+
+					case 2:
+						if sp < 2 {
+							goto STACK_UNDERFLOW
+						}
+						r.v1 = opstack[sp-1]
+						r.v2 = opstack[sp-2]
+
+					default:
+						panic("interpreter.run: unhandled parameter size")
+					}
+
+				case il.String:
 					if sp < 1 {
 						goto STACK_UNDERFLOW
 					}
 					r.v1 = opstack[sp-1]
+					r.vs = strings.GetString(r.v1)
 
-				case 2:
-					if sp < 2 {
+				case il.Interface:
+					if sp < 1 {
 						goto STACK_UNDERFLOW
 					}
 					r.v1 = opstack[sp-1]
-					r.v2 = opstack[sp-2]
+					r.vi = heap[r.v1]
 
 				default:
-					panic("interpreter.run: unhandled parameter size")
+					panic("interpreter.run: unhandled return type")
 				}
 
 				if step {

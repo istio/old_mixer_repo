@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/config/descriptor"
@@ -33,6 +34,11 @@ type testInfo struct {
 	result interface{}
 	err    string
 }
+
+var duration19, _ = time.ParseDuration("19ms")
+var duration20, _ = time.ParseDuration("20ms")
+var time1999 = time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC)
+var time1977 = time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC)
 
 var tests = []testInfo{
 	{
@@ -370,7 +376,7 @@ end`,
 		result: "c",
 		code: `
 fn eval() string
-  resolve_m "ar"
+  resolve_f "ar"
   alookup "b"
   ret
 end
@@ -393,7 +399,7 @@ fn eval() bool
   apush_b true
   ret
 L0:
-  resolve_m "ar"
+  resolve_f "ar"
   alookup "b"
   aeq_s "c"
   ret
@@ -618,9 +624,9 @@ end`,
 		result: "bar",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
-  resolve_m "br"
+  resolve_f "br"
 L0:
   alookup "foo"
   ret
@@ -739,7 +745,7 @@ end`,
 		result: "bar",
 		code: `
 fn eval() string
-  resolve_m "sm"
+  resolve_f "sm"
   alookup "foo"
   ret
 end`,
@@ -753,7 +759,7 @@ end`,
 		result: "bar",
 		code: `
 fn eval() string
-  resolve_m "sm"
+  resolve_f "sm"
   resolve_s "as"
   lookup
   ret
@@ -765,7 +771,7 @@ end`,
 		result: "foo",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
   jmp L1
 L0:
@@ -791,7 +797,7 @@ end`,
 		result: "foo",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
   jmp L1
 L0:
@@ -848,7 +854,7 @@ end`,
 		result: "c",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
   jmp L1
 L0:
@@ -856,7 +862,7 @@ L0:
   tlookup
   jnz L2
 L1:
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L3
   jmp L4
 L3:
@@ -894,6 +900,82 @@ end`,
 		},
 		result: "b",
 	},
+	{
+		expr: `adur`,
+		input: map[string]interface{}{
+			"adur": duration20,
+		},
+		result: duration20,
+		code: `
+fn eval() duration
+  resolve_i "adur"
+  ret
+end`,
+	},
+	{
+		expr:   `adur | "19ms"`,
+		input:  map[string]interface{}{},
+		result: duration19,
+		code: `
+fn eval() duration
+  tresolve_i "adur"
+  jnz L0
+  apush_i 19000000
+L0:
+  ret
+end`,
+	},
+	{
+		expr: `adur | "19ms"`,
+		input: map[string]interface{}{
+			"adur": duration20,
+		},
+		result: duration20,
+	},
+	{
+		expr: `at`,
+		input: map[string]interface{}{
+			"at": time1977,
+		},
+		result: time1977,
+	},
+	{
+		expr: `at | bt`,
+		input: map[string]interface{}{
+			"at": time1999,
+			"bt": time1977,
+		},
+		result: time1999,
+	},
+	{
+		expr: `at | bt`,
+		input: map[string]interface{}{
+			"bt": time1977,
+		},
+		result: time1977,
+	},
+	{
+		expr: `aip`,
+		input: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+		},
+		result: []byte{0x1, 0x2, 0x3, 0x4},
+	},
+	{
+		expr: `aip | bip`,
+		input: map[string]interface{}{
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		result: []byte{0x4, 0x5, 0x6, 0x7},
+	},
+	{
+		expr: `aip | bip`,
+		input: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		result: []byte{0x1, 0x2, 0x3, 0x4},
+	},
 }
 
 var globalConfig = pb.GlobalConfig{
@@ -915,6 +997,15 @@ var globalConfig = pb.GlobalConfig{
 				"ar": {
 					ValueType: pbv.STRING_MAP,
 				},
+				"adur": {
+					ValueType: pbv.DURATION,
+				},
+				"at": {
+					ValueType: pbv.TIMESTAMP,
+				},
+				"aip": {
+					ValueType: pbv.IP_ADDRESS,
+				},
 				"bi": {
 					ValueType: pbv.INT64,
 				},
@@ -929,6 +1020,15 @@ var globalConfig = pb.GlobalConfig{
 				},
 				"br": {
 					ValueType: pbv.STRING_MAP,
+				},
+				"bdur": {
+					ValueType: pbv.DURATION,
+				},
+				"bt": {
+					ValueType: pbv.TIMESTAMP,
+				},
+				"bip": {
+					ValueType: pbv.IP_ADDRESS,
 				},
 				"b1": {
 					ValueType: pbv.BOOL,
@@ -983,11 +1083,32 @@ func TestCompile(t *testing.T) {
 			if len(te.err) != 0 {
 				tt.Fatalf("expected error not received: '%v'", te.err)
 			}
-			if v.Interface() != te.result {
-				tt.Fatalf("Result match failed: %+v == %+v", v.Interface(), te.result)
+
+			// Byte arrays are not comparable natively
+			bExp, found := te.result.([]byte)
+			if found {
+				bAct, found := v.AsInterface().([]byte)
+				if !found || !bytesEqual(bExp, bAct) {
+					tt.Fatalf("Result match failed: %+v == %+v", v.AsInterface(), te.result)
+				}
+			} else if v.AsInterface() != te.result {
+				tt.Fatalf("Result match failed: %+v == %+v", v.AsInterface(), te.result)
 			}
 		})
 	}
+}
+
+func bytesEqual(b1 []byte, b2 []byte) bool {
+	if len(b1) != len(b2) {
+		return false
+	}
+	for i := 0; i < len(b1); i++ {
+		if b1[i] != b2[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func TestCompile_ParseError(t *testing.T) {

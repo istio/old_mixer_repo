@@ -31,7 +31,7 @@ func Test_BoolPanics(t *testing.T) {
 		t: il.String,
 	}
 
-	_ = r.Bool()
+	_ = r.AsBool()
 }
 
 func Test_IntegerPanics(t *testing.T) {
@@ -45,7 +45,7 @@ func Test_IntegerPanics(t *testing.T) {
 		t: il.String,
 	}
 
-	_ = r.Integer()
+	_ = r.AsInteger()
 }
 
 func Test_DoublePanics(t *testing.T) {
@@ -59,10 +59,10 @@ func Test_DoublePanics(t *testing.T) {
 		t: il.String,
 	}
 
-	_ = r.Double()
+	_ = r.AsDouble()
 }
 
-func Test_InterfacePanics(t *testing.T) {
+func Test_DurationPanics(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("The code did not panic")
@@ -70,10 +70,20 @@ func Test_InterfacePanics(t *testing.T) {
 	}()
 
 	r := Result{
+		t: il.String,
+	}
+
+	_ = r.AsDuration()
+}
+
+func Test_InterfaceReturnsNilOnUnknown(t *testing.T) {
+	r := Result{
 		t: il.Unknown,
 	}
 
-	_ = r.Interface()
+	if r.AsInterface() != nil {
+		t.Fatalf("nil was expected")
+	}
 }
 
 func Test_String_WithNonString(t *testing.T) {
@@ -81,8 +91,30 @@ func Test_String_WithNonString(t *testing.T) {
 		t: il.Integer,
 	}
 
-	if r.String() != "0" {
-		t.Fatalf("Unexpected string serialization: %v", r.String())
+	if r.AsString() != "0" {
+		t.Fatalf("Unexpected string serialization: %v", r.AsString())
+	}
+}
+
+func Test_Interface_EmptyStringReturnsNull(t *testing.T) {
+	r := Result{
+		t:  il.String,
+		vs: "",
+	}
+
+	if r.AsInterface() != nil {
+		t.Fatalf("Expected empty string to be converted to nil.")
+	}
+}
+
+func Test_Interface(t *testing.T) {
+	r := Result{
+		t:  il.Interface,
+		vi: "foobarbaz",
+	}
+
+	if r.AsInterface() != "foobarbaz" {
+		t.Fatalf("Expected interface value not found.")
 	}
 }
 

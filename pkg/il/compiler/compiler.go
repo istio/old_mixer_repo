@@ -18,6 +18,7 @@ package compiler
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -103,10 +104,16 @@ func (g *generator) toIlType(t dpb.ValueType) il.Type {
 		return il.Bool
 	case dpb.INT64:
 		return il.Integer
+	case dpb.DURATION:
+		return il.Duration
 	case dpb.DOUBLE:
 		return il.Double
 	case dpb.STRING_MAP:
-		return il.StringMap
+		return il.Interface
+	case dpb.IP_ADDRESS:
+		return il.Interface
+	case dpb.TIMESTAMP:
+		return il.Interface
 	default:
 		g.internalError("unhandled expression type: '%v'", t)
 		return il.Unknown
@@ -135,7 +142,7 @@ func (g *generator) generateVariable(v *expr.Variable, mode nilMode, valueJmpLab
 	i := g.finder.GetAttribute(v.Name)
 	ilType := g.toIlType(i.ValueType)
 	switch ilType {
-	case il.Integer:
+	case il.Integer, il.Duration:
 		switch mode {
 		case nmNone:
 			g.builder.ResolveInt(v.Name)
@@ -171,15 +178,14 @@ func (g *generator) generateVariable(v *expr.Variable, mode nilMode, valueJmpLab
 			g.builder.Jnz(valueJmpLabel)
 		}
 
-	case il.StringMap:
+	case il.Interface:
 		switch mode {
 		case nmNone:
-			g.builder.ResolveMap(v.Name)
+			g.builder.ResolveInterface(v.Name)
 		case nmJmpOnValue:
-			g.builder.TResolveMap(v.Name)
+			g.builder.TResolveInterface(v.Name)
 			g.builder.Jnz(valueJmpLabel)
 		}
-
 	default:
 		g.internalError("unrecognized variable type: '%v'", i.ValueType)
 	}
@@ -383,6 +389,9 @@ func (g *generator) generateConstant(c *expr.Constant) {
 	case dpb.DOUBLE:
 		d := c.Value.(float64)
 		g.builder.APushDouble(d)
+	case dpb.DURATION:
+		u := c.Value.(time.Duration)
+		g.builder.APushInt(int64(u))
 	default:
 		g.internalError("unhandled constant type: %v", c.Type)
 	}

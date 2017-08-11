@@ -19,4 +19,6 @@ message Template {
     double doublePrimitive = 5;
 
     string stringPrimitive = 6;
+
+    map<string, int64> int64Map = 7;
 }

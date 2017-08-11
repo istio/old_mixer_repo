@@ -10,4 +10,5 @@ option (istio.mixer.v1.config.template.template_name) = "Quota";
 
 message Template {
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
+    map<string, bool> boolMap = 2;
 }

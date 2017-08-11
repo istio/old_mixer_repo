@@ -20,8 +20,8 @@ import (
 	"go/format"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
-	"strings"
 	"text/template"
 
 	"github.com/gogo/protobuf/proto"
@@ -41,8 +41,7 @@ type Generator struct {
 }
 
 const (
-	fullGoNameOfValueTypePkgName     = "istio_mixer_v1_config_descriptor."
-	fullGoNameOfValueTypeMessageName = "istio_mixer_v1_config_descriptor.ValueType"
+	fullGoNameOfValueTypePkgName = "istio_mixer_v1_config_descriptor."
 )
 
 // TODO share the code between this generator and the interfacegen code generator.
@@ -53,26 +52,25 @@ var primitiveToValueType = map[string]string{
 	"float64": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
 }
 
+func containsValueType(ti modelgen.TypeInfo) bool {
+	return ti.IsValueType || ti.IsMap && ti.MapValue.IsValueType
+}
+
+type bootstrapModel struct {
+	PkgName        string
+	TemplateModels []*modelgen.Model
+}
+
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
 func (g *Generator) Generate(fdsFiles map[string]string) error {
 
 	tmpl, err := template.New("MixerBootstrap").Funcs(
 		template.FuncMap{
-			"isPrimitiveValueType": func(goTypeName string) bool {
-				// Is this a primitive type from all types that can be represented as ValueType
-				_, ok := primitiveToValueType[goTypeName]
-				return ok
+			"getValueType": func(goType modelgen.TypeInfo) string {
+				return primitiveToValueType[goType.Name]
 			},
-			"isValueType": func(goTypeName string) bool {
-				return goTypeName == fullGoNameOfValueTypeMessageName
-			},
-			"isStringValueTypeMap": func(goTypeName string) bool {
-				return strings.Replace(goTypeName, " ", "", -1) == "map[string]"+fullGoNameOfValueTypeMessageName
-			},
-			"primitiveToValueType": func(goTypeName string) string {
-				return primitiveToValueType[goTypeName]
-			},
+			"containsValueType": containsValueType,
 		}).Parse(tmplPkg.InterfaceTemplate)
 
 	if err != nil {
@@ -108,8 +106,10 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		models = append(models, model)
 	}
 
+	pkgName := getParentDirName(g.OutFilePath)
+
 	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, models)
+	err = tmpl.Execute(buf, bootstrapModel{pkgName, models})
 	if err != nil {
 		return fmt.Errorf("cannot execute the template with the given data: %v", err)
 	}
@@ -136,6 +136,10 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		return err
 	}
 	return nil
+}
+
+func getParentDirName(filePath string) string {
+	return filepath.Base(filepath.Dir(filePath))
 }
 
 func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
