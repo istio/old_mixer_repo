@@ -26,7 +26,7 @@ type BuilderInfo struct {
 	Description string
 	// CreateHandlerBuilderFn is a function that creates a HandlerBuilder which implements Builders associated
 	// with the SupportedTemplates.
-	CreateHandlerBuilderFn CreateHandlerBuilderFn
+	CreateHandlerBuilderFn CreateHandlerBuilder
 	// SupportedTemplates expressess all the templates the Adapter wants to serve.
 	SupportedTemplates []string
 	// DefaultConfig is a default configuration struct for this
@@ -38,8 +38,8 @@ type BuilderInfo struct {
 	ValidateConfig ValidateConfig
 }
 
-// CreateHandlerBuilderFn is a function that creates a HandlerBuilder.
-type CreateHandlerBuilderFn func() HandlerBuilder
+// CreateHandlerBuilder is a function that creates a HandlerBuilder.
+type CreateHandlerBuilder func() HandlerBuilder
 
 // ValidateConfig is a function that determines whether the given handler configuration meets all
 // correctness requirements.
