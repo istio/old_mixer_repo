@@ -1,0 +1,53 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: Adapter
+metadata:
+  name: quotas-default
+  namespace: default
+spec:
+  name: default
+  kind: quotas
+  impl: memQuota
+  params:
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: Adapter
+metadata:
+  name: logger-default
+  namespace: default
+spec:
+  name: default
+  impl: stdioLogger
+  params:
+    logStream: STDERR
+    omitEmptyFields: true
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: Adapter
+metadata:
+  name: metrics-prometheus
+  namespace: default
+spec:
+  name: prometheus
+  kind: metrics
+  impl: prometheus
+  params:
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: Adapter
+metadata:
+  name: denials-default
+  namespace: default
+spec:
+  name: default
+  impl: denyChecker
+  params:
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: Adapter
+metadata:
+  name: attributes-default
+  namespace: default
+spec:
+  name: default
+  kind: attributes
+  impl: kubernetes
