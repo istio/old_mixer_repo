@@ -74,7 +74,7 @@ type fakeCheckHandler struct {
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) HandleSample(instance []*sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
+func (h *fakeCheckHandler) HandleSample(instance *sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
 	h.procCallInput = instance
 	return h.ret, h.retCache, h.retProcError
 }
@@ -715,7 +715,7 @@ func TestProcessCheck(t *testing.T) {
 					t.Errorf("CheckSample got error status %v , want success", s)
 				}
 				v := (*h).(*fakeCheckHandler).procCallInput
-				if !cmp(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) {
+				if !reflect.DeepEqual(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) {
 					t.Errorf("CheckSample handler "+
 						"invoked value = %v,%v want %v,%v", spew.Sdump(v), cInfo, spew.Sdump(tst.wantInstance), tst.wantCache)
 				}

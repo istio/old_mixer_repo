@@ -127,6 +127,7 @@ var (
 						return res
 					}(StringMap),
 				}
+				_ = castedInst
 
 				var cacheInfo adapter.CacheabilityInfo
 				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.SampleHandler).HandleSample(instance); err != nil {
