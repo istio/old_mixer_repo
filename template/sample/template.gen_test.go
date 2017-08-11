@@ -151,11 +151,11 @@ func TestGeneratedFields(t *testing.T) {
 			if SupportedTmplInfo[tst.tmpl].Variety != tst.variety {
 				t.Errorf("SupportedTmplInfo[%s].Variety = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].Variety, tst.variety)
 			}
-			if SupportedTmplInfo[tst.tmpl].BldrName != tst.bldrName {
-				t.Errorf("SupportedTmplInfo[%s].BldrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].BldrName, tst.bldrName)
+			if SupportedTmplInfo[tst.tmpl].BldrInterfaceName != tst.bldrName {
+				t.Errorf("SupportedTmplInfo[%s].BldrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].BldrInterfaceName, tst.bldrName)
 			}
-			if SupportedTmplInfo[tst.tmpl].HndlrName != tst.hndlrName {
-				t.Errorf("SupportedTmplInfo[%s].HndlrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].HndlrName, tst.hndlrName)
+			if SupportedTmplInfo[tst.tmpl].HndlrInterfaceName != tst.hndlrName {
+				t.Errorf("SupportedTmplInfo[%s].HndlrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].HndlrInterfaceName, tst.hndlrName)
 			}
 		})
 	}

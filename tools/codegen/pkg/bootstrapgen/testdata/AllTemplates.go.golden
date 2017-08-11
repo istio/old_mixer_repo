@@ -45,10 +45,10 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		istio_mixer_template_list.TemplateName: {
-			CtrCfg:    &istio_mixer_template_list.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrName:  "istio.io/mixer/template/list.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/list.Handler",
+			CtrCfg:             &istio_mixer_template_list.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  "istio.io/mixer/template/list.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/list.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_list.HandlerBuilder)
 				return ok
@@ -264,10 +264,10 @@ var (
 		},
 
 		istio_mixer_template_quota.TemplateName: {
-			CtrCfg:    &istio_mixer_template_quota.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrName:  "istio.io/mixer/template/quota.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/quota.Handler",
+			CtrCfg:             &istio_mixer_template_quota.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  "istio.io/mixer/template/quota.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/quota.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_quota.HandlerBuilder)
 				return ok
@@ -477,10 +477,10 @@ var (
 		},
 
 		istio_mixer_template_log.TemplateName: {
-			CtrCfg:    &istio_mixer_template_log.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrName:  "istio.io/mixer/template/log.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/log.Handler",
+			CtrCfg:             &istio_mixer_template_log.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  "istio.io/mixer/template/log.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/log.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_log.HandlerBuilder)
 				return ok
@@ -690,10 +690,10 @@ var (
 		},
 
 		istio_mixer_template_metric.TemplateName: {
-			CtrCfg:    &istio_mixer_template_metric.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrName:  "istio.io/mixer/template/metric.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/metric.Handler",
+			CtrCfg:             &istio_mixer_template_metric.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  "istio.io/mixer/template/metric.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/metric.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_metric.HandlerBuilder)
 				return ok

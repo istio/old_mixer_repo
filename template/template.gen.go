@@ -49,10 +49,10 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		checknothing.TemplateName: {
-			CtrCfg:    &checknothing.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrName:  "istio.io/mixer/template/checknothing.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/checknothing.Handler",
+			CtrCfg:             &checknothing.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  "istio.io/mixer/template/checknothing.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/checknothing.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(checknothing.HandlerBuilder)
 				return ok
@@ -110,10 +110,10 @@ var (
 		},
 
 		listentry.TemplateName: {
-			CtrCfg:    &listentry.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrName:  "istio.io/mixer/template/listentry.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/listentry.Handler",
+			CtrCfg:             &listentry.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  "istio.io/mixer/template/listentry.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/listentry.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(listentry.HandlerBuilder)
 				return ok
@@ -189,10 +189,10 @@ var (
 		},
 
 		logentry.TemplateName: {
-			CtrCfg:    &logentry.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrName:  "istio.io/mixer/template/logentry.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/logentry.Handler",
+			CtrCfg:             &logentry.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  "istio.io/mixer/template/logentry.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/logentry.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(logentry.HandlerBuilder)
 				return ok
@@ -289,10 +289,10 @@ var (
 		},
 
 		metric.TemplateName: {
-			CtrCfg:    &metric.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrName:  "istio.io/mixer/template/metric.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/metric.Handler",
+			CtrCfg:             &metric.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  "istio.io/mixer/template/metric.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/metric.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(metric.HandlerBuilder)
 				return ok
@@ -386,10 +386,10 @@ var (
 		},
 
 		quota.TemplateName: {
-			CtrCfg:    &quota.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_QUOTA,
-			BldrName:  "istio.io/mixer/template/quota.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/quota.Handler",
+			CtrCfg:             &quota.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_QUOTA,
+			BldrInterfaceName:  "istio.io/mixer/template/quota.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/quota.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(quota.HandlerBuilder)
 				return ok
@@ -464,10 +464,10 @@ var (
 		},
 
 		reportnothing.TemplateName: {
-			CtrCfg:    &reportnothing.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrName:  "istio.io/mixer/template/reportnothing.HandlerBuilder",
-			HndlrName: "istio.io/mixer/template/reportnothing.Handler",
+			CtrCfg:             &reportnothing.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  "istio.io/mixer/template/reportnothing.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/reportnothing.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(reportnothing.HandlerBuilder)
 				return ok

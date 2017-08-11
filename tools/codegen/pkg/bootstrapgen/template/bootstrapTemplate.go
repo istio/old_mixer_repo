@@ -58,8 +58,8 @@ var (
 		{{.GoPackageName}}.TemplateName: {
 			CtrCfg:  &{{.GoPackageName}}.InstanceParam{},
 			Variety:   adptTmpl.{{.VarietyName}},
-			BldrName:  "{{.PackageImportPath}}.HandlerBuilder",
-			HndlrName: "{{.PackageImportPath}}.Handler",
+			BldrInterfaceName:  "{{.PackageImportPath}}.HandlerBuilder",
+			HndlrInterfaceName: "{{.PackageImportPath}}.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.({{.GoPackageName}}.HandlerBuilder)
 				return ok
