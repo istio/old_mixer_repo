@@ -133,7 +133,7 @@ var (
 						{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
 					{{end}}
 						if err != nil {
-							return nil, err
+							return nil, fmt.Errorf("failed to eval {{.GoName}} for instance '%s': %v", instName, err)
 						}
 				{{end}}
 				_ = castedInst
