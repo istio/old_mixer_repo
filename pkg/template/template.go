@@ -15,10 +15,10 @@
 package template
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
@@ -41,16 +41,17 @@ type (
 	// ConfigureTypeFn dispatches the inferred types to handlers
 	ConfigureTypeFn func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error
 
-	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
-	ProcessReportFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status
+	// EvaluateFn creates the instance object by evaluating the constructor config using the attributes
+	EvaluateFn func(instName string, cnstrParam proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error)
 
-	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
-	ProcessCheckFn func(instName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-		handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo)
+	// DispatchReportFn dispatches the instance to the handler.
+	DispatchReportFn func(context.Context, interface{}, adapter.Handler) (adapter.ReportResult, error)
 
-	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.
-	ProcessQuotaFn func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
-		args adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult)
+	// DispatchCheckFn dispatches the instance to the handler.
+	DispatchCheckFn func(context.Context, interface{}, adapter.Handler) (adapter.CheckResult, error)
+
+	// DispatchQuotaFn dispatches the instance to the handler.
+	DispatchQuotaFn func(context.Context, interface{}, adapter.Handler, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
 
 	// SupportsTemplateFn check if the handlerBuilder supports template.
 	SupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
@@ -69,10 +70,12 @@ type (
 		BldrInterfaceName       string
 		HndlrInterfaceName      string
 		Variety                 adptTmpl.TemplateVariety
-		ProcessReport           ProcessReportFn
-		ProcessCheck            ProcessCheckFn
-		ProcessQuota            ProcessQuotaFn
+		Evaluate                EvaluateFn
+		DispatchReport          DispatchReportFn
+		DispatchCheck           DispatchCheckFn
+		DispatchQuota           DispatchQuotaFn
 	}
+
 	// templateRepo implements Repository
 	repo struct {
 		info map[string]Info

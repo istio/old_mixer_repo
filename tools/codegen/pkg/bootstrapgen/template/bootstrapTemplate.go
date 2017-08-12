@@ -37,12 +37,9 @@ package {{.PkgName}}
 import (
 	"github.com/golang/protobuf/proto"
 	"fmt"
+	"context"
 	"istio.io/mixer/pkg/attribute"
-	rpc "github.com/googleapis/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
 	"istio.io/mixer/pkg/expr"
-	"github.com/golang/glog"
-	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/template"
@@ -127,176 +124,61 @@ var (
 				}
 				return castedBuilder.Configure{{.Name}}Handler(castedTypes)
 			},
-			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
-				ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
-					result := &multierror.Error{}
-					var instances []*{{.GoPackageName}}.Instance
+			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
+				castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
+				{{range .TemplateMessage.Fields}}
+					{{if .GoType.IsMap}}
+						{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
+					{{else}}
+						{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
+					{{end}}
+						if err != nil {
+							return nil, err
+						}
+				{{end}}
+				_ = castedInst
 
-					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam, len(insts))
-					for k, v := range insts {
-						v1 := v.(*{{.GoPackageName}}.InstanceParam)
-						castedInsts[k] = v1
-					}
-					for name, md := range castedInsts {
-						{{range .TemplateMessage.Fields}}
+				return &{{.GoPackageName}}.Instance{
+					Name:	instName,
+					{{range .TemplateMessage.Fields}}
+						{{if containsValueType .GoType}}
+							{{.GoName}}: {{.GoName}},
+						{{else}}
 							{{if .GoType.IsMap}}
-								{{.GoName}}, err := template.EvalAll(md.{{.GoName}}, attrs, mapper)
+								{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+									res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+									for k, v := range m {
+										res[k] = v.({{.GoType.MapValue.Name}})
+									}
+									return res
+								}({{.GoName}}),
 							{{else}}
-								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
+								{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
 							{{end}}
-								if err != nil {
-									result = multierror.Append(result, fmt.Errorf("failed to eval {{.GoName}} for instance '%s': %v", name, err))
-									continue
-								}
 						{{end}}
-
-						instances = append(instances, &{{.GoPackageName}}.Instance{
-							Name:       name,
-							{{range .TemplateMessage.Fields}}
-								{{if containsValueType .GoType}}
-									{{.GoName}}: {{.GoName}},
-								{{else}}
-									{{if .GoType.IsMap}}
-										{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-											res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-											for k, v := range m {
-												res[k] = v.({{.GoType.MapValue.Name}})
-											}
-											return res
-										}({{.GoName}}),
-									{{else}}
-										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
-									{{end}}
-								{{end}}
-							{{end}}
-						})
-						_ = md
-					}
-
-					if err := handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(instances); err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
-					}
-
-					err := result.ErrorOrNil()
-					if err != nil {
-						return status.WithError(err)
-					}
-
-					return status.OK
+					{{end}}
+				}, nil
+			},
+			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
+				DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
+					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, insts.([]*{{.GoPackageName}}.Instance));
 				},
-				ProcessCheck: nil,
-				ProcessQuota: nil,
+				DispatchCheck: nil,
+				DispatchQuota: nil,
 			{{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-				ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
-					var found bool
-					var err error
-
-					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
-					var instances []*{{.GoPackageName}}.Instance
-					{{range .TemplateMessage.Fields}}
-						{{if .GoType.IsMap}}
-							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
-						{{else}}
-							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
-						{{end}}
-							if err != nil {
-								return status.WithError(err), adapter.CacheabilityInfo{}
-							}
-					{{end}}
-
-					instance := &{{.GoPackageName}}.Instance{
-						Name:	instName,
-						{{range .TemplateMessage.Fields}}
-							{{if containsValueType .GoType}}
-								{{.GoName}}: {{.GoName}},
-							{{else}}
-								{{if .GoType.IsMap}}
-									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-										for k, v := range m {
-											res[k] = v.({{.GoType.MapValue.Name}})
-										}
-										return res
-									}({{.GoName}}),
-								{{else}}
-									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
-								{{end}}
-							{{end}}
-						{{end}}
-					}
-					_ = castedInst
-
-					var cacheInfo adapter.CacheabilityInfo
-					if found, cacheInfo, err = handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(instance); err != nil {
-						return status.WithError(err), adapter.CacheabilityInfo{}
-					}
-
-					if found {
-						return status.OK, cacheInfo
-					}
-
-					return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adapter.CacheabilityInfo{}
+				DispatchCheck: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.CheckResult, error) {
+					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, insts.(*{{.GoPackageName}}.Instance));
 				},
-				ProcessReport: nil,
-				ProcessQuota: nil,
+				DispatchReport: nil,
+				DispatchQuota: nil,
 			{{else}}
-				ProcessQuota: func(quotaName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
-				qma adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult) {
-					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
-					{{range .TemplateMessage.Fields}}
-						{{if .GoType.IsMap}}
-							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
-						{{else}}
-							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
-						{{end}}
-							if err != nil {
-								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", quotaName, err)
-								glog.Error(msg)
-								return status.WithInvalidArgument(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
-							}
-					{{end}}
-
-					instance := &{{.GoPackageName}}.Instance{
-						Name:       quotaName,
-						{{range .TemplateMessage.Fields}}
-							{{if containsValueType .GoType}}
-								{{.GoName}}: {{.GoName}},
-							{{else}}
-								{{if .GoType.IsMap}}
-									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-										for k, v := range m {
-											res[k] = v.({{.GoType.MapValue.Name}})
-										}
-										return res
-									}({{.GoName}}),
-								{{else}}
-									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
-								{{end}}
-							{{end}}
-						{{end}}
-					}
-
-					var qr adapter.QuotaResult
-					var cacheInfo adapter.CacheabilityInfo
-					if qr, cacheInfo, err = handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(instance, qma); err != nil {
-						glog.Errorf("Quota allocation failed: %v", err)
-						return status.WithError(err), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
-					}
-					if qr.Amount == 0 {
-						msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qma.QuotaAmount, quotaName)
-						glog.Warning(msg)
-						return status.WithResourceExhausted(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
-					}
-					if glog.V(2) {
-						glog.Infof("Allocated %v units from quota %s", qma.QuotaAmount, quotaName)
-					}
-					return status.OK, cacheInfo, qr
+				DispatchQuota: func(ctx context.Context, insts interface{}, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, insts.(*{{.GoPackageName}}.Instance), args);
 				},
-				ProcessReport: nil,
-				ProcessCheck: nil,
+				DispatchReport: nil,
+				DispatchCheck: nil,
 			{{end}}
+
 		},
 	{{end}}
 	}

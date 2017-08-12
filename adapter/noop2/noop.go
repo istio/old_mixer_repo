@@ -18,10 +18,12 @@ package noop2
 //       known to Mixer. For now, it's manually curated.
 
 import (
+	"context"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/template/checknothing"
@@ -82,37 +84,41 @@ func (builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
 
 ////////////////// Runtime Methods //////////////////////////
 
-var cacheInfo = adapter.CacheabilityInfo{
+var checkResult = adapter.CheckResult{
+	Status:        rpc.Status{Code: int32(rpc.OK)},
 	ValidDuration: 1000000000 * time.Second,
 	ValidUseCount: 1000000000,
 }
-
-func (handler) HandleCheckNothing(*checknothing.Instance) (bool, adapter.CacheabilityInfo, error) {
-	return true, cacheInfo, nil
+var reportResult = adapter.ReportResult{
+	Status: rpc.Status{Code: int32(rpc.OK)},
 }
 
-func (handler) HandleReportNothing([]*reportnothing.Instance) error {
-	return nil
+func (handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+	return checkResult, nil
 }
 
-func (handler) HandleListEntry(*listentry.Instance) (bool, adapter.CacheabilityInfo, error) {
-	return true, cacheInfo, nil
+func (handler) HandleReportNothing(context.Context, []*reportnothing.Instance) (adapter.ReportResult, error) {
+	return reportResult, nil
 }
 
-func (handler) HandleLogEntry([]*logentry.Instance) error {
-	return nil
+func (handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
+	return checkResult, nil
 }
 
-func (handler) HandleMetric([]*metric.Instance) error {
-	return nil
+func (handler) HandleLogEntry(context.Context, []*logentry.Instance) (adapter.ReportResult, error) {
+	return reportResult, nil
 }
 
-func (handler) HandleQuota(_ *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error) {
-	return adapter.QuotaResult{
-			Expiration: 1000000000 * time.Second,
-			Amount:     args.QuotaAmount,
+func (handler) HandleMetric(context.Context, []*metric.Instance) (adapter.ReportResult, error) {
+	return reportResult, nil
+}
+
+func (handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+	return adapter.QuotaResult2{
+			Status:        rpc.Status{Code: int32(rpc.OK)},
+			ValidDuration: 1000000000 * time.Second,
+			Amount:        args.QuotaAmount,
 		},
-		cacheInfo,
 		nil
 }
 
