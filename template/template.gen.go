@@ -142,7 +142,7 @@ var (
 				Value, err := mapper.Eval(castedInst.Value, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Value for instance '%s': %v", instName, err)
 				}
 
 				_ = castedInst
@@ -216,13 +216,13 @@ var (
 				Labels, err := template.EvalAll(castedInst.Labels, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Labels for instance '%s': %v", instName, err)
 				}
 
 				Severity, err := mapper.Eval(castedInst.Severity, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Severity for instance '%s': %v", instName, err)
 				}
 
 				_ = castedInst
@@ -295,13 +295,13 @@ var (
 				Value, err := mapper.Eval(castedInst.Value, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Value for instance '%s': %v", instName, err)
 				}
 
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", instName, err)
 				}
 
 				_ = castedInst
@@ -367,7 +367,7 @@ var (
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", instName, err)
 				}
 
 				_ = castedInst

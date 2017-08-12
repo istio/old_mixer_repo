@@ -96,13 +96,13 @@ var (
 				CheckExpression, err := mapper.Eval(castedInst.CheckExpression, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval CheckExpression for instance '%s': %v", instName, err)
 				}
 
 				StringMap, err := template.EvalAll(castedInst.StringMap, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval StringMap for instance '%s': %v", instName, err)
 				}
 
 				_ = castedInst
@@ -183,13 +183,13 @@ var (
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", instName, err)
 				}
 
 				BoolMap, err := template.EvalAll(castedInst.BoolMap, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval BoolMap for instance '%s': %v", instName, err)
 				}
 
 				_ = castedInst
@@ -317,43 +317,43 @@ var (
 				Value, err := mapper.Eval(castedInst.Value, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Value for instance '%s': %v", instName, err)
 				}
 
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", instName, err)
 				}
 
 				Int64Primitive, err := mapper.Eval(castedInst.Int64Primitive, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Int64Primitive for instance '%s': %v", instName, err)
 				}
 
 				BoolPrimitive, err := mapper.Eval(castedInst.BoolPrimitive, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval BoolPrimitive for instance '%s': %v", instName, err)
 				}
 
 				DoublePrimitive, err := mapper.Eval(castedInst.DoublePrimitive, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval DoublePrimitive for instance '%s': %v", instName, err)
 				}
 
 				StringPrimitive, err := mapper.Eval(castedInst.StringPrimitive, attrs)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval StringPrimitive for instance '%s': %v", instName, err)
 				}
 
 				Int64Map, err := template.EvalAll(castedInst.Int64Map, attrs, mapper)
 
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to eval Int64Map for instance '%s': %v", instName, err)
 				}
 
 				_ = castedInst
