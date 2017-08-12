@@ -17,19 +17,16 @@
 package template
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	rpc "github.com/googleapis/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/pkg/template"
 
 	"istio.io/mixer/template/checknothing"
@@ -80,33 +77,21 @@ var (
 				}
 				return castedBuilder.ConfigureCheckNothingHandler(castedTypes)
 			},
-
-			ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
-				var found bool
-				var err error
-
+			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
 				castedInst := inst.(*checknothing.InstanceParam)
-				var instances []*checknothing.Instance
 
-				instance := &checknothing.Instance{
-					Name: instName,
-				}
 				_ = castedInst
 
-				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(checknothing.Handler).HandleCheckNothing(instance); err != nil {
-					return status.WithError(err), adapter.CacheabilityInfo{}
-				}
-
-				if found {
-					return status.OK, cacheInfo
-				}
-
-				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adapter.CacheabilityInfo{}
+				return &checknothing.Instance{
+					Name: instName,
+				}, nil
 			},
-			ProcessReport: nil,
-			ProcessQuota:  nil,
+
+			DispatchCheck: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.CheckResult, error) {
+				return handler.(checknothing.Handler).HandleCheckNothing(ctx, insts.(*checknothing.Instance))
+			},
+			DispatchReport: nil,
+			DispatchQuota:  nil,
 		},
 
 		listentry.TemplateName: {
@@ -151,41 +136,29 @@ var (
 				}
 				return castedBuilder.ConfigureListEntryHandler(castedTypes)
 			},
-
-			ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
-				var found bool
-				var err error
-
+			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
 				castedInst := inst.(*listentry.InstanceParam)
-				var instances []*listentry.Instance
 
 				Value, err := mapper.Eval(castedInst.Value, attrs)
 
 				if err != nil {
-					return status.WithError(err), adapter.CacheabilityInfo{}
+					return nil, err
 				}
 
-				instance := &listentry.Instance{
+				_ = castedInst
+
+				return &listentry.Instance{
 					Name: instName,
 
 					Value: Value.(string),
-				}
-				_ = castedInst
-
-				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(listentry.Handler).HandleListEntry(instance); err != nil {
-					return status.WithError(err), adapter.CacheabilityInfo{}
-				}
-
-				if found {
-					return status.OK, cacheInfo
-				}
-
-				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adapter.CacheabilityInfo{}
+				}, nil
 			},
-			ProcessReport: nil,
-			ProcessQuota:  nil,
+
+			DispatchCheck: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.CheckResult, error) {
+				return handler.(listentry.Handler).HandleListEntry(ctx, insts.(*listentry.Instance))
+			},
+			DispatchReport: nil,
+			DispatchQuota:  nil,
 		},
 
 		logentry.TemplateName: {
@@ -237,55 +210,37 @@ var (
 				}
 				return castedBuilder.ConfigureLogEntryHandler(castedTypes)
 			},
+			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
+				castedInst := inst.(*logentry.InstanceParam)
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
-				result := &multierror.Error{}
-				var instances []*logentry.Instance
+				Labels, err := template.EvalAll(castedInst.Labels, attrs, mapper)
 
-				castedInsts := make(map[string]*logentry.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*logentry.InstanceParam)
-					castedInsts[k] = v1
-				}
-				for name, md := range castedInsts {
-
-					Labels, err := template.EvalAll(md.Labels, attrs, mapper)
-
-					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Labels for instance '%s': %v", name, err))
-						continue
-					}
-
-					Severity, err := mapper.Eval(md.Severity, attrs)
-
-					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Severity for instance '%s': %v", name, err))
-						continue
-					}
-
-					instances = append(instances, &logentry.Instance{
-						Name: name,
-
-						Labels: Labels,
-
-						Severity: Severity.(string),
-					})
-					_ = md
-				}
-
-				if err := handler.(logentry.Handler).HandleLogEntry(instances); err != nil {
-					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
-				}
-
-				err := result.ErrorOrNil()
 				if err != nil {
-					return status.WithError(err)
+					return nil, err
 				}
 
-				return status.OK
+				Severity, err := mapper.Eval(castedInst.Severity, attrs)
+
+				if err != nil {
+					return nil, err
+				}
+
+				_ = castedInst
+
+				return &logentry.Instance{
+					Name: instName,
+
+					Labels: Labels,
+
+					Severity: Severity.(string),
+				}, nil
 			},
-			ProcessCheck: nil,
-			ProcessQuota: nil,
+
+			DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
+				return handler.(logentry.Handler).HandleLogEntry(ctx, insts.([]*logentry.Instance))
+			},
+			DispatchCheck: nil,
+			DispatchQuota: nil,
 		},
 
 		metric.TemplateName: {
@@ -334,55 +289,37 @@ var (
 				}
 				return castedBuilder.ConfigureMetricHandler(castedTypes)
 			},
+			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
+				castedInst := inst.(*metric.InstanceParam)
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
-				result := &multierror.Error{}
-				var instances []*metric.Instance
+				Value, err := mapper.Eval(castedInst.Value, attrs)
 
-				castedInsts := make(map[string]*metric.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*metric.InstanceParam)
-					castedInsts[k] = v1
-				}
-				for name, md := range castedInsts {
-
-					Value, err := mapper.Eval(md.Value, attrs)
-
-					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Value for instance '%s': %v", name, err))
-						continue
-					}
-
-					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
-
-					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", name, err))
-						continue
-					}
-
-					instances = append(instances, &metric.Instance{
-						Name: name,
-
-						Value: Value,
-
-						Dimensions: Dimensions,
-					})
-					_ = md
-				}
-
-				if err := handler.(metric.Handler).HandleMetric(instances); err != nil {
-					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
-				}
-
-				err := result.ErrorOrNil()
 				if err != nil {
-					return status.WithError(err)
+					return nil, err
 				}
 
-				return status.OK
+				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
+
+				if err != nil {
+					return nil, err
+				}
+
+				_ = castedInst
+
+				return &metric.Instance{
+					Name: instName,
+
+					Value: Value,
+
+					Dimensions: Dimensions,
+				}, nil
 			},
-			ProcessCheck: nil,
-			ProcessQuota: nil,
+
+			DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
+				return handler.(metric.Handler).HandleMetric(ctx, insts.([]*metric.Instance))
+			},
+			DispatchCheck: nil,
+			DispatchQuota: nil,
 		},
 
 		quota.TemplateName: {
@@ -424,43 +361,29 @@ var (
 				}
 				return castedBuilder.ConfigureQuotaHandler(castedTypes)
 			},
-
-			ProcessQuota: func(quotaName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
-				qma adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult) {
+			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
 				castedInst := inst.(*quota.InstanceParam)
 
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
 
 				if err != nil {
-					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
-					glog.Error(msg)
-					return status.WithInvalidArgument(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
+					return nil, err
 				}
 
-				instance := &quota.Instance{
-					Name: quotaName,
+				_ = castedInst
+
+				return &quota.Instance{
+					Name: instName,
 
 					Dimensions: Dimensions,
-				}
-
-				var qr adapter.QuotaResult
-				var cacheInfo adapter.CacheabilityInfo
-				if qr, cacheInfo, err = handler.(quota.Handler).HandleQuota(instance, qma); err != nil {
-					glog.Errorf("Quota allocation failed: %v", err)
-					return status.WithError(err), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
-				}
-				if qr.Amount == 0 {
-					msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qma.QuotaAmount, quotaName)
-					glog.Warning(msg)
-					return status.WithResourceExhausted(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
-				}
-				if glog.V(2) {
-					glog.Infof("Allocated %v units from quota %s", qma.QuotaAmount, quotaName)
-				}
-				return status.OK, cacheInfo, qr
+				}, nil
 			},
-			ProcessReport: nil,
-			ProcessCheck:  nil,
+
+			DispatchQuota: func(ctx context.Context, insts interface{}, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+				return handler.(quota.Handler).HandleQuota(ctx, insts.(*quota.Instance), args)
+			},
+			DispatchReport: nil,
+			DispatchCheck:  nil,
 		},
 
 		reportnothing.TemplateName: {
@@ -495,37 +418,21 @@ var (
 				}
 				return castedBuilder.ConfigureReportNothingHandler(castedTypes)
 			},
+			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
+				castedInst := inst.(*reportnothing.InstanceParam)
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
-				result := &multierror.Error{}
-				var instances []*reportnothing.Instance
+				_ = castedInst
 
-				castedInsts := make(map[string]*reportnothing.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*reportnothing.InstanceParam)
-					castedInsts[k] = v1
-				}
-				for name, md := range castedInsts {
-
-					instances = append(instances, &reportnothing.Instance{
-						Name: name,
-					})
-					_ = md
-				}
-
-				if err := handler.(reportnothing.Handler).HandleReportNothing(instances); err != nil {
-					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
-				}
-
-				err := result.ErrorOrNil()
-				if err != nil {
-					return status.WithError(err)
-				}
-
-				return status.OK
+				return &reportnothing.Instance{
+					Name: instName,
+				}, nil
 			},
-			ProcessCheck: nil,
-			ProcessQuota: nil,
+
+			DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
+				return handler.(reportnothing.Handler).HandleReportNothing(ctx, insts.([]*reportnothing.Instance))
+			},
+			DispatchCheck: nil,
+			DispatchQuota: nil,
 		},
 	}
 )
