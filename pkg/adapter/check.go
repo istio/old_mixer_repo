@@ -28,6 +28,6 @@ type CheckResult struct {
 	Status rpc.Status
 	// ValidDuration represents amount of time for which this result can be considered valid.
 	ValidDuration time.Duration
-	// ValidUseCount represent the number of uses for which this result can be considered valid.
+	// ValidUseCount represents the number of uses for which this result can be considered valid.
 	ValidUseCount int64
 }

@@ -90,11 +90,6 @@ func TestBasic(t *testing.T) {
 		handler = h
 	}
 
-	var exptCheckRes = adapter.CheckResult{
-		Status:        rpc.Status{Code: int32(rpc.OK)},
-		ValidDuration: 1000000000 * time.Second,
-		ValidUseCount: 1000000000,
-	}
 	var exptReportResult = adapter.ReportResult{
 		Status: rpc.Status{Code: int32(rpc.OK)},
 	}
@@ -102,8 +97,16 @@ func TestBasic(t *testing.T) {
 	checkNothingHandler := handler.(checknothing.Handler)
 	if result, err := checkNothingHandler.HandleCheckNothing(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	} else if !reflect.DeepEqual(result, exptCheckRes) {
-		t.Errorf("Got %v, expecting %v result", result, exptCheckRes)
+	} else {
+		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
+			t.Errorf("Got status %v, expecting %v", result.Status, rpc.Status{Code: int32(rpc.OK)})
+		}
+		if result.ValidDuration < 1000*time.Second {
+			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+		}
+		if result.ValidUseCount < 1000 {
+			t.Errorf("Got use count of %d, expecting at least 1000", result.ValidUseCount)
+		}
 	}
 
 	reportNothingHandler := handler.(reportnothing.Handler)
@@ -116,8 +119,16 @@ func TestBasic(t *testing.T) {
 	listEntryHandler := handler.(listentry.Handler)
 	if result, err := listEntryHandler.HandleListEntry(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	} else if !reflect.DeepEqual(result, exptCheckRes) {
-		t.Errorf("Got %v, expecting %v result", result, exptCheckRes)
+	} else {
+		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
+			t.Errorf("Got status %v, expecting %v", result.Status, rpc.Status{Code: int32(rpc.OK)})
+		}
+		if result.ValidDuration < 1000*time.Second {
+			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+		}
+		if result.ValidUseCount < 1000 {
+			t.Errorf("Got use count of %d, expecting at least 1000", result.ValidUseCount)
+		}
 	}
 
 	logEntryHandler := handler.(logentry.Handler)
@@ -138,17 +149,19 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	exptQuotaResult := adapter.QuotaResult2{
-		Status:        rpc.Status{Code: int32(rpc.OK)},
-		ValidDuration: 1000000000 * time.Second,
-		Amount:        100,
-	}
-
 	quotaHandler := handler.(quota.Handler)
 	if result, err := quotaHandler.HandleQuota(context.TODO(), nil, adapter.QuotaRequestArgs{QuotaAmount: 100}); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	} else if !reflect.DeepEqual(result, exptQuotaResult) {
-		t.Errorf("Got %v, expecting %v result", result, exptQuotaResult)
+	} else {
+		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
+			t.Errorf("Got status %v, expecting %v", result.Status, rpc.Status{Code: int32(rpc.OK)})
+		}
+		if result.ValidDuration < 1000*time.Second {
+			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+		}
+		if result.Amount != 100 {
+			t.Errorf("Got %d quota, expecting 100", result.Amount)
+		}
 	}
 }
 

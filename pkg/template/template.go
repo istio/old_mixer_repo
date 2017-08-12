@@ -44,14 +44,14 @@ type (
 	// EvaluateFn creates the instance object by evaluating the constructor config using the attributes
 	EvaluateFn func(instName string, cnstrParam proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error)
 
-	// DispatchReportFn dispatches the instance to the handler.
-	DispatchReportFn func(context.Context, interface{}, adapter.Handler) (adapter.ReportResult, error)
+	// DispatchReportFn dispatches the evaluated []instances to the handler.
+	DispatchReportFn func(ctx context.Context, evaluatedInstances interface{}, hndlr adapter.Handler) (adapter.ReportResult, error)
 
-	// DispatchCheckFn dispatches the instance to the handler.
-	DispatchCheckFn func(context.Context, interface{}, adapter.Handler) (adapter.CheckResult, error)
+	// DispatchCheckFn dispatches the evaluated instance object to the handler.
+	DispatchCheckFn func(ctx context.Context, evaluatedInstance interface{}, hndlr adapter.Handler) (adapter.CheckResult, error)
 
-	// DispatchQuotaFn dispatches the instance to the handler.
-	DispatchQuotaFn func(context.Context, interface{}, adapter.Handler, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
+	// DispatchQuotaFn dispatches the evaluated instance object to the handler.
+	DispatchQuotaFn func(ctx context.Context, evaluatedInstance interface{}, hndlr adapter.Handler, adpArgs adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
 
 	// SupportsTemplateFn check if the handlerBuilder supports template.
 	SupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
