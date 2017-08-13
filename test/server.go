@@ -106,7 +106,9 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 			}
 
 			result, out := a.Handler.Quota(requestBag, args)
-			resp.Precondition.Status = out
+			if status.IsOK(resp.Precondition.Status) && !status.IsOK(out) {
+				resp.Precondition.Status = out
+			}
 
 			qr := mixerpb.CheckResponse_QuotaResult{
 				GrantedAmount:        result.Amount,
