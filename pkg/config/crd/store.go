@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package crd provides the store interface to config resources stored as
+// Package crd provides the store interface to config resources stored as
 // kubernetes custom resource definitions (CRDs).
 package crd
 
@@ -77,7 +77,7 @@ type Store struct {
 var _ store.Store2 = &Store{}
 
 // SetValidator implements store.Store2 interface.
-func (s *Store) SetValidator(v store.Validator) {
+func (s *Store) SetValidator(store.Validator) {
 	glog.Errorf("Validator is not implemented yet")
 }
 
@@ -199,7 +199,7 @@ func (s *Store) List() map[store.Key]proto.Message {
 	for kind, c := range s.caches {
 		tmpl, ok := s.kinds[kind]
 		if !ok {
-			glog.Warningf("kind %s is not registered", kind)
+			glog.Warningf("Kind %s is not registered", kind)
 			continue
 		}
 		for _, obj := range c.List() {
@@ -207,11 +207,14 @@ func (s *Store) List() map[store.Key]proto.Message {
 				if s.ns[res.Namespace] {
 					key := store.Key{Kind: kind, Name: res.Name, Namespace: res.Namespace}
 					value := proto.Clone(tmpl)
-					convert(res.Spec, value)
+					if err := convert(res.Spec, value); err != nil {
+						glog.Errorf("Failed to convert: %v", err)
+						continue
+					}
 					result[key] = value
 				}
 			} else {
-				glog.Errorf("unrecognized object %+v", obj)
+				glog.Errorf("Unrecognized object %+v", obj)
 			}
 		}
 	}
@@ -225,7 +228,7 @@ func (s *Store) ListKeys() []store.Key {
 		for _, key := range c.ListKeys() {
 			ns, name, err := cache.SplitMetaNamespaceKey(key)
 			if err != nil {
-				glog.Errorf("unrecognized key %s", key)
+				glog.Errorf("Unrecognized key %s", key)
 				continue
 			}
 			if !s.ns[ns] {
@@ -252,7 +255,7 @@ func (s *Store) Put(key store.Key, spec proto.Message) error {
 	var req *rest.Request
 	res, ok := s.resources[key.Kind]
 	if !ok {
-		return fmt.Errorf("Kind %s is not known", key.Kind)
+		return fmt.Errorf("kind %s is not known", key.Kind)
 	}
 	if s.getThroughClient(key, res) {
 		req = s.client.Put().
