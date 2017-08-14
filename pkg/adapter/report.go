@@ -21,7 +21,7 @@ import (
 // TODO revisit the comment on this adapter struct.
 
 // ReportResult provides return values from report calls on the handler
-type ReportResult struct {
+type ReportResult2 struct {
 	// The outcome status of the operation.
 	Status rpc.Status
 }
