@@ -32,8 +32,15 @@ import (
 	"istio.io/mixer/pkg/status"
 )
 
+// DefaultAmount is the default quota amount to use in testing (1).
 var DefaultAmount = int64(1)
+
+// DefaultValidUseCount is the default number of valid uses to return for
+// quota allocs for testing (1).
 var DefaultValidUseCount = int32(1)
+
+// DefaultValidDuration is the default duration to return for
+// quota allocs in testing (1s).
 var DefaultValidDuration = 1 * time.Second
 
 // AttributesServer implements the Mixer API to send mutable attributes bags to

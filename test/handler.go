@@ -137,6 +137,8 @@ type QuotaArgs struct {
 	BestEffort bool
 }
 
+// QuotaResponse provides information on the result of a Quota operation. It allows testing
+// to target precise quota responses.
 type QuotaResponse struct {
 	// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
 	Expiration time.Duration
