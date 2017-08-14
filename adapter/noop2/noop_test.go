@@ -90,10 +90,6 @@ func TestBasic(t *testing.T) {
 		handler = h
 	}
 
-	var exptReportResult = adapter.ReportResult{
-		Status: rpc.Status{Code: int32(rpc.OK)},
-	}
-
 	checkNothingHandler := handler.(checknothing.Handler)
 	if result, err := checkNothingHandler.HandleCheckNothing(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
@@ -110,10 +106,8 @@ func TestBasic(t *testing.T) {
 	}
 
 	reportNothingHandler := handler.(reportnothing.Handler)
-	if result, err := reportNothingHandler.HandleReportNothing(context.TODO(), nil); err != nil {
+	if err := reportNothingHandler.HandleReportNothing(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	} else if !reflect.DeepEqual(result, exptReportResult) {
-		t.Errorf("Got %v, expecting %v result", result, exptReportResult)
 	}
 
 	listEntryHandler := handler.(listentry.Handler)
@@ -132,17 +126,13 @@ func TestBasic(t *testing.T) {
 	}
 
 	logEntryHandler := handler.(logentry.Handler)
-	if result, err := logEntryHandler.HandleLogEntry(context.TODO(), nil); err != nil {
+	if err := logEntryHandler.HandleLogEntry(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	} else if !reflect.DeepEqual(result, exptReportResult) {
-		t.Errorf("Got %v, expecting %v result", result, exptReportResult)
 	}
 
 	metricHandler := handler.(metric.Handler)
-	if result, err := metricHandler.HandleMetric(context.TODO(), nil); err != nil {
+	if err := metricHandler.HandleMetric(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	} else if !reflect.DeepEqual(result, exptReportResult) {
-		t.Errorf("Got %v, expecting %v result", result, exptReportResult)
 	}
 
 	if err := handler.Close(); err != nil {
@@ -153,9 +143,6 @@ func TestBasic(t *testing.T) {
 	if result, err := quotaHandler.HandleQuota(context.TODO(), nil, adapter.QuotaRequestArgs{QuotaAmount: 100}); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	} else {
-		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
-			t.Errorf("Got status %v, expecting %v", result.Status, rpc.Status{Code: int32(rpc.OK)})
-		}
 		if result.ValidDuration < 1000*time.Second {
 			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
 		}

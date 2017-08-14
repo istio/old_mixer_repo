@@ -74,7 +74,7 @@ type Handler interface {
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
     Handle{{.Name}}(context.Context, *Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
   {{else -}}
-    Handle{{.Name}}(context.Context, []*Instance) (adapter.ReportResult, error)
+    Handle{{.Name}}(context.Context, []*Instance) error
   {{end}}
 }
 `

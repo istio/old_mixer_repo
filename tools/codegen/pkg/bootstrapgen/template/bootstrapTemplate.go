@@ -43,6 +43,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/template"
+	"github.com/golang/glog"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	{{range .TemplateModels}}
 		"{{.PackageImportPath}}"
@@ -53,11 +54,12 @@ var (
 	SupportedTmplInfo = map[string]template.Info {
 	{{range .TemplateModels}}
 		{{.GoPackageName}}.TemplateName: {
+			Name: "{{.PackageName}}",
 			CtrCfg:  &{{.GoPackageName}}.InstanceParam{},
 			Variety:   adptTmpl.{{.VarietyName}},
 			BldrInterfaceName:  "{{.PackageImportPath}}.HandlerBuilder",
 			HndlrInterfaceName: "{{.PackageImportPath}}.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.({{.GoPackageName}}.HandlerBuilder)
 				return ok
 			},
@@ -124,59 +126,132 @@ var (
 				}
 				return castedBuilder.Configure{{.Name}}Handler(castedTypes)
 			},
-			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
-				castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
-				{{range .TemplateMessage.Fields}}
-					{{if .GoType.IsMap}}
-						{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
-					{{else}}
-						{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
-					{{end}}
-						if err != nil {
-							return nil, fmt.Errorf("failed to eval {{.GoName}} for instance '%s': %v", instName, err)
-						}
-				{{end}}
-				_ = castedInst
-
-				return &{{.GoPackageName}}.Instance{
-					Name:	instName,
-					{{range .TemplateMessage.Fields}}
-						{{if containsValueType .GoType}}
-							{{.GoName}}: {{.GoName}},
-						{{else}}
+			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
+				ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+					var instances []*{{.GoPackageName}}.Instance
+					for name, inst := range insts {
+						md := inst.(*{{.GoPackageName}}.InstanceParam)
+						{{range .TemplateMessage.Fields}}
 							{{if .GoType.IsMap}}
-								{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-									res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-									for k, v := range m {
-										res[k] = v.({{.GoType.MapValue.Name}})
-									}
-									return res
-								}({{.GoName}}),
+								{{.GoName}}, err := template.EvalAll(md.{{.GoName}}, attrs, mapper)
 							{{else}}
-								{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
+							{{end}}
+								if err != nil {
+									msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", name, err)
+									glog.Error(msg)
+									return fmt.Errorf(msg)
+								}
+						{{end}}
+
+						instances = append(instances, &{{.GoPackageName}}.Instance{
+							Name:       name,
+							{{range .TemplateMessage.Fields}}
+								{{if containsValueType .GoType}}
+									{{.GoName}}: {{.GoName}},
+								{{else}}
+									{{if .GoType.IsMap}}
+										{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+											res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+											for k, v := range m {
+												res[k] = v.({{.GoType.MapValue.Name}})
+											}
+											return res
+										}({{.GoName}}),
+									{{else}}
+										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+									{{end}}
+								{{end}}
+							{{end}}
+						})
+						_ = md
+					}
+
+					if err := handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instances); err != nil {
+						return fmt.Errorf("failed to report all values: %v", err)
+					}
+					return nil
+				},
+			{{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
+				ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
+					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
+					{{range .TemplateMessage.Fields}}
+						{{if .GoType.IsMap}}
+							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
+						{{else}}
+							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
+						{{end}}
+							if err != nil {
+								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", instName, err)
+								glog.Error(msg)
+								return adapter.CheckResult{}, fmt.Errorf(msg)
+							}
+					{{end}}
+					_ = castedInst
+
+					instance := &{{.GoPackageName}}.Instance{
+						Name:	instName,
+						{{range .TemplateMessage.Fields}}
+							{{if containsValueType .GoType}}
+								{{.GoName}}: {{.GoName}},
+							{{else}}
+								{{if .GoType.IsMap}}
+									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+										for k, v := range m {
+											res[k] = v.({{.GoType.MapValue.Name}})
+										}
+										return res
+									}({{.GoName}}),
+								{{else}}
+									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+								{{end}}
 							{{end}}
 						{{end}}
-					{{end}}
-				}, nil
-			},
-			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
-				DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
-					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, insts.([]*{{.GoPackageName}}.Instance));
+					}
+					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instance)
 				},
-				DispatchCheck: nil,
-				DispatchQuota: nil,
-			{{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-				DispatchCheck: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.CheckResult, error) {
-					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, insts.(*{{.GoPackageName}}.Instance));
-				},
-				DispatchReport: nil,
-				DispatchQuota: nil,
 			{{else}}
-				DispatchQuota: func(ctx context.Context, insts interface{}, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
-					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, insts.(*{{.GoPackageName}}.Instance), args);
+				ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
+				 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
+					{{range .TemplateMessage.Fields}}
+						{{if .GoType.IsMap}}
+							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
+						{{else}}
+							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
+						{{end}}
+							if err != nil {
+								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", quotaName, err)
+								glog.Error(msg)
+								return adapter.QuotaResult2{}, fmt.Errorf(msg)
+							}
+					{{end}}
+
+					instance := &{{.GoPackageName}}.Instance{
+						Name:       quotaName,
+						{{range .TemplateMessage.Fields}}
+							{{if containsValueType .GoType}}
+								{{.GoName}}: {{.GoName}},
+							{{else}}
+								{{if .GoType.IsMap}}
+									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+										for k, v := range m {
+											res[k] = v.({{.GoType.MapValue.Name}})
+										}
+										return res
+									}({{.GoName}}),
+								{{else}}
+									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+								{{end}}
+							{{end}}
+						{{end}}
+					}
+
+					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instance, args)
 				},
-				DispatchReport: nil,
-				DispatchCheck: nil,
 			{{end}}
 
 		},

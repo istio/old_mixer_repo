@@ -85,5 +85,5 @@ type Handler interface {
 
 	// HandleMetric is called by Mixer at request time to deliver instances to
 	// to an adapter.
-	HandleMetric(context.Context, []*Instance) (adapter.ReportResult, error)
+	HandleMetric(context.Context, []*Instance) error
 }

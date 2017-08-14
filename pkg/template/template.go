@@ -41,20 +41,20 @@ type (
 	// ConfigureTypeFn dispatches the inferred types to handlers
 	ConfigureTypeFn func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error
 
-	// EvaluateFn creates the instance object by evaluating the constructor config using the attributes
-	EvaluateFn func(instName string, cnstrParam proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error)
+	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
+	ProcessCheckFn func(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,
+		mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error)
 
-	// DispatchReportFn dispatches the evaluated []instances to the handler.
-	DispatchReportFn func(ctx context.Context, evaluatedInstances interface{}, hndlr adapter.Handler) (adapter.ReportResult, error)
+	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.
+	ProcessQuotaFn func(ctx context.Context, quotaName string, quotaCfg proto.Message, attrs attribute.Bag,
+		mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
 
-	// DispatchCheckFn dispatches the evaluated instance object to the handler.
-	DispatchCheckFn func(ctx context.Context, evaluatedInstance interface{}, hndlr adapter.Handler) (adapter.CheckResult, error)
+	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
+	ProcessReportFn func(ctx context.Context, instCfg map[string]proto.Message, attrs attribute.Bag,
+		mapper expr.Evaluator, handler adapter.Handler) error
 
-	// DispatchQuotaFn dispatches the evaluated instance object to the handler.
-	DispatchQuotaFn func(ctx context.Context, evaluatedInstance interface{}, hndlr adapter.Handler, adpArgs adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
-
-	// SupportsTemplateFn check if the handlerBuilder supports template.
-	SupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
+	// BuilderSupportsTemplateFn check if the handlerBuilder supports template.
+	BuilderSupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
 
 	// HandlerSupportsTemplateFn check if the handler supports template.
 	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
@@ -62,18 +62,18 @@ type (
 	// Info contains all the information related a template like
 	// Default instance params, type inference method etc.
 	Info struct {
+		Name                    string
+		Variety                 adptTmpl.TemplateVariety
+		BldrInterfaceName       string
+		HndlrInterfaceName      string
 		CtrCfg                  proto.Message
 		InferType               InferTypeFn
 		ConfigureType           ConfigureTypeFn
-		SupportsTemplate        SupportsTemplateFn
+		BuilderSupportsTemplate BuilderSupportsTemplateFn
 		HandlerSupportsTemplate HandlerSupportsTemplateFn
-		BldrInterfaceName       string
-		HndlrInterfaceName      string
-		Variety                 adptTmpl.TemplateVariety
-		Evaluate                EvaluateFn
-		DispatchReport          DispatchReportFn
-		DispatchCheck           DispatchCheckFn
-		DispatchQuota           DispatchQuotaFn
+		ProcessReport           ProcessReportFn
+		ProcessCheck            ProcessCheckFn
+		ProcessQuota            ProcessQuotaFn
 	}
 
 	// templateRepo implements Repository
@@ -118,7 +118,7 @@ func (t repo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, tmpl string)
 		return false, fmt.Sprintf("Supported template %v is not one of the allowed supported templates %v", tmpl, t.allSupportedTmpls)
 	}
 
-	if b := i.SupportsTemplate(hndlrBuilder); !b {
+	if b := i.BuilderSupportsTemplate(hndlrBuilder); !b {
 		return false, fmt.Sprintf("HandlerBuilder does not implement interface %s. "+
 			"Therefore, it cannot support template %v", t.tmplToBuilderNames[tmpl], tmpl)
 	}

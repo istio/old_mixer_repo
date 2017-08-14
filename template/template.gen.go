@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/api/mixer/v1/config/descriptor"
@@ -46,11 +47,12 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		checknothing.TemplateName: {
+			Name:               "checknothing",
 			CtrCfg:             &checknothing.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrInterfaceName:  "istio.io/mixer/template/checknothing.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/checknothing.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(checknothing.HandlerBuilder)
 				return ok
 			},
@@ -77,29 +79,27 @@ var (
 				}
 				return castedBuilder.ConfigureCheckNothingHandler(castedTypes)
 			},
-			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
+
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 				castedInst := inst.(*checknothing.InstanceParam)
 
 				_ = castedInst
 
-				return &checknothing.Instance{
+				instance := &checknothing.Instance{
 					Name: instName,
-				}, nil
+				}
+				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
 			},
-
-			DispatchCheck: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.CheckResult, error) {
-				return handler.(checknothing.Handler).HandleCheckNothing(ctx, insts.(*checknothing.Instance))
-			},
-			DispatchReport: nil,
-			DispatchQuota:  nil,
 		},
 
 		listentry.TemplateName: {
+			Name:               "listentry",
 			CtrCfg:             &listentry.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrInterfaceName:  "istio.io/mixer/template/listentry.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/listentry.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(listentry.HandlerBuilder)
 				return ok
 			},
@@ -136,37 +136,37 @@ var (
 				}
 				return castedBuilder.ConfigureListEntryHandler(castedTypes)
 			},
-			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
+
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 				castedInst := inst.(*listentry.InstanceParam)
 
 				Value, err := mapper.Eval(castedInst.Value, attrs)
 
 				if err != nil {
-					return nil, fmt.Errorf("failed to eval Value for instance '%s': %v", instName, err)
+					msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, fmt.Errorf(msg)
 				}
 
 				_ = castedInst
 
-				return &listentry.Instance{
+				instance := &listentry.Instance{
 					Name: instName,
 
 					Value: Value.(string),
-				}, nil
+				}
+				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
 			},
-
-			DispatchCheck: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.CheckResult, error) {
-				return handler.(listentry.Handler).HandleListEntry(ctx, insts.(*listentry.Instance))
-			},
-			DispatchReport: nil,
-			DispatchQuota:  nil,
 		},
 
 		logentry.TemplateName: {
+			Name:               "logentry",
 			CtrCfg:             &logentry.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrInterfaceName:  "istio.io/mixer/template/logentry.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/logentry.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(logentry.HandlerBuilder)
 				return ok
 			},
@@ -210,45 +210,52 @@ var (
 				}
 				return castedBuilder.ConfigureLogEntryHandler(castedTypes)
 			},
-			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
-				castedInst := inst.(*logentry.InstanceParam)
 
-				Labels, err := template.EvalAll(castedInst.Labels, attrs, mapper)
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+				var instances []*logentry.Instance
+				for name, inst := range insts {
+					md := inst.(*logentry.InstanceParam)
 
-				if err != nil {
-					return nil, fmt.Errorf("failed to eval Labels for instance '%s': %v", instName, err)
+					Labels, err := template.EvalAll(md.Labels, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval Labels for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
+					}
+
+					Severity, err := mapper.Eval(md.Severity, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval Severity for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
+					}
+
+					instances = append(instances, &logentry.Instance{
+						Name: name,
+
+						Labels: Labels,
+
+						Severity: Severity.(string),
+					})
+					_ = md
 				}
 
-				Severity, err := mapper.Eval(castedInst.Severity, attrs)
-
-				if err != nil {
-					return nil, fmt.Errorf("failed to eval Severity for instance '%s': %v", instName, err)
+				if err := handler.(logentry.Handler).HandleLogEntry(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
 				}
-
-				_ = castedInst
-
-				return &logentry.Instance{
-					Name: instName,
-
-					Labels: Labels,
-
-					Severity: Severity.(string),
-				}, nil
+				return nil
 			},
-
-			DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
-				return handler.(logentry.Handler).HandleLogEntry(ctx, insts.([]*logentry.Instance))
-			},
-			DispatchCheck: nil,
-			DispatchQuota: nil,
 		},
 
 		metric.TemplateName: {
+			Name:               "metric",
 			CtrCfg:             &metric.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrInterfaceName:  "istio.io/mixer/template/metric.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/metric.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(metric.HandlerBuilder)
 				return ok
 			},
@@ -289,45 +296,52 @@ var (
 				}
 				return castedBuilder.ConfigureMetricHandler(castedTypes)
 			},
-			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
-				castedInst := inst.(*metric.InstanceParam)
 
-				Value, err := mapper.Eval(castedInst.Value, attrs)
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+				var instances []*metric.Instance
+				for name, inst := range insts {
+					md := inst.(*metric.InstanceParam)
 
-				if err != nil {
-					return nil, fmt.Errorf("failed to eval Value for instance '%s': %v", instName, err)
+					Value, err := mapper.Eval(md.Value, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
+					}
+
+					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
+					}
+
+					instances = append(instances, &metric.Instance{
+						Name: name,
+
+						Value: Value,
+
+						Dimensions: Dimensions,
+					})
+					_ = md
 				}
 
-				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
-
-				if err != nil {
-					return nil, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", instName, err)
+				if err := handler.(metric.Handler).HandleMetric(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
 				}
-
-				_ = castedInst
-
-				return &metric.Instance{
-					Name: instName,
-
-					Value: Value,
-
-					Dimensions: Dimensions,
-				}, nil
+				return nil
 			},
-
-			DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
-				return handler.(metric.Handler).HandleMetric(ctx, insts.([]*metric.Instance))
-			},
-			DispatchCheck: nil,
-			DispatchQuota: nil,
 		},
 
 		quota.TemplateName: {
+			Name:               "quota",
 			CtrCfg:             &quota.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_QUOTA,
 			BldrInterfaceName:  "istio.io/mixer/template/quota.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/quota.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(quota.HandlerBuilder)
 				return ok
 			},
@@ -361,37 +375,36 @@ var (
 				}
 				return castedBuilder.ConfigureQuotaHandler(castedTypes)
 			},
-			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
+
+			ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
 				castedInst := inst.(*quota.InstanceParam)
 
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
 
 				if err != nil {
-					return nil, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", instName, err)
+					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult2{}, fmt.Errorf(msg)
 				}
 
-				_ = castedInst
-
-				return &quota.Instance{
-					Name: instName,
+				instance := &quota.Instance{
+					Name: quotaName,
 
 					Dimensions: Dimensions,
-				}, nil
-			},
+				}
 
-			DispatchQuota: func(ctx context.Context, insts interface{}, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
-				return handler.(quota.Handler).HandleQuota(ctx, insts.(*quota.Instance), args)
+				return handler.(quota.Handler).HandleQuota(ctx, instance, args)
 			},
-			DispatchReport: nil,
-			DispatchCheck:  nil,
 		},
 
 		reportnothing.TemplateName: {
+			Name:               "reportnothing",
 			CtrCfg:             &reportnothing.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrInterfaceName:  "istio.io/mixer/template/reportnothing.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/reportnothing.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(reportnothing.HandlerBuilder)
 				return ok
 			},
@@ -418,21 +431,23 @@ var (
 				}
 				return castedBuilder.ConfigureReportNothingHandler(castedTypes)
 			},
-			Evaluate: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator) (interface{}, error) {
-				castedInst := inst.(*reportnothing.InstanceParam)
 
-				_ = castedInst
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+				var instances []*reportnothing.Instance
+				for name, inst := range insts {
+					md := inst.(*reportnothing.InstanceParam)
 
-				return &reportnothing.Instance{
-					Name: instName,
-				}, nil
+					instances = append(instances, &reportnothing.Instance{
+						Name: name,
+					})
+					_ = md
+				}
+
+				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
 			},
-
-			DispatchReport: func(ctx context.Context, insts interface{}, handler adapter.Handler) (adapter.ReportResult, error) {
-				return handler.(reportnothing.Handler).HandleReportNothing(ctx, insts.([]*reportnothing.Instance))
-			},
-			DispatchCheck: nil,
-			DispatchQuota: nil,
 		},
 	}
 )
