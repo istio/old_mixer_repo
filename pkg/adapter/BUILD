@@ -20,7 +20,6 @@ go_library(
         "metrics.go",
         "quotas.go",
         "registrar.go",
-        "report.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
