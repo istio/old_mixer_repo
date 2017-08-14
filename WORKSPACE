@@ -20,9 +20,9 @@ load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
 
 docker_repositories()
 
-load(":proto_deps.bzl", "mixer_proto_repositories")
+load(":adapter_author_deps.bzl", "mixer_adapter_repositories")
 
-mixer_proto_repositories()
+mixer_adapter_repositories()
 
 git_repository(
     name = "com_github_grpc_grpc",
@@ -383,13 +383,6 @@ go_repository(
     name = "com_github_PuerkitoBio_purell",
     commit = "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4",  # Nov 14, 2016 (v1.1.0)
     importpath = "github.com/PuerkitoBio/purell",
-)
-
-go_repository(
-    name = "org_golang_x_text",
-    build_file_name = "BUILD.bazel",
-    commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
-    importpath = "golang.org/x/text",
 )
 
 go_repository(

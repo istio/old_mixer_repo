@@ -1,7 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_repository")
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 
-def mixer_proto_repositories():
+def mixer_adapter_repositories():
     git_repository(
         name = "org_pubref_rules_protobuf",
         commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31, 2017 (gogo* support)
