@@ -42,6 +42,7 @@ go_test(
     srcs = [
         "e2e_configuration_test.go",
         "env_test.go",
+        "manager2_test.go",
         "manager_test.go",
         "registry_test.go",
     ],

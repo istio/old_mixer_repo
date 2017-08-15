@@ -121,10 +121,13 @@ type (
 	}
 )
 
+// GetStatus gets status embedded in the result.
 func (r QuotaResult2) GetStatus() rpc.Status { return r.Status }
 
+// SetStatus embeds status in result.
 func (r *QuotaResult2) SetStatus(s rpc.Status) { r.Status = s }
 
+// Combine combines other result with self.
 func (r *QuotaResult2) Combine(otherPtr interface{}) interface{} {
 	other, _ := otherPtr.(*QuotaResult2)
 	if other == nil {
