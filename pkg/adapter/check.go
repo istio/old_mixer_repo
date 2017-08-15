@@ -32,7 +32,7 @@ type CheckResult struct {
 	ValidUseCount int64
 }
 
-// Common interface supported by Results.
+// Result is the common interface supported by Results.
 type Result interface {
 	// Get status embedded in the result.
 	GetStatus() rpc.Status
@@ -44,9 +44,13 @@ type Result interface {
 	Combine(otherPtr interface{}) (self interface{})
 }
 
-func (r *CheckResult) GetStatus() rpc.Status  { return r.Status }
+// GetStatus gets status embedded in the result.
+func (r *CheckResult) GetStatus() rpc.Status { return r.Status }
+
+// SetStatus embeds status in result.
 func (r *CheckResult) SetStatus(s rpc.Status) { r.Status = s }
 
+// Combine combines other result with self.
 func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
 	other, _ := otherPtr.(*CheckResult)
 	if other == nil {

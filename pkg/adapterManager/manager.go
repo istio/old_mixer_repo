@@ -43,15 +43,15 @@ import (
 )
 
 const (
-	aspectName   = "aspect"
+	meshFunction = "meshFunction"
+	handlerName  = "handler"
 	adapterName  = "adapter"
-	impl         = "impl"
 	responseCode = "response_code"
 	responseMsg  = "response_message"
 )
 
 var (
-	promLabelNames  = []string{aspectName, adapterName, impl, responseCode}
+	promLabelNames  = []string{meshFunction, handlerName, adapterName, responseCode}
 	dispatchBuckets = []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 	dispatchCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -285,17 +285,17 @@ func (m *Manager) runAsync(ctx context.Context, requestBag attribute.Bag, respon
 		duration := time.Since(start)
 
 		span.LogFields(
-			log.String(aspectName, cfg.Aspect.Kind),
-			log.String(adapterName, cfg.Aspect.Adapter),
-			log.String(impl, cfg.Builder.Impl),
+			log.String(meshFunction, cfg.Aspect.Kind),
+			log.String(handlerName, cfg.Aspect.Adapter),
+			log.String(adapterName, cfg.Builder.Impl),
 			log.String(responseCode, rpc.Code_name[out.Code]),
 			log.String(responseMsg, out.Message),
 		)
 
 		dispatchLbls := prometheus.Labels{
-			aspectName:   cfg.Aspect.Kind,
-			adapterName:  cfg.Aspect.Adapter,
-			impl:         cfg.Builder.Impl,
+			meshFunction: cfg.Aspect.Kind,
+			handlerName:  cfg.Aspect.Adapter,
+			adapterName:  cfg.Builder.Impl,
 			responseCode: rpc.Code_name[out.Code],
 		}
 		dispatchCounter.With(dispatchLbls).Inc()

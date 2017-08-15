@@ -25,7 +25,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/opentracing/opentracing-go"
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
@@ -149,14 +149,13 @@ type dispatchInfo struct {
 // Dispatcher#Report.
 func (m *Manager2) Report(ctx context.Context, requestBag attribute.Bag) error {
 	rt := m.RuntimeState()
-	// cannot be null by construction
-
+	// cannot be null by construction.
 	calls, err := fetchDispatchInfo(requestBag, adptTmpl.TEMPLATE_VARIETY_REPORT, rt, m.templateRepo, nil)
 	if err != nil {
 		return err
 	}
-	resultsChan := make(chan *result2)
-	nresults := 0
+
+	ra := make([]*runArg, 0, 10)
 
 	// TODO reduce context deadline before sending it down to adapters.
 	for _, call := range calls {
@@ -164,18 +163,14 @@ func (m *Manager2) Report(ctx context.Context, requestBag attribute.Bag) error {
 		for _, inst := range call.instances {
 			instCfg[inst.Name] = inst.Params.(proto.Message)
 		}
-		nresults++
-		m.runAsync(ctx, call, resultsChan, func(ctx context.Context) *result2 {
-			err := call.processor.ProcessReport(ctx, instCfg, requestBag, m.mapper, call.handlerState.Handler)
-			return &result2{err: err, callinfo: call}
+		ra = append(ra, &runArg{
+			call, func(ctx context.Context) *result2 {
+				err := call.processor.ProcessReport(ctx, instCfg, requestBag, m.mapper, call.handlerState.Handler)
+				return &result2{err: err, callinfo: call}
+			},
 		})
 	}
-	results := make([]*result2, nresults)
-	for i := 0; i < nresults; i++ {
-		results[i] = <-resultsChan
-	}
-
-	_, err = combineResults2(results)
+	_, err = m.run(ctx, ra)
 	return err
 }
 
@@ -193,31 +188,29 @@ func (m *Manager2) Check(ctx context.Context, requestBag attribute.Bag) (*adapte
 	if err != nil {
 		return nil, err
 	}
-	resultsChan := make(chan *result2)
-	nresults := 0
+
+	ra := make([]*runArg, 0, 10)
 
 	// TODO reduce context deadline before sending it down to adapters.
 	for _, call := range calls {
 		for _, inst := range call.instances {
-			nresults++
-			m.runAsync(ctx, call, resultsChan, func(ctx context.Context) *result2 {
-				resp, err := call.processor.ProcessCheck(ctx, inst.Name,
-					inst.Params.(proto.Message), requestBag, m.mapper, call.handlerState.Handler)
-				return &result2{err, &resp, call}
+			ra = append(ra, &runArg{call,
+				func(ctx context.Context) *result2 {
+					resp, err := call.processor.ProcessCheck(ctx, inst.Name,
+						inst.Params.(proto.Message),
+						requestBag, m.mapper,
+						call.handlerState.Handler)
+					return &result2{err, &resp, call}
+				},
 			})
 		}
 	}
-	results := make([]*result2, nresults)
-	for i := 0; i < nresults; i++ {
-		results[i] = <-resultsChan
-	}
 
-	cres, err := combineResults2(results)
+	cres, err := m.run(ctx, ra)
 	var res *adapter.CheckResult
 	if cres != nil {
 		res = cres.(*adapter.CheckResult)
 	}
-
 	return res, err
 }
 
@@ -239,14 +232,13 @@ func (m *Manager2) Quota(ctx context.Context, requestBag attribute.Bag,
 	if err != nil {
 		return nil, err
 	}
-	resultsChan := make(chan *result2)
-	nresults := 0
+
+	ra := make([]*runArg, 0, 10)
 
 	// TODO reduce context deadline before sending it down to adapters.
 	for _, call := range calls {
 		for _, inst := range call.instances {
-			nresults++
-			m.runAsync(ctx, call, resultsChan, func(ctx context.Context) *result2 {
+			ra = append(ra, &runArg{call, func(ctx context.Context) *result2 {
 				resp, err := call.processor.ProcessQuota(ctx, inst.Name,
 					inst.Params.(proto.Message), requestBag, m.mapper, call.handlerState.Handler,
 					adapter.QuotaRequestArgs{
@@ -255,20 +247,15 @@ func (m *Manager2) Quota(ctx context.Context, requestBag attribute.Bag,
 						BestEffort:      qma.BestEffort,
 					})
 				return &result2{err, &resp, call}
-			})
+			}})
 		}
 	}
-	results := make([]*result2, nresults)
-	for i := 0; i < nresults; i++ {
-		results[i] = <-resultsChan
-	}
 
-	cres, err := combineResults2(results)
+	qres, err := m.run(ctx, ra)
 	var res *adapter.QuotaResult2
-	if cres != nil {
-		res = cres.(*adapter.QuotaResult2)
+	if qres != nil {
+		res = qres.(*adapter.QuotaResult2)
 	}
-
 	return res, err
 }
 
@@ -276,7 +263,7 @@ func (m *Manager2) Quota(ctx context.Context, requestBag attribute.Bag,
 // Attribute producing adapters are run in this phase.
 func (m *Manager2) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
 	// FIXME
-	return errors.New("Not Implemented")
+	return errors.New("not implemented")
 }
 
 // combineResults2 combines results
@@ -317,7 +304,6 @@ func combineResults2(results []*result2) (adapter.Result, error) {
 		res.SetStatus(status.WithMessage(code, buf.String()))
 		pool.PutBuffer(buf)
 	}
-
 	return res, err.ErrorOrNil()
 }
 
@@ -332,6 +318,28 @@ type result2 struct {
 	res adapter.Result
 	// callinfo that resulted in "res"
 	callinfo *dispatchInfo
+}
+
+// runArg encapsulates callinfo with the doFunc that acts on it.
+type runArg struct {
+	callinfo *dispatchInfo
+	do       doFunc
+}
+
+// run runArgs using runAsync and return results.
+func (m *Manager2) run(ctx context.Context, runArgs []*runArg) (adapter.Result, error) {
+	nresults := len(runArgs)
+	resultsChan := make(chan *result2, nresults)
+	results := make([]*result2, nresults)
+
+	for _, ra := range runArgs {
+		m.runAsync(ctx, ra.callinfo, resultsChan, ra.do)
+	}
+
+	for i := 0; i < nresults; i++ {
+		results[i] = <-resultsChan
+	}
+	return combineResults2(results)
 }
 
 // runAsync runs the doFunc using a scheduler. It also adds a new span and records prometheus metrics.
@@ -394,7 +402,7 @@ func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariet
 
 	for _, action := range actions {
 		if hs, found = rt.Handler(action.HandlerName); !found {
-			glog.Errorf("handler: %s is not available", action.HandlerName)
+			glog.Warningf("handler: %s is not available", action.HandlerName)
 			continue
 		}
 
@@ -404,7 +412,7 @@ func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariet
 			}
 
 			if ti, found = templateRepo.GetTemplateInfo(inst.Template); !found {
-				glog.Errorf("template: %s is not available", inst.Template)
+				glog.Warningf("template: %s is not available", inst.Template)
 				continue
 			}
 			mapKey := action.HandlerName + "/" + inst.Template
@@ -427,6 +435,5 @@ func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariet
 	for _, di := range callmap {
 		calls = append(calls, di)
 	}
-
 	return calls, nil
 }
