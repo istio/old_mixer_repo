@@ -50,10 +50,6 @@ type RuntimeAction struct {
 	Instances []*cpb.Instance
 }
 
-// likelyNumberOfActions is the likely number of actions that get dispatched.
-// Set this number to avoid reallocation of slice for most calls.
-const likelyNumberOfActions = 10
-
 // HandlerState represents a ready to use handler.
 type HandlerState struct {
 	// ready to use handler.
@@ -145,6 +141,31 @@ type dispatchInfo struct {
 	instances []*cpb.Instance
 }
 
+// genDoFunc creates doFuncs closures based on the given call.
+type genDoFunc func(call *dispatchInfo) []doFunc
+
+// dispatch dispatches to all function based on function pointers.
+func (m *Manager2) dispatch(ctx context.Context, requestBag attribute.Bag, variety adptTmpl.TemplateVariety,
+	filterFunc filterFunc, genDoFunc genDoFunc) (adapter.Result, error) {
+	rt := m.RuntimeState()
+	// cannot be null by construction.
+	calls, err := fetchDispatchInfo(requestBag, variety, rt, m.templateRepo, filterFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	ra := make([]*runArg, 0, 2*len(calls))
+	for _, call := range calls {
+		for _, df := range genDoFunc(call) {
+			ra = append(ra, &runArg{
+				call,
+				df,
+			})
+		}
+	}
+	return m.run(ctx, ra)
+}
+
 // Report dispatches to the set of adapters associated with the Report API method
 // Config validation ensures that things are consistent.
 // If they are not, we should continue as far as possible on the runtime path
@@ -152,29 +173,19 @@ type dispatchInfo struct {
 // If not the results are combined to a single CheckResult.
 // Dispatcher#Report.
 func (m *Manager2) Report(ctx context.Context, requestBag attribute.Bag) error {
-	rt := m.RuntimeState()
-	// cannot be null by construction.
-	calls, err := fetchDispatchInfo(requestBag, adptTmpl.TEMPLATE_VARIETY_REPORT, rt, m.templateRepo, nil)
-	if err != nil {
-		return err
-	}
-
-	ra := make([]*runArg, 0, likelyNumberOfActions)
-
-	// TODO reduce context deadline before sending it down to adapters.
-	for _, call := range calls {
-		instCfg := make(map[string]proto.Message)
-		for _, inst := range call.instances {
-			instCfg[inst.Name] = inst.Params.(proto.Message)
-		}
-		ra = append(ra, &runArg{
-			call, func(ctx context.Context) *result2 {
+	_, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_REPORT,
+		nil,
+		func(call *dispatchInfo) []doFunc {
+			instCfg := make(map[string]proto.Message)
+			for _, inst := range call.instances {
+				instCfg[inst.Name] = inst.Params.(proto.Message)
+			}
+			return []doFunc{func(ctx context.Context) *result2 {
 				err := call.processor.ProcessReport(ctx, instCfg, requestBag, m.mapper, call.handlerState.Handler)
 				return &result2{err: err, callinfo: call}
-			},
-		})
-	}
-	_, err = m.run(ctx, ra)
+			}}
+		},
+	)
 	return err
 }
 
@@ -185,32 +196,24 @@ func (m *Manager2) Report(ctx context.Context, requestBag attribute.Bag) error {
 // If not the results are combined to a single CheckResult.
 // Dispatcher#Check.
 func (m *Manager2) Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
-	rt := m.RuntimeState()
-	// cannot be null by construction
+	cres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_CHECK,
+		nil,
+		func(call *dispatchInfo) []doFunc {
+			ra := make([]doFunc, 0, len(call.instances))
+			for _, inst := range call.instances {
+				ra = append(ra,
+					func(ctx context.Context) *result2 {
+						resp, err := call.processor.ProcessCheck(ctx, inst.Name,
+							inst.Params.(proto.Message),
+							requestBag, m.mapper,
+							call.handlerState.Handler)
+						return &result2{err, &resp, call}
+					})
+			}
+			return ra
+		},
+	)
 
-	calls, err := fetchDispatchInfo(requestBag, adptTmpl.TEMPLATE_VARIETY_CHECK, rt, m.templateRepo, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	ra := make([]*runArg, 0, likelyNumberOfActions)
-
-	// TODO reduce context deadline before sending it down to adapters.
-	for _, call := range calls {
-		for _, inst := range call.instances {
-			ra = append(ra, &runArg{call,
-				func(ctx context.Context) *result2 {
-					resp, err := call.processor.ProcessCheck(ctx, inst.Name,
-						inst.Params.(proto.Message),
-						requestBag, m.mapper,
-						call.handlerState.Handler)
-					return &result2{err, &resp, call}
-				},
-			})
-		}
-	}
-
-	cres, err := m.run(ctx, ra)
 	var res *adapter.CheckResult
 	if cres != nil {
 		res = cres.(*adapter.CheckResult)
@@ -222,40 +225,32 @@ func (m *Manager2) Check(ctx context.Context, requestBag attribute.Bag) (*adapte
 // Config validation ensures that things are consistent.
 // If they are not, we should continue as far as possible on the runtime path
 // before aborting. Returns an error if any of the adapters return an error.
-// If not the results are combined to a single CheckResult.
+// If not the results are combined to a single QuotaResult.
 // Dispatcher#Quota.
 func (m *Manager2) Quota(ctx context.Context, requestBag attribute.Bag,
 	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult2, error) {
-	rt := m.RuntimeState()
-	// cannot be null by construction
-
-	calls, err := fetchDispatchInfo(requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA, rt, m.templateRepo,
-		func(_ *HandlerState, inst *cpb.Instance) bool {
+	qres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA,
+		func(inst *cpb.Instance) bool {
 			return inst.Name == qma.Quota
-		})
-	if err != nil {
-		return nil, err
-	}
-
-	ra := make([]*runArg, 0, likelyNumberOfActions)
-
-	// TODO reduce context deadline before sending it down to adapters.
-	for _, call := range calls {
-		for _, inst := range call.instances {
-			ra = append(ra, &runArg{call, func(ctx context.Context) *result2 {
-				resp, err := call.processor.ProcessQuota(ctx, inst.Name,
-					inst.Params.(proto.Message), requestBag, m.mapper, call.handlerState.Handler,
-					adapter.QuotaRequestArgs{
-						DeduplicationID: qma.DeduplicationID,
-						QuotaAmount:     qma.Amount,
-						BestEffort:      qma.BestEffort,
+		},
+		func(call *dispatchInfo) []doFunc {
+			ra := make([]doFunc, 0, len(call.instances))
+			for _, inst := range call.instances {
+				ra = append(ra,
+					func(ctx context.Context) *result2 {
+						resp, err := call.processor.ProcessQuota(ctx, inst.Name,
+							inst.Params.(proto.Message), requestBag, m.mapper, call.handlerState.Handler,
+							adapter.QuotaRequestArgs{
+								DeduplicationID: qma.DeduplicationID,
+								QuotaAmount:     qma.Amount,
+								BestEffort:      qma.BestEffort,
+							})
+						return &result2{err, &resp, call}
 					})
-				return &result2{err, &resp, call}
-			}})
-		}
-	}
-
-	qres, err := m.run(ctx, ra)
+			}
+			return ra
+		},
+	)
 	var res *adapter.QuotaResult2
 	if qres != nil {
 		res = qres.(*adapter.QuotaResult2)
@@ -385,7 +380,7 @@ func (m *Manager2) runAsync(ctx context.Context, callinfo *dispatchInfo, results
 }
 
 // filterFunc decides if a particular action is interesting to the caller.
-type filterFunc func(handler *HandlerState, inst *cpb.Instance) bool
+type filterFunc func(inst *cpb.Instance) bool
 
 // fetchDispatchInfo returns an array of dispatches.
 // dispatchInfo struct has all the information necessary to realize a function call to a handler.
@@ -411,7 +406,7 @@ func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariet
 		}
 
 		for _, inst := range action.Instances {
-			if filter != nil && !filter(hs, inst) {
+			if filter != nil && !filter(inst) {
 				continue
 			}
 
