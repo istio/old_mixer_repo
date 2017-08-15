@@ -32,18 +32,6 @@ type CheckResult struct {
 	ValidUseCount int64
 }
 
-// Result is the common interface supported by Results.
-type Result interface {
-	// Get status embedded in the result.
-	GetStatus() rpc.Status
-
-	// Set status embeds status in result.
-	SetStatus(rpc.Status)
-
-	// Combine other result with self and return self
-	Combine(otherPtr interface{}) (self interface{})
-}
-
 // GetStatus gets status embedded in the result.
 func (r *CheckResult) GetStatus() rpc.Status { return r.Status }
 
@@ -52,10 +40,10 @@ func (r *CheckResult) SetStatus(s rpc.Status) { r.Status = s }
 
 // Combine combines other result with self.
 func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
-	other, _ := otherPtr.(*CheckResult)
-	if other == nil {
+	if otherPtr == nil {
 		return r
 	}
+	other := otherPtr.(*CheckResult)
 	if r.ValidDuration > other.ValidDuration {
 		r.ValidDuration = other.ValidDuration
 	}
