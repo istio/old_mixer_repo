@@ -50,6 +50,10 @@ type RuntimeAction struct {
 	Instances []*cpb.Instance
 }
 
+// likelyNumberOfActions is the likely number of actions that get dispatched.
+// Set this number to avoid reallocation of slice for most calls.
+const likelyNumberOfActions = 10
+
 // HandlerState represents a ready to use handler.
 type HandlerState struct {
 	// ready to use handler.
@@ -155,7 +159,7 @@ func (m *Manager2) Report(ctx context.Context, requestBag attribute.Bag) error {
 		return err
 	}
 
-	ra := make([]*runArg, 0, 10)
+	ra := make([]*runArg, 0, likelyNumberOfActions)
 
 	// TODO reduce context deadline before sending it down to adapters.
 	for _, call := range calls {
@@ -189,7 +193,7 @@ func (m *Manager2) Check(ctx context.Context, requestBag attribute.Bag) (*adapte
 		return nil, err
 	}
 
-	ra := make([]*runArg, 0, 10)
+	ra := make([]*runArg, 0, likelyNumberOfActions)
 
 	// TODO reduce context deadline before sending it down to adapters.
 	for _, call := range calls {
@@ -233,7 +237,7 @@ func (m *Manager2) Quota(ctx context.Context, requestBag attribute.Bag,
 		return nil, err
 	}
 
-	ra := make([]*runArg, 0, 10)
+	ra := make([]*runArg, 0, likelyNumberOfActions)
 
 	// TODO reduce context deadline before sending it down to adapters.
 	for _, call := range calls {
