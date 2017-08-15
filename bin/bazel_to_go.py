@@ -86,7 +86,12 @@ def process(fl, external, genfiles, vendor):
         stmttype = type(stmt)
         if stmttype == ast.Call:
 
-            fn = getattr(wksp, stmt.func.id, "")
+            if type(stmt.func) == ast.Name:
+                fn = getattr(wksp, stmt.func.id, "")
+
+            if type(stmt.func) == ast.Attribute:
+                fn = getattr(wksp, stmt.func.attr, "")
+
             if not callable(fn):
                 continue
 
@@ -95,7 +100,9 @@ def process(fl, external, genfiles, vendor):
                 path = path[:-4]
             path = pathmap.get(path, path)
             tup = fn(name, path)
+#            print tup
             lst.append(tup)
+
 
     return lst
 
@@ -127,6 +134,11 @@ def bazel_to_vendor(WKSPC):
         print "WORKSPACE file not found in " + WKSPC
         print "prog BAZEL_WORKSPACE_DIR"
         return -1
+    mixer_adapter_repos = WKSPC + "/adapter_author_deps.bzl"
+    if not os.path.isfile(mixer_adapter_repos):
+        print "Adapter authors deps file not found in " + WKSPC
+        print "prog BAZEL_WORKSPACE_DIR"
+        return -1
     lf = os.readlink(WKSPC + "/bazel-mixer")
     EXEC_ROOT = os.path.dirname(lf)
     BLD_DIR = os.path.dirname(EXEC_ROOT)
@@ -135,6 +147,7 @@ def bazel_to_vendor(WKSPC):
     genfiles = WKSPC + "/bazel-genfiles/external/"
 
     links = {target: linksrc for(target, linksrc) in process(workspace, external, genfiles, vendor)}
+    links = {target: linksrc for (target, linksrc) in process(mixer_adapter_repos, external, genfiles, vendor)}
 
     bysrc = {}
 
