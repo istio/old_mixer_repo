@@ -100,9 +100,7 @@ def process(fl, external, genfiles, vendor):
                 path = path[:-4]
             path = pathmap.get(path, path)
             tup = fn(name, path)
-#            print tup
             lst.append(tup)
-
 
     return lst
 
@@ -144,16 +142,16 @@ def bazel_to_vendor(WKSPC):
     BLD_DIR = os.path.dirname(EXEC_ROOT)
     external =  BLD_DIR + "/external"
     vendor = WKSPC + "/vendor"
-    genfiles = WKSPC + "/bazel-genfiles/external/"
+    genfiles = WKSPC + "/bazel-genfiles/external"
 
     links = {target: linksrc for(target, linksrc) in process(workspace, external, genfiles, vendor)}
-    links = {target: linksrc for (target, linksrc) in process(mixer_adapter_repos, external, genfiles, vendor)}
+    links.update({target: linksrc for (target, linksrc) in process(mixer_adapter_repos, external, genfiles, vendor)})
 
     bysrc = {}
 
     for (target, linksrc) in links.items():
         makelink(target, linksrc)
-        #print "Vendored", linksrc, '-->', target
+        # print "Vendored", linksrc, '-->', target
         bysrc[linksrc] = target
 
     # check other directories in external
