@@ -129,10 +129,10 @@ func (r *QuotaResult2) SetStatus(s rpc.Status) { r.Status = s }
 
 // Combine combines other result with self.
 func (r *QuotaResult2) Combine(otherPtr interface{}) interface{} {
-	other, _ := otherPtr.(*QuotaResult2)
-	if other == nil {
+	if otherPtr == nil {
 		return r
 	}
+	other := otherPtr.(*QuotaResult2)
 	if r.ValidDuration > other.ValidDuration {
 		r.ValidDuration = other.ValidDuration
 	}
