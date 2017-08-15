@@ -16,6 +16,8 @@ package adapter
 
 import (
 	"time"
+
+	rpc "github.com/googleapis/googleapis/google/rpc"
 )
 
 type (
@@ -108,6 +110,9 @@ type (
 
 	// QuotaResult2 provides return values from quota allocation calls on the handler
 	QuotaResult2 struct {
+		// The outcome status of the operation.
+		Status rpc.Status
+
 		// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
 		ValidDuration time.Duration
 
@@ -115,3 +120,21 @@ type (
 		Amount int64
 	}
 )
+
+func (r QuotaResult2) GetStatus() rpc.Status { return r.Status }
+
+func (r *QuotaResult2) SetStatus(s rpc.Status) { r.Status = s }
+
+func (r *QuotaResult2) Combine(otherPtr interface{}) interface{} {
+	other, _ := otherPtr.(*QuotaResult2)
+	if other == nil {
+		return r
+	}
+	if r.ValidDuration > other.ValidDuration {
+		r.ValidDuration = other.ValidDuration
+	}
+	if r.Amount > other.Amount {
+		r.Amount = other.Amount
+	}
+	return r
+}
