@@ -78,7 +78,7 @@ class WORKSPACE(object):
 
 
 def process(fl, external, genfiles, vendor):
-    src = subprocess.Popen("bazel query 'kind(go_repository, //external:*)' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
+    src = subprocess.Popen("bazel query 'kind(\"go_repository|new_git.*_repository\", \"//external:*\")' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
     #print src
     tree = ast.parse(src, fl)
     lst = []
@@ -176,7 +176,6 @@ def bazel_to_vendor(WKSPC):
     tools_generated_files(WKSPC)
     config_proto(WKSPC, genfiles)
     attributes_list(WKSPC, genfiles)
-    alt_proto_gen_files(WKSPC, genfiles)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(external+"/"+file)]
@@ -244,13 +243,6 @@ def config_proto(WKSPC, genfiles):
 def attributes_list(WKSPC, genfiles):
     if os.path.exists(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go"):
         makelink(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go", WKSPC + "/pkg/attribute/list.gen.go")
-
-def alt_proto_gen_files(WKSPC, genfiles):
-    for file in os.listdir(WKSPC + "/bazel-genfiles/external/"):
-        path = pathmap.get(file, file)
-        link = repos(path)
-        makelink(WKSPC + "/bazel-genfiles/external/" + file, WKSPC + "/vendor/" + link)
-
 
 
 if __name__ == "__main__":
