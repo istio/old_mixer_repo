@@ -1,0 +1,9 @@
+package: github.ibm.com/hrl-microservices/clearharbor
+
+import:
+
+- package: github.com/dgrijalva/jwt-go
+  version: v3.0.0
+
+- package: github.com/pressly/chi
+  version: v2.1.0
