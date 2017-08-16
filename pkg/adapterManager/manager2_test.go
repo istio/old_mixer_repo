@@ -276,7 +276,7 @@ func newRuntimeState(hndlr string, instanceName string, tname string, resolveErr
 			},
 		},
 		hs: &HandlerState{
-			Builder: &adapter.BuilderInfo{},
+			Info: &adapter.BuilderInfo{},
 		},
 		err: resolveErr,
 	}
