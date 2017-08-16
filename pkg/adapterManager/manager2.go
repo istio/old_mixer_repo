@@ -54,17 +54,17 @@ type RuntimeAction struct {
 type HandlerState struct {
 	// ready to use handler.
 	Handler adapter.Handler
-	// builder that produced the above handler.
-	Builder *adapter.BuilderInfo
+	// Info that produced the above handler.
+	Info *adapter.BuilderInfo
 }
 
 // RuntimeState represents the current snapshot of the configuration database
 // and associated, initialized handlers.
 type RuntimeState interface {
-	// Resolve resolves configuration to a list of actions.
+	// ResolveConfig resolves configuration to a list of actions.
 	ResolveConfig(bag attribute.Bag, variety adptTmpl.TemplateVariety) ([]*RuntimeAction, error)
 
-	// Handler returns a ready to use handler
+	// Handler returns a ready to use handler.
 	Handler(name string) (*HandlerState, bool)
 }
 
@@ -83,7 +83,7 @@ func NewManager2(mapper expr.Evaluator, templateRepo template.Repository,
 // Manager2 is the 0.2 adapter manager.
 type Manager2 struct {
 	// mapper is the selector and expression evaluator.
-	// It is passed through by Manager.
+	// It is not directly used by Manager2.
 	mapper expr.Evaluator
 
 	// Repository of templates that are compiled in this Mixer.
@@ -141,22 +141,22 @@ type dispatchInfo struct {
 	instances []*cpb.Instance
 }
 
-// genDoFunc creates doFuncs closures based on the given call.
-type genDoFunc func(call *dispatchInfo) []doFunc
+// genDispatchFn creates dispatchFn closures based on the given call.
+type genDispatchFn func(call *dispatchInfo) []dispatchFn
 
 // dispatch dispatches to all function based on function pointers.
 func (m *Manager2) dispatch(ctx context.Context, requestBag attribute.Bag, variety adptTmpl.TemplateVariety,
-	filterFunc filterFunc, genDoFunc genDoFunc) (adapter.Result, error) {
+	filterFunc filterFunc, genDispatchFn genDispatchFn) (adapter.Result, error) {
 	rt := m.RuntimeState()
 	// cannot be null by construction.
-	calls, err := fetchDispatchInfo(requestBag, variety, rt, m.templateRepo, filterFunc)
+	calls, nInstances, err := fetchDispatchInfo(requestBag, variety, rt, m.templateRepo, filterFunc)
 	if err != nil {
 		return nil, err
 	}
 
-	ra := make([]*runArg, 0, 2*len(calls))
+	ra := make([]*runArg, 0, nInstances)
 	for _, call := range calls {
-		for _, df := range genDoFunc(call) {
+		for _, df := range genDispatchFn(call) {
 			ra = append(ra, &runArg{
 				call,
 				df,
@@ -170,17 +170,16 @@ func (m *Manager2) dispatch(ctx context.Context, requestBag attribute.Bag, varie
 // Config validation ensures that things are consistent.
 // If they are not, we should continue as far as possible on the runtime path
 // before aborting. Returns an error if any of the adapters return an error.
-// If not the results are combined to a single CheckResult.
 // Dispatcher#Report.
 func (m *Manager2) Report(ctx context.Context, requestBag attribute.Bag) error {
 	_, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_REPORT,
 		nil,
-		func(call *dispatchInfo) []doFunc {
+		func(call *dispatchInfo) []dispatchFn {
 			instCfg := make(map[string]proto.Message)
 			for _, inst := range call.instances {
 				instCfg[inst.Name] = inst.Params.(proto.Message)
 			}
-			return []doFunc{func(ctx context.Context) *result2 {
+			return []dispatchFn{func(ctx context.Context) *result2 {
 				err := call.processor.ProcessReport(ctx, instCfg, requestBag, m.mapper, call.handlerState.Handler)
 				return &result2{err: err, callinfo: call}
 			}}
@@ -198,8 +197,8 @@ func (m *Manager2) Report(ctx context.Context, requestBag attribute.Bag) error {
 func (m *Manager2) Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
 	cres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_CHECK,
 		nil,
-		func(call *dispatchInfo) []doFunc {
-			ra := make([]doFunc, 0, len(call.instances))
+		func(call *dispatchInfo) []dispatchFn {
+			ra := make([]dispatchFn, 0, len(call.instances))
 			for _, inst := range call.instances {
 				ra = append(ra,
 					func(ctx context.Context) *result2 {
@@ -233,8 +232,8 @@ func (m *Manager2) Quota(ctx context.Context, requestBag attribute.Bag,
 		func(inst *cpb.Instance) bool {
 			return inst.Name == qma.Quota
 		},
-		func(call *dispatchInfo) []doFunc {
-			ra := make([]doFunc, 0, len(call.instances))
+		func(call *dispatchInfo) []dispatchFn {
+			ra := make([]dispatchFn, 0, len(call.instances))
 			for _, inst := range call.instances {
 				ra = append(ra,
 					func(ctx context.Context) *result2 {
@@ -306,8 +305,8 @@ func combineResults2(results []*result2) (adapter.Result, error) {
 	return res, err.ErrorOrNil()
 }
 
-// doFunc is the abstraction used by runAsync to do work.
-type doFunc func(context.Context) *result2
+// dispatchFn is the abstraction used by runAsync to do work.
+type dispatchFn func(context.Context) *result2
 
 // result2 encapsulates commonalities between all adapter returns.
 type result2 struct {
@@ -319,10 +318,10 @@ type result2 struct {
 	callinfo *dispatchInfo
 }
 
-// runArg encapsulates callinfo with the doFunc that acts on it.
+// runArg encapsulates callinfo with the dispatchFn that acts on it.
 type runArg struct {
 	callinfo *dispatchInfo
-	do       doFunc
+	do       dispatchFn
 }
 
 // run runArgs using runAsync and return results.
@@ -341,11 +340,11 @@ func (m *Manager2) run(ctx context.Context, runArgs []*runArg) (adapter.Result, 
 	return combineResults2(results)
 }
 
-// runAsync runs the doFunc using a scheduler. It also adds a new span and records prometheus metrics.
-func (m *Manager2) runAsync(ctx context.Context, callinfo *dispatchInfo, results chan *result2, do doFunc) {
+// runAsync runs the dispatchFn using a scheduler. It also adds a new span and records prometheus metrics.
+func (m *Manager2) runAsync(ctx context.Context, callinfo *dispatchInfo, results chan *result2, do dispatchFn) {
 	m.gp.ScheduleWork(func() {
 		// tracing
-		op := fmt.Sprintf("%s:%s(%s)", callinfo.processor.Name, callinfo.handlerName, callinfo.handlerState.Builder.Name)
+		op := fmt.Sprintf("%s:%s(%s)", callinfo.processor.Name, callinfo.handlerName, callinfo.handlerState.Info.Name)
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)
 
 		start := time.Now()
@@ -360,7 +359,7 @@ func (m *Manager2) runAsync(ctx context.Context, callinfo *dispatchInfo, results
 		span.LogFields(
 			tracelog.String(meshFunction, callinfo.processor.Name),
 			tracelog.String(handlerName, callinfo.handlerName),
-			tracelog.String(adapterName, callinfo.handlerState.Builder.Name),
+			tracelog.String(adapterName, callinfo.handlerState.Info.Name),
 			tracelog.String(responseCode, rpc.Code_name[st.Code]),
 			tracelog.String(responseMsg, st.Message),
 		)
@@ -368,7 +367,7 @@ func (m *Manager2) runAsync(ctx context.Context, callinfo *dispatchInfo, results
 		dispatchLbls := prometheus.Labels{
 			meshFunction: callinfo.processor.Name,
 			handlerName:  callinfo.handlerName,
-			adapterName:  callinfo.handlerState.Builder.Name,
+			adapterName:  callinfo.handlerState.Info.Name,
 			responseCode: rpc.Code_name[st.Code],
 		}
 		dispatchCounter.With(dispatchLbls).Inc()
@@ -382,20 +381,25 @@ func (m *Manager2) runAsync(ctx context.Context, callinfo *dispatchInfo, results
 // filterFunc decides if a particular action is interesting to the caller.
 type filterFunc func(inst *cpb.Instance) bool
 
+// instancesPerHandler is the expected number of instances per handler.
+// It is used to avoid slice reallocation.
+const instancesPerHandler = 5
+
 // fetchDispatchInfo returns an array of dispatches.
 // dispatchInfo struct has all the information necessary to realize a function call to a handler.
-// dispatchInfo is grouped by template name.
+// dispatchInfo is grouped by template name. It also returns the number of unique handler-instance pairs.
 func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariety, rt RuntimeState,
-	templateRepo template.Repository, filter filterFunc) ([]*dispatchInfo, error) {
+	templateRepo template.Repository, filter filterFunc) ([]*dispatchInfo, int, error) {
 	actions, err := rt.ResolveConfig(requestBag, variety)
 	if err != nil {
 		glog.Error(err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	var hs *HandlerState
 	var ti template.Info
 	var found bool
+	nInstances := 0
 
 	callmap := make(map[string]*dispatchInfo)
 
@@ -421,12 +425,13 @@ func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariet
 					processor:    &ti,
 					handlerName:  action.HandlerName,
 					handlerState: hs,
-					instances:    make([]*cpb.Instance, 0, 5),
+					instances:    make([]*cpb.Instance, 0, instancesPerHandler),
 				}
 				callmap[mapKey] = di
 			}
 
 			di.instances = append(di.instances, inst)
+			nInstances++
 		}
 	}
 
@@ -434,5 +439,5 @@ func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariet
 	for _, di := range callmap {
 		calls = append(calls, di)
 	}
-	return calls, nil
+	return calls, nInstances, nil
 }
