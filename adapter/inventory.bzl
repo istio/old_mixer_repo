@@ -8,7 +8,7 @@ def _inventory_gen(name, packages, out):
   native.genrule(
       name = name+"_gen",
       outs = [out],
-      cmd = "$(location //tools/codegen/cmd/mixgeninventory) " + args + " > $@",
+      cmd = "$(location //tools/codegen/cmd/mixgeninventory) " + args + " -o $(location %s)" % (out),
       tools = ["//tools/codegen/cmd/mixgeninventory"],
   )
 

@@ -46,7 +46,7 @@ var inventoryTmpl = `// Copyright 2017 Istio Authors
 package adapter
 
 import(
-		{{range .}}"{{.Path}}"; {{end}}
+		{{range .}}{{.Package}} "{{.Path}}"; {{end}}
         "istio.io/mixer/pkg/adapter"
 )
 
@@ -100,12 +100,12 @@ func Generate(packageMap map[string]string, out io.Writer) error {
 
 	buf := new(bytes.Buffer)
 	if err = tmpl.Execute(buf, m); err != nil {
-		return fmt.Errorf("could not generate inventory code: %v", err)
+		return fmt.Errorf("could not generate inventory code: %v (%s)", err, buf.Bytes())
 	}
 
 	fmtd, err := format.Source(buf.Bytes())
 	if err != nil {
-		return fmt.Errorf("could not format generated code: %v", err)
+		return fmt.Errorf("could not format generated code: %v (%s)", err, buf.Bytes())
 	}
 
 	imports.LocalPrefix = "istio.io"

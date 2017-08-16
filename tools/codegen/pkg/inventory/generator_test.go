@@ -51,9 +51,9 @@ func Inventory2() []adapter.InfoFn {
 
 var example = header + `
 import (
-	"istio.io/mixer/adapter/kubernetes"
-	"istio.io/mixer/adapter/noop"
-	"istio.io/mixer/adapter/prometheus"
+	kubernetes "istio.io/mixer/adapter/kubernetes"
+	noop "istio.io/mixer/adapter/noop"
+	prometheus "istio.io/mixer/adapter/prometheus"
 	"istio.io/mixer/pkg/adapter"
 )
 

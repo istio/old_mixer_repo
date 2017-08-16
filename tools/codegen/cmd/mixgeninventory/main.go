@@ -26,6 +26,7 @@ import (
 
 func withArgs(args []string, errorf func(format string, a ...interface{})) {
 	var mappings []string
+	var output string
 
 	rootCmd := cobra.Command{
 		Use:   "mixgeninventory",
@@ -38,7 +39,18 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 				m := strings.Split(maps, ":")
 				packageMap[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
-			if err := inventory.Generate(packageMap, os.Stdout); err != nil {
+
+			out := os.Stdout
+			if len(output) > 0 {
+				file, err := os.Create(output)
+				if err != nil {
+					errorf("could not create output file '%s': %v", output, err)
+					return
+				}
+				out = file
+			}
+
+			if err := inventory.Generate(packageMap, out); err != nil {
 				errorf("%v", err)
 			}
 		},
@@ -48,6 +60,8 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 
 	rootCmd.PersistentFlags().StringArrayVarP(&mappings, "packages", "p", []string{},
 		"colon-separated mapping of Go packages to their full import paths. Example: -p prometheus:istio.io/mixer/adapter/prometheus")
+
+	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "name of file to generate")
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf("%v", err)
