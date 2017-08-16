@@ -16,6 +16,7 @@ go_library(
         "//template/reportnothing:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
 
@@ -26,6 +27,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",
+        "//pkg/adapter/test:go_default_library",
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/logentry:go_default_library",

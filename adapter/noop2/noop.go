@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package noop2
+package noop2 // import "istio.io/mixer/adapter/noop2"
 
 // NOTE: This adapter will eventually be auto-generated so that it automatically supports all templates
 //       known to Mixer. For now, it's manually curated.
 
 import (
+	"context"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/template/checknothing"
@@ -33,10 +35,11 @@ import (
 )
 
 type (
-	handler struct{}
 	builder struct{}
+	handler struct{}
 )
 
+// ensure our types implement the requisite interfaces
 var _ checknothing.HandlerBuilder = builder{}
 var _ checknothing.Handler = handler{}
 var _ reportnothing.HandlerBuilder = builder{}
@@ -82,37 +85,37 @@ func (builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
 
 ////////////////// Runtime Methods //////////////////////////
 
-var cacheInfo = adapter.CacheabilityInfo{
+var checkResult = adapter.CheckResult{
+	Status:        rpc.Status{Code: int32(rpc.OK)},
 	ValidDuration: 1000000000 * time.Second,
 	ValidUseCount: 1000000000,
 }
 
-func (handler) HandleCheckNothing(*checknothing.Instance) (bool, adapter.CacheabilityInfo, error) {
-	return true, cacheInfo, nil
+func (handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+	return checkResult, nil
 }
 
-func (handler) HandleReportNothing([]*reportnothing.Instance) error {
+func (handler) HandleReportNothing(context.Context, []*reportnothing.Instance) error {
 	return nil
 }
 
-func (handler) HandleListEntry(*listentry.Instance) (bool, adapter.CacheabilityInfo, error) {
-	return true, cacheInfo, nil
+func (handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
+	return checkResult, nil
 }
 
-func (handler) HandleLogEntry([]*logentry.Instance) error {
+func (handler) HandleLogEntry(context.Context, []*logentry.Instance) error {
 	return nil
 }
 
-func (handler) HandleMetric([]*metric.Instance) error {
+func (handler) HandleMetric(context.Context, []*metric.Instance) error {
 	return nil
 }
 
-func (handler) HandleQuota(_ *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error) {
-	return adapter.QuotaResult{
-			Expiration: 1000000000 * time.Second,
-			Amount:     args.QuotaAmount,
+func (handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+	return adapter.QuotaResult2{
+			ValidDuration: 1000000000 * time.Second,
+			Amount:        args.QuotaAmount,
 		},
-		cacheInfo,
 		nil
 }
 
@@ -123,8 +126,8 @@ func (handler) Close() error { return nil }
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:        "istio.io/mixer/adapters/noop",
-		Description: "An adapter that does nothing",
+		Name:        "istio.io/mixer/adapter/noop",
+		Description: "Does nothing (useful for testing)",
 		SupportedTemplates: []string{
 			checknothing.TemplateName,
 			reportnothing.TemplateName,
@@ -135,6 +138,6 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		},
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(msg proto.Message) error { return nil },
+		ValidateConfig:       func(msg proto.Message) *adapter.ConfigErrors { return nil },
 	}
 }
