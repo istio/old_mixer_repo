@@ -132,7 +132,7 @@ def bazel_to_vendor(WKSPC):
     BLD_DIR = os.path.dirname(EXEC_ROOT)
     external =  BLD_DIR + "/external"
     vendor = WKSPC + "/vendor"
-    genfiles = WKSPC + "/bazel-genfiles/external"
+    genfiles = WKSPC + "/bazel-genfiles/external/"
 
     links = {target: linksrc for(target, linksrc) in process(workspace, external, genfiles, vendor)}
 
@@ -164,7 +164,7 @@ def bazel_to_vendor(WKSPC):
             continue
 
         makelink(target, linksrc)
-        # print "Vendored", linksrc, '-->', target
+        #print "Vendored", linksrc, '-->', target
 
     adapter_protos(WKSPC)
     aspect_protos(WKSPC)
