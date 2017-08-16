@@ -14,12 +14,12 @@ package token
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 import (
-"testing"
-"istio.io/mixer/pkg/adapter"
-"istio.io/mixer/pkg/adapterManager"
-"istio.io/mixer/pkg/config"
+	"testing"
+
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapterManager"
+	"istio.io/mixer/pkg/config"
 )
 
 func TestRegisteredForAllAspects(t *testing.T) {
@@ -30,7 +30,7 @@ func TestRegisteredForAllAspects(t *testing.T) {
 	for _, sample := range builders {
 		if sample.Kinds.IsSet(k) {
 			found = true
-	}
+		}
 		if !found {
 			t.Errorf("sample is not registered for kind %s", k)
 		}

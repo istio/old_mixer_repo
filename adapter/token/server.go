@@ -14,7 +14,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/pressly/chi"
 	"github.ibm.com/hrl-microservices/clearharbor/token"
 	"github.ibm.com/hrl-microservices/clearharbor/token/parsers"

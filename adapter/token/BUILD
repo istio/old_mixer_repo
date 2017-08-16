@@ -7,6 +7,7 @@ go_library(
     srcs = ["token.go"],
     visibility = ["//visibility:public"],
     deps = [
+        "//adapter/token/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/status:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

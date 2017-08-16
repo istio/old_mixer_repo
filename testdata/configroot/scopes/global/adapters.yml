@@ -1,5 +1,9 @@
 subject: global
 adapters:
+  - name: token
+    kind: attributes
+    impl: token
+    params:
   - name: default
     kind: quotas
     impl: memQuota

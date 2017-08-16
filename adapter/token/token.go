@@ -1,10 +1,13 @@
 package token
 
 //sample file to experiment with the istio mixer features
-import(
-	"istio.io/mixer/pkg/adapter"
+import (
 	"fmt"
+
 	"github.com/golang/glog"
+
+	"istio.io/mixer/adapter/token/config"
+	"istio.io/mixer/pkg/adapter"
 )
 
 type (

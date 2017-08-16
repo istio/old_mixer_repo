@@ -25,6 +25,11 @@ rules:
         target.namespace: targetNamespace
         target.service: targetService
         target.serviceAccount: targetServiceAccountName
+  - kind: attributes
+    adapter: token
+    params:
+      attribute_bindings:
+        sample_attr: sample_attr
   - kind: quotas
     params:
       quotas:

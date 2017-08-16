@@ -104,6 +104,9 @@ func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Prep
 	}
 	bag := attribute.GetMutableBag(nil)
 	for key, val := range out {
+		glog.Info("**************************")
+		glog.Info(e.bindings)
+		glog.Info("**************************")
 		if attrName, found := e.bindings[key]; found {
 			// TODO: type validation?
 			bag.Set(attrName, val)
