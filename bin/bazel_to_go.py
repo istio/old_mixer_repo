@@ -14,6 +14,7 @@ import os
 
 import ast
 from urlparse import urlparse
+import subprocess
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -77,7 +78,8 @@ class WORKSPACE(object):
 
 
 def process(fl, external, genfiles, vendor):
-    src = open(fl).read()
+    src = subprocess.Popen("bazel query 'kind(go_repository, //external:*)' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
+    #print src
     tree = ast.parse(src, fl)
     lst = []
     wksp = WORKSPACE(external, genfiles, vendor)
@@ -140,7 +142,7 @@ def bazel_to_vendor(WKSPC):
 
     for (target, linksrc) in links.items():
         makelink(target, linksrc)
-        # print "Vendored", linksrc, '-->', target
+        #print "Vendored", linksrc, '-->', target
         bysrc[linksrc] = target
 
     # check other directories in external
@@ -156,6 +158,7 @@ def bazel_to_vendor(WKSPC):
         if link in pathmap:
             # skip remapped deps
             continue
+        # print ext_target, link
         linksrc = vendor + "/" + link
 
         # only make this link if we have not made it above
@@ -164,7 +167,7 @@ def bazel_to_vendor(WKSPC):
             continue
 
         makelink(target, linksrc)
-        #print "Vendored", linksrc, '-->', target
+        # print "Vendored", linksrc, '-->', target
 
     adapter_protos(WKSPC)
     aspect_protos(WKSPC)
