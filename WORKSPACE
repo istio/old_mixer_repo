@@ -101,10 +101,9 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//:repositories.bzl",
-        "go_x_tools_imports_repositories",
-        "go_googleapis_repositories",
-        "go_istio_api_repositories")
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 go_x_tools_imports_repositories()
 go_googleapis_repositories()
 go_istio_api_repositories(False)
