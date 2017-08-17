@@ -101,13 +101,16 @@ func TestBuilder(t *testing.T) {
 }
 
 func TestBuilder_ValidateConfigErrors(t *testing.T) {
+	val := reflect.ValueOf(&config.Params{}).Elem()
+	// currently two non-validated fields: kubeconfig and cache refresh duration
+	expectedConfigErrs := val.NumField() - 2
 	tests := []struct {
 		name     string
 		conf     *config.Params
 		errCount int
 	}{
-		{"empty config", &config.Params{}, 16},
-		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly"}, 16},
+		{"empty config", &config.Params{}, expectedConfigErrs},
+		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly"}, expectedConfigErrs},
 	}
 
 	b := newBuilder(fakePodCache)

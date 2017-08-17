@@ -9,8 +9,10 @@ rules:
   - kind: attributes
     params:
       input_expressions:
-        sourceUID: source.uid | source.ip | ""
-        targetUID: target.uid | target.ip | ""
+        sourceUID: source.uid | ""
+        sourceIP: source.ip
+        targetUID: target.uid | ""
+        targetIP: target.ip
       attribute_bindings:
         source.ip: sourcePodIp
         source.labels: sourceLabels
