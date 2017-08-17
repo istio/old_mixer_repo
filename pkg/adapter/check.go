@@ -38,7 +38,8 @@ func (r *CheckResult) GetStatus() rpc.Status { return r.Status }
 // SetStatus embeds status in result.
 func (r *CheckResult) SetStatus(s rpc.Status) { r.Status = s }
 
-// Combine combines other result with self.
+// Combine combines other result with self. It does not handle
+// Status.
 func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
 	if otherPtr == nil {
 		return r
