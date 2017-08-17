@@ -63,3 +63,10 @@ func TestEQFunc(tt *testing.T) {
 	check(tt, "ReturnType", fn.ReturnType(), config.BOOL)
 	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED})
 }
+
+func TestStringFunc(t *testing.T) {
+	fn := newString()
+
+	check(t, "ReturnType", fn.ReturnType(), config.STRING)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.IP_ADDRESS, config.EMAIL_ADDRESS, config.DNS_NAME, config.URI})
+}
