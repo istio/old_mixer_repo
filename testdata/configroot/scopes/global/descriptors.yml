@@ -5,7 +5,7 @@ manifests:
     revision: "1"
     attributes:
       source.ip:
-        valueType: STRING # TODO: make IP_ADDRESS when proper support is added
+        valueType: IP_ADDRESS
       source.labels:
         valueType: STRING_MAP
       source.name:
@@ -17,7 +17,7 @@ manifests:
       source.serviceAccount:
         valueType: STRING
       target.ip:
-        valueType: STRING # TODO: make IP_ADDRESS when proper support is added
+        valueType: IP_ADDRESS
       target.labels:
         valueType: STRING_MAP
       target.name:
@@ -32,7 +32,7 @@ manifests:
     revision: "1"
     attributes:
       origin.ip:
-        valueType: STRING # TODO: make IP_ADDRESS when proper support is added
+        valueType: IP_ADDRESS
       origin.uid:
         valueType: STRING
       origin.user:
@@ -170,7 +170,7 @@ logs:
     payload_format: TEXT
     log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
     labels:
-      originIp: 1 # STRING (TODO: IP_ADDRESS)
+      originIp: 6 # IP_ADDRESS
       sourceUser: 1 # STRING
       timestamp: 5 # TIMESTAMP
       method: 1 # STRING
@@ -183,7 +183,7 @@ logs:
     payload_format: TEXT
     log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}} {{or (.referer) "-"}} {{or (.userAgent) "-"}}'
     labels:
-      originIp: 1 # STRING (TODO: IP_ADDRESS)
+      originIp: 6 # IP_ADDRESS
       sourceUser: 1 # STRING
       timestamp: 5 # TIMESTAMP
       method: 1 # STRING

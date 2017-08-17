@@ -71,6 +71,9 @@ const (
 	sourceUID         = "sourceUID"
 	targetUID         = "targetUID"
 	originUID         = "originUID"
+	sourceIP          = "sourceIP"
+	targetIP          = "targetIP"
+	originIP          = "originIP"
 	sourcePrefix      = "source"
 	targetPrefix      = "target"
 	originPrefix      = "origin"
@@ -83,9 +86,7 @@ const (
 	serviceVal        = "Service"
 
 	// value extraction
-	clusterDomain        = "svc.cluster.local"
-	podServiceLabel      = "app"
-	istioPodServiceLabel = "istio"
+	clusterDomain = "svc.cluster.local"
 
 	// cache invaliation
 	// TODO: determine a reasonable default
@@ -99,9 +100,10 @@ var (
 		SourceUidInputName:      sourceUID,
 		TargetUidInputName:      targetUID,
 		OriginUidInputName:      originUID,
+		SourceIpInputName:       sourceIP,
+		TargetIpInputName:       targetIP,
+		OriginIpInputName:       originIP,
 		ClusterDomainName:       clusterDomain,
-		PodLabelForService:      podServiceLabel,
-		PodLabelForIstioService: istioPodServiceLabel,
 		SourcePrefix:            sourcePrefix,
 		TargetPrefix:            targetPrefix,
 		OriginPrefix:            originPrefix,
@@ -148,6 +150,15 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.OriginUidInputName) == 0 {
 		ce = ce.Appendf("originUidInputName", "field must be populated")
 	}
+	if len(params.SourceIpInputName) == 0 {
+		ce = ce.Appendf("sourceIpInputName", "field must be populated")
+	}
+	if len(params.TargetIpInputName) == 0 {
+		ce = ce.Appendf("targetIpInputName", "field must be populated")
+	}
+	if len(params.OriginIpInputName) == 0 {
+		ce = ce.Appendf("originIpInputName", "field must be populated")
+	}
 	if len(params.SourcePrefix) == 0 {
 		ce = ce.Appendf("sourcePrefix", "field must be populated")
 	}
@@ -177,12 +188,6 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 	if len(params.ServiceValueName) == 0 {
 		ce = ce.Appendf("serviceValueName", "field must be populated")
-	}
-	if len(params.PodLabelForService) == 0 {
-		ce = ce.Appendf("podLabelForService", "field must be populated")
-	}
-	if len(params.PodLabelForIstioService) == 0 {
-		ce = ce.Appendf("podLabelForIstioService", "field must be populated")
 	}
 	if len(params.ClusterDomainName) == 0 {
 		ce = ce.Appendf("clusterDomainName", "field must be populated")
@@ -249,23 +254,14 @@ func (k *kubegen) Close() error { return nil }
 
 func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
-	if uid, found := inputs[k.params.SourceUidInputName]; found {
-		uidstr, ok := uid.(string)
-		if ok && len(uidstr) > 0 {
-			k.addValues(values, uidstr, k.params.SourcePrefix)
-		}
+	if id, found := serviceIdentifier(inputs, k.params.SourceUidInputName, k.params.SourceIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.SourcePrefix)
 	}
-	if uid, found := inputs[k.params.TargetUidInputName]; found {
-		uidstr, ok := uid.(string)
-		if ok && len(uidstr) > 0 {
-			k.addValues(values, uidstr, k.params.TargetPrefix)
-		}
+	if id, found := serviceIdentifier(inputs, k.params.TargetUidInputName, k.params.TargetIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.TargetPrefix)
 	}
-	if uid, found := inputs[k.params.OriginUidInputName]; found {
-		uidstr, ok := uid.(string)
-		if ok && len(uidstr) > 0 {
-			k.addValues(values, uidstr, k.params.OriginPrefix)
-		}
+	if id, found := serviceIdentifier(inputs, k.params.OriginUidInputName, k.params.OriginIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.OriginPrefix)
 	}
 	return values, nil
 }
@@ -373,4 +369,15 @@ func canonicalName(service, namespace, clusterDomain string) (string, error) {
 		s = fmt.Sprintf("%s.%s", s, domParts[i])
 	}
 	return s, nil
+}
+
+func serviceIdentifier(inputs map[string]interface{}, keys ...string) (string, bool) {
+	for _, key := range keys {
+		if id, found := inputs[key]; found {
+			if idstr, ok := id.(string); ok {
+				return idstr, true
+			}
+		}
+	}
+	return "", false
 }
