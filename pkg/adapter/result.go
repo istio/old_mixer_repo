@@ -30,5 +30,6 @@ type Result interface {
 // ResultCombiner supports combining results with Self.
 type ResultCombiner interface {
 	// Combine other result with self and return self
+	// It does not handle the Status field even if it is present.
 	Combine(otherPtr interface{}) (self interface{})
 }
