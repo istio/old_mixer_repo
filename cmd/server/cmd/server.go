@@ -153,7 +153,7 @@ func serverCmd(tmplRepo template.Repository, printf, fatalf shared.FormatFn) *co
 		fatalf("unable to hide: %v", err)
 	}
 
-	serverCmd.PersistentFlags().BoolVarP(&sa.useAst, "useAst", "", false,
+	serverCmd.PersistentFlags().BoolVarP(&sa.useAst, "useAst", "", true,
 		"Use AST instead of Mixer IL to evaluate configuration against the adapters.")
 
 	// serviceConfig and gobalConfig are for compatibility only
