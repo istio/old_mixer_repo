@@ -16,7 +16,8 @@ adapters:
     kind: metrics
     impl: stackdriver
     params:
-      pushInterval: 5s
+      # We'll use the default value from the adapter, once per minute, so we don't need to supply a value.
+      # pushInterval:
       # Must be supplied for the stackdriver adapter to work
       projectId:
       # One of the following must be set; the preferred method is
