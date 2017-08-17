@@ -191,13 +191,13 @@ go_repository(
 
 go_repository(
     name = "com_github_Azure_go_autorest",
-    commit = "10cfe58defab0c9a33be1f7b3ee656857670b509",
+    commit = "10cfe58defab0c9a33be1f7b3ee656857670b509",  # Aug 16, 2017 (HEAD)
     importpath = "github.com/Azure/go-autorest",
 )
 
 go_repository(
     name = "com_github_dgrijalva_jwt_go",
-    commit = "a539ee1a749a2b895533f979515ac7e6e0f5b650",
+    commit = "a539ee1a749a2b895533f979515ac7e6e0f5b650",  # Jun 7, 2017 (HEAD)
     importpath = "github.com/dgrijalva/jwt-go",
 )
 
