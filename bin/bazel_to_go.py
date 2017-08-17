@@ -14,6 +14,7 @@ import os
 
 import ast
 from urlparse import urlparse
+import subprocess
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -77,7 +78,8 @@ class WORKSPACE(object):
 
 
 def process(fl, external, genfiles, vendor):
-    src = open(fl).read()
+    src = subprocess.Popen("bazel query 'kind(\"go_repository|new_git.*_repository\", \"//external:*\")' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
+    #print src
     tree = ast.parse(src, fl)
     lst = []
     wksp = WORKSPACE(external, genfiles, vendor)
@@ -156,6 +158,7 @@ def bazel_to_vendor(WKSPC):
         if link in pathmap:
             # skip remapped deps
             continue
+        # print ext_target, link
         linksrc = vendor + "/" + link
 
         # only make this link if we have not made it above
@@ -172,6 +175,8 @@ def bazel_to_vendor(WKSPC):
     tools_protos(WKSPC)
     tools_generated_files(WKSPC)
     config_proto(WKSPC, genfiles)
+    attributes_list(WKSPC, genfiles)
+    inventory(WKSPC)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(external+"/"+file)]
@@ -235,6 +240,16 @@ def tools_generated_files(WKSPC):
 def config_proto(WKSPC, genfiles):
     if os.path.exists(genfiles + "com_github_istio_api/fixed_cfg.pb.go"):
         makelink(genfiles + "com_github_istio_api/fixed_cfg.pb.go", WKSPC + "/pkg/config/proto/fixed_cfg.pb.go")
+
+def attributes_list(WKSPC, genfiles):
+    if os.path.exists(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go"):
+        makelink(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go", WKSPC + "/pkg/attribute/list.gen.go")
+
+def inventory(WKSPC):
+    if os.path.exists(WKSPC + "/bazel-genfiles/adapter/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
+            if file.endswith(".gen.go"):
+                makelink(WKSPC + "/bazel-genfiles/adapter/" + file, WKSPC + "/adapter/" + file)
 
 if __name__ == "__main__":
     import sys
