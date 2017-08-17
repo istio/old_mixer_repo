@@ -29,14 +29,14 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "medium",
     srcs = [
         "queue_test.go",
         "resource_test.go",
         "store_test.go",
     ],
-    size = "medium",
-    library = ":go_default_library",
     data = ["//testdata/kubernetes:kubeconfig"],
+    library = ":go_default_library",
     deps = [
         "//pkg/config/proto:go_default_library",
         "//pkg/config/store:go_default_library",

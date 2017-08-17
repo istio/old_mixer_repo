@@ -31,7 +31,7 @@ func newQueue(ctx context.Context, cancel context.CancelFunc) *eventQueue {
 	eq := &eventQueue{
 		ctx:    ctx,
 		cancel: cancel,
-		chout:  make(chan store.Event, 10),
+		chout:  make(chan store.Event),
 		chin:   make(chan store.Event),
 	}
 	go eq.run()

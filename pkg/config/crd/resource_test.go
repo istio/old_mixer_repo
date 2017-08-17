@@ -23,6 +23,9 @@ import (
 	cfg "istio.io/mixer/pkg/config/proto"
 )
 
+// deepEqualNonNil deeply checks v1 and v2 and returns true they are
+// equivalent. Similar to reflect.DeepEqual, but this allows missing
+// keys in a map if those values are nil in the other map.
 func deepEqualNonNil(v1 interface{}, v2 interface{}) bool {
 	if v1 == nil && v2 != nil {
 		return false
