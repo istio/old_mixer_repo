@@ -15,6 +15,7 @@
 package expr
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -251,6 +252,33 @@ func (f *indexFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[strin
 	return mp.(map[string]string)[key.(string)], nil
 }
 
+// func (Value) string
+type stringFunc struct {
+	*baseFunc
+}
+
+// newString returns a string converter fn.
+func newString() Func {
+	return &stringFunc{
+		baseFunc: &baseFunc{
+			name:     "STRING",
+			retType:  config.STRING,
+			argTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED},
+		},
+	}
+}
+
+func (f *stringFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	val, err := args[0].Var.Eval(attrs)
+	if err != nil {
+		return nil, err
+	}
+	if converted, ok := val.(string); ok {
+		return converted, nil
+	}
+	return fmt.Sprintf("%v", val), nil
+}
+
 func inventory() []FuncBase {
 	return []FuncBase{
 		newEQ(),
@@ -259,6 +287,7 @@ func inventory() []FuncBase {
 		newLOR(),
 		newLAND(),
 		newIndex(),
+		newString(),
 	}
 }
 
