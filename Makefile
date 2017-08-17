@@ -14,13 +14,13 @@
 
 SHELL := /bin/bash
 
-build:
+build: testdata/kubernetes/config
 	@bazel build //...:all
 
 clean:
 	@bazel clean
 
-test:
+test: testdata/kubernetes/config
 	@bazel test //...
 
 lint: build
@@ -34,5 +34,8 @@ coverage:
 
 racetest:
 	@bazel test --features=race //...
+
+testdata/kubernetes/config:
+	@ln -sf ~/.kube/config testdata/kubernetes/config
 
 .PHONY: build clean test lint fmt coverage racetest

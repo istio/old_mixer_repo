@@ -17,6 +17,7 @@ package crd
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/user"
 	"path"
 	"reflect"
@@ -47,7 +48,13 @@ func kubeconfig(t *testing.T) string {
 		t.Fatal(err.Error())
 	}
 
-	return path.Join(usr.HomeDir, ".kube", "config")
+	configPath := path.Join(usr.HomeDir, ".kube", "config")
+	// For Bazel sandbox we search a different location:
+	if _, err = os.Stat(configPath); err != nil {
+		configPath, _ = os.Getwd()
+		configPath = configPath + "/../../../testdata/kubernetes/config"
+	}
+	return configPath
 }
 
 func createNamespace(cl kubernetes.Interface) (string, error) {

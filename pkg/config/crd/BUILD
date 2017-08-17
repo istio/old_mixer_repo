@@ -34,7 +34,9 @@ go_test(
         "resource_test.go",
         "store_test.go",
     ],
+    size = "medium",
     library = ":go_default_library",
+    data = ["//testdata/kubernetes:kubeconfig"],
     deps = [
         "//pkg/config/proto:go_default_library",
         "//pkg/config/store:go_default_library",
