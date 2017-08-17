@@ -2,10 +2,6 @@ package token
 
 //sample file to experiment with the istio mixer features
 import (
-	"fmt"
-
-	"github.com/golang/glog"
-
 	"istio.io/mixer/adapter/token/config"
 	"istio.io/mixer/pkg/adapter"
 )
@@ -30,19 +26,14 @@ func Register(r adapter.Registrar) {
 
 // BuildAttributesGenerator creates an adapter.AttributesGenerator instance
 func (Builder) BuildAttributesGenerator(env adapter.Env, cfg adapter.Config) (adapter.AttributesGenerator, error) {
-	env.Logger().Warningf("indigoblue warning!")
-	fmt.Println("indigored warning from fmt!")
 	return &aspect{}, nil
 }
 
 func (aspect) Generate(inputAttributes map[string]interface{}) (map[string]interface{}, error) {
 	tokenAttrs := make(map[string]interface{})
-	tokenAttrs["sample_attr"] = "indigoBlue"
-	glog.Info("indigoblue warning from glog!")
 	return tokenAttrs, nil
 }
 
 func (aspect) Close() error {
-	fmt.Println("closed the sample adapter")
 	return nil
 }

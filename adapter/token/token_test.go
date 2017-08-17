@@ -22,17 +22,19 @@ import (
 	"istio.io/mixer/pkg/config"
 )
 
-func TestRegisteredForAllAspects(t *testing.T) {
+func TestRegisteredForAttributes(t *testing.T) {
 	builders := adapterManager.BuilderMap([]adapter.RegisterFn{Register})
 
 	k := config.AttributesKind
 	found := false
-	for _, sample := range builders {
-		if sample.Kinds.IsSet(k) {
+	for _, token := range builders {
+		if token.Kinds.IsSet(k) {
 			found = true
 		}
 		if !found {
-			t.Errorf("sample is not registered for kind %s", k)
+			t.Errorf("The token adapter is not registered for kind %s", k)
 		}
 	}
 }
+
+
