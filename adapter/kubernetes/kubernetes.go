@@ -30,6 +30,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -271,28 +272,33 @@ func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{
 
 func (k *kubegen) addValues(vals map[string]interface{}, uid, valPrefix string) {
 	podKey := keyFromUID(uid)
-	pod, err := k.pods.GetPod(podKey)
-	if err != nil {
-		k.log.Warningf("error getting pod for (uid: %s, key: %s): %v", uid, podKey, err)
+	pod, found := k.pods.GetPod(podKey)
+	if !found {
+		k.log.Warningf("could not find pod for (uid: %s, key: %s)", uid, podKey)
+		return
 	}
-	addPodValues(vals, valPrefix, k.params, pod)
+	svc, found := k.pods.GetServiceForPod(key(pod.Namespace, pod.Name))
+	if !found {
+		k.log.Warningf("error finding service for pod '%s'", pod.Name)
+	}
+	addPodValues(vals, valPrefix, k.params, pod, svc)
 }
 
 func keyFromUID(uid string) string {
+	if ip := net.ParseIP(uid); ip != nil {
+		return uid
+	}
 	fullname := strings.TrimPrefix(uid, kubePrefix)
 	if strings.Contains(fullname, ".") {
 		parts := strings.Split(fullname, ".")
 		if len(parts) == 2 {
-			return fmt.Sprintf("%s/%s", parts[1], parts[0])
+			return key(parts[1], parts[0])
 		}
 	}
 	return fullname
 }
 
-func addPodValues(m map[string]interface{}, prefix string, params config.Params, p *v1.Pod) {
-	if p == nil {
-		return
-	}
+func addPodValues(m map[string]interface{}, prefix string, params config.Params, p *v1.Pod, svc *v1.Service) {
 	if len(p.Labels) > 0 {
 		m[valueName(prefix, params.LabelsValueName)] = p.Labels
 	}
@@ -311,13 +317,8 @@ func addPodValues(m map[string]interface{}, prefix string, params config.Params,
 	if len(p.Status.HostIP) > 0 {
 		m[valueName(prefix, params.HostIpValueName)] = p.Status.HostIP
 	}
-	if app, found := p.Labels[params.PodLabelForService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
-		if err == nil {
-			m[valueName(prefix, params.ServiceValueName)] = n
-		}
-	} else if app, found := p.Labels[params.PodLabelForIstioService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+	if svc != nil {
+		n, err := canonicalName(svc.Name, svc.Namespace, params.ClusterDomainName)
 		if err == nil {
 			m[valueName(prefix, params.ServiceValueName)] = n
 		}
