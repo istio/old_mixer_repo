@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -42,32 +41,56 @@ import (
 	"istio.io/mixer/pkg/template"
 )
 
-// Action is the runtime representation of configured action - cpb.Action.
-// Configuration is processed to hydrate instance names to Instances and handler.
-type Action struct {
-	// ready to use handler
-	handler adapter.Handler
-	// configuration for the handler
-	handlerConfig *cpb.Handler
-	// instanceConfigs to dispatch to the handler.
-	// instanceConfigs must belong to the same template.
-	instanceConfig []*cpb.Instance
+// Dispatcher dispatches incoming API calls to configured adapters.
+type Dispatcher interface {
+	// Preprocess dispatches to the set of adapters that will run before any
+	// other adapters in Mixer (aka: the Check, Report, Quota adapters).
+	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
+
+	// Check dispatches to the set of adapters associated with the Check API method
+	Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
+
+	// Report dispatches to the set of adapters associated with the Report API method
+	Report(ctx context.Context, requestBag attribute.Bag) error
+
+	// Quota dispatches to the set of adapters associated with the Quota API method
+	Quota(ctx context.Context, requestBag attribute.Bag,
+		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult2, error)
 }
 
 // Resolver represents the current snapshot of the configuration database
 // and associated, initialized handlers.
 type Resolver interface {
 	// Resolve resolves configuration to a list of actions.
-	Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety) ([]*Action, error)
+	// an optional filterFunc filters the output.
+	Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety, filterFunc filterFunc) ([]*Action, error)
 }
 
-// Newdispatcher creates a new dispatcher.
-func Newdispatcher(mapper expr.Evaluator, templateRepo template.Repository,
-	rt Resolver, gp *pool.GoroutinePool) Dispatcher {
+// Action is the runtime representation of configured action - cpb.Action.
+// Configuration is processed to hydrate instance names to Instances and handler.
+type Action struct {
+	// generated code - processor.ProcessXXX ()
+	processor *template.Info
+	// ready to use handler
+	handler adapter.Handler
+	// Name of the handler being called. Informational.
+	handlerName string
+	// Name of adapter that created the handler. Informational.
+	adapterName string
+	// handler to call.
+	// instanceConfigs to dispatch to the handler.
+	// instanceConfigs must belong to the same template.
+	instanceConfig []*cpb.Instance
+}
+
+// genDispatchFn creates dispatchFn closures based on the given action.
+type genDispatchFn func(call *Action) []dispatchFn
+
+// NewDispatcher creates a new dispatcher.
+func NewDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool) Dispatcher {
 	m := &dispatcher{
-		mapper:       mapper,
-		templateRepo: templateRepo,
-		gp:           gp,
+		mapper: mapper,
+		gp:     gp,
 	}
 	m.SetResolver(rt)
 	return m
@@ -80,10 +103,6 @@ type dispatcher struct {
 	// It is not directly used by dispatcher.
 	mapper expr.Evaluator
 
-	// Repository of templates that are compiled in this Mixer.
-	// It provides a way to perform template operations.
-	templateRepo template.Repository
-
 	// <resolver>
 	resolver atomic.Value
 
@@ -91,62 +110,35 @@ type dispatcher struct {
 	gp *pool.GoroutinePool
 }
 
-// SetState installs a new runtime state.
+// SetResolver installs a new resolver.
+// This function is called when configuration is updated by the user.
 func (m *dispatcher) SetResolver(rt Resolver) {
 	m.resolver.Store(rt)
 }
 
-// State gets the current runtime state.
+// Resolver gets the current resolver.
 func (m *dispatcher) Resolver() Resolver {
 	return m.resolver.Load().(Resolver)
 }
 
-// Dispatcher dispatches incoming API calls to configured adapters.
-type Dispatcher interface {
+// filterFunc decides if a particular action is interesting to the caller.
+type filterFunc func(inst *cpb.Instance) bool
 
-	// Preprocess dispatches to the set of aspects that will run before any
-	// other aspects in Mixer (aka: the Check, Report, Quota aspects).
-	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
-
-	// Check dispatches to the set of aspects associated with the Check API method
-	Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
-
-	// Report dispatches to the set of aspects associated with the Report API method
-	Report(ctx context.Context, requestBag attribute.Bag) error
-
-	// Quota dispatches to the set of aspects associated with the Quota API method
-	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult2, error)
-}
-
-// dispatchInfo contains details needed to make a function call
-type dispatchInfo struct {
-	// generated code - processor.ProcessXXX ()
-	processor *template.Info
-	// Name of the handler being called. Informational.
-	handlerName string
-	// Name of adapter that created the handler. Informational.
-	adapterName string
-	// handler to call.
-	handler adapter.Handler
-	// instance configuration to call the handler with.
-	instances []*cpb.Instance
-}
-
-// genDispatchFn creates dispatchFn closures based on the given call.
-type genDispatchFn func(call *dispatchInfo) []dispatchFn
-
-// dispatch dispatches to all function based on function pointers.
+// dispatch dispatches to functions generated by the genDispatchFn
 func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, variety adptTmpl.TemplateVariety,
 	filterFunc filterFunc, genDispatchFn genDispatchFn) (adapter.Result, error) {
 	rt := m.Resolver()
 	// cannot be null by construction.
-	calls, nInstances, err := fetchDispatchInfo(requestBag, variety, rt, m.templateRepo, filterFunc)
+	calls, err := rt.Resolve(requestBag, variety, filterFunc)
 	if err != nil {
+		glog.Error(err)
 		return nil, err
 	}
+	if glog.V(2) {
+		glog.Infof("Resolved (%v) %d actions", variety, len(calls))
+	}
 
-	ra := make([]*runArg, 0, nInstances)
+	ra := make([]*runArg, 0, len(calls))
 	for _, call := range calls {
 		for _, df := range genDispatchFn(call) {
 			ra = append(ra, &runArg{
@@ -166,9 +158,9 @@ func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, var
 func (m *dispatcher) Report(ctx context.Context, requestBag attribute.Bag) error {
 	_, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_REPORT,
 		nil,
-		func(call *dispatchInfo) []dispatchFn {
+		func(call *Action) []dispatchFn {
 			instCfg := make(map[string]proto.Message)
-			for _, inst := range call.instances {
+			for _, inst := range call.instanceConfig {
 				instCfg[inst.Name] = inst.Params.(proto.Message)
 			}
 			return []dispatchFn{func(ctx context.Context) *result {
@@ -189,9 +181,9 @@ func (m *dispatcher) Report(ctx context.Context, requestBag attribute.Bag) error
 func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
 	cres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_CHECK,
 		nil,
-		func(call *dispatchInfo) []dispatchFn {
-			ra := make([]dispatchFn, 0, len(call.instances))
-			for _, inst := range call.instances {
+		func(call *Action) []dispatchFn {
+			ra := make([]dispatchFn, 0, len(call.instanceConfig))
+			for _, inst := range call.instanceConfig {
 				ra = append(ra,
 					func(ctx context.Context) *result {
 						resp, err := call.processor.ProcessCheck(ctx, inst.Name,
@@ -204,15 +196,11 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 			return ra
 		},
 	)
-
-	var res *adapter.CheckResult
-	if cres != nil {
-		res = cres.(*adapter.CheckResult)
-	}
+	res, _ := cres.(*adapter.CheckResult)
 	return res, err
 }
 
-// Quota dispatches to the set of aspects associated with the Quota API method
+// Quota dispatches to the set of adapters associated with the Quota API method
 // Config validation ensures that things are consistent.
 // Quota calls are dispatched to at most one handler.
 // Dispatcher#Quota.
@@ -223,10 +211,10 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 		func(inst *cpb.Instance) bool {
 			return inst.Name == qma.Quota
 		},
-		func(call *dispatchInfo) []dispatchFn {
+		func(call *Action) []dispatchFn {
 			// assert len(call.instances) != 0 by construction.
-			inst := call.instances[0] // the 1st instance will be dispatched.
-			if dispatched {           // ensures only one call is dispatched.
+			inst := call.instanceConfig[0] // the 1st instance will be dispatched.
+			if dispatched {                // ensures only one call is dispatched.
 				glog.Warningf("Multiple dispatch: not dispatching %s to handler %s", inst.Name, call.handlerName)
 				return nil
 			}
@@ -245,10 +233,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 			}
 		},
 	)
-	var res *adapter.QuotaResult2
-	if qres != nil {
-		res = qres.(*adapter.QuotaResult2)
-	}
+	res, _ := qres.(*adapter.QuotaResult2)
 	return res, err
 }
 
@@ -276,7 +261,7 @@ func combineResults(results []*result) (adapter.Result, error) {
 		if res == nil {
 			res = rs.res
 		} else {
-			if rc, ok := res.(adapter.ResultCombiner); ok { // only check is expected to supported combining.
+			if rc, ok := res.(*adapter.CheckResult); ok { // only check is expected to supported combining.
 				rc.Combine(rs.res)
 			}
 		}
@@ -311,13 +296,13 @@ type result struct {
 	// CheckResult or QuotaResult
 	res adapter.Result
 	// callinfo that resulted in "res". Used for informational purposes.
-	callinfo *dispatchInfo
+	callinfo *Action
 }
 
 // runArg encapsulates callinfo with the dispatchFn that acts on it.
 type runArg struct {
-	callinfo *dispatchInfo
-	do       dispatchFn
+	callinfo *Action
+	dispatch dispatchFn
 }
 
 // run runArgs using runAsync and return results.
@@ -327,7 +312,7 @@ func (m *dispatcher) run(ctx context.Context, runArgs []*runArg) (adapter.Result
 	results := make([]*result, nresults)
 
 	for _, ra := range runArgs {
-		m.runAsync(ctx, ra.callinfo, resultsChan, ra.do)
+		m.runAsync(ctx, ra.callinfo, resultsChan, ra.dispatch)
 	}
 
 	for i := 0; i < nresults; i++ {
@@ -337,10 +322,10 @@ func (m *dispatcher) run(ctx context.Context, runArgs []*runArg) (adapter.Result
 }
 
 // runAsync runs the dispatchFn using a scheduler. It also adds a new span and records prometheus metrics.
-func (m *dispatcher) runAsync(ctx context.Context, callinfo *dispatchInfo, results chan *result, do dispatchFn) {
+func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results chan *result, do dispatchFn) {
 	m.gp.ScheduleWork(func() {
 		// tracing
-		op := fmt.Sprintf("%s:%s(%s)", callinfo.processor.Name, callinfo.handlerName, callinfo.adapterName)
+		op := callinfo.processor.Name + ":" + callinfo.handlerName + "(" + callinfo.adapterName + ")"
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)
 		start := time.Now()
 		out := do(ctx)
@@ -373,71 +358,4 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *dispatchInfo, resul
 		results <- out
 		span.Finish()
 	})
-}
-
-// filterFunc decides if a particular action is interesting to the caller.
-type filterFunc func(inst *cpb.Instance) bool
-
-// instancesPerHandler is the expected number of instances per handler.
-// It is used to avoid slice reallocation.
-const instancesPerHandler = 5
-
-// fetchDispatchInfo returns an array of dispatches.
-// dispatchInfo struct has all the information necessary to realize a function call to a handler.
-// dispatchInfo is grouped by template name. It also returns the number of unique handler-instance pairs.
-func fetchDispatchInfo(requestBag attribute.Bag, variety adptTmpl.TemplateVariety, rt Resolver,
-	templateRepo template.Repository, filter filterFunc) ([]*dispatchInfo, int, error) {
-	actions, err := rt.Resolve(requestBag, variety)
-	if err != nil {
-		glog.Error(err)
-		return nil, 0, err
-	}
-	if glog.V(2) {
-		glog.Infof("Resolved (%v) %d actions", variety, len(actions))
-	}
-
-	var ti template.Info
-	var found bool
-	nInstances := 0
-
-	callmap := make(map[string]*dispatchInfo)
-
-	for _, action := range actions {
-		for _, inst := range action.instanceConfig {
-			if filter != nil && !filter(inst) {
-				continue
-			}
-
-			if ti, found = templateRepo.GetTemplateInfo(inst.Template); !found {
-				glog.Warningf("template: %s is not available", inst.Template)
-				continue
-			}
-			mapKey := action.handlerConfig.Name + "/" + inst.Template
-			di := callmap[mapKey]
-			if di == nil {
-				di = &dispatchInfo{
-					processor:   &ti,
-					handlerName: action.handlerConfig.Name,
-					adapterName: action.handlerConfig.Adapter,
-					handler:     action.handler,
-					instances:   make([]*cpb.Instance, 0, instancesPerHandler),
-				}
-				callmap[mapKey] = di
-			}
-
-			di.instances = append(di.instances, inst)
-			nInstances++
-		}
-	}
-
-	calls := make([]*dispatchInfo, 0, len(callmap))
-	for _, di := range callmap {
-		calls = append(calls, di)
-	}
-
-	if glog.V(2) {
-		glog.Infof("Resolved (%v) %d calls, %d instances", variety, len(actions), nInstances)
-	}
-
-	return calls, nInstances, nil
 }

@@ -24,7 +24,7 @@ func TestResult_Combine(t *testing.T) {
 	// checkresult combine results to use the minimum Validation count
 	// and validation duration.
 	for _, c := range []struct {
-		this  ResultCombiner
+		this  *CheckResult
 		other Result
 		ans   Result
 	}{{&CheckResult{ValidUseCount: 10, ValidDuration: 2 * time.Hour},

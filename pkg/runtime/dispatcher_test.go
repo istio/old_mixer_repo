@@ -40,7 +40,6 @@ import (
 func TestReport(t *testing.T) {
 	gp := pool.NewGoroutinePool(1, true)
 	tname := "metric1"
-	badTname := "metric2"
 	err1 := errors.New("internal error")
 
 	for _, s := range []struct {
@@ -51,19 +50,17 @@ func TestReport(t *testing.T) {
 	}{{tn: tname, ncalled: 2},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
-		{tn: badTname},
 	} {
 		t.Run(fmt.Sprintf("%#v", s), func(t *testing.T) {
 			fp := &fakeProc{
 				err: s.callErr,
 			}
-			tr := newTemplateRepo(tname, fp)
 			var resolveErr error
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false)
-			m := Newdispatcher(nil, tr, rt, gp)
+			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false, fp)
+			m := NewDispatcher(nil, rt, gp)
 
 			err := m.Report(context.Background(), nil)
 			checkError(t, s.callErr, err)
@@ -81,7 +78,6 @@ func TestReport(t *testing.T) {
 func TestCheck(t *testing.T) {
 	gp := pool.NewGoroutinePool(1, true)
 	tname := "metric1"
-	badTname := "metric2"
 	err1 := errors.New("internal error")
 
 	for _, s := range []struct {
@@ -95,20 +91,18 @@ func TestCheck(t *testing.T) {
 		{tn: tname, ncalled: 4, cr: adapter.CheckResult{ValidUseCount: 200, Status: status.WithPermissionDenied("bad user")}},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
-		{tn: badTname},
 	} {
 		t.Run(fmt.Sprintf("%#v", s), func(t *testing.T) {
 			fp := &fakeProc{
 				err:         s.callErr,
 				checkResult: s.cr,
 			}
-			tr := newTemplateRepo(tname, fp)
 			var resolveErr error
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false)
-			m := Newdispatcher(nil, tr, rt, gp)
+			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false, fp)
+			m := NewDispatcher(nil, rt, gp)
 
 			cr, err := m.Check(context.Background(), nil)
 
@@ -137,7 +131,6 @@ func TestCheck(t *testing.T) {
 func TestQuota(t *testing.T) {
 	gp := pool.NewGoroutinePool(1, true)
 	tname := "metric1"
-	badTname := "metric2"
 	err1 := errors.New("internal error")
 
 	for _, s := range []struct {
@@ -152,7 +145,6 @@ func TestQuota(t *testing.T) {
 		{tn: tname, ncalled: 1, cr: adapter.QuotaResult2{Amount: 200, Status: status.WithPermissionDenied("bad user")}},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
-		{tn: badTname},
 		{tn: tname, ncalled: 0, cr: adapter.QuotaResult2{Amount: 200}, emptyResult: true},
 	} {
 		t.Run(fmt.Sprintf("%#v", s), func(t *testing.T) {
@@ -160,13 +152,12 @@ func TestQuota(t *testing.T) {
 				err:         s.callErr,
 				quotaResult: s.cr,
 			}
-			tr := newTemplateRepo(tname, fp)
 			var resolveErr error
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, s.emptyResult)
-			m := Newdispatcher(nil, tr, rt, gp)
+			rt := newResolver("myhandler", "i1", s.tn, resolveErr, s.emptyResult, fp)
+			m := NewDispatcher(nil, rt, gp)
 
 			cr, err := m.Quota(context.Background(), nil,
 				&aspect.QuotaMethodArgs{
@@ -207,16 +198,6 @@ func TestPreprocess(t *testing.T) {
 
 // fakes
 
-type fakeTRepo struct {
-	template.Repository
-	t map[string]template.Info
-}
-
-func (t *fakeTRepo) GetTemplateInfo(templateName string) (template.Info, bool) {
-	ti, found := t.t[templateName]
-	return ti, found
-}
-
 type fakeResolver struct {
 	ra  []*Action
 	err error
@@ -238,20 +219,36 @@ func checkError(t *testing.T, want error, err error) {
 }
 
 // Resolve resolves configuration to a list of actions.
-func (f *fakeResolver) Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety) ([]*Action, error) {
-	return f.ra, f.err
+func (f *fakeResolver) Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety, filterFunc filterFunc) ([]*Action, error) {
+	if filterFunc == nil {
+		return f.ra, f.err
+	}
+
+	a := make([]*Action, 0, len(f.ra))
+
+	for _, aa := range f.ra {
+		ics := make([]*cpb.Instance, 0, len(aa.instanceConfig))
+		for _, ic := range aa.instanceConfig {
+			if filterFunc(ic) {
+				ics = append(ics, ic)
+			}
+		}
+		np := *aa
+		np.instanceConfig = ics
+		a = append(a, &np)
+	}
+	return a, f.err
 }
 
 var _ Resolver = &fakeResolver{}
 
-func newResolver(hndlr string, instanceName string, tname string, resolveErr error, emptyResult bool) *fakeResolver {
+func newResolver(hndlr string, instanceName string, tname string, resolveErr error, emptyResult bool, fproc *fakeProc) *fakeResolver {
 	rt := &fakeResolver{
 		ra: []*Action{
 			{
-				handlerConfig: &cpb.Handler{
-					Name:    hndlr,
-					Adapter: hndlr + "Impl",
-				},
+				processor:   newTemplate(tname, fproc),
+				handlerName: hndlr,
+				adapterName: hndlr + "Impl",
 				instanceConfig: []*cpb.Instance{
 					{
 						instanceName,
@@ -266,10 +263,9 @@ func newResolver(hndlr string, instanceName string, tname string, resolveErr err
 				},
 			},
 			{
-				handlerConfig: &cpb.Handler{
-					Name:    hndlr + "_A",
-					Adapter: hndlr + "_AImpl",
-				},
+				processor:   newTemplate(tname, fproc),
+				handlerName: hndlr + "_A",
+				adapterName: hndlr + "_AImpl",
 				instanceConfig: []*cpb.Instance{
 					{
 						instanceName,
@@ -282,13 +278,6 @@ func newResolver(hndlr string, instanceName string, tname string, resolveErr err
 						&google_rpc.Status{},
 					},
 				},
-			},
-			{
-				handlerConfig: &cpb.Handler{
-					Name:    hndlr + "_B",
-					Adapter: hndlr + "_BImpl",
-				},
-				instanceConfig: nil,
 			},
 		},
 		err: resolveErr,
@@ -301,16 +290,12 @@ func newResolver(hndlr string, instanceName string, tname string, resolveErr err
 	return rt
 }
 
-func newTemplateRepo(name string, fproc *fakeProc) *fakeTRepo {
-	return &fakeTRepo{
-		t: map[string]template.Info{
-			name: {
-				Name:          name,
-				ProcessReport: fproc.ProcessReport,
-				ProcessCheck:  fproc.ProcessCheck,
-				ProcessQuota:  fproc.ProcessQuota,
-			},
-		},
+func newTemplate(name string, fproc *fakeProc) *template.Info {
+	return &template.Info{
+		Name:          name,
+		ProcessReport: fproc.ProcessReport,
+		ProcessCheck:  fproc.ProcessCheck,
+		ProcessQuota:  fproc.ProcessQuota,
 	}
 }
 
