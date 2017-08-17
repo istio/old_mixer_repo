@@ -126,18 +126,3 @@ func (r QuotaResult2) GetStatus() rpc.Status { return r.Status }
 
 // SetStatus embeds status in result.
 func (r *QuotaResult2) SetStatus(s rpc.Status) { r.Status = s }
-
-// Combine combines other result with self.
-func (r *QuotaResult2) Combine(otherPtr interface{}) interface{} {
-	if otherPtr == nil {
-		return r
-	}
-	other := otherPtr.(*QuotaResult2)
-	if r.ValidDuration > other.ValidDuration {
-		r.ValidDuration = other.ValidDuration
-	}
-	if r.Amount > other.Amount {
-		r.Amount = other.Amount
-	}
-	return r
-}

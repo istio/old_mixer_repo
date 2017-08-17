@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapterManager
+package runtime
 
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"reflect"
 	"strings"
@@ -36,7 +37,7 @@ import (
 	"istio.io/mixer/pkg/template"
 )
 
-func TestReport2(t *testing.T) {
+func TestReport(t *testing.T) {
 	gp := pool.NewGoroutinePool(1, true)
 	tname := "metric1"
 	badTname := "metric2"
@@ -47,12 +48,10 @@ func TestReport2(t *testing.T) {
 		callErr    error
 		resolveErr bool
 		ncalled    int
-		badHandler bool
-	}{{tn: tname, ncalled: 1},
+	}{{tn: tname, ncalled: 2},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
 		{tn: badTname},
-		{badHandler: true},
 	} {
 		t.Run(fmt.Sprintf("%#v", s), func(t *testing.T) {
 			fp := &fakeProc{
@@ -63,8 +62,8 @@ func TestReport2(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newRuntimeState("myhandler", "i1", s.tn, resolveErr, s.badHandler)
-			m := NewManager2(nil, tr, rt, gp)
+			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false)
+			m := Newdispatcher(nil, tr, rt, gp)
 
 			err := m.Report(context.Background(), nil)
 			checkError(t, s.callErr, err)
@@ -76,11 +75,10 @@ func TestReport2(t *testing.T) {
 			}
 		})
 	}
-
 	gp.Close()
 }
 
-func TestCheck2(t *testing.T) {
+func TestCheck(t *testing.T) {
 	gp := pool.NewGoroutinePool(1, true)
 	tname := "metric1"
 	badTname := "metric2"
@@ -91,15 +89,13 @@ func TestCheck2(t *testing.T) {
 		callErr    error
 		resolveErr bool
 		ncalled    int
-		badHandler bool
 		cr         adapter.CheckResult
-	}{{tn: tname, ncalled: 2},
-		{tn: tname, ncalled: 2, cr: adapter.CheckResult{ValidUseCount: 200}},
-		{tn: tname, ncalled: 2, cr: adapter.CheckResult{ValidUseCount: 200, Status: status.WithPermissionDenied("bad user")}},
+	}{{tn: tname, ncalled: 4},
+		{tn: tname, ncalled: 4, cr: adapter.CheckResult{ValidUseCount: 200}},
+		{tn: tname, ncalled: 4, cr: adapter.CheckResult{ValidUseCount: 200, Status: status.WithPermissionDenied("bad user")}},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
 		{tn: badTname},
-		{badHandler: true},
 	} {
 		t.Run(fmt.Sprintf("%#v", s), func(t *testing.T) {
 			fp := &fakeProc{
@@ -111,8 +107,8 @@ func TestCheck2(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newRuntimeState("myhandler", "i1", s.tn, resolveErr, s.badHandler)
-			m := NewManager2(nil, tr, rt, gp)
+			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false)
+			m := Newdispatcher(nil, tr, rt, gp)
 
 			cr, err := m.Check(context.Background(), nil)
 
@@ -135,30 +131,29 @@ func TestCheck2(t *testing.T) {
 			}
 		})
 	}
-
 	gp.Close()
 }
 
-func TestQuota2(t *testing.T) {
+func TestQuota(t *testing.T) {
 	gp := pool.NewGoroutinePool(1, true)
 	tname := "metric1"
 	badTname := "metric2"
 	err1 := errors.New("internal error")
 
 	for _, s := range []struct {
-		tn         string
-		callErr    error
-		resolveErr bool
-		ncalled    int
-		badHandler bool
-		cr         adapter.QuotaResult2
+		tn          string
+		callErr     error
+		resolveErr  bool
+		ncalled     int
+		cr          adapter.QuotaResult2
+		emptyResult bool
 	}{{tn: tname, ncalled: 1},
 		{tn: tname, ncalled: 1, cr: adapter.QuotaResult2{Amount: 200}},
 		{tn: tname, ncalled: 1, cr: adapter.QuotaResult2{Amount: 200, Status: status.WithPermissionDenied("bad user")}},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
 		{tn: badTname},
-		{badHandler: true},
+		{tn: tname, ncalled: 0, cr: adapter.QuotaResult2{Amount: 200}, emptyResult: true},
 	} {
 		t.Run(fmt.Sprintf("%#v", s), func(t *testing.T) {
 			fp := &fakeProc{
@@ -170,8 +165,8 @@ func TestQuota2(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newRuntimeState("myhandler", "i1", s.tn, resolveErr, s.badHandler)
-			m := NewManager2(nil, tr, rt, gp)
+			rt := newResolver("myhandler", "i1", s.tn, resolveErr, s.emptyResult)
+			m := Newdispatcher(nil, tr, rt, gp)
 
 			cr, err := m.Quota(context.Background(), nil,
 				&aspect.QuotaMethodArgs{
@@ -201,8 +196,8 @@ func TestQuota2(t *testing.T) {
 	gp.Close()
 }
 
-func TestPreprocess2(t *testing.T) {
-	m := Manager2{}
+func TestPreprocess(t *testing.T) {
+	m := dispatcher{}
 
 	err := m.Preprocess(context.TODO(), nil, nil)
 	if err == nil {
@@ -222,10 +217,9 @@ func (t *fakeTRepo) GetTemplateInfo(templateName string) (template.Info, bool) {
 	return ti, found
 }
 
-type fakeRuntimeState struct {
-	ra  []*RuntimeAction
+type fakeResolver struct {
+	ra  []*Action
 	err error
-	hs  *HandlerState
 }
 
 func checkError(t *testing.T, want error, err error) {
@@ -244,45 +238,64 @@ func checkError(t *testing.T, want error, err error) {
 }
 
 // Resolve resolves configuration to a list of actions.
-func (f *fakeRuntimeState) ResolveConfig(bag attribute.Bag, variety adptTmpl.TemplateVariety) ([]*RuntimeAction, error) {
+func (f *fakeResolver) Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety) ([]*Action, error) {
 	return f.ra, f.err
 }
 
-// Handler returns a ready to use handler
-func (f *fakeRuntimeState) Handler(name string) (*HandlerState, bool) {
-	if f.hs == nil {
-		return nil, false
-	}
-	return f.hs, true
-}
+var _ Resolver = &fakeResolver{}
 
-func newRuntimeState(hndlr string, instanceName string, tname string, resolveErr error, badhandler bool) *fakeRuntimeState {
-	rt := &fakeRuntimeState{
-		ra: []*RuntimeAction{
+func newResolver(hndlr string, instanceName string, tname string, resolveErr error, emptyResult bool) *fakeResolver {
+	rt := &fakeResolver{
+		ra: []*Action{
 			{
-				hndlr,
-				[]*cpb.Instance{
+				handlerConfig: &cpb.Handler{
+					Name:    hndlr,
+					Adapter: hndlr + "Impl",
+				},
+				instanceConfig: []*cpb.Instance{
 					{
 						instanceName,
 						tname,
 						&google_rpc.Status{},
 					},
 					{
-						instanceName + "1",
+						instanceName + "B",
 						tname,
 						&google_rpc.Status{},
 					},
 				},
 			},
-		},
-		hs: &HandlerState{
-			Info: &adapter.BuilderInfo{},
+			{
+				handlerConfig: &cpb.Handler{
+					Name:    hndlr + "_A",
+					Adapter: hndlr + "_AImpl",
+				},
+				instanceConfig: []*cpb.Instance{
+					{
+						instanceName,
+						tname,
+						&google_rpc.Status{},
+					},
+					{
+						instanceName + "B",
+						tname,
+						&google_rpc.Status{},
+					},
+				},
+			},
+			{
+				handlerConfig: &cpb.Handler{
+					Name:    hndlr + "_B",
+					Adapter: hndlr + "_BImpl",
+				},
+				instanceConfig: nil,
+			},
 		},
 		err: resolveErr,
 	}
 
-	if badhandler {
-		rt.hs = nil
+	if emptyResult {
+		rt.ra = nil
 	}
 
 	return rt
@@ -324,3 +337,5 @@ func (f *fakeProc) ProcessQuota(ctx context.Context, quotaName string, quotaCfg 
 	f.called++
 	return f.quotaResult, f.err
 }
+
+var _ = flag.Lookup("v").Value.Set("99")

@@ -21,18 +21,18 @@ import (
 )
 
 func TestResult_Combine(t *testing.T) {
-	// checkresult / quotaresults combine results to use the minimum Validation count
+	// checkresult combine results to use the minimum Validation count
 	// and validation duration.
 	for _, c := range []struct {
-		this  Result
+		this  ResultCombiner
 		other Result
 		ans   Result
 	}{{&CheckResult{ValidUseCount: 10, ValidDuration: 2 * time.Hour},
 		&CheckResult{ValidUseCount: 5, ValidDuration: 20 * time.Hour},
 		&CheckResult{ValidUseCount: 5, ValidDuration: 2 * time.Hour}},
-		{&QuotaResult2{Amount: 10, ValidDuration: 2 * time.Hour},
-			&QuotaResult2{Amount: 5, ValidDuration: 20 * time.Hour},
-			&QuotaResult2{Amount: 5, ValidDuration: 2 * time.Hour}},
+		{&CheckResult{ValidUseCount: 2, ValidDuration: 30 * time.Hour},
+			&CheckResult{ValidUseCount: 5, ValidDuration: 20 * time.Hour},
+			&CheckResult{ValidUseCount: 2, ValidDuration: 20 * time.Hour}},
 	} {
 		c.this.Combine(c.other)
 		if !reflect.DeepEqual(c.this, c.ans) {
