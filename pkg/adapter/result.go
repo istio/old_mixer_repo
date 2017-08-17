@@ -25,7 +25,10 @@ type Result interface {
 
 	// Set status embeds status in result.
 	SetStatus(rpc.Status)
+}
 
+// ResultCombiner supports combining results with Self.
+type ResultCombiner interface {
 	// Combine other result with self and return self
 	Combine(otherPtr interface{}) (self interface{})
 }
