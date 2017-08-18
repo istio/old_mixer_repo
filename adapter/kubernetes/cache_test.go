@@ -148,46 +148,91 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 	}
 }
 
-func TestClusterInfoCache_GetServiceForPod(t *testing.T) {
+func TestClusterInfoCache_UpdateIPPodMap(t *testing.T) {
 	workingStore := fakeStore{
 		pods: map[string]*v1.Pod{
 			"default/test": {},
 		},
-		services: map[string]*v1.Service{
-			"default/svc": {},
-		},
+	}
+
+	foundPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Status:     v1.PodStatus{PodIP: "10.1.10.1"},
+	}
+
+	missingPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "missing", Namespace: "default"},
+		Status:     v1.PodStatus{PodIP: "10.1.10.2"},
+	}
+
+	informer := &fakeInformer{store: workingStore}
+
+	c := &controllerImpl{
+		pods:          informer,
+		env:           test.NewEnv(t),
+		ipPodMapMutex: &sync.RWMutex{},
+		ipPodMap:      make(map[string]string),
 	}
 
 	tests := []struct {
-		name  string
-		key   string
-		store cache.Store
-		want  bool
+		name   string
+		newPod interface{}
+		getKey string
+		want   bool
 	}{
-		{"found", "default/test", workingStore, true},
-		{"pod not found", "custom/missing", workingStore, false},
-		{"service not found", "missing/test", workingStore, false},
+		{"found", foundPod, foundPod.Status.PodIP, true},
+		{"not found", missingPod, missingPod.Status.PodIP, false},
+		{"nil", nil, "10.1.10.3", false},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			informer := &fakeInformer{store: v.store}
-
-			c := &controllerImpl{
-				pods:           informer,
-				services:       informer,
-				env:            test.NewEnv(t),
-				ipPodMapMutex:  &sync.RWMutex{},
-				podSvcMapMutex: &sync.RWMutex{},
-				podSvcMap: map[string]string{
-					"default/test": "default/svc",
-					"missing/test": "missing/svc",
-				},
-			}
-
-			_, got := c.GetServiceForPod(v.key)
+			c.updateIPPodMap(v.newPod)
+			_, got := c.GetPod(v.getKey)
 			if got != v.want {
-				t.Errorf("GetPod(%s) => (_, %t), wanted (_, %t)", v.key, got, v.want)
+				t.Errorf("GetPod(%s) => (_, %t), wanted (_, %t)", v.getKey, got, v.want)
+			}
+		})
+	}
+}
+
+func TestClusterInfoCache_DeleteFromIPPodMap(t *testing.T) {
+	workingStore := fakeStore{
+		pods: map[string]*v1.Pod{
+			"default/test": {},
+		},
+	}
+
+	toDelete := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Status:     v1.PodStatus{PodIP: "10.1.10.1"},
+	}
+
+	informer := &fakeInformer{store: workingStore}
+
+	c := &controllerImpl{
+		pods:          informer,
+		env:           test.NewEnv(t),
+		ipPodMapMutex: &sync.RWMutex{},
+		ipPodMap:      map[string]string{toDelete.Status.PodIP: key(toDelete.Namespace, toDelete.Name)},
+	}
+
+	tests := []struct {
+		name   string
+		pod    interface{}
+		getKey string
+		want   bool
+	}{
+		{"deleted", toDelete, toDelete.Status.PodIP, false},
+		{"nil", nil, toDelete.Status.PodIP, false},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			c.deleteFromIPPodMap(v.pod)
+			_, got := c.GetPod(v.getKey)
+			if got != v.want {
+				t.Errorf("GetPod(%s) => (_, %t), wanted (_, %t)", v.getKey, got, v.want)
 			}
 		})
 	}
@@ -215,7 +260,6 @@ func TestClusterInfoCache(t *testing.T) {
 			c := &controllerImpl{
 				env:           test.NewEnv(t),
 				pods:          informer,
-				services:      informer,
 				mutationsChan: make(chan resourceMutation),
 			}
 

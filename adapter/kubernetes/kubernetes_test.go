@@ -32,9 +32,8 @@ import (
 type fakeCache struct {
 	cacheController
 
-	pods     map[string]*v1.Pod
-	services map[string]*v1.Service
-	path     string
+	pods map[string]*v1.Pod
+	path string
 }
 
 func (fakeCache) HasSynced() bool {
@@ -48,11 +47,6 @@ func (fakeCache) Run(<-chan struct{}) {
 func (f fakeCache) GetPod(pod string) (*v1.Pod, bool) {
 	p, ok := f.pods[pod]
 	return p, ok
-}
-
-func (f fakeCache) GetServiceForPod(pod string) (*v1.Service, bool) {
-	s, ok := f.services[pod]
-	return s, ok
 }
 
 func errorStartingPodCache(ignored string, empty time.Duration, e adapter.Env) (cacheController, error) {
@@ -213,27 +207,31 @@ func TestKubegen_Generate(t *testing.T) {
 				ServiceAccountName: "test",
 			},
 		},
-		"testns/empty":       {ObjectMeta: metav1.ObjectMeta{Name: "empty", Namespace: "testns", Labels: map[string]string{"app": "empty"}}},
-		"testns/not-found":   {ObjectMeta: metav1.ObjectMeta{Name: "not-found", Namespace: "testns", Labels: map[string]string{"app": "empty"}}},
-		"testns/alt-pod":     {ObjectMeta: metav1.ObjectMeta{Name: "alt-pod", Namespace: "testns", Labels: map[string]string{"app": "alt-svc.testns"}}},
-		"testns/pod-cluster": {ObjectMeta: metav1.ObjectMeta{Name: "pod-cluster", Namespace: "testns", Labels: map[string]string{"app": "alt-svc-cluster"}}},
-		"testns/long-pod":    {ObjectMeta: metav1.ObjectMeta{Name: "long-pod", Namespace: "testns", Labels: map[string]string{"app": "long-svc.testns"}}},
-		"testns/bad-svc-pod": {ObjectMeta: metav1.ObjectMeta{Name: "bad-svc-pod", Namespace: "testns", Labels: map[string]string{"app": ":"}}},
-		"192.168.234.3":      {ObjectMeta: metav1.ObjectMeta{Name: "ip-svc-pod", Namespace: "testns", Labels: map[string]string{"app": "ipAddr"}}},
-		"testns/ip-pod":      {ObjectMeta: metav1.ObjectMeta{Name: "ip-pod", Namespace: "testns", Labels: map[string]string{"app": "empty"}}},
-	}
-	services := map[string]*v1.Service{
-		"testns/test-pod":    {ObjectMeta: metav1.ObjectMeta{Name: "testsvc", Namespace: "testns"}},
-		"testns/empty":       {ObjectMeta: metav1.ObjectMeta{Name: "", Namespace: "testns"}},
-		"testns/alt-pod":     {ObjectMeta: metav1.ObjectMeta{Name: "alt-svc.testns"}},
-		"testns/pod-cluster": {ObjectMeta: metav1.ObjectMeta{Name: "alt-svc-with-cluster.testns.svc.cluster:8080"}},
-		"testns/long-pod":    {ObjectMeta: metav1.ObjectMeta{Name: "long-svc.testns.svc.cluster.local.solar"}},
-		"testns/bad-svc-pod": {ObjectMeta: metav1.ObjectMeta{Name: "::::::", Namespace: "testns"}},
-		"testns/ip-svc-pod":  {ObjectMeta: metav1.ObjectMeta{Name: "ip-svc", Namespace: "testns"}},
-		"testns/ip-pod":      {ObjectMeta: metav1.ObjectMeta{Name: "192.234.234.34"}},
+		"testns/pod-cluster": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod-cluster",
+				Namespace: "testns",
+				Labels:    map[string]string{"app": "alt-svc-with-cluster.testns.svc.cluster:8080"},
+			},
+		},
+		"testns/long-pod": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "long-pod",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"app": "long-svc.testns.svc.cluster.local.solar",
+				},
+			},
+		},
+		"testns/empty":         {ObjectMeta: metav1.ObjectMeta{Name: "empty", Namespace: "testns", Labels: map[string]string{"app": ""}}},
+		"testns/alt-pod":       {ObjectMeta: metav1.ObjectMeta{Name: "alt-pod", Namespace: "testns", Labels: map[string]string{"app": "alt-svc.testns"}}},
+		"testns/bad-svc-pod":   {ObjectMeta: metav1.ObjectMeta{Name: "bad-svc-pod", Namespace: "testns", Labels: map[string]string{"app": ":"}}},
+		"192.168.234.3":        {ObjectMeta: metav1.ObjectMeta{Name: "ip-svc-pod", Namespace: "testns", Labels: map[string]string{"app": "ipAddr"}}},
+		"testns/istio-ingress": {ObjectMeta: metav1.ObjectMeta{Name: "istio-ingress", Namespace: "testns", Labels: map[string]string{"istio": "ingress"}}},
+		"testns/ipApp":         {ObjectMeta: metav1.ObjectMeta{Name: "ipApp", Namespace: "testns", Labels: map[string]string{"app": "10.1.10.1"}}},
 	}
 
-	kg := &kubegen{log: test.NewEnv(t).Logger(), params: *conf, pods: fakeCache{pods: pods, services: services}}
+	kg := &kubegen{log: test.NewEnv(t).Logger(), params: *conf, pods: fakeCache{pods: pods}}
 
 	sourceUIDIn := map[string]interface{}{
 		"sourceUID": "kubernetes://test-pod.testns",
@@ -250,7 +248,7 @@ func TestKubegen_Generate(t *testing.T) {
 		"sourceHostIP":             "10.1.1.10",
 		"sourceNamespace":          "testns",
 		"sourcePodName":            "test-pod",
-		"sourceService":            "testsvc.testns.svc.cluster.local",
+		"sourceService":            "test.testns.svc.cluster.local",
 		"sourceServiceAccountName": "test",
 	}
 
@@ -269,7 +267,7 @@ func TestKubegen_Generate(t *testing.T) {
 
 	svcClusterOut := map[string]interface{}{
 		"sourceLabels": map[string]string{
-			"app": "alt-svc-cluster",
+			"app": "alt-svc-with-cluster.testns.svc.cluster:8080",
 		},
 		"sourceService":   "alt-svc-with-cluster.testns.svc.cluster.local",
 		"sourceNamespace": "testns",
@@ -280,7 +278,7 @@ func TestKubegen_Generate(t *testing.T) {
 
 	longSvcClusterOut := map[string]interface{}{
 		"sourceLabels": map[string]string{
-			"app": "long-svc.testns",
+			"app": "long-svc.testns.svc.cluster.local.solar",
 		},
 		"sourceService":   "long-svc.testns.svc.cluster.local.solar",
 		"sourceNamespace": "testns",
@@ -291,20 +289,10 @@ func TestKubegen_Generate(t *testing.T) {
 
 	emptyServiceOut := map[string]interface{}{
 		"targetLabels": map[string]string{
-			"app": "empty",
+			"app": "",
 		},
 		"targetNamespace": "testns",
 		"targetPodName":   "empty",
-	}
-
-	notFoundSvcIn := map[string]interface{}{"targetUID": "kubernetes://not-found.testns"}
-
-	notFoundServiceOut := map[string]interface{}{
-		"targetLabels": map[string]string{
-			"app": "empty",
-		},
-		"targetNamespace": "testns",
-		"targetPodName":   "not-found",
 	}
 
 	badTargetSvcIn := map[string]interface{}{"targetUID": "kubernetes://bad-svc-pod.testns"}
@@ -317,7 +305,7 @@ func TestKubegen_Generate(t *testing.T) {
 		"targetPodName":   "bad-svc-pod",
 	}
 
-	ipTargetSvcIn := map[string]interface{}{"targetUID": "192.168.234.3"}
+	ipTargetSvcIn := map[string]interface{}{"targetIP": "192.168.234.3"}
 
 	ipTargetOut := map[string]interface{}{
 		"targetLabels": map[string]string{
@@ -325,17 +313,32 @@ func TestKubegen_Generate(t *testing.T) {
 		},
 		"targetNamespace": "testns",
 		"targetPodName":   "ip-svc-pod",
-		"targetService":   "ip-svc.testns.svc.cluster.local",
+		"targetService":   "ipAddr.testns.svc.cluster.local",
 	}
 
-	ipSvcIn := map[string]interface{}{"targetUID": "kubernetes://ip-pod.testns"}
+	istioTargetSvcIn := map[string]interface{}{
+		"targetUID": "kubernetes://istio-ingress.testns",
+	}
 
-	ipServiceOut := map[string]interface{}{
+	istioTargetOut := map[string]interface{}{
 		"targetLabels": map[string]string{
-			"app": "empty",
+			"istio": "ingress",
 		},
 		"targetNamespace": "testns",
-		"targetPodName":   "ip-pod",
+		"targetPodName":   "istio-ingress",
+		"targetService":   "ingress.testns.svc.cluster.local",
+	}
+
+	ipAppSvcIn := map[string]interface{}{
+		"targetUID": "kubernetes://ipApp.testns",
+	}
+
+	ipAppTargetOut := map[string]interface{}{
+		"targetLabels": map[string]string{
+			"app": "10.1.10.1",
+		},
+		"targetNamespace": "testns",
+		"targetPodName":   "ipApp",
 	}
 
 	tests := []struct {
@@ -348,10 +351,10 @@ func TestKubegen_Generate(t *testing.T) {
 		{"alternate service canonicalization (svc cluster)", svcClusterIn, svcClusterOut},
 		{"alternate service canonicalization (long svc)", longSvcClusterIn, longSvcClusterOut},
 		{"empty service", emptySvcIn, emptyServiceOut},
-		{"not found target service", notFoundSvcIn, notFoundServiceOut},
 		{"bad target service", badTargetSvcIn, badTargetOut},
 		{"target ip pod", ipTargetSvcIn, ipTargetOut},
-		{"ip service", ipSvcIn, ipServiceOut},
+		{"istio service", istioTargetSvcIn, istioTargetOut},
+		{"ip app", ipAppSvcIn, ipAppTargetOut},
 	}
 
 	for _, v := range tests {
