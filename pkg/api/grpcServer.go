@@ -79,15 +79,20 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	globalWordCount := int(req.GlobalWordCount)
 
-	glog.Info("Dispatching Preprocess")
+	if glog.V(1) {
+		glog.Info("Dispatching Preprocess Check")
+	}
 	preprocResponseBag := attribute.GetMutableBag(requestBag)
 	out := s.aspectDispatcher.Preprocess(legacyCtx, requestBag, preprocResponseBag)
-	glog.Info("Preprocess returned with: ", statusString(out))
 
 	if !status.IsOK(out) {
+		glog.Error("Preprocess Check returned with: ", statusString(out))
 		requestBag.Done()
 		preprocResponseBag.Done()
 		return nil, makeGRPCError(out)
+	}
+	if glog.V(1) {
+		glog.Info("Preprocess Check returned with: ", statusString(out))
 	}
 
 	if glog.V(2) {
@@ -100,9 +105,15 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	responseBag := attribute.GetMutableBag(nil)
 
-	glog.Info("Dispatching Check")
+	if glog.V(1) {
+		glog.Info("Dispatching Check")
+	}
 	out = s.aspectDispatcher.Check(legacyCtx, preprocResponseBag, responseBag)
-	glog.Info("Check returned with: ", statusString(out))
+	if status.IsOK(out) {
+		glog.Info("Check returned with ok : ", statusString(out))
+	} else {
+		glog.Error("Check returned with error : ", statusString(out))
+	}
 
 	resp := &mixerpb.CheckResponse{}
 	// TODO: these values need to initially come from config, and be modulated by the kind of attribute
@@ -131,10 +142,17 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				BestEffort:      param.BestEffort,
 			}
 
-			glog.Info("Dispatching Quota")
+			if glog.V(1) {
+				glog.Info("Dispatching Quota")
+			}
 			qmr, out := s.aspectDispatcher.Quota(legacyCtx, preprocResponseBag, qma)
-			glog.Infof("Quota returned with status '%v' and quota response '%v'", statusString(out), qmr)
-
+			if status.IsOK(out) {
+				if glog.V(1) {
+					glog.Infof("Quota returned with ok '%s' and quota response '%v'", statusString(out), qmr)
+				} else {
+					glog.Warningf("Quota returned with error '%s' and quota response '%v'", statusString(out), qmr)
+				}
+			}
 			if qmr == nil {
 				qmr = &aspect.QuotaMethodResp{}
 			}
