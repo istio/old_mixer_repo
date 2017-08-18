@@ -135,8 +135,8 @@ func GetBuilderInfo() adapter.BuilderInfo {
 			metric.TemplateName,
 			quota.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
+		ValidateConfig:       func(adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
