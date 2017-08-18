@@ -40,7 +40,7 @@ option (gogoproto.gostring_all) = false;
 // sourceUID and the output value of pod ip, this adapter will output a map
 // that includes a key of "sourcePodIP" (assuming parameter defaults).
 message Params {
-    reserved 6,17,19;
+    reserved 17;
     // next field id: 24
 
     // File path to discover kubeconfig. For in-cluster configuration,
@@ -102,6 +102,21 @@ message Params {
     //
     // Default: svc.cluster.local
     string cluster_domain_name = 18;
+
+    // In order to extract the service associated with a source, target, or
+    // origin, this adapter relies on pod labels. In particular, it looks for
+    // the value of a specific label, as specified by this parameter.
+    //
+    // Default: app
+    string pod_label_for_service = 6;
+
+    // In order to extract the service associated with a source, target, or
+    // origin, this adapter relies on pod labels. In particular, it looks for
+    // the value of a specific label for istio component services, as specified 
+    // by this parameter.
+    //
+    // Default: istio
+    string pod_label_for_istio_component_service = 19;
 
     // The prefix used for source pod output value names.
     //

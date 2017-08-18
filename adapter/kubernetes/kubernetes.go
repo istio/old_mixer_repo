@@ -86,7 +86,9 @@ const (
 	serviceVal        = "Service"
 
 	// value extraction
-	clusterDomain = "svc.cluster.local"
+	clusterDomain        = "svc.cluster.local"
+	podServiceLabel      = "app"
+	istioPodServiceLabel = "istio"
 
 	// cache invaliation
 	// TODO: determine a reasonable default
@@ -95,25 +97,27 @@ const (
 
 var (
 	conf = &config.Params{
-		KubeconfigPath:          "",
-		CacheRefreshDuration:    defaultRefreshPeriod,
-		SourceUidInputName:      sourceUID,
-		TargetUidInputName:      targetUID,
-		OriginUidInputName:      originUID,
-		SourceIpInputName:       sourceIP,
-		TargetIpInputName:       targetIP,
-		OriginIpInputName:       originIP,
-		ClusterDomainName:       clusterDomain,
-		SourcePrefix:            sourcePrefix,
-		TargetPrefix:            targetPrefix,
-		OriginPrefix:            originPrefix,
-		LabelsValueName:         labelsVal,
-		PodNameValueName:        podNameVal,
-		PodIpValueName:          podIPVal,
-		HostIpValueName:         hostIPVal,
-		NamespaceValueName:      namespaceVal,
-		ServiceAccountValueName: serviceAccountVal,
-		ServiceValueName:        serviceVal,
+		KubeconfigPath:                   "",
+		CacheRefreshDuration:             defaultRefreshPeriod,
+		SourceUidInputName:               sourceUID,
+		TargetUidInputName:               targetUID,
+		OriginUidInputName:               originUID,
+		SourceIpInputName:                sourceIP,
+		TargetIpInputName:                targetIP,
+		OriginIpInputName:                originIP,
+		ClusterDomainName:                clusterDomain,
+		PodLabelForService:               podServiceLabel,
+		PodLabelForIstioComponentService: istioPodServiceLabel,
+		SourcePrefix:                     sourcePrefix,
+		TargetPrefix:                     targetPrefix,
+		OriginPrefix:                     originPrefix,
+		LabelsValueName:                  labelsVal,
+		PodNameValueName:                 podNameVal,
+		PodIpValueName:                   podIPVal,
+		HostIpValueName:                  hostIPVal,
+		NamespaceValueName:               namespaceVal,
+		ServiceAccountValueName:          serviceAccountVal,
+		ServiceValueName:                 serviceVal,
 	}
 )
 
@@ -188,6 +192,12 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 	if len(params.ServiceValueName) == 0 {
 		ce = ce.Appendf("serviceValueName", "field must be populated")
+	}
+	if len(params.PodLabelForService) == 0 {
+		ce = ce.Appendf("podLabelForService", "field must be populated")
+	}
+	if len(params.PodLabelForIstioComponentService) == 0 {
+		ce = ce.Appendf("podLabelForIstioComponentService", "field must be populated")
 	}
 	if len(params.ClusterDomainName) == 0 {
 		ce = ce.Appendf("clusterDomainName", "field must be populated")
@@ -273,11 +283,7 @@ func (k *kubegen) addValues(vals map[string]interface{}, uid, valPrefix string) 
 		k.log.Warningf("could not find pod for (uid: %s, key: %s)", uid, podKey)
 		return
 	}
-	svc, found := k.pods.GetServiceForPod(key(pod.Namespace, pod.Name))
-	if !found {
-		k.log.Warningf("error finding service for pod '%s'", pod.Name)
-	}
-	addPodValues(vals, valPrefix, k.params, pod, svc)
+	addPodValues(vals, valPrefix, k.params, pod)
 }
 
 func keyFromUID(uid string) string {
@@ -294,7 +300,7 @@ func keyFromUID(uid string) string {
 	return fullname
 }
 
-func addPodValues(m map[string]interface{}, prefix string, params config.Params, p *v1.Pod, svc *v1.Service) {
+func addPodValues(m map[string]interface{}, prefix string, params config.Params, p *v1.Pod) {
 	if len(p.Labels) > 0 {
 		m[valueName(prefix, params.LabelsValueName)] = p.Labels
 	}
@@ -313,8 +319,13 @@ func addPodValues(m map[string]interface{}, prefix string, params config.Params,
 	if len(p.Status.HostIP) > 0 {
 		m[valueName(prefix, params.HostIpValueName)] = p.Status.HostIP
 	}
-	if svc != nil {
-		n, err := canonicalName(svc.Name, svc.Namespace, params.ClusterDomainName)
+	if app, found := p.Labels[params.PodLabelForService]; found {
+		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+		if err == nil {
+			m[valueName(prefix, params.ServiceValueName)] = n
+		}
+	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
+		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			m[valueName(prefix, params.ServiceValueName)] = n
 		}
