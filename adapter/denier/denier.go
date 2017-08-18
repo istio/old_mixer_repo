@@ -95,16 +95,16 @@ func (handler) Close() error { return nil }
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
 		Name:        "istio.io/mixer/adapter/denier",
-		Description: "Rejects any check and quota request with a configurable error.",
+		Description: "Rejects any check and quota request with a configurable error",
 		SupportedTemplates: []string{
 			checknothing.TemplateName,
 			listentry.TemplateName,
 			quota.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
 		DefaultConfig: &config.Params{
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
-		ValidateConfig: func(msg proto.Message) *adapter.ConfigErrors { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
+		ValidateConfig:       func(proto.Message) *adapter.ConfigErrors { return nil },
 	}
 }

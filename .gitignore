@@ -9,6 +9,7 @@ coverage.txt
 *.pb.go
 *.pb.cc
 *.pb.h
+*.gen.go
 
 # Folders
 _obj
