@@ -192,15 +192,19 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			}
 		}
 
-		glog.Info("Dispatching Preprocess")
+		if glog.V(1) {
+			glog.Info("Dispatching Preprocess")
+		}
 		out := s.aspectDispatcher.Preprocess(newctx, requestBag, preprocResponseBag)
-		glog.Info("Preprocess returned with: ", statusString(out))
-
 		if !status.IsOK(out) {
+			glog.Error("Preprocess returned with: ", statusString(out))
 			err = makeGRPCError(out)
 			span.LogFields(log.String("error", err.Error()))
 			span.Finish()
 			break
+		}
+		if glog.V(1) {
+			glog.Info("Preprocess returned with: ", statusString(out))
 		}
 
 		if glog.V(2) {
@@ -211,15 +215,20 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			}
 		}
 
-		glog.Info("Dispatching Report")
+		if glog.V(1) {
+			glog.Info("Dispatching Report %d out of %d", i, len(req.Attributes))
+		}
 		out = s.aspectDispatcher.Report(legacyCtx, preprocResponseBag)
-		glog.Info("Report returned with: ", statusString(out))
 
 		if !status.IsOK(out) {
+			glog.Errorf("Report %d returned with: %s", i, statusString(out))
 			err = makeGRPCError(out)
 			span.LogFields(log.String("error", err.Error()))
 			span.Finish()
 			break
+		}
+		if glog.V(1) {
+			glog.Infof("Report %d returned with: %s", i, statusString(out))
 		}
 
 		span.LogFields(log.String("success", fmt.Sprintf("finished Report for attribute bag %d", i)))
