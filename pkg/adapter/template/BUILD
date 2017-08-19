@@ -4,7 +4,9 @@ load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 
 gogoslick_proto_library(
     name = "go_default_library",
+    go_proto_deps = ["@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library"],
     importmap = {
+        # "google/protobuf/descriptor.proto":"github.com/golang/protobuf/protoc-gen-go/descriptor",
         "google/protobuf/descriptor.proto": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
     },
     imports = [
@@ -22,6 +24,9 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
         "@com_github_gogo_protobuf//sortkeys:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
+        # "@com_github_golang_protobuf//:protoc-gen-go/descriptor",
+        # "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
     ],
 )
 

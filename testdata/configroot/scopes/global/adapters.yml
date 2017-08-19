@@ -9,4 +9,4 @@ adapters:
       #
       # $ ln -s ~/.kube/config adapter/kubernetes/kubeconfig
       #
-      # kubeconfig_path: "adapter/kubernetes/kubeconfig"
+      kubeconfig_path: "adapter/kubernetes/kubeconfig"

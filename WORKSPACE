@@ -615,3 +615,21 @@ git_repository(
     commit = "b0822890273f91d5aa8c40ea1a89ba01e0f0ee9d",  # Aug 22, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
+
+go_repository(
+    name = "com_github_douglas-reid_mixer-noop-reporter",
+    commit = "a2768011124b7801cba4b9d445f08dfd4ef06333",
+    importpath = "github.com/douglas-reid/mixer-noop-reporter",
+)
+
+go_repository(
+    name = "com_github_Azure_go_autorest",
+    commit = "10cfe58defab0c9a33be1f7b3ee656857670b509",  # Aug 16, 2017 (HEAD)
+    importpath = "github.com/Azure/go-autorest",
+)
+ 
+go_repository(
+    name = "com_github_dgrijalva_jwt_go",
+    commit = "a539ee1a749a2b895533f979515ac7e6e0f5b650",  # Jun 7, 2017 (HEAD)
+    importpath = "github.com/dgrijalva/jwt-go",
+)

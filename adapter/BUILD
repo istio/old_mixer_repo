@@ -16,6 +16,7 @@ inventory_library(
         "stdio": "istio.io/mixer/adapter/stdio",
         "svcctrl": "istio.io/mixer/adapter/svcctrl",
         "memquota": "istio.io/mixer/adapter/memquota2",
+        "reporter": "github.com/douglas-reid/mixer-noop-reporter",
     },
     deps = [
         "//adapter/denier:go_default_library",
@@ -27,5 +28,6 @@ inventory_library(
         "//adapter/statsd:go_default_library",
         "//adapter/stdio:go_default_library",
         "//adapter/svcctrl:go_default_library",
+        "@com_github_douglas-reid_mixer-noop-reporter//:go_default_library",
     ],
 )
