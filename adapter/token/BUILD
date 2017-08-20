@@ -12,6 +12,7 @@ go_library(
         "//pkg/status:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_asaskevich_govalidator//:go_default_library",
     ],
 )
 

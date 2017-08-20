@@ -24,4 +24,13 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-message Params {}
+message Issuer {
+    string name = 1;
+    string pubKeyUrl = 2;
+    repeated string claimNames = 3;
+    map<string, string> claimRenames = 4;
+}
+
+message Params {
+    repeated Issuer issuers = 1;
+}
