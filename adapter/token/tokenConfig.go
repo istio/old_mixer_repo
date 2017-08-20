@@ -3,39 +3,39 @@
 package token
 
 import (
-	"time"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/adapter/token/config"
-	"github.com/asaskevich/govalidator"
 	"crypto"
+	"time"
+
+	"github.com/asaskevich/govalidator"
+
+	"istio.io/mixer/adapter/token/config"
+	"istio.io/mixer/pkg/adapter"
 )
 
 const (
-	minPubkeyInterval   = 30 * time.Second
+	minPubkeyInterval = 30 * time.Second
 )
 
 type TokenConfig struct { // structure should not be marshaled to JSON, not even using defaults
-	Issuers          map[string]Issuer //supported issuers. tokens by other issuers will not be accepted.
+	Issuers map[string]Issuer //supported issuers. tokens by other issuers will not be accepted.
 }
 
 // NewConfig creates a configuration object with default values
 func NewTokenConfig(c adapter.Config) (*TokenConfig, error) {
 	cfg := &TokenConfig{
-		Issuers:         map[string]Issuer{},
+		Issuers: map[string]Issuer{},
 	}
 	params := c.(*config.Params)
-	for _,issuer := range params.Issuers{
+	for _, issuer := range params.Issuers {
 		iss := &defaultJWTIssuer{
-			name: issuer.Name,
-			pubKeysURL:issuer.PubKeyUrl,
-			pubKeys:map[string]crypto.PublicKey{},
+			name:       issuer.Name,
+			pubKeysURL: issuer.PubKeyUrl,
+			pubKeys:    map[string]crypto.PublicKey{},
 		}
 		cfg.Issuers[iss.name] = iss
 	}
 	return cfg, nil
 }
-
-
 
 func (*tokenBuilder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
@@ -72,4 +72,3 @@ func (*tokenBuilder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors)
 	}
 	return
 }
-

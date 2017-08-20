@@ -4,15 +4,16 @@ package token
 
 import (
 	"crypto"
-	"time"
-	"sync"
+	"encoding/json"
 	"errors"
-	"github.com/asaskevich/govalidator"
-	"net/http"
 	"fmt"
 	"io/ioutil"
-	"encoding/json"
+	"net/http"
 	"reflect"
+	"sync"
+	"time"
+
+	"github.com/asaskevich/govalidator"
 )
 
 /*
@@ -31,15 +32,10 @@ type Issuer interface {
 
 //Error when requesting an issuer for a key that does not exist
 type KeyDoesNotExist struct{}
+
 func (k KeyDoesNotExist) Error() string {
 	return "Key does not exist"
 }
-
-
-
-
-
-
 
 //MockIssuer : a mock issuer that can be used for testing. as a testing issuer, it allows explicit control over it's key cache via SetPublicKey.
 type MockIssuer struct {
@@ -60,12 +56,6 @@ func (m *MockIssuer) SetPublicKey(kid string, key crypto.PublicKey) {
 	}
 	m.pubKeys[kid] = key
 }
-
-
-
-
-
-
 
 //The default jwt token issuer, that works according to the JOSE standard.
 type defaultJWTIssuer struct {
@@ -97,7 +87,7 @@ func (iss *defaultJWTIssuer) UpdateKeys() error {
 		return errors.New("Url for public keys for IAM must be provided")
 	}
 	if !govalidator.IsURL(iss.pubKeysURL) {
-		return errors.New("Public keys url for issuer "+iss.GetName()+" IAM is not valid")
+		return errors.New("Public keys url for issuer " + iss.GetName() + " IAM is not valid")
 	}
 
 	client := &http.Client{

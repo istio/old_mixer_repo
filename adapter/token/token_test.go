@@ -156,10 +156,10 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-func TestIssuersFromConfig(t *testing.T){
+func TestIssuersFromConfig(t *testing.T) {
 	testConfigs := []struct {
-		name     string
-		conf     *tokenConfig.Params
+		name string
+		conf *tokenConfig.Params
 	}{
 		{
 			"empty config (default)",
@@ -181,7 +181,7 @@ func TestIssuersFromConfig(t *testing.T){
 			"valid single issuer with claim names and re-names",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					{Name: "w3", PubKeyUrl: "W3.iss1.com/pubkeys:7670", ClaimNames: []string{"sub","admin","servers.NY.ip"}},
+					{Name: "w3", PubKeyUrl: "W3.iss1.com/pubkeys:7670", ClaimNames: []string{"sub", "admin", "servers.NY.ip"}},
 				},
 			},
 		},
@@ -189,8 +189,8 @@ func TestIssuersFromConfig(t *testing.T){
 			"valid multiple issuers",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					{Name: "w3", PubKeyUrl: "W3.iss1.com/pubkeys:7670", ClaimNames: []string{"sub","admin","servers.NY.ip"}},
-					{Name: "giss", PubKeyUrl: "login.iss2.com/pubkeys:5120", ClaimNames: []string{"sub","admin","last-login"}},
+					{Name: "w3", PubKeyUrl: "W3.iss1.com/pubkeys:7670", ClaimNames: []string{"sub", "admin", "servers.NY.ip"}},
+					{Name: "giss", PubKeyUrl: "login.iss2.com/pubkeys:5120", ClaimNames: []string{"sub", "admin", "last-login"}},
 				},
 			},
 		},
@@ -201,11 +201,11 @@ func TestIssuersFromConfig(t *testing.T){
 		if err != nil {
 			t.Fatalf("Expected config: %v, to generate config issuer objects successfuly: %v, but got the following error: %v", v.name, v.conf, err)
 		}
-		if issNum := len(v.conf.Issuers) ; len(cfg.Issuers) != issNum {
+		if issNum := len(v.conf.Issuers); len(cfg.Issuers) != issNum {
 			t.Fatalf("Expected config: %v, to generate %v issuer objects, but got %v", v.name, issNum, len(cfg.Issuers))
 		}
-		for _,issuer := range v.conf.Issuers {
-			if _, exists := cfg.Issuers[issuer.Name] ; !exists {
+		for _, issuer := range v.conf.Issuers {
+			if _, exists := cfg.Issuers[issuer.Name]; !exists {
 				t.Fatalf("Expected config: %v, to create an issuer object named %v, but it didn't", v.name, issuer.Name)
 			}
 		}
