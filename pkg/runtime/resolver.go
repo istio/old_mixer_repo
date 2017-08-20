@@ -123,7 +123,6 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 		resolveActions.With(lbls).Observe(float64(raLen))
 	}()
 
-	//
 	attr, _ := attrs.Get(r.identityAttribute)
 	if attr == nil {
 		msg := fmt.Sprintf("%s identity not found in attributes%v", r.identityAttribute, attrs.Names())

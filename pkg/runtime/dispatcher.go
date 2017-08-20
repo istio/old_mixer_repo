@@ -117,29 +117,26 @@ type dispatcher struct {
 	// gp is used to dispatch multiple adapters concurrently.
 	gp *pool.GoroutinePool
 
-	// protects resolver
-	sync.RWMutex
-
-	// <resolver>
-	resolver Resolver
+	resolverLock sync.RWMutex
+	resolver     Resolver
 }
 
 // SetResolver installs a new resolver.
 // This function is called when configuration is updated by the user.
 // oldResolver is returned so that it can be reclaimed.
-func (m *dispatcher) SetResolver(rt Resolver) (oldResolver Resolver) {
-	m.Lock()
-	oldResolver = m.resolver
+func (m *dispatcher) SetResolver(rt Resolver) Resolver {
+	m.resolverLock.Lock()
+	oldResolver := m.resolver
 	m.resolver = rt
-	m.Unlock()
+	m.resolverLock.Unlock()
 	return oldResolver
 }
 
 // Resolve resolves configuration to a list of actions.
 func (m *dispatcher) Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety) (Actions, error) {
-	m.RLock()
+	m.resolverLock.RLock()
 	// Ensure that the lock is released even if resolver.Resolve panics.
-	defer m.RUnlock()
+	defer m.resolverLock.RUnlock()
 
 	// resolver.Resolve is called under a readLock so that all
 	// in-flight actions are correctly ref counted during a config change.
