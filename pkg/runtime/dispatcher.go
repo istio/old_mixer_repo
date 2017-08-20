@@ -62,13 +62,13 @@ type Dispatcher interface {
 // and associated, initialized handlers.
 type Resolver interface {
 	// Resolve resolves configuration to a list of actions.
-	// an optional filterFunc filters the output.
+	// The result is encapsulated in the Actions interface.
 	Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety) (Actions, error)
 }
 
 // Actions combines []*Action with a lifecycle (Done) function.
 type Actions interface {
-	// Get gets the contained actions.
+	// Get gets the encapsulated actions.
 	Get() []*Action
 
 	// Done is used by the caller to indicate that
@@ -159,7 +159,7 @@ func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, var
 	}
 
 	// This *must* run in order to ensure proper cleanup.
-	// It must *after* all the processing is done.
+	// It must run *after* all the processing is done.
 	// Defer guarantees both.
 	defer calls.Done()
 

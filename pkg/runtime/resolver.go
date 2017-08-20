@@ -30,9 +30,7 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
-// Rule represents an indexed runtime rule.
-// It is keyed by namespace
-// target service namespace and istio-default namespace is queried.
+// Rule represents a runtime view of cpb.Rule.
 type Rule struct {
 	// Selector from the original rule.
 	selector string
@@ -58,14 +56,13 @@ type resolver struct {
 	// default: istio-default-config
 	defaultConfigNamespace string
 
-	// rules in the DB. key is $namespace.
-	// rulename is arbitrary.
+	// rules in the configuration database keyed by $namespace.
 	rules map[string][]*Rule
 
-	// Opaque handleState used in this configuration
+	// Opaque ruleState used in this configuration
 	// After the resolver has no references, this state can be
-	// cleaned up correctly by the runtime Manager.
-	handlerState interface{}
+	// cleaned up correctly by the caller.
+	ruleState interface{}
 
 	// refCount tracks the number requests currently using this
 	// configuration. resolver state can be cleaned up when this count is 0.
@@ -74,13 +71,13 @@ type resolver struct {
 
 // NewResolver returns a Resolver.
 func NewResolver(evaluator expr.PredicateEvaluator, identityAttribute string, defaultConfigNamespace string,
-	rules map[string][]*Rule, handlerState interface{}) Resolver {
+	rules map[string][]*Rule, ruleState interface{}) Resolver {
 	return &resolver{
 		evaluator:              evaluator,
 		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
-		rules:        rules,
-		handlerState: handlerState,
+		rules:     rules,
+		ruleState: ruleState,
 	}
 }
 
