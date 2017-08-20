@@ -17,10 +17,10 @@ package token
 import (
 	"testing"
 
+	tokenConfig "istio.io/mixer/adapter/token/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/config"
-	 tokenConfig "istio.io/mixer/adapter/token/config"
 )
 
 func TestRegisteredForAttributes(t *testing.T) {
@@ -38,8 +38,8 @@ func TestRegisteredForAttributes(t *testing.T) {
 	}
 }
 
-func TestProtoConfig(t *testing.T){
-//if config.pb wasn't generated - bad proto file or not built
+func TestProtoConfig(t *testing.T) {
+	//if config.pb wasn't generated - bad proto file or not built
 }
 
 func TestDefaultBuilderConf(t *testing.T) {
@@ -77,19 +77,19 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			"empty issuer array config",
-			&tokenConfig.Params{Issuers: make([]*tokenConfig.Issuer,0)},
+			&tokenConfig.Params{Issuers: make([]*tokenConfig.Issuer, 0)},
 			0, //config has an empty issuer array
 		},
 		{
 			"single empty issuer",
-			&tokenConfig.Params{Issuers: make([]*tokenConfig.Issuer,1)},
+			&tokenConfig.Params{Issuers: make([]*tokenConfig.Issuer, 1)},
 			1, //nil issuer
 		},
 		{
 			"invalid name",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					&tokenConfig.Issuer{Name:"invalidchars>",PubKeyUrl:"https://pubkeys.org:5111"},
+					{Name: "invalidchars>", PubKeyUrl: "https://pubkeys.org:5111"},
 				},
 			},
 			1, //invalid name character >
@@ -98,7 +98,7 @@ func TestConfig(t *testing.T) {
 			"invalid url",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					&tokenConfig.Issuer{Name:"validchars",PubKeyUrl:"https://pubkeys..org::5111"},
+					{Name: "validchars", PubKeyUrl: "https://pubkeys..org::5111"},
 				},
 			},
 			1, //invalid url
@@ -107,7 +107,7 @@ func TestConfig(t *testing.T) {
 			"invalid name,url",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					&tokenConfig.Issuer{Name:"3badstartingcharacter",PubKeyUrl:"www.pubkeys..org"},
+					{Name: "3badstartingcharacter", PubKeyUrl: "www.pubkeys..org"},
 				},
 			},
 			2, //invalid url + name
@@ -116,7 +116,7 @@ func TestConfig(t *testing.T) {
 			"valid name,url",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					&tokenConfig.Issuer{Name:"w3",PubKeyUrl:"W3.ibm.com/pubkeys:7670"},
+					{Name: "w3", PubKeyUrl: "W3.ibm.com/pubkeys:7670"},
 				},
 			},
 			0, //
@@ -125,7 +125,7 @@ func TestConfig(t *testing.T) {
 			"issuer with multiple mappings to the same claim name",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					&tokenConfig.Issuer{Name:"w3",PubKeyUrl:"W3.ibm.com/pubkeys:7670",ClaimNames:[]string{"dup","dup","sub"}},
+					{Name: "w3", PubKeyUrl: "W3.ibm.com/pubkeys:7670", ClaimNames: []string{"dup", "dup", "sub"}},
 				},
 			},
 			1, //duplicate claim name
@@ -134,7 +134,7 @@ func TestConfig(t *testing.T) {
 			"issuer with empty claim names",
 			&tokenConfig.Params{
 				Issuers: []*tokenConfig.Issuer{
-					&tokenConfig.Issuer{Name:"w3",PubKeyUrl:"W3.ibm.com/pubkeys:7670",ClaimNames:[]string{}},
+					{Name: "w3", PubKeyUrl: "W3.ibm.com/pubkeys:7670", ClaimNames: []string{}},
 				},
 			},
 			0, //duplicate claim name
@@ -144,24 +144,19 @@ func TestConfig(t *testing.T) {
 	b := newBuilder()
 	for _, v := range testConfigs {
 		err := b.ValidateConfig(v.conf)
-		if err != nil && v.errCount == 0{
-			t.Fatalf("Expected config: %v, to pass validation: %v, but got the following errors: %v", v.name, v.conf,err.Multi.Errors)
+		if err != nil && v.errCount == 0 {
+			t.Fatalf("Expected config: %v, to pass validation: %v, but got the following errors: %v", v.name, v.conf, err.Multi.Errors)
 		}
-		if err == nil && v.errCount != 0{
-			t.Fatalf("Expected config: %v to fail validation, but it didn't: %v", v.name,v.conf)
+		if err == nil && v.errCount != 0 {
+			t.Fatalf("Expected config: %v to fail validation, but it didn't: %v", v.name, v.conf)
 		}
-		if ( err!=nil && v.errCount!=0 ) && ( len(err.Multi.Errors) != v.errCount ) {
-			t.Fatalf("Expected config to generate %d errors; got %d ;\n errors: %v", v.errCount, len(err.Multi.Errors),err.Multi.Errors)
+		if (err != nil && v.errCount != 0) && (len(err.Multi.Errors) != v.errCount) {
+			t.Fatalf("Expected config to generate %d errors; got %d ;\n errors: %v", v.errCount, len(err.Multi.Errors), err.Multi.Errors)
 		}
 	}
 }
 
-
-func TestProto(t *testing.T){
+func TestProto(t *testing.T) {
 	//test config.proto by examining generated pb file
 
 }
-
-
-
-

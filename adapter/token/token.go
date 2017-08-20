@@ -2,11 +2,11 @@ package token
 
 //sample file to experiment with the istio mixer features
 import (
+	"fmt"
+	"regexp"
+	"github.com/asaskevich/govalidator"
 	"istio.io/mixer/adapter/token/config"
 	"istio.io/mixer/pkg/adapter"
-	"regexp"
-	"fmt"
-	"github.com/asaskevich/govalidator"
 )
 
 type (
@@ -41,7 +41,7 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 		return // no issuers = default config
 	}
 	issuers := params.Issuers
-	for _,issuer := range issuers{
+	for _, issuer := range issuers {
 		if issuer == nil {
 			ce = ce.Appendf("Issuer", "is nil")
 		} else {
@@ -58,10 +58,10 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 			}
 			if issuer.ClaimNames != nil {
 				duplicateCatcher := make(map[string]bool)
-				for _,name := range issuer.ClaimNames{
-					if _, exists := duplicateCatcher[name] ; !exists {
+				for _, name := range issuer.ClaimNames {
+					if _, exists := duplicateCatcher[name]; !exists {
 						duplicateCatcher[name] = true
-					} else{
+					} else {
 						ce = ce.Appendf("Issuer.ClaimNames", "contains duplicates")
 						break
 					}
