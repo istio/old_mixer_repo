@@ -155,8 +155,3 @@ func TestConfig(t *testing.T) {
 		}
 	}
 }
-
-func TestProto(t *testing.T) {
-	//test config.proto by examining generated pb file
-
-}
