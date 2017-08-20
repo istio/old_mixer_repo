@@ -154,7 +154,7 @@ func safeDecode(str string) ([]byte, error) {
 	}
 
 	integer, err := base64.URLEncoding.DecodeString(str) // RFC 7517 compliant encoding
-	if err != nil {                                      // compensate for APPID and IAM services use base64 instead of base64url
+	if err != nil {                                      // compensate for services that use base64 instead of base64url
 		return base64.StdEncoding.DecodeString(str)
 	}
 	return integer, err

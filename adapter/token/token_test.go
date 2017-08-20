@@ -155,3 +155,60 @@ func TestConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestIssuersFromConfig(t *testing.T){
+	testConfigs := []struct {
+		name     string
+		conf     *tokenConfig.Params
+	}{
+		{
+			"empty config (default)",
+			&tokenConfig.Params{}, //default empty config is valid - no issuer objects will be created
+		},
+		{
+			"empty issuer array config",
+			&tokenConfig.Params{Issuers: make([]*tokenConfig.Issuer, 0)}, //no issuer objects will be created
+		},
+		{
+			"valid single issuer",
+			&tokenConfig.Params{
+				Issuers: []*tokenConfig.Issuer{
+					{Name: "w3", PubKeyUrl: "W3.iss1.com/pubkeys:7670"},
+				},
+			},
+		},
+		{
+			"valid single issuer with claim names and re-names",
+			&tokenConfig.Params{
+				Issuers: []*tokenConfig.Issuer{
+					{Name: "w3", PubKeyUrl: "W3.iss1.com/pubkeys:7670", ClaimNames: []string{"sub","admin","servers.NY.ip"}},
+				},
+			},
+		},
+		{
+			"valid multiple issuers",
+			&tokenConfig.Params{
+				Issuers: []*tokenConfig.Issuer{
+					{Name: "w3", PubKeyUrl: "W3.iss1.com/pubkeys:7670", ClaimNames: []string{"sub","admin","servers.NY.ip"}},
+					{Name: "giss", PubKeyUrl: "login.iss2.com/pubkeys:5120", ClaimNames: []string{"sub","admin","last-login"}},
+				},
+			},
+		},
+	}
+
+	for _, v := range testConfigs {
+		cfg, err := NewTokenConfig(v.conf)
+		if err != nil {
+			t.Fatalf("Expected config: %v, to generate config issuer objects successfuly: %v, but got the following error: %v", v.name, v.conf, err)
+		}
+		if issNum := len(v.conf.Issuers) ; len(cfg.Issuers) != issNum {
+			t.Fatalf("Expected config: %v, to generate %v issuer objects, but got %v", v.name, issNum, len(cfg.Issuers))
+		}
+		for _,issuer := range v.conf.Issuers {
+			if _, exists := cfg.Issuers[issuer.Name] ; !exists {
+				t.Fatalf("Expected config: %v, to create an issuer object named %v, but it didn't", v.name, issuer.Name)
+			}
+		}
+	}
+
+}
