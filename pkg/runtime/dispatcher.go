@@ -138,12 +138,14 @@ func (m *dispatcher) SetResolver(rt Resolver) (oldResolver Resolver) {
 // Resolve resolves configuration to a list of actions.
 func (m *dispatcher) Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety) (Actions, error) {
 	m.RLock()
+	// Ensure that the lock is released even if resolver.Resolve panics.
+	defer m.RUnlock()
+
 	// resolver.Resolve is called under a readLock so that all
 	// in-flight actions are correctly ref counted during a config change.
 	// actions.Done() from every outstanding action indicates that the
 	// configuration is no longer in use.
 	actions, err := m.resolver.Resolve(bag, variety)
-	m.RUnlock()
 	return actions, err
 }
 
