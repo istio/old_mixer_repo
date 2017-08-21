@@ -16,12 +16,12 @@ package token
 
 import (
 	"testing"
+
 	tokenConfig "istio.io/mixer/adapter/token/config"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/config"
-	"istio.io/mixer/pkg/adapter/test"
-
 )
 
 func TestRegisteredForAttributes(t *testing.T) {
@@ -225,11 +225,10 @@ func TestIssuersFromConfig(t *testing.T) {
 
 }
 
-
-func TestPubkeyFetch(t *testing.T){
+func TestPubkeyFetch(t *testing.T) {
 	testConfigs := []struct {
-		name string
-		conf *tokenConfig.Params
+		name          string
+		conf          *tokenConfig.Params
 		isValidIssuer []bool
 	}{
 		{
@@ -250,11 +249,11 @@ func TestPubkeyFetch(t *testing.T){
 					{Name: "jwks24/7", PubKeyUrl: "https://keys.all.day.org"},
 				},
 			},
-			[]bool{true,false,false},
+			[]bool{true, false, false},
 		},
 	}
 
-	for _,v := range testConfigs{
+	for _, v := range testConfigs {
 
 		b := newBuilder()
 		env := test.NewEnv(t)
@@ -263,13 +262,13 @@ func TestPubkeyFetch(t *testing.T){
 		if err != nil {
 			t.Errorf("Unable to create aspect: %v", err)
 		}
-		for i,issuer := range v.conf.Issuers{
+		for i, issuer := range v.conf.Issuers {
 			iss := tag.cfg.Issuers[issuer.Name].(*defaultJWTIssuer)
 			iss.RLock()
-			if v.isValidIssuer[i] && len(iss.pubKeys) <= 0{
+			if v.isValidIssuer[i] && len(iss.pubKeys) <= 0 {
 				t.Errorf("Expected keys to be fetched from working issuer: %v, but they werent", iss.name)
 			}
-			if !v.isValidIssuer[i] && len(iss.pubKeys) > 0{
+			if !v.isValidIssuer[i] && len(iss.pubKeys) > 0 {
 				t.Errorf("issuer: %v isn't real, didn't expect to find keys in cache.", iss.name)
 			}
 			iss.RUnlock()
@@ -283,3 +282,4 @@ func TestPubkeyFetch(t *testing.T){
 	}
 
 }
+

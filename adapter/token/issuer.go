@@ -18,7 +18,7 @@ import (
 
 /*
 Issuer : Represents a token issuer, that issues tokens and provides public keys for validation of said tokens.
-The tokens issued can be of any kind, as long as there are available token parsers for that type (see type Parser)
+The tokens issued can be of any kind, as long as there are available token parsers for that type (see type TokenParser)
 */
 
 type Issuer interface {
@@ -27,7 +27,7 @@ type Issuer interface {
 	//GetPublicKey : get an issuer's public key by the key id. if no such key exists, KeyDoesNotExist error returned.
 	GetPublicKey(kid string) (crypto.PublicKey, error)
 	//UpdatePublicKeys : fetch once and update the public key cache of the issuer.
-	UpdateKeys() error
+	UpdatePublicKeys() error
 }
 
 //Error when requesting an issuer for a key that does not exist
@@ -57,7 +57,7 @@ func (m *MockIssuer) SetPublicKey(kid string, key crypto.PublicKey) {
 	m.pubKeys[kid] = key
 }
 
-//The default jwt token issuer, that works according to the JOSE standard.
+//The default jwt token issuer, that maintains key according to the JOSE standard (jwk).
 type defaultJWTIssuer struct {
 	name         string
 	pubKeysURL   string
@@ -82,7 +82,7 @@ func (iss *defaultJWTIssuer) GetPublicKey(kid string) (crypto.PublicKey, error) 
 }
 
 //UpdateKeys : update the issuer's public key cache
-func (iss *defaultJWTIssuer) UpdateKeys() error {
+func (iss *defaultJWTIssuer) UpdatePublicKeys() error {
 	if iss.pubKeysURL == "" {
 		return errors.New("Url for public keys for IAM must be provided")
 	}

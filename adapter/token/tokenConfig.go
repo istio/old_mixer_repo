@@ -17,18 +17,19 @@ const (
 )
 
 type TokenConfig struct { // structure should not be marshaled to JSON, not even using defaults
-	Issuers map[string]Issuer //supported issuers. tokens by other issuers will not be accepted.
+	Issuers         map[string]Issuer //supported issuers. tokens by other issuers will not be accepted.
 	PubKeysInterval time.Duration
 }
 
 // NewConfig creates a configuration object with default values
 func NewTokenConfig(c adapter.Config) (*TokenConfig, error) {
 	cfg := &TokenConfig{
-		Issuers: map[string]Issuer{},
+		Issuers:         map[string]Issuer{},
 		PubKeysInterval: minPubkeyInterval,
 	}
 	params := c.(*config.Params)
 	for _, issuer := range params.Issuers {
+		//currently only jwt is supported:
 		iss := &defaultJWTIssuer{
 			name:       issuer.Name,
 			pubKeysURL: issuer.PubKeyUrl,
