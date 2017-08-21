@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	minPubkeyInterval = 30 * time.Second
+	minPubkeyInterval = 60 * time.Second
 )
 
 type TokenConfig struct { // structure should not be marshaled to JSON, not even using defaults
@@ -28,15 +28,19 @@ func NewTokenConfig(c adapter.Config) (*TokenConfig, error) {
 		PubKeysInterval: minPubkeyInterval,
 	}
 	params := c.(*config.Params)
+	//extract issuers from config:
 	for _, issuer := range params.Issuers {
 		//currently only jwt is supported:
 		iss := &defaultJWTIssuer{
 			name:       issuer.Name,
 			pubKeysURL: issuer.PubKeyUrl,
 			pubKeys:    map[string]crypto.PublicKey{},
+			claimNames: issuer.ClaimNames,
+			claimRenames: issuer.ClaimRenames,
 		}
 		cfg.Issuers[iss.name] = iss
 	}
+
 	return cfg, nil
 }
 
