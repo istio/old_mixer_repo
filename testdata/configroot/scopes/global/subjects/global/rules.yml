@@ -36,6 +36,7 @@ rules:
         request.token.type: request.token.type
         request.token.valid: request.token.valid
         request.token.signed: request.token.signed
+        request.token.signAlg: request.token.signAlg
         request.token.claims: request.token.claims
   - kind: quotas
     params:
