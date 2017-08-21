@@ -28,6 +28,10 @@ type Issuer interface {
 	GetPublicKey(kid string) (crypto.PublicKey, error)
 	//UpdatePublicKeys : fetch once and update the public key cache of the issuer.
 	UpdatePublicKeys() error
+	//GetClaimNames: get the wanted claim names from tokens issued by this issuer.
+	GetClaimNames() []string
+	//GetClaimRenames: get the wanted claim rename mapping for claim names of tokens issued by this issuer.
+	GetClaimRenames() map[string]string
 }
 
 //Error when requesting an issuer for a key that does not exist
@@ -57,12 +61,15 @@ func (m *MockIssuer) SetPublicKey(kid string, key crypto.PublicKey) {
 	m.pubKeys[kid] = key
 }
 
+
 //The default jwt token issuer, that maintains key according to the JOSE standard (jwk).
 type defaultJWTIssuer struct {
 	name         string
 	pubKeysURL   string
 	pubKeys      map[string]crypto.PublicKey // (kid -> public key)
 	pubKeysTime  time.Time
+	claimNames []string
+	claimRenames map[string]string
 	sync.RWMutex //sync accesses to key pools
 }
 
@@ -139,4 +146,12 @@ func (iss *defaultJWTIssuer) UpdatePublicKeys() error {
 	}
 
 	return nil
+}
+
+func (j* defaultJWTIssuer) GetClaimNames() []string {
+	return j.claimNames
+}
+
+func (j* defaultJWTIssuer) GetClaimRenames() map[string]string {
+	return j.claimRenames
 }
