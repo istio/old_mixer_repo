@@ -25,5 +25,6 @@ go_test(
         "//pkg/adapter:go_default_library",
         "//pkg/adapterManager:go_default_library",
         "//pkg/config:go_default_library",
+        "//pkg/adapter/test:go_default_library"
     ],
 )

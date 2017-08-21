@@ -16,11 +16,12 @@ package token
 
 import (
 	"testing"
-
 	tokenConfig "istio.io/mixer/adapter/token/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/adapter/test"
+
 )
 
 func TestRegisteredForAttributes(t *testing.T) {
@@ -38,8 +39,19 @@ func TestRegisteredForAttributes(t *testing.T) {
 	}
 }
 
-func TestProtoConfig(t *testing.T) {
-	//if config.pb wasn't generated - bad proto file or not built
+func TestBasicLifecycle(t *testing.T) {
+	b := newBuilder()
+	env := test.NewEnv(t)
+	tag, err := b.BuildAttributesGenerator(env, b.DefaultConfig())
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+	if err := tag.Close(); err != nil {
+		t.Errorf("Unable to close aspect: %v", err)
+	}
+	if err := b.Close(); err != nil {
+		t.Errorf("Unable to close builder: %v", err)
+	}
 }
 
 func TestDefaultBuilderConf(t *testing.T) {
@@ -208,6 +220,65 @@ func TestIssuersFromConfig(t *testing.T) {
 			if _, exists := cfg.Issuers[issuer.Name]; !exists {
 				t.Fatalf("Expected config: %v, to create an issuer object named %v, but it didn't", v.name, issuer.Name)
 			}
+		}
+	}
+
+}
+
+
+func TestPubkeyFetch(t *testing.T){
+	testConfigs := []struct {
+		name string
+		conf *tokenConfig.Params
+		isValidIssuer []bool
+	}{
+		{
+			"single working issuer",
+			&tokenConfig.Params{
+				Issuers: []*tokenConfig.Issuer{
+					{Name: "Iam", PubKeyUrl: "https://iam.ng.bluemix.net/oidc/jwks"},
+				},
+			},
+			[]bool{true},
+		},
+		{
+			"working issuer and more non-working issuers",
+			&tokenConfig.Params{
+				Issuers: []*tokenConfig.Issuer{
+					{Name: "Iam", PubKeyUrl: "https://iam.ng.bluemix.net/oidc/jwks"},
+					{Name: "almostIam", PubKeyUrl: "https://iam.ng.bluemix.net/oidc/jwksy"},
+					{Name: "jwks24/7", PubKeyUrl: "https://keys.all.day.org"},
+				},
+			},
+			[]bool{true,false,false},
+		},
+	}
+
+	for _,v := range testConfigs{
+
+		b := newBuilder()
+		env := test.NewEnv(t)
+		a, err := b.BuildAttributesGenerator(env, v.conf)
+		tag := a.(*tokenAttrGen)
+		if err != nil {
+			t.Errorf("Unable to create aspect: %v", err)
+		}
+		for i,issuer := range v.conf.Issuers{
+			iss := tag.cfg.Issuers[issuer.Name].(*defaultJWTIssuer)
+			iss.RLock()
+			if v.isValidIssuer[i] && len(iss.pubKeys) <= 0{
+				t.Errorf("Expected keys to be fetched from working issuer: %v, but they werent", iss.name)
+			}
+			if !v.isValidIssuer[i] && len(iss.pubKeys) > 0{
+				t.Errorf("issuer: %v isn't real, didn't expect to find keys in cache.", iss.name)
+			}
+			iss.RUnlock()
+		}
+		if err := tag.Close(); err != nil {
+			t.Errorf("Unable to close aspect: %v", err)
+		}
+		if err := b.Close(); err != nil {
+			t.Errorf("Unable to close builder: %v", err)
 		}
 	}
 
