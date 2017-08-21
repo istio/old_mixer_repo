@@ -41,27 +41,6 @@ func (k KeyDoesNotExist) Error() string {
 	return "Key does not exist"
 }
 
-//MockIssuer : a mock issuer that can be used for testing. as a testing issuer, it allows explicit control over it's key cache via SetPublicKey.
-type MockIssuer struct {
-	pubKeys map[string]crypto.PublicKey
-}
-
-func (m *MockIssuer) GetName() string { return "Mock" }
-func (m *MockIssuer) GetPublicKey(kid string) (crypto.PublicKey, error) {
-	if key, ok := m.pubKeys[kid]; ok {
-		return key, nil
-	}
-	return nil, KeyDoesNotExist{}
-}
-func (m *MockIssuer) UpdateKeys() error { return nil }
-func (m *MockIssuer) SetPublicKey(kid string, key crypto.PublicKey) {
-	if m.pubKeys == nil {
-		m.pubKeys = make(map[string]crypto.PublicKey)
-	}
-	m.pubKeys[kid] = key
-}
-
-
 //The default jwt token issuer, that maintains key according to the JOSE standard (jwk).
 type defaultJWTIssuer struct {
 	name         string
