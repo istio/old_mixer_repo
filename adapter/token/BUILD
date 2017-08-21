@@ -4,7 +4,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["token.go","tokenConfig.go","Issuer.go","jwk.go"],
+    srcs = ["token.go","tokenConfig.go","issuer.go","jwk.go"],
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/token/config:go_default_library",
@@ -13,6 +13,7 @@ go_library(
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_asaskevich_govalidator//:go_default_library",
+        "@com_github_dgrijalva_jwt-go//:go_default_library"
     ],
 )
 
