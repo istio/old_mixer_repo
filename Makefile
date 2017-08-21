@@ -38,4 +38,7 @@ racetest:
 testdata/kubernetes/config:
 	@ln -sf ~/.kube/config testdata/kubernetes/config
 
-.PHONY: build clean test lint fmt coverage racetest
+gazelle:
+	@bin/gazelle
+
+.PHONY: build clean test lint fmt coverage racetest gazelle
