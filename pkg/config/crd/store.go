@@ -112,17 +112,14 @@ func (s *Store) Init(ctx context.Context) error {
 		return err
 	}
 	s.caches = make(map[string]cache.Store, len(s.kinds))
-	for _, res := range resources.APIResources {
+	for i, res := range resources.APIResources {
 		if _, ok := s.kinds[res.Kind]; ok {
-			// This is a bit tricky; the variable "res" may refer to the same address
-			// whose content can be updated through the iteration, and that goes
-			// the resource client to lookup different resources. It's safer to make a
-			// shallow copy of "res".
-			resCopied := res
-			cl := dyn.Resource(&resCopied, "")
+			// Not using the pointer of "res"; the for-loop may reuse the same address
+			// for the "res" variable.
+			cl := dyn.Resource(&resources.APIResources[i], "")
 			informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
 			s.caches[res.Kind] = informer.GetStore()
-			s.resources[res.Kind] = resCopied
+			s.resources[res.Kind] = res
 			informer.AddEventHandler(s)
 			go informer.Run(ctx.Done())
 		}
