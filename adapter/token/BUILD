@@ -4,7 +4,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["token.go","tokenConfig.go","issuer.go","jwk.go"],
+    srcs = ["token.go","tokenConfig.go","issuer.go","jwk.go","parser.go"],
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/token/config:go_default_library",
@@ -26,6 +26,6 @@ go_test(
         "//pkg/adapter:go_default_library",
         "//pkg/adapterManager:go_default_library",
         "//pkg/config:go_default_library",
-        "//pkg/adapter/test:go_default_library"
+        "//pkg/adapter/test:go_default_library",
     ],
 )
