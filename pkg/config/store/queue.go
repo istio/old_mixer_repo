@@ -16,7 +16,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
@@ -56,7 +55,6 @@ loop:
 			break loop
 		case ev := <-q.chin:
 			converted, err := q.convertValue(ev)
-			fmt.Printf("%+v\n", converted)
 			if err != nil {
 				glog.Errorf("Failed to convert an event: %v", err)
 				break
