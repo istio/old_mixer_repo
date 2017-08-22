@@ -135,11 +135,6 @@ var (
 	}
 
 	gaugeVal = newGaugeVal(gaugeNoLabels.Name, int64(993))
-	//gaugeVal = &metric.Instance{
-	//	Name: gaugeNoLabels.Name,
-	//	Value: 993,
-	//	Dimensions: map[string]interface{}{},
-	//}
 )
 
 func TestFactory_NewMetricsAspect(t *testing.T) {
