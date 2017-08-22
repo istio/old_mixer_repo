@@ -154,11 +154,11 @@ func TestStore(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
-	if _, err := s.Get(k); err != store.ErrNotFound {
+	if _, err = s.Get(k); err != store.ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
-	if err := lw.put(k, h); err != nil {
+	if err = lw.put(k, h); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	waitFor(wch, store.Update, k)
