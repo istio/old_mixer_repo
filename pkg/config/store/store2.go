@@ -35,6 +35,9 @@ type Key struct {
 type Event struct {
 	Key
 	Type ChangeType
+
+	// Value refers the new value in the updated event. nil if the event type is delete.
+	Value proto.Message
 }
 
 // Validator defines the interface to validate a new change.
@@ -48,14 +51,10 @@ type Store2 interface {
 	// SetValidator sets the validator for the store.
 	SetValidator(v Validator)
 
-	// RegisterKind registers a kind to be structured as the given proto.Message.
-	// This will be used for structural validations.
-	RegisterKind(kind string, spec proto.Message)
-
-	// Init initializes the connection with the storage backend. Any further registrations
-	// of kind through RegisterKind() will be ignored after Init(). The connection will
-	// be closed after ctx is done.
-	Init(ctx context.Context) error
+	// Init initializes the connection with the storage backend. This uses "kinds"
+	// for the mapping from the kind's name and its structure in protobuf.
+	// The connection will be closed after ctx is done.
+	Init(ctx context.Context, kinds map[string]proto.Message) error
 
 	// Watch creates a channel to receive the events on the given kinds.
 	Watch(ctx context.Context, kinds []string) (<-chan Event, error)
@@ -65,13 +64,4 @@ type Store2 interface {
 
 	// List returns the whole mapping from key to resource specs in the store.
 	List() map[Key]proto.Message
-
-	// ListKeys returns the list of all keys in the store.
-	ListKeys() []Key
-
-	// Put creates or updates the spec for the certain key.
-	Put(key Key, spec proto.Message) error
-
-	// Delete delets the resource for the key.
-	Delete(key Key) error
 }

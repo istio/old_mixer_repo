@@ -40,7 +40,7 @@ func TestQueue(t *testing.T) {
 		close(donec)
 	}()
 	for i := 0; i < count; i++ {
-		q.Send(store.Update, store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)})
+		q.Send(store.Event{Type: store.Update, Key: store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}})
 	}
 	<-donec
 	if len(evs) != count {
@@ -59,7 +59,7 @@ func TestQueueSync(t *testing.T) {
 	q := newQueue(ctx, cancel)
 	defer q.cancel()
 	for i := 0; i < count; i++ {
-		q.Send(store.Update, store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)})
+		q.Send(store.Event{Type: store.Update, Key: store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}})
 	}
 	for i := 0; i < count; i++ {
 		ev := <-q.chout
@@ -82,7 +82,7 @@ func TestQueueCancel(t *testing.T) {
 		close(donec)
 	}()
 	for i := 0; i < count; i++ {
-		q.Send(store.Update, store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)})
+		q.Send(store.Event{Type: store.Update, Key: store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}})
 		time.Sleep(time.Millisecond)
 	}
 	<-donec

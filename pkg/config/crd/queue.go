@@ -61,9 +61,9 @@ loop:
 	close(q.chout)
 }
 
-func (q *eventQueue) Send(t store.ChangeType, key store.Key) {
+func (q *eventQueue) Send(ev store.Event) {
 	select {
 	case <-q.ctx.Done():
-	case q.chin <- store.Event{Key: key, Type: t}:
+	case q.chin <- ev:
 	}
 }
