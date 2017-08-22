@@ -63,27 +63,41 @@ type Store2Backend interface {
 
 // Store2 defines the access to the storage for mixer.
 // TODO: rename to Store.
-type Store2 struct {
+type Store2 interface {
+	Init(ctx context.Context, kinds map[string]proto.Message) error
+
+	// Watch creates a channel to receive the events.
+	Watch(ctx context.Context) (<-chan Event, error)
+
+	// Get returns a resource's spec to the key.
+	Get(key Key, spec proto.Message) error
+
+	// List returns the whole mapping from key to resource specs in the store.
+	List() map[Key]proto.Message
+}
+
+// store2 is the implementation of Store2 interface.
+type store2 struct {
 	kinds   map[string]proto.Message
 	backend Store2Backend
 }
 
 // NewStore2 creates a new Store2 instance with the specified backend.
-func NewStore2(backend Store2Backend) *Store2 {
-	return &Store2{
+func NewStore2(backend Store2Backend) Store2 {
+	return &store2{
 		backend: backend,
 	}
 }
 
 // SetValidator sets the validator for the store.
-func (s *Store2) SetValidator(v Validator) {
+func (s *store2) SetValidator(v Validator) {
 	// TODO: implement this
 }
 
 // Init initializes the connection with the storage backend. This uses "kinds"
 // for the mapping from the kind's name and its structure in protobuf.
 // The connection will be closed after ctx is done.
-func (s *Store2) Init(ctx context.Context, kinds map[string]proto.Message) error {
+func (s *store2) Init(ctx context.Context, kinds map[string]proto.Message) error {
 	kindNames := make([]string, 0, len(kinds))
 	for k := range kinds {
 		kindNames = append(kindNames, k)
@@ -96,7 +110,7 @@ func (s *Store2) Init(ctx context.Context, kinds map[string]proto.Message) error
 }
 
 // Watch creates a channel to receive the events.
-func (s *Store2) Watch(ctx context.Context) (<-chan Event, error) {
+func (s *store2) Watch(ctx context.Context) (<-chan Event, error) {
 	ch, err := s.backend.Watch(ctx)
 	if err != nil {
 		return nil, err
@@ -106,7 +120,7 @@ func (s *Store2) Watch(ctx context.Context) (<-chan Event, error) {
 }
 
 // Get returns a resource's spec to the key.
-func (s *Store2) Get(key Key, spec proto.Message) error {
+func (s *store2) Get(key Key, spec proto.Message) error {
 	obj, err := s.backend.Get(key)
 	if err != nil {
 		return err
@@ -116,7 +130,7 @@ func (s *Store2) Get(key Key, spec proto.Message) error {
 }
 
 // List returns the whole mapping from key to resource specs in the store.
-func (s *Store2) List() map[Key]proto.Message {
+func (s *store2) List() map[Key]proto.Message {
 	data := s.backend.List()
 	result := make(map[Key]proto.Message, len(data))
 	for k, spec := range data {
