@@ -17,6 +17,7 @@ package crd
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +49,7 @@ func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 }
 
 type dummyListerWatcherBuilder struct {
+	mu       sync.RWMutex
 	data     map[store.Key]*resource
 	watchers map[string]*watch.FakeWatcher
 }
@@ -55,6 +57,8 @@ type dummyListerWatcherBuilder struct {
 func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
 	return &cache.ListWatch{
 		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
+			d.mu.RLock()
+			defer d.mu.RUnlock()
 			list := &resourceList{}
 			for k, v := range d.data {
 				if k.Kind == res.Kind {
@@ -64,6 +68,8 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 			return list, nil
 		},
 		WatchFunc: func(metav1.ListOptions) (watch.Interface, error) {
+			d.mu.Lock()
+			defer d.mu.Unlock()
 			w := watch.NewFake()
 			d.watchers[res.Kind] = w
 			return w, nil
@@ -72,6 +78,8 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 }
 
 func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	res := &resource{
 		Kind:       key.Kind,
 		APIVersion: apiGroupVersion,
@@ -96,6 +104,8 @@ func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface
 }
 
 func (d *dummyListerWatcherBuilder) delete(key store.Key) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	value, ok := d.data[key]
 	if !ok {
 		return
@@ -134,10 +144,10 @@ func waitFor(wch <-chan store.Event, ct store.ChangeType, key store.Key) {
 func TestStore(t *testing.T) {
 	s, ns, lw := getTempClient()
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
-	defer cancel()
 
 	wch, err := s.Watch(ctx)
 	if err != nil {
