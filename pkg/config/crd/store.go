@@ -75,7 +75,7 @@ type Store struct {
 	caches map[string]cache.Store
 
 	mu  sync.Mutex
-	chs map[string][]*contextCh
+	chs []*contextCh
 
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
@@ -148,30 +148,24 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	return nil
 }
 
-func (s *Store) closeWatch(ctx context.Context, kinds []string, ch chan store.Event) {
+func (s *Store) closeWatch(ctx context.Context, ch chan store.Event) {
 	<-ctx.Done()
 	s.mu.Lock()
-	for _, k := range kinds {
-		chs := s.chs[k]
-		for i, c := range chs {
-			if ch == c.ch {
-				s.chs[k] = append(chs[:i], chs[i+1:]...)
-				break
-			}
+	for i, c := range s.chs {
+		if ch == c.ch {
+			s.chs = append(s.chs[:i], s.chs[i+1:]...)
 		}
 	}
 	s.mu.Unlock()
 }
 
 // Watch implements store.Store2Backend interface.
-func (s *Store) Watch(ctx context.Context, kinds []string) (<-chan store.Event, error) {
+func (s *Store) Watch(ctx context.Context) (<-chan store.Event, error) {
 	ch := make(chan store.Event)
 	s.mu.Lock()
-	for _, k := range kinds {
-		s.chs[k] = append(s.chs[k], &contextCh{ctx, ch})
-	}
+	s.chs = append(s.chs, &contextCh{ctx, ch})
 	s.mu.Unlock()
-	go s.closeWatch(ctx, kinds, ch)
+	go s.closeWatch(ctx, ch)
 	return ch, nil
 }
 
@@ -226,7 +220,7 @@ func toEvent(t store.ChangeType, obj interface{}) (store.Event, error) {
 }
 
 func (s *Store) dispatch(ev store.Event) {
-	for _, ch := range s.chs[ev.Kind] {
+	for _, ch := range s.chs {
 		select {
 		case <-ch.ctx.Done():
 		case ch.ch <- ev:
@@ -292,7 +286,6 @@ func NewStore(kubeconfig string, namespaces []string) (*Store, error) {
 	return &Store{
 		conf:             conf,
 		ns:               ns,
-		chs:              map[string][]*contextCh{},
 		discoveryBuilder: defaultDiscoveryBuilder,
 	}, nil
 }

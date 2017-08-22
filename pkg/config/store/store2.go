@@ -51,8 +51,8 @@ type Validator interface {
 type Store2Backend interface {
 	Init(ctx context.Context, kinds []string) error
 
-	// Watch creates a channel to receive the events on the given kinds.
-	Watch(ctx context.Context, kinds []string) (<-chan Event, error)
+	// Watch creates a channel to receive the events.
+	Watch(ctx context.Context) (<-chan Event, error)
 
 	// Get returns a resource's spec to the key.
 	Get(key Key) (map[string]interface{}, error)
@@ -68,6 +68,7 @@ type Store2 struct {
 	backend Store2Backend
 }
 
+// NewStore2 creates a new Store2 instance with the specified backend.
 func NewStore2(backend Store2Backend) *Store2 {
 	return &Store2{
 		backend: backend,
@@ -94,9 +95,9 @@ func (s *Store2) Init(ctx context.Context, kinds map[string]proto.Message) error
 	return nil
 }
 
-// Watch creates a channel to receive the events on the given kinds.
-func (s *Store2) Watch(ctx context.Context, kinds []string) (<-chan Event, error) {
-	ch, err := s.backend.Watch(ctx, kinds)
+// Watch creates a channel to receive the events.
+func (s *Store2) Watch(ctx context.Context) (<-chan Event, error) {
+	ch, err := s.backend.Watch(ctx)
 	if err != nil {
 		return nil, err
 	}

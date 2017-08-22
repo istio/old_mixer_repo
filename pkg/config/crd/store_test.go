@@ -117,7 +117,6 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	client := &Store{
 		conf:                 &rest.Config{},
 		ns:                   map[string]bool{ns: true},
-		chs:                  map[string][]*contextCh{},
 		discoveryBuilder:     createFakeDiscovery,
 		listerWatcherBuilder: lw,
 	}
@@ -140,7 +139,7 @@ func TestStore(t *testing.T) {
 	}
 	defer cancel()
 
-	wch, err := s.Watch(ctx, []string{"Handler"})
+	wch, err := s.Watch(ctx)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
