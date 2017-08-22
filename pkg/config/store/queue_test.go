@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+
 	cfg "istio.io/mixer/pkg/config/proto"
 )
 
