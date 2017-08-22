@@ -21,14 +21,14 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	cfg "istio.io/mixer/pkg/config/proto"
 )
 
 func TestQueue(t *testing.T) {
 	count := 10
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	chin := make(chan Event)
-	kinds := map[string]proto.Message{}
-	q := newQueue(ctx, chin, kinds)
+	chin := make(chan BackendEvent)
+	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
 	defer cancel()
 	donec := make(chan struct{})
 	evs := []Event{}
@@ -42,9 +42,9 @@ func TestQueue(t *testing.T) {
 		close(donec)
 	}()
 	for i := 0; i < count; i++ {
-		chin <- Event{
+		chin <- BackendEvent{
 			Type: Update,
-			Key:  Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)},
+			Key:  Key{Kind: "Handler", Namespace: "ns", Name: fmt.Sprintf("%d", i)},
 		}
 	}
 	<-donec
@@ -61,13 +61,13 @@ func TestQueue(t *testing.T) {
 func TestQueueSync(t *testing.T) {
 	count := 10
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	chin := make(chan Event)
-	q := newQueue(ctx, chin, map[string]proto.Message{})
+	chin := make(chan BackendEvent)
+	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
 	defer cancel()
 	for i := 0; i < count; i++ {
-		chin <- Event{
+		chin <- BackendEvent{
 			Type: Update,
-			Key:  Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)},
+			Key:  Key{Kind: "Handler", Namespace: "ns", Name: fmt.Sprintf("%d", i)},
 		}
 	}
 	for i := 0; i < count; i++ {
@@ -82,8 +82,8 @@ func TestQueueCancel(t *testing.T) {
 	count := 10
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(count)/2)
 	defer cancel()
-	chin := make(chan Event)
-	q := newQueue(ctx, chin, map[string]proto.Message{})
+	chin := make(chan BackendEvent)
+	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
 	evs := []Event{}
 	donec := make(chan struct{})
 	go func() {
@@ -95,7 +95,7 @@ func TestQueueCancel(t *testing.T) {
 	for i := 0; i < count; i++ {
 		select {
 		case <-ctx.Done():
-		case chin <- Event{Type: Update, Key: Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}:
+		case chin <- BackendEvent{Type: Update, Key: Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}:
 		}
 		time.Sleep(time.Millisecond)
 	}

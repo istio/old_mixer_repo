@@ -34,13 +34,20 @@ type Key struct {
 	Name      string
 }
 
+// BackendEvent is an event used between Store2Backend and Store2.
+type BackendEvent struct {
+	Key
+	Type  ChangeType
+	Value map[string]interface{}
+}
+
 // Event represents an event. Used by Store2.Watch.
 type Event struct {
 	Key
 	Type ChangeType
 
 	// Value refers the new value in the updated event. nil if the event type is delete.
-	Value interface{}
+	Value proto.Message
 }
 
 // Validator defines the interface to validate a new change.
@@ -54,7 +61,7 @@ type Store2Backend interface {
 	Init(ctx context.Context, kinds []string) error
 
 	// Watch creates a channel to receive the events.
-	Watch(ctx context.Context) (<-chan Event, error)
+	Watch(ctx context.Context) (<-chan BackendEvent, error)
 
 	// Get returns a resource's spec to the key.
 	Get(key Key) (map[string]interface{}, error)

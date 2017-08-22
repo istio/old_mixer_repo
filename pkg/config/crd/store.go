@@ -67,7 +67,7 @@ type listerWatcherBuilderInterface interface {
 
 type contextCh struct {
 	ctx context.Context
-	ch  chan store.Event
+	ch  chan store.BackendEvent
 }
 
 // Store offers store.Store2Backend interface through kubernetes custom resource definitions.
@@ -150,7 +150,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	return nil
 }
 
-func (s *Store) closeWatch(ctx context.Context, ch chan store.Event) {
+func (s *Store) closeWatch(ctx context.Context, ch chan store.BackendEvent) {
 	<-ctx.Done()
 	s.mu.Lock()
 	for i, c := range s.chs {
@@ -162,8 +162,8 @@ func (s *Store) closeWatch(ctx context.Context, ch chan store.Event) {
 }
 
 // Watch implements store.Store2Backend interface.
-func (s *Store) Watch(ctx context.Context) (<-chan store.Event, error) {
-	ch := make(chan store.Event)
+func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
+	ch := make(chan store.BackendEvent)
 	s.mu.Lock()
 	s.chs = append(s.chs, &contextCh{ctx, ch})
 	s.mu.Unlock()
@@ -209,19 +209,19 @@ func (s *Store) List() map[store.Key]map[string]interface{} {
 	return result
 }
 
-func toEvent(t store.ChangeType, obj interface{}) (store.Event, error) {
+func toEvent(t store.ChangeType, obj interface{}) (store.BackendEvent, error) {
 	r, ok := obj.(*resource)
 	if !ok {
-		return store.Event{}, fmt.Errorf("unrecognized data %+v", obj)
+		return store.BackendEvent{}, fmt.Errorf("unrecognized data %+v", obj)
 	}
-	return store.Event{
+	return store.BackendEvent{
 		Type:  t,
 		Key:   store.Key{Kind: r.Kind, Namespace: r.Namespace, Name: r.Name},
 		Value: r.Spec,
 	}, nil
 }
 
-func (s *Store) dispatch(ev store.Event) {
+func (s *Store) dispatch(ev store.BackendEvent) {
 	for _, ch := range s.chs {
 		select {
 		case <-ch.ctx.Done():

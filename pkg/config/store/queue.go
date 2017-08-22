@@ -16,6 +16,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
@@ -24,11 +25,11 @@ import (
 type eventQueue struct {
 	ctx   context.Context
 	chout chan Event
-	chin  <-chan Event
+	chin  <-chan BackendEvent
 	kinds map[string]proto.Message
 }
 
-func newQueue(ctx context.Context, chin <-chan Event, kinds map[string]proto.Message) *eventQueue {
+func newQueue(ctx context.Context, chin <-chan BackendEvent, kinds map[string]proto.Message) *eventQueue {
 	eq := &eventQueue{
 		ctx:   ctx,
 		chout: make(chan Event),
@@ -39,14 +40,12 @@ func newQueue(ctx context.Context, chin <-chan Event, kinds map[string]proto.Mes
 	return eq
 }
 
-func (q *eventQueue) transformValue(ev *Event) error {
-	spec, ok := ev.Value.(map[string]interface{})
-	if !ok {
-		return nil
+func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
+	convertedValue, err := convertWithKind(ev.Value, ev.Kind, q.kinds)
+	if err != nil {
+		return Event{}, err
 	}
-	var err error
-	ev.Value, err = convertWithKind(spec, ev.Kind, q.kinds)
-	return err
+	return Event{Key: ev.Key, Type: ev.Type, Value: convertedValue}, nil
 }
 
 func (q *eventQueue) run() {
@@ -56,18 +55,24 @@ loop:
 		case <-q.ctx.Done():
 			break loop
 		case ev := <-q.chin:
-			evs := []Event{ev}
+			converted, err := q.convertValue(ev)
+			fmt.Printf("%+v\n", converted)
+			if err != nil {
+				glog.Errorf("Failed to convert an event: %v", err)
+				break
+			}
+			evs := []Event{converted}
 			for len(evs) > 0 {
-				if err := q.transformValue(&evs[0]); err != nil {
-					glog.Errorf("Failed to transform an event: %v", err)
-					evs = evs[1:]
-					continue
-				}
 				select {
 				case <-q.ctx.Done():
 					break loop
 				case ev := <-q.chin:
-					evs = append(evs, ev)
+					converted, err = q.convertValue(ev)
+					if err != nil {
+						glog.Errorf("Failed to convert an event: %v", err)
+						break
+					}
+					evs = append(evs, converted)
 				case q.chout <- evs[0]:
 					evs = evs[1:]
 				}

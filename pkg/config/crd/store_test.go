@@ -132,7 +132,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	return client, ns, lw
 }
 
-func waitFor(wch <-chan store.Event, ct store.ChangeType, key store.Key) {
+func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) {
 	for ev := range wch {
 		if ev.Key == key && ev.Type == ct {
 			return
