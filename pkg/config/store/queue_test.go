@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crd
+package store
 
 import (
 	"context"
@@ -20,16 +20,18 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/mixer/pkg/config/store"
+	"github.com/gogo/protobuf/proto"
 )
 
 func TestQueue(t *testing.T) {
 	count := 10
-	ctx, cancel := context.WithCancel(context.Background())
-	q := newQueue(ctx, cancel)
-	defer q.cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	chin := make(chan Event)
+	kinds := map[string]proto.Message{}
+	q := newQueue(ctx, chin, kinds)
+	defer cancel()
 	donec := make(chan struct{})
-	evs := []store.Event{}
+	evs := []Event{}
 	go func() {
 		for ev := range q.chout {
 			evs = append(evs, ev)
@@ -40,7 +42,10 @@ func TestQueue(t *testing.T) {
 		close(donec)
 	}()
 	for i := 0; i < count; i++ {
-		q.Send(store.Event{Type: store.Update, Key: store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}})
+		chin <- Event{
+			Type: Update,
+			Key:  Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)},
+		}
 	}
 	<-donec
 	if len(evs) != count {
@@ -55,11 +60,15 @@ func TestQueue(t *testing.T) {
 
 func TestQueueSync(t *testing.T) {
 	count := 10
-	ctx, cancel := context.WithCancel(context.Background())
-	q := newQueue(ctx, cancel)
-	defer q.cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	chin := make(chan Event)
+	q := newQueue(ctx, chin, map[string]proto.Message{})
+	defer cancel()
 	for i := 0; i < count; i++ {
-		q.Send(store.Event{Type: store.Update, Key: store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}})
+		chin <- Event{
+			Type: Update,
+			Key:  Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)},
+		}
 	}
 	for i := 0; i < count; i++ {
 		ev := <-q.chout
@@ -72,17 +81,23 @@ func TestQueueSync(t *testing.T) {
 func TestQueueCancel(t *testing.T) {
 	count := 10
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(count)/2)
-	q := newQueue(ctx, cancel)
-	evs := []store.Event{}
+	defer cancel()
+	chin := make(chan Event)
+	q := newQueue(ctx, chin, map[string]proto.Message{})
+	evs := []Event{}
 	donec := make(chan struct{})
 	go func() {
 		for ev := range q.chout {
+			fmt.Printf("%d\n", len(evs))
 			evs = append(evs, ev)
 		}
 		close(donec)
 	}()
 	for i := 0; i < count; i++ {
-		q.Send(store.Event{Type: store.Update, Key: store.Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}})
+		select {
+		case <-ctx.Done():
+		case chin <- Event{Type: Update, Key: Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}:
+		}
 		time.Sleep(time.Millisecond)
 	}
 	<-donec

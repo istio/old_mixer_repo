@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/glog"
 )
 
 // ErrNotFound is the error to be returned when the given key does not exist in the storage.
@@ -37,7 +38,7 @@ type Event struct {
 	Type ChangeType
 
 	// Value refers the new value in the updated event. nil if the event type is delete.
-	Value proto.Message
+	Value interface{}
 }
 
 // Validator defines the interface to validate a new change.
@@ -45,23 +46,85 @@ type Validator interface {
 	Validate(t ChangeType, key Key, spec proto.Message) bool
 }
 
-// Store2 defines the access to the storage for mixer.
-// TODO: rename to Store.
-type Store2 interface {
-	// SetValidator sets the validator for the store.
-	SetValidator(v Validator)
-
-	// Init initializes the connection with the storage backend. This uses "kinds"
-	// for the mapping from the kind's name and its structure in protobuf.
-	// The connection will be closed after ctx is done.
-	Init(ctx context.Context, kinds map[string]proto.Message) error
+// Store2Backend defines the typeless storage backend for mixer.
+// TODO: rename to StoreBackend.
+type Store2Backend interface {
+	Init(ctx context.Context, kinds []string) error
 
 	// Watch creates a channel to receive the events on the given kinds.
 	Watch(ctx context.Context, kinds []string) (<-chan Event, error)
 
 	// Get returns a resource's spec to the key.
-	Get(key Key, spec proto.Message) error
+	Get(key Key) (map[string]interface{}, error)
 
 	// List returns the whole mapping from key to resource specs in the store.
-	List() map[Key]proto.Message
+	List() map[Key]map[string]interface{}
+}
+
+// Store2 defines the access to the storage for mixer.
+// TODO: rename to Store.
+type Store2 struct {
+	kinds   map[string]proto.Message
+	backend Store2Backend
+}
+
+func NewStore2(backend Store2Backend) *Store2 {
+	return &Store2{
+		backend: backend,
+	}
+}
+
+// SetValidator sets the validator for the store.
+func (s *Store2) SetValidator(v Validator) {
+	// TODO: implement this
+}
+
+// Init initializes the connection with the storage backend. This uses "kinds"
+// for the mapping from the kind's name and its structure in protobuf.
+// The connection will be closed after ctx is done.
+func (s *Store2) Init(ctx context.Context, kinds map[string]proto.Message) error {
+	kindNames := make([]string, 0, len(kinds))
+	for k := range kinds {
+		kindNames = append(kindNames, k)
+	}
+	if err := s.backend.Init(ctx, kindNames); err != nil {
+		return err
+	}
+	s.kinds = kinds
+	return nil
+}
+
+// Watch creates a channel to receive the events on the given kinds.
+func (s *Store2) Watch(ctx context.Context, kinds []string) (<-chan Event, error) {
+	ch, err := s.backend.Watch(ctx, kinds)
+	if err != nil {
+		return nil, err
+	}
+	q := newQueue(ctx, ch, s.kinds)
+	return q.chout, nil
+}
+
+// Get returns a resource's spec to the key.
+func (s *Store2) Get(key Key, spec proto.Message) error {
+	obj, err := s.backend.Get(key)
+	if err != nil {
+		return err
+	}
+
+	return convert(obj, spec)
+}
+
+// List returns the whole mapping from key to resource specs in the store.
+func (s *Store2) List() map[Key]proto.Message {
+	data := s.backend.List()
+	result := make(map[Key]proto.Message, len(data))
+	for k, spec := range data {
+		pbSpec, err := convertWithKind(spec, k.Kind, s.kinds)
+		if err != nil {
+			glog.Errorf("Failed to convert spec: %v", err)
+			continue
+		}
+		result[k] = pbSpec
+	}
+	return result
 }

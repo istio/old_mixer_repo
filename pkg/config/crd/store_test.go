@@ -19,7 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -29,7 +28,6 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	cfg "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 )
 
@@ -73,11 +71,7 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 	}
 }
 
-func (d *dummyListerWatcherBuilder) put(key store.Key, value proto.Message) error {
-	specData := map[string]interface{}{}
-	if err := convertBack(value, &specData); err != nil {
-		return err
-	}
+func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
 	res := &resource{
 		Kind:       key.Kind,
 		APIVersion: apiGroupVersion,
@@ -85,7 +79,7 @@ func (d *dummyListerWatcherBuilder) put(key store.Key, value proto.Message) erro
 			Name:      key.Name,
 			Namespace: key.Namespace,
 		},
-		Spec: specData,
+		Spec: spec,
 	}
 	_, existed := d.data[key]
 	d.data[key] = res
@@ -123,19 +117,16 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	client := &Store{
 		conf:                 &rest.Config{},
 		ns:                   map[string]bool{ns: true},
-		kinds:                map[string]proto.Message{},
-		resources:            map[string]metav1.APIResource{},
-		eqs:                  map[string][]*eventQueue{},
+		chs:                  map[string][]*contextCh{},
 		discoveryBuilder:     createFakeDiscovery,
 		listerWatcherBuilder: lw,
 	}
 	return client, ns, lw
 }
 
-func waitFor(wch <-chan store.Event, ct store.ChangeType, key store.Key, value proto.Message) {
-	expected := store.Event{Key: key, Type: ct, Value: value}
+func waitFor(wch <-chan store.Event, ct store.ChangeType, key store.Key) {
 	for ev := range wch {
-		if reflect.DeepEqual(ev, expected) {
+		if ev.Key == key && ev.Type == ct {
 			return
 		}
 	}
@@ -144,8 +135,7 @@ func waitFor(wch <-chan store.Event, ct store.ChangeType, key store.Key, value p
 func TestStore(t *testing.T) {
 	s, ns, lw := getTempClient()
 	ctx, cancel := context.WithCancel(context.Background())
-	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}, "Action": &cfg.Action{}}
-	if err := s.Init(ctx, kinds); err != nil {
+	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
 	defer cancel()
@@ -155,26 +145,24 @@ func TestStore(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
-	h := &cfg.Handler{}
-	if err := s.Get(k, h); err != store.ErrNotFound {
+	if _, err := s.Get(k); err != store.ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
-	h.Name = "default"
-	h.Adapter = "noop"
+	h := map[string]interface{}{"name": "default", "adapter": "noop"}
 	if err := lw.put(k, h); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	waitFor(wch, store.Update, k, h)
-	h2 := &cfg.Handler{}
-	if err := s.Get(k, h2); err != nil {
+	waitFor(wch, store.Update, k)
+	h2, err := s.Get(k)
+	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	if !reflect.DeepEqual(h, h2) {
 		t.Errorf("Got %+v, Want %+v", h2, h)
 	}
 	lw.delete(k)
-	waitFor(wch, store.Delete, k, nil)
-	if err := s.Get(k, h2); err != store.ErrNotFound {
+	waitFor(wch, store.Delete, k)
+	if _, err := s.Get(k); err != store.ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
 }
@@ -182,21 +170,18 @@ func TestStore(t *testing.T) {
 func TestStoreWrongKind(t *testing.T) {
 	s, ns, lw := getTempClient()
 	ctx, cancel := context.WithCancel(context.Background())
-	kinds := map[string]proto.Message{"Action": &cfg.Action{}}
-	if err := s.Init(ctx, kinds); err != nil {
+	if err := s.Init(ctx, []string{"Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
 	defer cancel()
 
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
-	h := &cfg.Handler{}
-	h.Name = "default"
-	h.Adapter = "noop"
+	h := map[string]interface{}{"name": "default", "adapter": "noop"}
 	if err := lw.put(k, h); err != nil {
 		t.Error("Got nil, Want error")
 	}
 
-	if err := s.Get(k, h); err == nil {
+	if _, err := s.Get(k); err == nil {
 		t.Errorf("Got nil, Want error")
 	}
 }

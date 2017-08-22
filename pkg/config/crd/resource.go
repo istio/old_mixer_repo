@@ -15,11 +15,6 @@
 package crd
 
 import (
-	"bytes"
-	"encoding/json"
-
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -100,25 +95,4 @@ func (r *resourceList) DeepCopyObject() runtime.Object {
 		r2.Items[i] = item.DeepCopyObject().(*resource)
 	}
 	return r2
-}
-
-func convert(spec map[string]interface{}, pbSpec proto.Message) error {
-	// This is inefficient; convert to a protobuf message through JSON.
-	// TODO: use reflect.
-	jsonData, err := json.Marshal(spec)
-	if err != nil {
-		return err
-	}
-	return jsonpb.Unmarshal(bytes.NewReader(jsonData), pbSpec)
-}
-
-func convertBack(pbSpec proto.Message, spec *map[string]interface{}) error {
-	buf := bytes.NewBuffer(nil)
-	if err := (&jsonpb.Marshaler{}).Marshal(buf, pbSpec); err != nil {
-		return err
-	}
-	if err := json.Unmarshal(buf.Bytes(), spec); err != nil {
-		return err
-	}
-	return nil
 }
