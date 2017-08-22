@@ -169,9 +169,6 @@ func (r *Registry2) NewStore2(configURL string) (Store2, error) {
 	}
 
 	s2 := &store2{}
-	if u.Scheme == FSUrl {
-		// TODO: add fsstore
-	}
 	if builder, ok := r.builders[u.Scheme]; ok {
 		s2.backend, err = builder(u)
 		if err == nil {
