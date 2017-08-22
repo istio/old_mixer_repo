@@ -150,6 +150,7 @@ func TestRegistry2(t *testing.T) {
 	}{
 		{"memstore://", true},
 		{"mem://", false},
+		{"fs:///", true},
 		{"://", false},
 	} {
 		_, err := r.NewStore2(c.u)
