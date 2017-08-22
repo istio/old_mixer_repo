@@ -19,6 +19,8 @@ package crd
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -195,7 +197,7 @@ func (s *Store) List() map[store.Key]map[string]interface{} {
 	for kind, c := range s.caches {
 		for _, obj := range c.List() {
 			if res, ok := obj.(*resource); ok {
-				if s.ns[res.Namespace] {
+				if s.ns == nil || s.ns[res.Namespace] {
 					key := store.Key{Kind: kind, Name: res.Name, Namespace: res.Namespace}
 					result[key] = res.Spec
 				}
@@ -272,20 +274,33 @@ func (s *Store) OnDelete(obj interface{}) {
 }
 
 // NewStore creates a new Store instance.
-func NewStore(kubeconfig string, namespaces []string) (*Store, error) {
+func NewStore(u *url.URL) (store.Store2Backend, error) {
+	kubeconfig := u.Path
+	namespaces := strings.Split(u.Query().Get("ns"), ",")
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
 	conf.APIPath = "/apis"
 	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
-	ns := map[string]bool{}
-	for _, n := range namespaces {
-		ns[n] = true
-	}
-	return &Store{
+	s := &Store{
 		conf:             conf,
-		ns:               ns,
 		discoveryBuilder: defaultDiscoveryBuilder,
-	}, nil
+	}
+	if len(namespaces) > 0 {
+		s.ns = map[string]bool{}
+		for _, n := range namespaces {
+			s.ns[n] = true
+		}
+	}
+	return s, nil
+}
+
+// Register registers this module as a Store2Backend.
+// Do not use 'init()' for automatic registration; linker will drop
+// the whole module because it looks unused.
+func Register(builders map[string]store.Store2Builder) {
+	builders["k8s"] = NewStore
+	builders["kube"] = NewStore
+	builders["kubernetes"] = NewStore
 }

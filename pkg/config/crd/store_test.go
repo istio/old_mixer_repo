@@ -126,7 +126,6 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:                 &rest.Config{},
-		ns:                   map[string]bool{ns: true},
 		discoveryBuilder:     createFakeDiscovery,
 		listerWatcherBuilder: lw,
 	}

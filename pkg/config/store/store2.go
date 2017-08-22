@@ -17,6 +17,8 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
@@ -82,13 +84,6 @@ type store2 struct {
 	backend Store2Backend
 }
 
-// NewStore2 creates a new Store2 instance with the specified backend.
-func NewStore2(backend Store2Backend) Store2 {
-	return &store2{
-		backend: backend,
-	}
-}
-
 // SetValidator sets the validator for the store.
 func (s *store2) SetValidator(v Validator) {
 	// TODO: implement this
@@ -142,4 +137,47 @@ func (s *store2) List() map[Key]proto.Message {
 		result[k] = pbSpec
 	}
 	return result
+}
+
+// Store2Builder is the type of function to build a Store2Backend.
+type Store2Builder func(u *url.URL) (Store2Backend, error)
+
+// RegisterFunc2 is the type to register a builder for URL scheme.
+type RegisterFunc2 func(map[string]Store2Builder)
+
+// Registry2 keeps the relationship between the URL scheme and
+// the Store2Backend implementation.
+type Registry2 struct {
+	builders map[string]Store2Builder
+}
+
+// NewRegistry2 creates a new Registry instance for the inventory.
+func NewRegistry2(inventory ...RegisterFunc2) *Registry2 {
+	b := map[string]Store2Builder{}
+	for _, rf := range inventory {
+		rf(b)
+	}
+	return &Registry2{builders: b}
+}
+
+// NewStore2 creates a new Store2 instance with the specified backend.
+func (r *Registry2) NewStore2(configURL string) (Store2, error) {
+	u, err := url.Parse(configURL)
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid config URL %s %v", configURL, err)
+	}
+
+	s2 := &store2{}
+	if u.Scheme == FSUrl {
+		// TODO: add fsstore
+	}
+	if builder, ok := r.builders[u.Scheme]; ok {
+		s2.backend, err = builder(u)
+		if err == nil {
+			return s2, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unknown config URL %s %v", configURL, u)
 }
