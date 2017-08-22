@@ -16,7 +16,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
@@ -55,10 +54,8 @@ loop:
 	for {
 		select {
 		case <-q.ctx.Done():
-			fmt.Printf("done0\n")
 			break loop
 		case ev := <-q.chin:
-			fmt.Printf("ev0: %+v\n", ev)
 			evs := []Event{ev}
 			for len(evs) > 0 {
 				if err := q.transformValue(&evs[0]); err != nil {
@@ -66,13 +63,10 @@ loop:
 					evs = evs[1:]
 					continue
 				}
-				fmt.Printf("%d\n", len(evs))
 				select {
 				case <-q.ctx.Done():
-					fmt.Printf("done\n")
 					break loop
 				case ev := <-q.chin:
-					fmt.Printf("ev: %+v\n", ev)
 					evs = append(evs, ev)
 				case q.chout <- evs[0]:
 					evs = evs[1:]
@@ -80,6 +74,5 @@ loop:
 			}
 		}
 	}
-	fmt.Printf("closed\n")
 	close(q.chout)
 }

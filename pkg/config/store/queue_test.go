@@ -88,7 +88,6 @@ func TestQueueCancel(t *testing.T) {
 	donec := make(chan struct{})
 	go func() {
 		for ev := range q.chout {
-			fmt.Printf("%d\n", len(evs))
 			evs = append(evs, ev)
 		}
 		close(donec)
