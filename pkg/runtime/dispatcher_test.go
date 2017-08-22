@@ -59,7 +59,7 @@ func TestReport(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false, fp)
+			rt := newResolver(s.tn, resolveErr, false, fp)
 			m := NewDispatcher(nil, rt, gp)
 
 			err := m.Report(context.Background(), nil)
@@ -101,7 +101,7 @@ func TestCheck(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false, fp)
+			rt := newResolver(s.tn, resolveErr, false, fp)
 			m := NewDispatcher(nil, rt, gp)
 
 			cr, err := m.Check(context.Background(), nil)
@@ -156,7 +156,7 @@ func TestQuota(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, s.emptyResult, fp)
+			rt := newResolver(s.tn, resolveErr, s.emptyResult, fp)
 			m := NewDispatcher(nil, rt, gp)
 
 			cr, err := m.Quota(context.Background(), nil,
@@ -237,7 +237,10 @@ func (a *fakeActions) Done()          { a.done = true }
 
 var _ Resolver = &fakeResolver{}
 
-func newResolver(hndlr string, instanceName string, tname string, resolveErr error, emptyResult bool, fproc *fakeProc) *fakeResolver {
+func newResolver(tname string, resolveErr error, emptyResult bool, fproc *fakeProc) *fakeResolver {
+	hndlr := "myhandler"
+	instanceName := "i1"
+
 	rt := &fakeResolver{
 		ra: []*Action{
 			{
