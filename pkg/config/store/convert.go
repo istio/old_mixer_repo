@@ -36,8 +36,6 @@ func convertWithKind(spec map[string]interface{}, kind string, kinds map[string]
 }
 
 func convert(spec map[string]interface{}, target proto.Message) error {
-	// This is inefficient; convert to a protobuf message through JSON.
-	// TODO: use reflect.
 	jsonData, err := json.Marshal(spec)
 	if err != nil {
 		return err
