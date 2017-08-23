@@ -51,6 +51,12 @@ const (
 	// initial data since it may arrive in any order, and it
 	// would result in temporary invalid status.
 	initializationPeriod = time.Second * 2
+
+	// crdRetryTimeout is the timeout duration to retry initialization
+	// of the caches when some CRDs are missing. The actual timeout
+	// can be customized through the timeout for the context passed to
+	// Init() method.
+	crdRetryTimeout = time.Minute * 5
 )
 
 type listerWatcherBuilderInterface interface {
@@ -98,25 +104,43 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	if err != nil {
 		return err
 	}
-	resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
-	if err != nil {
-		return err
-	}
 	lwBuilder, err := s.listerWatcherBuilder(s.conf)
 	if err != nil {
 		return err
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
-	for _, res := range resources.APIResources {
-		if _, ok := kindsSet[res.Kind]; ok {
-			cl := lwBuilder.build(res)
-			informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
-			s.caches[res.Kind] = informer.GetStore()
-			informer.AddEventHandler(s)
-			go informer.Run(ctx.Done())
+	crdCtx, cancel := context.WithTimeout(ctx, crdRetryTimeout)
+	defer cancel()
+	for len(s.caches) < len(kinds) {
+		if crdCtx.Err() != nil {
+			missingKinds := make([]string, 0, len(kinds)-len(s.caches))
+			for _, kind := range kinds {
+				if _, ok := s.caches[kind]; !ok {
+					missingKinds = append(missingKinds, kind)
+				}
+			}
+			return fmt.Errorf("CRDs for %+v are not ready", missingKinds)
+		}
+		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
+		if err != nil {
+			glog.V(3).Infof("Failed to obtain resources for CRD: %v", err)
+			continue
+		}
+		for _, res := range resources.APIResources {
+			if _, ok := s.caches[res.Kind]; ok {
+				continue
+			}
+			if _, ok := kindsSet[res.Kind]; ok {
+				cl := lwBuilder.build(res)
+				informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
+				s.caches[res.Kind] = informer.GetStore()
+				informer.AddEventHandler(s)
+				go informer.Run(ctx.Done())
+			}
 		}
 	}
-	time.Sleep(initializationPeriod) // TODO
+	// TODO: remove this time.Sleep, add a better watcher.
+	time.Sleep(initializationPeriod)
 	return nil
 }
 
