@@ -3,10 +3,6 @@
 
 steps:
 - name: 'gcr.io/istio-io/istio-builder'
-  args:
-  - 'bash'
-  - './bin/publish-docker-images.sh'
-  - '-h gcr.io/istio-io'
-  - '-t $TAG_NAME'
+  args: ['./bin/release.sh', '-t', '$TAG_NAME']
 
 timeout: 1800s
