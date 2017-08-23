@@ -17,18 +17,24 @@ package main
 import (
 	"os"
 
+	adapter "istio.io/mixer/adapter"
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
+	pkgAdapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
 	generatedTmplRepo "istio.io/mixer/template"
 )
 
-func getSupportedTemplateInfos() template.Repository {
-	return template.NewRepository(generatedTmplRepo.SupportedTmplInfo)
+func getSupportedTemplateInfos() map[string]template.Info {
+	return generatedTmplRepo.SupportedTmplInfo
+}
+
+func getSupportedAdapters() []pkgAdapter.InfoFn {
+	return adapter.Inventory2()
 }
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], getSupportedTemplateInfos(), shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:], getSupportedTemplateInfos(), getSupportedAdapters(), shared.Printf, shared.Fatalf)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
