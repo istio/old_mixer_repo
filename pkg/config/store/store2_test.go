@@ -16,6 +16,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"reflect"
 	"testing"
@@ -26,15 +27,20 @@ import (
 )
 
 type memstore struct {
-	data map[Key]map[string]interface{}
-	ch   chan BackendEvent
+	data     map[Key]map[string]interface{}
+	ch       chan BackendEvent
+	initErr  error
+	watchErr error
 }
 
 func (m *memstore) Init(ctx context.Context, kinds []string) error {
-	return nil
+	return m.initErr
 }
 
 func (m *memstore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+	if m.watchErr != nil {
+		return nil, m.watchErr
+	}
 	m.ch = make(chan BackendEvent)
 	return m.ch, nil
 }
@@ -103,6 +109,39 @@ func TestStore2(t *testing.T) {
 	}
 }
 
+func TestStore2Fail(t *testing.T) {
+	r := NewRegistry2(registerMemstore)
+	s, err := r.NewStore2("memstore://")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := s.(*store2).backend.(*memstore)
+	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
+	m.initErr = errors.New("dummy")
+	if err = s.Init(context.Background(), kinds); err.Error() != "dummy" {
+		t.Errorf("Got %v, Want dummy error", err)
+	}
+	m.initErr = nil
+	if err = s.Init(context.Background(), kinds); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+
+	m.watchErr = errors.New("watch error")
+	if _, err := s.Watch(context.Background()); err.Error() != "watch error" {
+		t.Errorf("Got %v, Want watch error", err)
+	}
+
+	m.data[Key{Kind: "Handler", Name: "name", Namespace: "ns"}] = map[string]interface{}{
+		"foo": 1,
+	}
+	m.data[Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}] = map[string]interface{}{
+		"unknown": "unknown",
+	}
+	if lst := s.List(); len(lst) != 0 {
+		t.Errorf("Got %v, Want empty", lst)
+	}
+}
+
 func TestRegistry2(t *testing.T) {
 	r := NewRegistry2(registerMemstore)
 	for _, c := range []struct {
@@ -111,6 +150,7 @@ func TestRegistry2(t *testing.T) {
 	}{
 		{"memstore://", true},
 		{"mem://", false},
+		{"://", false},
 	} {
 		_, err := r.NewStore2(c.u)
 		ok := err == nil

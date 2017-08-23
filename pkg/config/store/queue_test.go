@@ -59,6 +59,35 @@ func TestQueue(t *testing.T) {
 	}
 }
 
+func TestQueueFail(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	chin := make(chan BackendEvent)
+	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
+	defer cancel()
+	chin <- BackendEvent{
+		Type:  Update,
+		Key:   Key{Kind: "Unknown", Namespace: "ns", Name: "unknown"},
+		Value: map[string]interface{}{"foo": "bar"},
+	}
+	select {
+	case ev := <-q.chout:
+		t.Errorf("Got %+v, Want nothing", ev)
+	default:
+		// pass
+	}
+	chin <- BackendEvent{
+		Type:  Update,
+		Key:   Key{Kind: "Handler", Namespace: "ns", Name: "illformed"},
+		Value: map[string]interface{}{"foo": "bar"},
+	}
+	select {
+	case ev := <-q.chout:
+		t.Errorf("Got %+v, Want nothing", ev)
+	default:
+		// pass
+	}
+}
+
 func TestQueueSync(t *testing.T) {
 	count := 10
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -96,12 +125,28 @@ func TestQueueCancel(t *testing.T) {
 	for i := 0; i < count; i++ {
 		select {
 		case <-ctx.Done():
-		case chin <- BackendEvent{Type: Update, Key: Key{Kind: "kind", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}:
+		case chin <- BackendEvent{Type: Update, Key: Key{Kind: "Handler", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}:
 		}
 		time.Sleep(time.Millisecond)
 	}
 	<-donec
 	if len(evs) > count/2 {
 		t.Errorf("Got %d, Want <=%d", len(evs), count/2)
+	}
+}
+
+func TestQueueCancelSync(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	chin := make(chan BackendEvent)
+	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
+	for i := 0; i < 5; i++ {
+		chin <- BackendEvent{Type: Update, Key: Key{Kind: "Handler", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}
+	}
+	cancel()
+	// Wait for the queue's run loop to end.
+	time.Sleep(time.Millisecond)
+	ev := <-q.chout
+	if ev.Name != "" {
+		t.Errorf("Got %+v, Want empty", ev)
 	}
 }

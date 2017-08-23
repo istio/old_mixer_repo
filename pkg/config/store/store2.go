@@ -134,6 +134,7 @@ func (s *store2) List() map[Key]proto.Message {
 		pbSpec, err := cloneMessage(k.Kind, s.kinds)
 		if err != nil {
 			glog.Errorf("Failed to convert spec: %v", err)
+			continue
 		}
 		if err = convert(spec, pbSpec); err != nil {
 			glog.Errorf("Failed to convert spec: %v", err)

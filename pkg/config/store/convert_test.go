@@ -52,6 +52,16 @@ func TestConvert(t *testing.T) {
 	}
 }
 
+func TestConvertFail(t *testing.T) {
+	h := &cfg.Handler{}
+	if err := convert(map[string]interface{}{"foo": 1}, h); err == nil {
+		t.Errorf("Got nil, Want error")
+	}
+	if err := convert(map[string]interface{}{"foo": map[interface{}]int{nil: 0}}, h); err == nil {
+		t.Errorf("Got nil, Want error")
+	}
+}
+
 func TestCloneWithKind(t *testing.T) {
 	for _, c := range []struct {
 		kind  string
