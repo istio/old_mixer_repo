@@ -23,18 +23,16 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-func convertWithKind(spec map[string]interface{}, kind string, kinds map[string]proto.Message) (proto.Message, error) {
-	base, ok := kinds[kind]
+// cloneMessage looks up the kind in the map, and creates a clone of it.
+func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, error) {
+	msg, ok := kinds[kind]
 	if !ok {
 		return nil, fmt.Errorf("unrecognized kind %s", kind)
 	}
-	pbSpec := proto.Clone(base)
-	if err := convert(spec, pbSpec); err != nil {
-		return nil, err
-	}
-	return pbSpec, nil
+	return proto.Clone(msg), nil
 }
 
+// convert converts unstructured spec into the target proto.
 func convert(spec map[string]interface{}, target proto.Message) error {
 	jsonData, err := json.Marshal(spec)
 	if err != nil {

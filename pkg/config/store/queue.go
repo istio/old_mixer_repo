@@ -40,11 +40,14 @@ func newQueue(ctx context.Context, chin <-chan BackendEvent, kinds map[string]pr
 }
 
 func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
-	convertedValue, err := convertWithKind(ev.Value, ev.Kind, q.kinds)
+	pbSpec, err := cloneMessage(ev.Kind, q.kinds)
 	if err != nil {
 		return Event{}, err
 	}
-	return Event{Key: ev.Key, Type: ev.Type, Value: convertedValue}, nil
+	if err = convert(ev.Value, pbSpec); err != nil {
+		return Event{}, err
+	}
+	return Event{Key: ev.Key, Type: ev.Type, Value: pbSpec}, nil
 }
 
 func (q *eventQueue) run() {

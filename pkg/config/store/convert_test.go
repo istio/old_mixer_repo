@@ -52,53 +52,58 @@ func TestConvert(t *testing.T) {
 	}
 }
 
-func TestConvertWithKind(t *testing.T) {
-	kinds := map[string]proto.Message{
-		"Handler": &cfg.Handler{},
-		"Action":  &cfg.Action{},
-	}
+func TestCloneWithKind(t *testing.T) {
 	for _, c := range []struct {
-		title    string
-		source   map[string]interface{}
-		kind     string
-		ok       bool
-		expected proto.Message
+		kind  string
+		kinds map[string]proto.Message
+		ok    bool
 	}{
 		{
-			"base",
-			map[string]interface{}{"name": "default", "adapter": "noop"},
 			"Handler",
+			map[string]proto.Message{
+				"Handler": &cfg.Handler{Name: "default", Adapter: "noop"},
+				"Action":  &cfg.Action{},
+			},
 			true,
-			&cfg.Handler{Name: "default", Adapter: "noop"},
 		},
 		{
-			"wrong kind",
-			map[string]interface{}{"name": "default", "adapter": "noop"},
 			"Action",
-			false,
-			nil,
+			map[string]proto.Message{
+				"Handler": &cfg.Handler{Name: "default", Adapter: "noop"},
+				"Action":  &cfg.Action{},
+			},
+			true,
 		},
 		{
-			"unknown kind",
-			map[string]interface{}{"name": "default", "adapter": "noop"},
-			"foo",
+			"Unknown",
+			map[string]proto.Message{
+				"Handler": &cfg.Handler{Name: "default", Adapter: "noop"},
+				"Action":  &cfg.Action{},
+			},
 			false,
-			nil,
+		},
+		{
+			"Empty",
+			map[string]proto.Message{},
+			false,
 		},
 	} {
-		t.Run(c.title, func(tt *testing.T) {
-			converted, err := convertWithKind(c.source, c.kind, kinds)
+		t.Run(c.kind, func(tt *testing.T) {
+			cloned, err := cloneMessage(c.kind, c.kinds)
 			if !c.ok {
 				if err == nil {
-					tt.Errorf("Expected to fail, succeeded")
+					tt.Errorf("Got nil, Want failure")
 				}
 				return
 			}
 			if err != nil {
-				tt.Errorf("Failed to convert: %v", err)
+				tt.Fatalf("Got %v, Want nil", err)
 			}
-			if !reflect.DeepEqual(converted, c.expected) {
-				tt.Errorf("Got %+v Want %+v", converted, c.expected)
+			if cloned == c.kinds[c.kind] {
+				tt.Fatalf("Got a pointer, Want a copy")
+			}
+			if !reflect.DeepEqual(cloned, c.kinds[c.kind]) {
+				tt.Errorf("Got %v, Want %v", cloned, c.kinds[c.kind])
 			}
 		})
 	}

@@ -136,8 +136,11 @@ func (s *store2) List() map[Key]proto.Message {
 	data := s.backend.List()
 	result := make(map[Key]proto.Message, len(data))
 	for k, spec := range data {
-		pbSpec, err := convertWithKind(spec, k.Kind, s.kinds)
+		pbSpec, err := cloneMessage(k.Kind, s.kinds)
 		if err != nil {
+			glog.Errorf("Failed to convert spec: %v", err)
+		}
+		if err = convert(spec, pbSpec); err != nil {
 			glog.Errorf("Failed to convert spec: %v", err)
 			continue
 		}
