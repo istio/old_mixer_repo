@@ -52,9 +52,10 @@ type (
 	typeMap map[string]proto.Message
 )
 
-// Create instantiates a HandlerFactory, the state of the HandlerFactory is only valid for a snapshot of a configuration.
+// NewHandlerFactory instantiates a HandlerFactory, the state of the HandlerFactory is only valid for a snapshot of a configuration.
 // Therefore, a new HandlerFactory should be created upon every configuration change.
-func NewHandlerFactory(tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder, builderInfoFinder BuilderInfoFinder) HandlerFactory {
+func NewHandlerFactory(tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder,
+	builderInfoFinder BuilderInfoFinder) HandlerFactory {
 	return &handlerFactory{
 		tmplRepo:          tmplRepo,
 		attrDescFinder:    df,
