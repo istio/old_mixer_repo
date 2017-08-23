@@ -234,9 +234,6 @@ func (s *Store) dispatch(ev store.BackendEvent) {
 func (s *Store) OnAdd(obj interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.chs) == 0 {
-		return
-	}
 	if ev, err := toEvent(store.Update, obj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
@@ -248,9 +245,6 @@ func (s *Store) OnAdd(obj interface{}) {
 func (s *Store) OnUpdate(oldObj, newObj interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.chs) == 0 {
-		return
-	}
 	if ev, err := toEvent(store.Update, newObj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
@@ -262,9 +256,6 @@ func (s *Store) OnUpdate(oldObj, newObj interface{}) {
 func (s *Store) OnDelete(obj interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.chs) == 0 {
-		return
-	}
 	if ev, err := toEvent(store.Delete, obj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {

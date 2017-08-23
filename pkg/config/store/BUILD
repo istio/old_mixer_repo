@@ -28,6 +28,7 @@ go_test(
         "fsstore_test.go",
         "queue_test.go",
         "store_test.go",
+        "store2_test.go",
     ],
     library = ":go_default_library",
     deps = [

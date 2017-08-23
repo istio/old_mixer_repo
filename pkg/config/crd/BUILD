@@ -28,6 +28,7 @@ go_test(
     name = "go_default_test",
     size = "medium",
     srcs = [
+        "resource_test.go",
         "store_test.go",
     ],
     library = ":go_default_library",

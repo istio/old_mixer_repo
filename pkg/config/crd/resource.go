@@ -58,14 +58,15 @@ func deepCopySpec(s1 map[string]interface{}, s2 map[string]interface{}) {
 func (r *resource) GetObjectKind() schema.ObjectKind {
 	return &metav1.TypeMeta{
 		Kind:       r.Kind,
-		APIVersion: apiVersion,
+		APIVersion: apiGroupVersion,
 	}
 }
 
 // DeepCopyObject implements runtime.Object interface.
 func (r *resource) DeepCopyObject() runtime.Object {
-	r2 := &resource{Kind: r.Kind}
+	r2 := &resource{Kind: r.Kind, APIVersion: r.APIVersion}
 	r.ObjectMeta.DeepCopyInto(&r2.ObjectMeta)
+	r2.Spec = map[string]interface{}{}
 	deepCopySpec(r.Spec, r2.Spec)
 	return r2
 }
@@ -81,13 +82,14 @@ type resourceList struct {
 func (r *resourceList) GetObjectKind() schema.ObjectKind {
 	return &metav1.TypeMeta{
 		Kind:       r.Kind,
-		APIVersion: apiVersion,
+		APIVersion: apiGroupVersion,
 	}
 }
 
 // GetObjectKind implements runtime.Object interface.
 func (r *resourceList) DeepCopyObject() runtime.Object {
 	r2 := &resourceList{
+		Kind:     r.Kind,
 		ListMeta: *r.ListMeta.DeepCopy(),
 		Items:    make([]*resource, len(r.Items)),
 	}

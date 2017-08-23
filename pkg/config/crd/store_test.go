@@ -34,7 +34,7 @@ import (
 
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
-		&k8stesting.Fake{
+		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: apiGroupVersion,
@@ -162,6 +162,21 @@ func TestStore(t *testing.T) {
 	}
 	waitFor(wch, store.Update, k)
 	h2, err := s.Get(k)
+	if err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	if !reflect.DeepEqual(h, h2) {
+		t.Errorf("Got %+v, Want %+v", h2, h)
+	}
+	want := map[store.Key]map[string]interface{}{k: h2}
+	if lst := s.List(); !reflect.DeepEqual(lst, want) {
+		t.Errorf("Got %+v, Want %+v", lst, want)
+	}
+	h["adapter"] = "noop2"
+	if err = lw.put(k, h); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	h2, err = s.Get(k)
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
