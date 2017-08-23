@@ -19,8 +19,6 @@ package crd
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,14 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	// import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	"istio.io/mixer/pkg/config/store"
 )
@@ -81,28 +73,10 @@ type Store struct {
 
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
-	listerWatcherBuilder listerWatcherBuilderInterface
+	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
 }
 
 var _ store.Store2Backend = &Store{}
-
-func defaultDiscoveryBuilder(conf *rest.Config) (discovery.DiscoveryInterface, error) {
-	client, err := discovery.NewDiscoveryClientForConfig(conf)
-	return client, err
-}
-
-type dynamicListerWatcherBuilder struct {
-	client *dynamic.Client
-}
-
-func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
-	return b.client.Resource(&res, "")
-}
-
-// SetValidator implements store.Store2Backend interface.
-func (s *Store) SetValidator(store.Validator) {
-	glog.Errorf("Validator is not implemented yet")
-}
 
 // Init implements store.Store2Backend interface.
 func (s *Store) Init(ctx context.Context, kinds []string) error {
@@ -128,13 +102,9 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	if err != nil {
 		return err
 	}
-	lwBuilder := s.listerWatcherBuilder
-	if lwBuilder == nil {
-		dyn, err := dynamic.NewClient(s.conf)
-		if err != nil {
-			return err
-		}
-		lwBuilder = &dynamicListerWatcherBuilder{dyn}
+	lwBuilder, err := s.listerWatcherBuilder(s.conf)
+	if err != nil {
+		return err
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
 	for _, res := range resources.APIResources {
@@ -262,36 +232,4 @@ func (s *Store) OnDelete(obj interface{}) {
 		ev.Value = nil
 		s.dispatch(ev)
 	}
-}
-
-// NewStore creates a new Store instance.
-func NewStore(u *url.URL) (store.Store2Backend, error) {
-	kubeconfig := u.Path
-	namespaces := u.Query().Get("ns")
-	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	conf.APIPath = "/apis"
-	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
-	s := &Store{
-		conf:             conf,
-		discoveryBuilder: defaultDiscoveryBuilder,
-	}
-	if len(namespaces) > 0 {
-		s.ns = map[string]bool{}
-		for _, n := range strings.Split(namespaces, ",") {
-			s.ns[n] = true
-		}
-	}
-	return s, nil
-}
-
-// Register registers this module as a Store2Backend.
-// Do not use 'init()' for automatic registration; linker will drop
-// the whole module because it looks unused.
-func Register(builders map[string]store.Store2Builder) {
-	builders["k8s"] = NewStore
-	builders["kube"] = NewStore
-	builders["kubernetes"] = NewStore
 }

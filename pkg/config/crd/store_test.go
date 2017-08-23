@@ -16,6 +16,7 @@ package crd
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sync"
 	"testing"
@@ -125,9 +126,11 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 		watchers: map[string]*watch.FakeWatcher{},
 	}
 	client := &Store{
-		conf:                 &rest.Config{},
-		discoveryBuilder:     createFakeDiscovery,
-		listerWatcherBuilder: lw,
+		conf:             &rest.Config{},
+		discoveryBuilder: createFakeDiscovery,
+		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
+			return lw, nil
+		},
 	}
 	return client, ns, lw
 }
@@ -206,5 +209,29 @@ func TestStoreWrongKind(t *testing.T) {
 
 	if _, err := s.Get(k); err == nil {
 		t.Errorf("Got nil, Want error")
+	}
+}
+
+func TestStoreFailToInit(t *testing.T) {
+	s, _, _ := getTempClient()
+	ctx := context.Background()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return nil, errors.New("dummy")
+	}
+	if err := s.Init(ctx, []string{"Handler", "Action"}); err.Error() != "dummy" {
+		t.Errorf("Got %v, Want dummy error", err)
+	}
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}, nil
+	}
+	if err := s.Init(ctx, []string{"Handler", "Action"}); err == nil {
+		t.Errorf("Got nil, want error")
+	}
+	s.discoveryBuilder = createFakeDiscovery
+	s.listerWatcherBuilder = func(*rest.Config) (listerWatcherBuilderInterface, error) {
+		return nil, errors.New("dummy2")
+	}
+	if err := s.Init(ctx, []string{"Handler", "Action"}); err.Error() != "dummy2" {
+		t.Errorf("Got %v, Want dummy2 error", err)
 	}
 }

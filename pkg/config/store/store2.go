@@ -91,11 +91,6 @@ type store2 struct {
 	backend Store2Backend
 }
 
-// SetValidator sets the validator for the store.
-func (s *store2) SetValidator(v Validator) {
-	// TODO: implement this
-}
-
 // Init initializes the connection with the storage backend. This uses "kinds"
 // for the mapping from the kind's name and its structure in protobuf.
 // The connection will be closed after ctx is done.
