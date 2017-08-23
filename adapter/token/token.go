@@ -157,7 +157,6 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 			issName := tokenClaims["iss"].(string)
 			claimNames := tag.cfg.Issuers[issName].GetClaimNames()
 			if claimNames != nil && len(claimNames)>0 {
-				insertedClaims := false
 				for _,name := range claimNames{
 					hierarchyKeys := strings.Split(name,".")
 					var nextHeirarchyValue map[string]interface{}
