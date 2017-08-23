@@ -276,7 +276,7 @@ func (s *Store) OnDelete(obj interface{}) {
 // NewStore creates a new Store instance.
 func NewStore(u *url.URL) (store.Store2Backend, error) {
 	kubeconfig := u.Path
-	namespaces := strings.Split(u.Query().Get("ns"), ",")
+	namespaces := u.Query().Get("ns")
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 	}
 	if len(namespaces) > 0 {
 		s.ns = map[string]bool{}
-		for _, n := range namespaces {
+		for _, n := range strings.Split(namespaces, ",") {
 			s.ns[n] = true
 		}
 	}
