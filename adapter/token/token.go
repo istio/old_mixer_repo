@@ -124,7 +124,7 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 	tokenAttrs[valid_key]=false
 	tokenAttrs[signed_key]=false
 	tokenAttrs[signAlg_key]=""
-	tokenAttrs[claims_key]=nil
+	tokenAttrs[claims_key]=make(map[string]string) //attribute ValueType STRING_MAP
 
 	authHeader, exists := inputAttributes[authHeader_key]
 	if !exists || authHeader == "" {
@@ -157,8 +157,6 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 			issName := tokenClaims["iss"].(string)
 			claimNames := tag.cfg.Issuers[issName].GetClaimNames()
 			if claimNames != nil && len(claimNames)>0 {
-
-				tokenAttrs[claims_key] = make(map[string]string)//attribute ValueType STRING_MAP
 				insertedClaims := false
 				for _,name := range claimNames{
 					hierarchyKeys := strings.Split(name,".")
@@ -187,9 +185,6 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 						}
 					}
 
-				}
-				if !insertedClaims {
-					tokenAttrs[claims_key] = nil
 				}
 			}
 

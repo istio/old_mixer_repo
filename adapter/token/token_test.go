@@ -358,7 +358,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: false,
 				signAlg_key: "",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -372,7 +372,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: false,
 				signAlg_key: "",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -386,7 +386,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: false,
 				signAlg_key: "",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -400,7 +400,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: false,
 				signAlg_key: "",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -414,7 +414,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: false,
 				signAlg_key: "",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -428,7 +428,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -442,7 +442,7 @@ func TestAttributes(t *testing.T){
 				valid_key: true,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -456,7 +456,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -470,7 +470,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -484,7 +484,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -498,7 +498,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -512,7 +512,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -526,7 +526,7 @@ func TestAttributes(t *testing.T){
 				valid_key: false,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil,
+				claims_key: map[string]string{},
 			},
 		},
 		{
@@ -540,7 +540,7 @@ func TestAttributes(t *testing.T){
 				valid_key: true,
 				signed_key: true,
 				signAlg_key: "RS256",
-				claims_key: nil, //because the configuration does not specify claim names to be taken
+				claims_key: map[string]string{}, //because the configuration does not specify claim names to be taken
 			},
 		},
 		{
