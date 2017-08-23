@@ -45,21 +45,21 @@ type (
 
 		// protects cache
 		lock           sync.RWMutex
-		infrdTypsCache map[string]proto.Message
+		infrdTypsCache typeMap
 	}
 
 	// Map of instance name to inferred type (proto.Message)
-	types map[string]proto.Message
+	typeMap map[string]proto.Message
 )
 
 // Create instantiates a HandlerFactory, the state of the HandlerFactory is only valid for a snapshot of a configuration.
 // Therefore, a new HandlerFactory should be created upon every configuration change.
-func Create(tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder, builderInfoFinder BuilderInfoFinder) HandlerFactory {
+func NewHandlerFactory(tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder, builderInfoFinder BuilderInfoFinder) HandlerFactory {
 	return &handlerFactory{
 		tmplRepo:          tmplRepo,
 		attrDescFinder:    df,
 		typeChecker:       expr,
-		infrdTypsCache:    make(map[string]proto.Message),
+		infrdTypsCache:    make(typeMap),
 		builderInfoFinder: builderInfoFinder,
 	}
 }
@@ -92,7 +92,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	return hndlr, err
 }
 
-func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmpl map[string]types,
+func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmpl map[string]typeMap,
 	adapterCnfg interface{}, env adapter.Env) (handler adapter.Handler, err error) {
 	// calls into handler can panic. If that happens, we will log and return error with nil handler
 	defer func() {
@@ -117,8 +117,8 @@ func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmp
 	return hndlrBldr.Build(adapterCnfg.(proto.Message), env)
 }
 
-func (h *handlerFactory) inferTypesGrpdByTmpl(instances []*pb.Instance) (map[string]types, error) {
-	infrdTypesByTmpl := make(map[string]types)
+func (h *handlerFactory) inferTypesGrpdByTmpl(instances []*pb.Instance) (map[string]typeMap, error) {
+	infrdTypesByTmpl := make(map[string]typeMap)
 	for _, instance := range instances {
 		infrdType, err := h.inferType(instance)
 		if err != nil {
@@ -126,7 +126,7 @@ func (h *handlerFactory) inferTypesGrpdByTmpl(instances []*pb.Instance) (map[str
 		}
 
 		if _, exists := infrdTypesByTmpl[instance.GetTemplate()]; !exists {
-			infrdTypesByTmpl[instance.GetTemplate()] = make(types)
+			infrdTypesByTmpl[instance.GetTemplate()] = make(typeMap)
 		}
 
 		infrdTypesByTmpl[instance.GetTemplate()][instance.Name] = infrdType

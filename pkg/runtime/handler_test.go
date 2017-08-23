@@ -159,7 +159,7 @@ func TestBuild_Error(t *testing.T) {
 				return &adapter.BuilderInfo{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
 			}
 
-			hf := Create(tt.tmplRepo, nil, nil, bldrInfoFinder)
+			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)
 			_, err := hf.Build(tt.hndlrCnfg, tt.instsCnfg, nil)
 			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
 				t.Errorf("got error %v\nwant %v", err, tt.wantError)
@@ -276,7 +276,7 @@ func TestBuild_Valid(t *testing.T) {
 				return &adapter.BuilderInfo{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
 			}
 
-			hf := Create(tt.tmplRepo, nil, nil, bldrInfoFinder)
+			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)
 			hndlr, err := hf.Build(tt.hndlrCnfg, tt.instsCnfg, nil)
 			if err != nil {
 				t.Fatalf("got err %v\nwant <nil>", err)
