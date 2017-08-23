@@ -21,6 +21,9 @@ import (
 	"github.com/golang/glog"
 )
 
+// The size of the buffer for the outbound channel for the queue.
+const choutBufSize = 10
+
 type eventQueue struct {
 	ctx   context.Context
 	chout chan Event
@@ -31,7 +34,7 @@ type eventQueue struct {
 func newQueue(ctx context.Context, chin <-chan BackendEvent, kinds map[string]proto.Message) *eventQueue {
 	eq := &eventQueue{
 		ctx:   ctx,
-		chout: make(chan Event),
+		chout: make(chan Event, choutBufSize),
 		chin:  chin,
 		kinds: kinds,
 	}

@@ -139,12 +139,20 @@ func TestQueueCancelSync(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	chin := make(chan BackendEvent)
 	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
-	for i := 0; i < 5; i++ {
+	for i := 0; i < choutBufSize+5; i++ {
 		chin <- BackendEvent{Type: Update, Key: Key{Kind: "Handler", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}
 	}
 	cancel()
 	// Wait for the queue's run loop to end.
 	time.Sleep(time.Millisecond)
+	// Read the bufferred events.
+	for i := 0; i < choutBufSize; i++ {
+		ev := <-q.chout
+		if ev.Name != fmt.Sprintf("%d", i) {
+			t.Errorf("Got name %s Want %d", ev.Name, i)
+		}
+	}
+	// After the buffer runs out, it should return an empty since it's closed due to cancel.
 	ev := <-q.chout
 	if ev.Name != "" {
 		t.Errorf("Got %+v, Want empty", ev)
