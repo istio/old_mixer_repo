@@ -35,13 +35,13 @@ import (
 )
 
 type (
-	factory struct {
+	builder struct {
 		srv      server
 		registry *prometheus.Registry
 		once     sync.Once
 	}
 
-	prom struct {
+	handler struct {
 		metrics map[string]prometheus.Collector
 		kinds   map[string]config.Params_MetricInfo_Kind
 	}
@@ -50,8 +50,8 @@ type (
 var (
 	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_")
 
-	_ metric.HandlerBuilder = &factory{}
-	_ metric.Handler        = &prom{}
+	_ metric.HandlerBuilder = &builder{}
+	_ metric.Handler        = &handler{}
 )
 
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
@@ -68,18 +68,16 @@ func GetBuilderInfo() adapter.BuilderInfo {
 	}
 }
 
-func newFactory(srv server) *factory {
-	return &factory{srv, prometheus.NewPedanticRegistry(), sync.Once{}}
+func newFactory(srv server) *builder {
+	return &builder{srv, prometheus.NewPedanticRegistry(), sync.Once{}}
 }
 
-func (f *factory) ConfigureMetricHandler(map[string]*metric.Type) error {
-	return nil
-}
+func (b *builder) ConfigureMetricHandler(map[string]*metric.Type) error { return nil }
 
-func (f *factory) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
+func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	var serverErr error
-	f.once.Do(func() {
-		serverErr = f.srv.Start(env, promhttp.HandlerFor(f.registry, promhttp.HandlerOpts{}))
+	b.once.Do(func() {
+		serverErr = b.srv.Start(env, promhttp.HandlerFor(b.registry, promhttp.HandlerOpts{}))
 	})
 	if serverErr != nil {
 		return nil, fmt.Errorf("could not start prometheus server: %v", serverErr)
@@ -92,7 +90,7 @@ func (f *factory) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	for _, m := range cfg.Metrics {
 		switch m.Kind {
 		case config.GAUGE:
-			c, err := registerOrGet(f.registry, newGaugeVec(m.Name, m.Description, m.LabelNames))
+			c, err := registerOrGet(b.registry, newGaugeVec(m.Name, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
@@ -100,7 +98,7 @@ func (f *factory) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 			metricsMap[m.Name] = c
 			kinds[m.Name] = config.GAUGE
 		case config.COUNTER:
-			c, err := registerOrGet(f.registry, newCounterVec(m.Name, m.Description, m.LabelNames))
+			c, err := registerOrGet(b.registry, newCounterVec(m.Name, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
@@ -108,7 +106,7 @@ func (f *factory) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 			metricsMap[m.Name] = c
 			kinds[m.Name] = config.COUNTER
 		case config.DISTRIBUTION:
-			c, err := registerOrGet(f.registry, newHistogramVec(m.Name, m.Description, m.LabelNames, m.Buckets))
+			c, err := registerOrGet(b.registry, newHistogramVec(m.Name, m.Description, m.LabelNames, m.Buckets))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
@@ -119,24 +117,24 @@ func (f *factory) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 			metricErr = multierror.Append(metricErr, fmt.Errorf("unknown metric kind (%d); could not register metric", m.Kind))
 		}
 	}
-	return &prom{metricsMap, kinds}, metricErr.ErrorOrNil()
+	return &handler{metricsMap, kinds}, metricErr.ErrorOrNil()
 }
 
-// TODO: figure out ownership semantics, because factory.close will never be called in the new scheme.
-func (f *factory) Close() error {
-	return f.srv.Close()
+// TODO: figure out ownership semantics, because builder.close will never be called in the new scheme.
+func (b *builder) Close() error {
+	return b.srv.Close()
 }
 
-func (p *prom) HandleMetric(_ context.Context, vals []*metric.Instance) error {
+func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error {
 	var result *multierror.Error
 
 	for _, val := range vals {
-		collector, found := p.metrics[val.Name]
+		collector, found := h.metrics[val.Name]
 		if !found {
 			result = multierror.Append(result, fmt.Errorf("could not find metric info from adapter config for %s", val.Name))
 			continue
 		}
-		kind, found := p.kinds[val.Name]
+		kind, found := h.kinds[val.Name]
 		if !found {
 			result = multierror.Append(result, fmt.Errorf("could not find kind for metric %s", val.Name))
 			continue
@@ -172,7 +170,7 @@ func (p *prom) HandleMetric(_ context.Context, vals []*metric.Instance) error {
 	return result.ErrorOrNil()
 }
 
-func (*prom) Close() error { return nil }
+func (*handler) Close() error { return nil }
 
 func newCounterVec(name, desc string, labels []string) *prometheus.CounterVec {
 	if desc == "" {

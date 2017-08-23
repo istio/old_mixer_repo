@@ -162,14 +162,14 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 	}
 }
 
-func TestFactory_NewMetricsAspectServerFail(t *testing.T) {
+func TestFactory_BuildServerFail(t *testing.T) {
 	f := newFactory(&testServer{errOnStart: true})
 	if _, err := f.Build(makeConfig(), test.NewEnv(t)); err == nil {
 		t.Error("NewMetricsAspect() => expected error on server startup")
 	}
 }
 
-func TestNewMetricsAspect_MetricDefinitionErrors(t *testing.T) {
+func TestBuild_MetricDefinitionErrors(t *testing.T) {
 	f := newFactory(&testServer{})
 	tests := []struct {
 		name    string
@@ -180,13 +180,13 @@ func TestNewMetricsAspect_MetricDefinitionErrors(t *testing.T) {
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
 			if _, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t)); err == nil {
-				t.Errorf("Expected error for NewMetricsAspect(%#v)", v.metrics)
+				t.Errorf("Expected error for Build(%#v)", v.metrics)
 			}
 		})
 	}
 }
 
-func TestFactory_NewMetricsAspect_MetricDefinitionConflicts(t *testing.T) {
+func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
 	f := newFactory(&testServer{})
 
 	gaugeWithLabels := &config.Params_MetricInfo{
@@ -224,7 +224,7 @@ func TestFactory_NewMetricsAspect_MetricDefinitionConflicts(t *testing.T) {
 			for i, met := range v.metrics {
 				_, err := f.Build(makeConfig(met), test.NewEnv(t))
 				if i > 0 && err == nil {
-					t.Error("NewMetricsAspect() => expected error during metrics registration")
+					t.Error("Build() => expected error during metrics registration")
 				}
 			}
 		})
@@ -263,7 +263,7 @@ func TestProm_Record(t *testing.T) {
 		t.Run(v.name, func(t *testing.T) {
 			a, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t))
 			if err != nil {
-				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
+				t.Errorf("Build() => unexpected error: %v", err)
 			}
 			aspect := a.(metric.Handler)
 
@@ -272,7 +272,7 @@ func TestProm_Record(t *testing.T) {
 				t.Errorf("Record() => unexpected error: %v", err)
 			}
 			// Check tautological recording of entries.
-			pr := aspect.(*prom)
+			pr := aspect.(*handler)
 			for _, adapterVal := range v.values {
 				c, ok := pr.metrics[adapterVal.Name]
 				if !ok {
@@ -330,7 +330,7 @@ func TestProm_RecordFailures(t *testing.T) {
 		t.Run(v.name, func(t *testing.T) {
 			a, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t))
 			if err != nil {
-				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
+				t.Errorf("Build() => unexpected error: %v", err)
 			}
 			aspect := a.(metric.Handler)
 			err = aspect.HandleMetric(context.Background(), v.values)
