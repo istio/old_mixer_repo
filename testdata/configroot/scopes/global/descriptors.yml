@@ -41,6 +41,8 @@ manifests:
         valueType: BOOL
       request.token.signed:
         valueType: BOOL
+      request.token.signAlg:
+        valueType: STRING
       request.token.claims:
         valueType: STRING_MAP
   - name: istio-proxy

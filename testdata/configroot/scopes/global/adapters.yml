@@ -4,6 +4,10 @@ adapters:
     kind: attributes
     impl: token
     params:
+      issuers:
+      - name: "local"
+        pubKeyUrl: "http://localhost:21356/keys"
+        claimNames: ["name","locations.us.ca","servers.haifa"]
   - name: default
     kind: quotas
     impl: memQuota
