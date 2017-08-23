@@ -31,10 +31,19 @@ type Key struct {
 	Name      string
 }
 
+// String is the Istio compatible string representation of the resource.
+// Name.Kind.Namespace
+// At the point of use Namespace can be omitted, and it is assumed to be the namespace
+// of the document.
+func (k Key) String() string {
+	return k.Name + "." + k.Kind + "." + k.Namespace
+}
+
 // Event represents an event. Used by Store2.Watch.
 type Event struct {
 	Key
-	Type ChangeType
+	Type  ChangeType
+	Value proto.Message
 }
 
 // Validator defines the interface to validate a new change.
