@@ -22,7 +22,23 @@ import (
 	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/config"
+	"reflect"
+
 )
+
+func assertEquals(t *testing.T, expected interface{}, value interface{}){
+	if reflect.TypeOf(expected) != reflect.TypeOf(value) {
+		t.Errorf("expected %v, but recieved %v",expected,value)
+		return
+	}
+	if expected != nil && reflect.TypeOf(expected).Kind() == reflect.Map{
+		if !reflect.DeepEqual(expected,value){
+			t.Errorf("expected %v, but recieved %v",expected,value)
+		}
+	} else if expected != value {
+		t.Errorf("expected %v, but recieved %v",expected,value)
+	}
+}
 
 func TestRegisteredForAttributes(t *testing.T) {
 	builders := adapterManager.BuilderMap([]adapter.RegisterFn{Register})
@@ -258,10 +274,10 @@ func TestPubkeyFetch(t *testing.T) {
 		b := newBuilder()
 		env := test.NewEnv(t)
 		a, err := b.BuildAttributesGenerator(env, v.conf)
-		tag := a.(*tokenAttrGen)
 		if err != nil {
 			t.Errorf("Unable to create aspect: %v", err)
 		}
+		tag := a.(*tokenAttrGen)
 		for i, issuer := range v.conf.Issuers {
 			iss := tag.cfg.Issuers[issuer.Name].(*defaultJWTIssuer)
 			iss.RLock()
@@ -283,3 +299,296 @@ func TestPubkeyFetch(t *testing.T) {
 
 }
 
+func TestAttributes(t *testing.T){
+
+	tokenConfMock := &tokenConfig.Params{
+		Issuers: []*tokenConfig.Issuer{
+			{Name: "Mock", PubKeyUrl: "mock.issuer.org"},
+		},
+	}
+
+	tokenConfIam := &tokenConfig.Params{
+		Issuers: []*tokenConfig.Issuer{
+			{Name: "https://iam.stage1.ng.bluemix.net/oidc/token", PubKeyUrl: "https://iam.stage1.ng.bluemix.net/oidc/jwks"},
+		},
+	}
+	expiredIAMToken := "eyJraWQiOiIyMDE3MDQwMS0wMDowMDowMCIsImFsZyI6IlJTMjU2In0.eyJpYW1faWQiOiJpYW0tU2VydmljZUlkLTcxZTk0MjVmLTNkM2EtNDY2NS1hOTg5LTY3NjlmOWViZGRhZiIsImlkIjoiaWFtLVNlcnZpY2VJZC03MWU5NDI1Zi0zZDNhLTQ2NjUtYTk4OS02NzY5ZjllYmRkYWYiLCJyZWFsbWlkIjoiaWFtIiwiaWRlbnRpZmllciI6IlNlcnZpY2VJZC03MWU5NDI1Zi0zZDNhLTQ2NjUtYTk4OS02NzY5ZjllYmRkYWYiLCJzdWIiOiJTZXJ2aWNlSWQtNzFlOTQyNWYtM2QzYS00NjY1LWE5ODktNjc2OWY5ZWJkZGFmIiwic3ViX3R5cGUiOiJTZXJ2aWNlSWQiLCJhY2NvdW50Ijp7ImJzcyI6ImQ1MTEyM2Q3NGFjODgwMDIxODlmN2U2ZjQ1Y2Y5ZTczIn0sImlhdCI6MTQ5OTk1OTUzMywiZXhwIjoxNDk5OTYzMTMzLCJpc3MiOiJodHRwczovL2lhbS5zdGFnZTEubmcuYmx1ZW1peC5uZXQvb2lkYy90b2tlbiIsImdyYW50X3R5cGUiOiJ1cm46aWJtOnBhcmFtczpvYXV0aDpncmFudC10eXBlOmFwaWtleSIsInNjb3BlIjoib3BlbmlkIiwiY2xpZW50X2lkIjoiZGVmYXVsdCJ9.M43SSEZH_6tq8YVkvcZme1vVtCgYTM-YC_VHpgD_cgkwIs_a9JD0z9vAQQmI8zABBrwIyiZ61XeR40qaWUprsnOxL61CoGl5tsoK9mrwrmyMi5ODwnEZjXiGMgcfAi46ZRKyjiWXnNesyF3HRM9_Ckdbo2H17PIYFNDIael7YRKtr4fkMiDL-Ee5Yyz21eBtC6NFb8DEnx1vSLOd6SrfSjiC0NZOSmDeyewYd1S2ZAAlhRypocKYFUCFrheH0i7qN6zc08qa4HmWPJvJ64tiZ45EUaiFwpFTnIxSYTt0AHWfWrw9vh_aeVYxkwY17j2ozb1M8tthOx241Xd_QoRCOA"
+
+	tokenConfLocalServer := &tokenConfig.Params{
+		Issuers: []*tokenConfig.Issuer{
+			{Name: test_server_iss_name, PubKeyUrl: test_server_addr},
+		},
+	}
+	tokenConfLocalServerWithClaims := &tokenConfig.Params{
+		Issuers: []*tokenConfig.Issuer{
+			{Name: test_server_iss_name, PubKeyUrl: test_server_addr,
+			ClaimNames:[]string{"name","locations.us.ca","servers.haifa"}},
+		},
+	}
+	tokenConfLocalServerWithClaimsandRenames := &tokenConfig.Params{
+		Issuers: []*tokenConfig.Issuer{
+			{Name: test_server_iss_name, PubKeyUrl: test_server_addr,
+				ClaimNames:[]string{"name","locations.us.ca","servers.haifa"},
+				ClaimRenames: map[string]string{
+					"locations.us.ca":"ca",
+					"name": "customerName",
+				},
+			},
+		},
+	}
+
+	ts := newTestServer()
+	go func() {ts.start()}()
+	for !ts.status() {}
+
+	testConfigs := []struct{
+		name string
+		conf *tokenConfig.Params
+		authHeader string
+		predictedAttributes map[string]interface{}
+	}{
+		{
+			name:"token doesn't exist",
+			conf: tokenConfMock,
+			authHeader: "",
+			predictedAttributes: map[string]interface{}{
+				exists_key: false,
+				encrypted_key: false,
+				type_key: "",
+				valid_key: false,
+				signed_key: false,
+				signAlg_key: "",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token exists but cannot be understood - not in the form of <type> <token>",
+			conf: tokenConfMock,
+			authHeader: "a54fbd121a11a2fd3g343bb2bab1fada223ba",
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "Unknown",
+				valid_key: false,
+				signed_key: false,
+				signAlg_key: "",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token exists but cannot be understood 2 - more than just <type> <token> in header",
+			conf: tokenConfMock,
+			authHeader: "Bearer a54fbd121a11a2fd3g343bb2bab1fada223ba abcdf",
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "Unknown",
+				valid_key: false,
+				signed_key: false,
+				signAlg_key: "",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token encrypted",
+			conf: tokenConfMock,
+			authHeader: "bearer a54fbd121a11a2fd3g343bb2bab1fada223ba",
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: true,
+				type_key: "Unknown",
+				valid_key: false,
+				signed_key: false,
+				signAlg_key: "",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token encrypted 2",
+			conf: tokenConfMock,
+			authHeader: "Bearer a54fbd121a11a2fd3g343bb2bab1fada223ba",
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: true,
+				type_key: "Unknown",
+				valid_key: false,
+				signed_key: false,
+				signAlg_key: "",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"expired token from IAM",
+			conf: tokenConfIam,
+			authHeader: "Bearer "+expiredIAMToken,
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: false,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"valid token from local test server",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_valid_no_claims_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: true,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"expired token from local test server",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_expired_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: false,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token with late nbf from local test server",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_late_nbf_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: false,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token with no iss claim from local test server",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_no_iss_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: false,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token with no kid in header from local test server",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_no_kid_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: false,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token with no exp in claims from local test server",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_no_exp_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: false,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"token with invalid signature from local test server",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_invalid_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: false,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil,
+			},
+		},
+		{
+			name:"valid token with claims from local test server - no claim names requested in configuration",
+			conf: tokenConfLocalServer,
+			authHeader: "Bearer "+ts.get_valid_with_claims_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: true,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: nil, //because the configuration does not specify claim names to be taken
+			},
+		},
+		{
+			name:"valid token with claims from local test server",
+			conf: tokenConfLocalServerWithClaims,
+			authHeader: "Bearer "+ts.get_valid_with_claims_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: true,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: map[string]string{"name":"johnDoe","locations.us.ca":"3","servers.haifa":"[jake roey]"}, //according to the configuration's "claimNames"
+			},
+		},
+		{
+			name:"valid token with claims and claim renames from local test server",
+			conf: tokenConfLocalServerWithClaimsandRenames,
+			authHeader: "Bearer "+ts.get_valid_with_claims_token(),
+			predictedAttributes: map[string]interface{}{
+				exists_key: true,
+				encrypted_key: false,
+				type_key: "jwt",
+				valid_key: true,
+				signed_key: true,
+				signAlg_key: "RS256",
+				claims_key: map[string]string{"customerName":"johnDoe","ca":"3","servers.haifa":"[jake roey]"}, //according to the configuration's "claimNames"
+			},
+		},
+	}
+
+	for _,v := range testConfigs {
+		t.Logf("****checking matching attributes for setup \"%v\":****",v.name)
+		b := newBuilder()
+		env := test.NewEnv(t)
+		a, err := b.BuildAttributesGenerator(env, v.conf)
+		if err != nil {
+			t.Errorf("Unable to create aspect: %v", err)
+		}
+		tag := a.(*tokenAttrGen)
+		resAttributes, err := tag.Generate(map[string]interface{}{authHeader_key: v.authHeader})
+		for key,val := range resAttributes{
+			t.Logf("checking that %v matches:",key)
+			assertEquals(t,v.predictedAttributes[key],val)
+		}
+	}
+
+	ts.stop()
+
+}

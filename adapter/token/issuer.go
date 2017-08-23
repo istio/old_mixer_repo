@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/asaskevich/govalidator"
+
 )
 
 /*
@@ -102,6 +103,8 @@ func (iss *defaultJWTIssuer) UpdatePublicKeys() error {
 	} else if err := json.Unmarshal(body, &keys); err != nil { // attempt to decode as JWK array directly
 		return err
 	}
+
+
 
 	mkeys := make(map[string]crypto.PublicKey)
 	for i, k := range keys {
