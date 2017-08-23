@@ -22,7 +22,7 @@ import (
 	"istio.io/mixer/pkg/adapter/test"
 )
 
-func doesNothing(w http.ResponseWriter, r *http.Request) {}
+func doesNothing(http.ResponseWriter, *http.Request) {}
 
 func TestServer(t *testing.T) {
 	testAddr := "127.0.0.1:9992"

@@ -24,10 +24,14 @@ option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
 message Params {
+    // Describes how a metric should be represented in Prometheus.
     message MetricInfo {
+        // Required. The name of the Istio metric instance this MetricInfo describes the shape of.
         string name = 1;
+        // Optional. A human readable description of this metric.
         string description = 2;
 
+        // Describes what kind of metric this is.
         enum Kind {
             UNSPECIFIED = 0;
             GAUGE = 1;
@@ -36,6 +40,7 @@ message Params {
         }
         Kind kind = 3;
 
+        // Describes buckets for DISTRIBUTION kind metrics.
         message BucketsDefinition {
             // Specifies a linear sequence of buckets that all have the same width
             // (except overflow and underflow). Each bucket represents a constant
@@ -116,7 +121,11 @@ message Params {
         // This field will be ignored for non-distribution metric kinds.
         BucketsDefinition buckets = 4;
 
+        // The names of labels to use: these need to match the dimensions of the Istio metric.
+        // TODO: see if we can remove this and rely on only the dimensions in the future.
         repeated string label_names = 5;
     }
+    // The set of metrics to represent in Prometheus. If a metric is defined in Istio but doesn't have a corresponding
+    // shape here, it will not be populated at runtime.
     repeated MetricInfo metrics = 1;
 }

@@ -33,8 +33,6 @@ type (
 	}
 
 	serverInst struct {
-		server
-
 		addr string
 		srv  *http.Server
 	}
@@ -64,7 +62,6 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) error {
 			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
 		}
 	})
-
 	return nil
 }
 
