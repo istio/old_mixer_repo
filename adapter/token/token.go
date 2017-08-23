@@ -180,7 +180,6 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 						}
 						if i == len(hierarchyKeys)-1{
 							tokenAttrs[claims_key].(map[string]string)[name] = fmt.Sprint(val)
-							insertedClaims = true
 						}
 					}
 
