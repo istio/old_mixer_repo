@@ -12,7 +12,7 @@ go_library(
         "//pkg/adapter:go_default_library",
         "@com_github_circonuslabs_circonus_gometrics//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        ],
+    ],
 )
 
 go_test(

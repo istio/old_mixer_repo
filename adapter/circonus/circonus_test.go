@@ -16,6 +16,7 @@ package circonus
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -24,8 +25,6 @@ import (
 	"time"
 
 	cgm "github.com/circonus-labs/circonus-gometrics"
-
-	"io/ioutil"
 
 	"istio.io/mixer/adapter/circonus/config"
 	"istio.io/mixer/pkg/adapter"
@@ -63,6 +62,7 @@ func testServer(t *testing.T) *httptest.Server {
 				if !ok {
 					t.Errorf("empty interface, no payload: %v", b)
 				}
+			TestLoop:
 				for key, value := range payload {
 
 					switch key {
@@ -74,7 +74,7 @@ func testServer(t *testing.T) *httptest.Server {
 							w.WriteHeader(500)
 							w.Header().Set("Content-Type", "application/json")
 							fmt.Fprintln(w, "mismatch in test counter values")
-							break
+							break TestLoop
 						}
 
 					case "test_gauge":
@@ -91,7 +91,7 @@ func testServer(t *testing.T) *httptest.Server {
 							w.WriteHeader(500)
 							w.Header().Set("Content-Type", "application/json")
 							fmt.Fprintln(w, "mismatch in test gauge values")
-							break
+							break TestLoop
 						}
 					case "test_histogram":
 						valInterfaces := value.(map[string]interface{})["_value"].([]interface{})
@@ -108,7 +108,7 @@ func testServer(t *testing.T) *httptest.Server {
 							w.WriteHeader(500)
 							w.Header().Set("Content-Type", "application/json")
 							fmt.Fprintln(w, "mismatch in test histogram values")
-							break
+							break TestLoop
 						}
 					case "test_histogram_int":
 						valInterfaces := value.(map[string]interface{})["_value"].([]interface{})
@@ -125,7 +125,7 @@ func testServer(t *testing.T) *httptest.Server {
 							w.WriteHeader(500)
 							w.Header().Set("Content-Type", "application/json")
 							fmt.Fprintln(w, "mismatch in test histogram values")
-							break
+							break TestLoop
 						}
 					}
 
