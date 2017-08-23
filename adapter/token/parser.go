@@ -36,6 +36,12 @@ func (j *defaultJWTTokenParser) Parse(rawToken interface{},metaData *tokenMetaDa
 	default:
 		metaData.ttype = "jwt"
 		token, err := jwt.Parse(rt, func(token *jwt.Token) (interface{}, error) {
+			if token.Method != nil && token.Method.Alg() != "none" {//"none" alg according to RFC
+				metaData.signed = true
+			}
+			if metaData.signed {
+				metaData.signAlg = token.Method.Alg()
+			}
 			kid, ok := token.Header["kid"].(string)
 			if kid == "" || !ok {
 				return nil, fmt.Errorf("kid is missing")
@@ -44,6 +50,11 @@ func (j *defaultJWTTokenParser) Parse(rawToken interface{},metaData *tokenMetaDa
 			if iss == "" || !exists {
 				return nil, fmt.Errorf("iss claim is missing")
 			}
+			exp , exists := token.Claims.(jwt.MapClaims)["exp"]
+			if !exists || exp == "" {
+				return nil, fmt.Errorf("exp claim is missing")
+			}
+			//if exp does exist, it's time validation is made by the jwt lib
 
 			relevantIssuer, exists := j.supportedIssuers[iss.(string)]
 			if !exists {
@@ -51,13 +62,12 @@ func (j *defaultJWTTokenParser) Parse(rawToken interface{},metaData *tokenMetaDa
 			}
 
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); ok {
-				metaData.signed = true
-				metaData.signAlg = token.Method.Alg()
 				//asymmetric key signing
 				pk, err := relevantIssuer.GetPublicKey(kid)
 				if err != nil {
 					return nil, err
 				}
+
 				return pk, nil
 			}
 			return nil, fmt.Errorf("Unsupported signing method: %v. RSA supported.", token.Header["alg"])
