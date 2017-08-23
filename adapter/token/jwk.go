@@ -158,5 +158,41 @@ func safeDecode(str string) ([]byte, error) {
 		return base64.StdEncoding.DecodeString(str)
 	}
 	return integer, err
-
 }
+
+//encode an integer representation of rsa exponent e into the corresponding base64 url-encoded string, according to the jwk RFC
+func encodeRSAE(e int) string {
+	bs := make([]byte, 4)
+	binary.BigEndian.PutUint32(bs, uint32(e))
+	var zeroPrefixIndex int
+	for i,_ := range bs{
+		if bs[i]!=0 {
+			zeroPrefixIndex = i
+			break
+		}
+	}
+	bs = bs[zeroPrefixIndex:]
+	return base64.URLEncoding.EncodeToString(bs)
+}
+
+//encode a big integer representation of rsa modulus n into the corresponding base64 url-encoded string, according to the jwk RFC
+func encodeRSAN(n *big.Int) string {
+	bs := n.Bytes()
+	var zeroPrefixIndex int
+	for i,_ := range bs{
+		if bs[i]!=0 {
+			zeroPrefixIndex = i
+			break
+		}
+	}
+	bs = bs[zeroPrefixIndex:]
+	return base64.URLEncoding.EncodeToString(bs)
+}
+
+//populate the e,n fields of the key json struct according to a given public key
+func (k *key) putRSAPublicKey(pubkey *rsa.PublicKey){
+	k.E = encodeRSAE(pubkey.E)
+	k.N = encodeRSAN(pubkey.N)
+}
+
+
