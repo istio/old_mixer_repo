@@ -94,6 +94,29 @@ func (f *fhbuilder) Build(h *cpb.Handler, inst []*cpb.Instance, env adapter.Env)
 	return f.a, f.err
 }
 
+func assertAction(t *testing.T, act *Action) {
+	templateSet := make(map[string]bool)
+	for _, ic := range act.instanceConfig {
+		templateSet[ic.Template] = true
+	}
+
+	if len(templateSet) > 1 {
+		t.Fatalf("actions contract violated, action have instances from %d templates", len(templateSet))
+	}
+}
+
+func assertRules(t *testing.T, rules rulesListByNamespace) {
+	for _, ruleArr := range rules {
+		for _, r := range ruleArr {
+			for _, vr := range r.actions {
+				for _, a := range vr {
+					assertAction(t, a)
+				}
+			}
+		}
+	}
+}
+
 func TestController_workflow(t *testing.T) {
 	mcd := maxCleanupDuration
 	defer func() { maxCleanupDuration = mcd }()
@@ -229,6 +252,8 @@ func TestController_workflow(t *testing.T) {
 	if c.nrules > 0 {
 		t.Fatalf("got %d rules, want %d", c.nrules, 0)
 	}
+
+	assertRules(t, c.resolver.rules)
 }
 
 func Test_cleanupResolver(t *testing.T) {
