@@ -104,13 +104,11 @@ func TestController_workflow(t *testing.T) {
 			Name: "AA",
 		},
 	}
-
 	templateInfo := map[string]template.Info{
 		"metric": {
 			Name: "metric",
 		},
 	}
-
 	configState := map[store.Key]proto.Message{
 		{RulesKind, DefaultConfigNamespace, "r1"}: &cpb.Rule{
 			Selector: "target.service == \"abc\"",
@@ -144,11 +142,12 @@ func TestController_workflow(t *testing.T) {
 			return fb
 		},
 	}
-	c.publishSnapShot()
 
 	go func() {
 		c.resolver.decRefCount()
 	}()
+
+	c.publishSnapShot()
 
 	// check what was called.
 	if fb.called != 1 {
@@ -228,6 +227,9 @@ func TestController_workflow(t *testing.T) {
 		t.Fatalf("handler was not closed")
 	}
 
+	if c.nrules > 0 {
+		t.Fatalf("got %d rules, want %d", c.nrules, 0)
+	}
 }
 
 func Test_cleanupResolver(t *testing.T) {

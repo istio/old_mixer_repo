@@ -66,10 +66,13 @@ type Controller struct {
 	// It is incremented every call.
 	resolverID int
 
-	// Fields below are used for testing.
+	// Fields below are used for testing an debugging.
 
 	// createHandlerFactory for testing.
 	createHandlerFactory factoryCreatorFunc
+
+	// number of rules in the resolver.
+	nrules int
 }
 
 // RulesKind defines the config kind name of mixer rules.
@@ -125,10 +128,7 @@ func (c *Controller) publishSnapShot() {
 
 	// Combine rules with the handler table.
 	// Actions referring to handlers in error, will be purged.
-	combineRulesHandlers(ruleConfig, ht.table)
-
-	// create rules that are in the format that resolver needs.
-	rules, nrules := convertToRuntimeRules(ruleConfig)
+	rules, nrules := combineRulesHandlers(ruleConfig, ht.table)
 
 	// Create new resolver and cleanup the old resolver.
 	c.resolverID++
@@ -138,19 +138,20 @@ func (c *Controller) publishSnapShot() {
 	// copy old for deletion.
 	oldTable := c.table
 	oldResolver := c.resolver
+	oldNrules := c.nrules
 
 	// set new
 	c.table = ht.table
 	c.resolver = resolver
+	c.nrules = nrules
 
-	glog.Infof("Published snapshot[%d] with %d rules, %d handlers", resolver.ID, nrules, len(c.table))
+	glog.Infof("Published snapshot[%d] with %d rules, %d handlers, previously %d rules", resolver.ID, nrules, len(c.table), oldNrules)
 
 	// synchronous call to cleanup.
 	err := cleanupResolver(oldResolver, oldTable, maxCleanupDuration)
 	if err != nil {
 		glog.Warningf("Unable to perform cleanup: %v", err)
 	}
-
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
@@ -350,7 +351,7 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 
 // combineRulesHandlers sets handler references in rulesConfig.
 // Reject actions from rulesConfig whose handler could not be initialized.
-func combineRulesHandlers(ruleConfig rulesMapByNamespace, handlerTable map[string]*HandlerEntry) {
+func combineRulesHandlers(ruleConfig rulesMapByNamespace, handlerTable map[string]*HandlerEntry) (rulesListByNamespace, int) {
 	// map by namespace
 	for ns, nsmap := range ruleConfig {
 		// map by rule name
@@ -378,11 +379,14 @@ func combineRulesHandlers(ruleConfig rulesMapByNamespace, handlerTable map[strin
 				}
 			}
 			if len(rule.actions) == 0 {
-				glog.Warningf("Purging rule %v with no actions")
+				glog.Warningf("Purging rule %v with no actions", rn)
 				delete(nsmap, rn)
 			}
 		}
 	}
+
+	// create rules that are in the format that resolver needs.
+	return convertToRuntimeRules(ruleConfig)
 }
 
 // cleanupResolver cleans up handler table in the resolver
