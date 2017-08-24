@@ -63,19 +63,19 @@ type resolver struct {
 	// configuration. resolver state can be cleaned up when this count is 0.
 	refCount int32
 
-	// ID of the resolver for debugging.
-	ID int
+	// id of the resolver for debugging.
+	id int
 }
 
 // newResolver returns a Resolver.
 func newResolver(evaluator expr.PredicateEvaluator, identityAttribute string, defaultConfigNamespace string,
-	rules map[string][]*Rule, ID int) *resolver {
+	rules map[string][]*Rule, id int) *resolver {
 	return &resolver{
 		evaluator:              evaluator,
 		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
 		rules: rules,
-		ID:    ID,
+		id:    id,
 	}
 }
 
