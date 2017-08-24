@@ -8,6 +8,7 @@ go_library(
         "env.go",
         "handler.go",
         "handlerTable.go",
+        "init.go",
         "logger.go",
         "monitor.go",
         "resolver.go",
