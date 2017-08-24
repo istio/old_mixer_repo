@@ -241,7 +241,7 @@ func TestCrdsAreNotReady(t *testing.T) {
 	defer cancel()
 	start := time.Now()
 	err := s.Init(ctx, []string{"Handler", "Action"})
-	d := time.Now().Sub(start)
+	d := time.Since(start)
 	if err == nil {
 		t.Errorf("Got nil, Want error")
 	}
