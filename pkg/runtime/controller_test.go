@@ -94,7 +94,7 @@ func (f *fhbuilder) Build(h *cpb.Handler, inst []*cpb.Instance, env adapter.Env)
 	return f.a, f.err
 }
 
-func assertAction(t *testing.T, act *Action) {
+func checkActionInvariants(t *testing.T, act *Action) {
 	templateSet := make(map[string]bool)
 	for _, ic := range act.instanceConfig {
 		templateSet[ic.Template] = true
@@ -105,12 +105,12 @@ func assertAction(t *testing.T, act *Action) {
 	}
 }
 
-func assertRules(t *testing.T, rules rulesListByNamespace) {
+func checkRulesInvariants(t *testing.T, rules rulesListByNamespace) {
 	for _, ruleArr := range rules {
 		for _, r := range ruleArr {
 			for _, vr := range r.actions {
 				for _, a := range vr {
-					assertAction(t, a)
+					checkActionInvariants(t, a)
 				}
 			}
 		}
@@ -253,7 +253,7 @@ func TestController_workflow(t *testing.T) {
 		t.Fatalf("got %d rules, want %d", c.nrules, 0)
 	}
 
-	assertRules(t, c.resolver.rules)
+	checkRulesInvariants(t, c.resolver.rules)
 }
 
 func Test_cleanupResolver(t *testing.T) {
