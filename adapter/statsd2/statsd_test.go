@@ -15,6 +15,8 @@
 package statsd
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -23,21 +25,11 @@ import (
 	"github.com/cactus/go-statsd-client/statsd/statsdtest"
 	"github.com/golang/protobuf/proto"
 
-	"istio.io/mixer/adapter/statsd/config"
-	"istio.io/mixer/pkg/adapter"
+	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/adapter/statsd2/config"
 	"istio.io/mixer/pkg/adapter/test"
+	"istio.io/mixer/template/metric"
 )
-
-func TestInvariants(t *testing.T) {
-	test.AdapterInvariants(Register, t)
-}
-
-func TestNewBuilder(t *testing.T) {
-	b := newBuilder()
-	if err := b.Close(); err != nil {
-		t.Errorf("b.Close() = %s, expected no err", err)
-	}
-}
 
 func TestValidateConfig(t *testing.T) {
 	cases := []struct {
@@ -45,16 +37,15 @@ func TestValidateConfig(t *testing.T) {
 		errString string
 	}{
 		{&config.Params{}, ""},
-		{&config.Params{MetricNameTemplateStrings: map[string]string{"a": `{{.apiMethod}}-{{.responseCode}}`}}, ""},
-		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "metricNameTemplateStrings"},
+		{&config.Params{Metrics: map[string]*config.Params_MetricInfo{"a": {NameTemplate: `{{.apiMethod}}-{{.responseCode}}`}}}, ""},
+		{&config.Params{Metrics: map[string]*config.Params_MetricInfo{"badtemplate": {NameTemplate: `{{if 1}}`}}}, "metricNameTemplateStrings"},
 		{&config.Params{FlushDuration: -1}, "flushDuration"},
 		{&config.Params{SamplingRate: -1}, "samplingRate"},
 		{&config.Params{FlushBytes: -1}, "flushBytes"},
 	}
 	for idx, c := range cases {
-		b := &builder{}
 		errString := ""
-		if err := b.ValidateConfig(c.conf); err != nil {
+		if err := validateConfig(c.conf); err != nil {
 			errString = err.Error()
 		}
 		if !strings.Contains(errString, c.errString) {
@@ -65,15 +56,15 @@ func TestValidateConfig(t *testing.T) {
 
 func TestNewMetricsAspect(t *testing.T) {
 	conf := &config.Params{
-		Address:                   "localhost:8125",
-		Prefix:                    "",
-		FlushDuration:             300 * time.Millisecond,
-		FlushBytes:                -1,
-		SamplingRate:              1.0,
-		MetricNameTemplateStrings: map[string]string{"a": `{{(.apiMethod) "-" (.responseCode)}}`},
+		Address:       "localhost:8125",
+		Prefix:        "",
+		FlushDuration: 300 * time.Millisecond,
+		FlushBytes:    -1,
+		SamplingRate:  1.0,
+		Metrics:       map[string]*config.Params_MetricInfo{"a": {NameTemplate: `{{(.apiMethod) "-" (.responseCode)}}`}},
 	}
 	env := test.NewEnv(t)
-	if _, err := newBuilder().NewMetricsAspect(env, conf, nil); err != nil {
+	if _, err := (&builder{}).Build(conf, env); err != nil {
 		t.Errorf("b.NewMetrics(test.NewEnv(t), &config.Params{}) = %s, wanted no err", err)
 	}
 
@@ -86,7 +77,7 @@ func TestNewMetricsAspect(t *testing.T) {
 		present = present || strings.Contains(l, "FlushBytes")
 	}
 	if !present {
-		t.Errorf("wanted NewMetricsAspect(env, conf, metrics) to log about '%s', only got logs: %v", name, logs)
+		t.Errorf("wanted NewMetricsAspect(env, conf, metrics) to log about 'FlushBytes', only got logs: %v", logs)
 	}
 }
 
@@ -98,19 +89,18 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 		FlushDuration: 300 * time.Millisecond,
 		FlushBytes:    512,
 		SamplingRate:  1.0,
-		MetricNameTemplateStrings: map[string]string{
-			name:      `{{ .apiMethod "-" .responseCode }}`, // fails at execute time, not template parsing time
-			"missing": "foo",
+		Metrics: map[string]*config.Params_MetricInfo{
+			name:      {NameTemplate: `{{ .apiMethod "-" .responseCode }}`}, // fails at execute time, not template parsing time
+			"missing": {NameTemplate: "foo"},
 		},
 	}
-	metrics := []adapter.MetricDefinition{
-		{
-			Name:   name,
-			Labels: map[string]adapter.LabelType{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
-		},
+	metrics := map[string]*metric.Type{
+		name: {Dimensions: map[string]descriptor.ValueType{"apiMethod": descriptor.STRING, "responseCode": descriptor.INT64}},
 	}
 	env := test.NewEnv(t)
-	if _, err := newBuilder().NewMetricsAspect(env, conf, makeMetricMap(metrics)); err != nil {
+	b := &builder{}
+	_ = b.ConfigureMetricHandler(metrics)
+	if _, err := b.Build(conf, env); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), conf, metrics) = _, %s, wanted no error", err)
 	}
 
@@ -129,22 +119,22 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 
 func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 	conf := &config.Params{
-		Address:                   "localhost:8125",
-		Prefix:                    "",
-		FlushDuration:             300 * time.Millisecond,
-		FlushBytes:                512,
-		SamplingRate:              1.0,
-		MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`},
+		Address:       "localhost:8125",
+		Prefix:        "",
+		FlushDuration: 300 * time.Millisecond,
+		FlushBytes:    512,
+		SamplingRate:  1.0,
+		Metrics:       map[string]*config.Params_MetricInfo{"badtemplate": {NameTemplate: `{{if 1}}`}},
 	}
-	metrics := []adapter.MetricDefinition{
-		{Name: "badtemplate"},
-	}
+	metrics := map[string]*metric.Type{"badtemplate": {}}
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("NewMetricsAspect(test.NewEnv(t), config, nil) didn't panic")
 		}
 	}()
-	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), conf, makeMetricMap(metrics)); err != nil {
+	b := &builder{}
+	_ = b.ConfigureMetricHandler(metrics)
+	if _, err := b.Build(conf, test.NewEnv(t)); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), config, nil) = %v; wanted panic not err", err)
 	}
 	t.Fail()
@@ -158,139 +148,121 @@ func TestRecord(t *testing.T) {
 		FlushDuration: time.Duration(300) * time.Millisecond,
 		FlushBytes:    512,
 		SamplingRate:  1.0,
-		MetricNameTemplateStrings: map[string]string{
-			templateMetricName: `{{.apiMethod}}-{{.responseCode}}`,
+		Metrics: map[string]*config.Params_MetricInfo{
+			templateMetricName: {NameTemplate: `{{.apiMethod}}-{{.responseCode}}`, Type: config.COUNTER},
+			"counter":          {Type: config.COUNTER},
+			"distribution":     {Type: config.DISTRIBUTION},
+			"gauge":            {Type: config.GAUGE},
 		},
 	}
-	metrics := []adapter.MetricDefinition{
-		{
-			Name:   templateMetricName,
-			Labels: map[string]adapter.LabelType{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
+	metrics := map[string]*metric.Type{
+		templateMetricName: {
+			Value:      descriptor.INT64,
+			Dimensions: map[string]descriptor.ValueType{"apiMethod": descriptor.STRING, "responseCode": descriptor.INT64},
 		},
+		"counter":      {},
+		"distribution": {},
+		"gauge":        {},
 	}
 
-	d := &adapter.MetricDefinition{
-		Name: "foo",
-		Kind: adapter.Gauge,
-	}
-
-	hist := &adapter.MetricDefinition{
-		Name: "request_duration",
-		Kind: adapter.Distribution,
-	}
-
-	validGauge := adapter.Value{
-		Definition:  d,
-		Labels:      make(map[string]interface{}),
-		StartTime:   time.Now(),
-		EndTime:     time.Now(),
-		MetricValue: int64(123),
+	validGauge := metric.Instance{
+		Name:       "gauge",
+		Value:      int64(123),
+		Dimensions: make(map[string]interface{}),
 	}
 	invalidGauge := validGauge
-	invalidGauge.MetricValue = "bar"
+	invalidGauge.Value = "bar"
 
-	d = &adapter.MetricDefinition{
-		Name: "bar",
-		Kind: adapter.Counter,
-	}
-
-	validCounter := adapter.Value{
-		Definition:  d,
-		Labels:      make(map[string]interface{}),
-		StartTime:   time.Now(),
-		EndTime:     time.Now(),
-		MetricValue: int64(123),
+	validCounter := metric.Instance{
+		Name:       "counter",
+		Value:      int64(456),
+		Dimensions: make(map[string]interface{}),
 	}
 	invalidCounter := validCounter
-	invalidCounter.MetricValue = 1.0
+	invalidCounter.Value = 1.0
 
-	requestDuration := adapter.Value{
-		Definition:  hist,
-		MetricValue: 146 * time.Millisecond,
+	requestDuration := &metric.Instance{
+		Name:  "distribution",
+		Value: 146 * time.Millisecond,
 	}
-	invalidDistribution := adapter.Value{
-		Definition:  hist,
-		MetricValue: "not good",
+	invalidDistribution := &metric.Instance{
+		Name:  "distribution",
+		Value: "not good",
 	}
-	int64Distribution := adapter.Value{
-		Definition:  hist,
-		MetricValue: int64(3459),
+	int64Distribution := &metric.Instance{
+		Name:  "distribution",
+		Value: int64(3459),
 	}
 
-	methodCodeMetric := validCounter
-	methodCodeMetric.Definition = &metrics[0] // this needs to match the name in conf.MetricNameTemplateStrings
-	methodCodeMetric.Labels["apiMethod"] = "methodName"
-	methodCodeMetric.Labels["responseCode"] = "500"
-	expectedMetricName := methodCodeMetric.Labels["apiMethod"].(string) + "-" + methodCodeMetric.Labels["responseCode"].(string)
+	templateMetric := metric.Instance{
+		Name:       templateMetricName,
+		Value:      int64(1),
+		Dimensions: map[string]interface{}{"apiMethod": "methodName", "responseCode": 500},
+	}
+	expectedMetricName := "methodName-500"
 
 	cases := []struct {
-		vals      []adapter.Value
+		vals      []*metric.Instance
 		errString string
 	}{
-		{[]adapter.Value{}, ""},
-		{[]adapter.Value{validGauge}, ""},
-		{[]adapter.Value{validCounter}, ""},
-		{[]adapter.Value{methodCodeMetric}, ""},
-		{[]adapter.Value{requestDuration}, ""},
-		{[]adapter.Value{int64Distribution}, ""},
-		{[]adapter.Value{validCounter, validGauge}, ""},
-		{[]adapter.Value{validCounter, validGauge, methodCodeMetric}, ""},
-		{[]adapter.Value{invalidCounter}, "could not record"},
-		{[]adapter.Value{invalidGauge}, "could not record"},
-		{[]adapter.Value{invalidDistribution}, "could not record"},
-		{[]adapter.Value{validGauge, invalidGauge}, "could not record"},
-		{[]adapter.Value{methodCodeMetric, invalidCounter}, "could not record"},
+		{[]*metric.Instance{}, ""},
+		{[]*metric.Instance{&validGauge}, ""},
+		{[]*metric.Instance{&validCounter}, ""},
+		{[]*metric.Instance{&templateMetric}, ""},
+		{[]*metric.Instance{requestDuration}, ""},
+		{[]*metric.Instance{int64Distribution}, ""},
+		{[]*metric.Instance{&validCounter, &validGauge}, ""},
+		{[]*metric.Instance{&validCounter, &validGauge, &templateMetric}, ""},
+		{[]*metric.Instance{&invalidCounter}, "could not record"},
+		{[]*metric.Instance{&invalidGauge}, "could not record"},
+		{[]*metric.Instance{invalidDistribution}, "could not record"},
+		{[]*metric.Instance{&validGauge, &invalidGauge}, "could not record"},
+		{[]*metric.Instance{&templateMetric, &invalidCounter}, "could not record"},
 	}
 	for idx, c := range cases {
-		b := newBuilder()
-		rs := statsdtest.NewRecordingSender()
-		cl, err := statsd.NewClientWithSender(rs, "")
-		if err != nil {
-			t.Errorf("statsd.NewClientWithSender(rs, \"\") = %s; wanted no err", err)
-		}
-		m, err := b.NewMetricsAspect(test.NewEnv(t), conf, makeMetricMap(metrics))
-		if err != nil {
-			t.Errorf("[%d] newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", idx, err)
-			continue
-		}
-		// We don't have an easy handle into setting the client, so we'll just reach in and update it
-		asp := m.(*handler)
-		asp.client = cl
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			b := &builder{}
+			_ = b.ConfigureMetricHandler(metrics)
+			m, err := b.Build(conf, test.NewEnv(t))
+			if err != nil {
+				t.Fatalf("newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", err)
+			}
 
-		if err := m.Record(c.vals); err != nil {
-			if c.errString == "" {
-				t.Errorf("[%d] m.Record(c.vals) = %s; wanted no err", idx, err)
+			rs := statsdtest.NewRecordingSender()
+			cl, err := statsd.NewClientWithSender(rs, "")
+			if err != nil {
+				t.Errorf("statsd.NewClientWithSender(rs, \"\") = %s; wanted no err", err)
 			}
-			if !strings.Contains(err.Error(), c.errString) {
-				t.Errorf("[%d] m.Record(c.vals) = %s; wanted err containing %s", idx, err.Error(), c.errString)
-			}
-		}
-		if err := m.Close(); err != nil {
-			t.Errorf("[%d] m.Close() = %s; wanted no err", idx, err)
-		}
-		if c.errString != "" {
-			continue
-		}
+			// We don't have an easy handle into setting the client, so we'll just reach in and update it
+			asp := m.(*handler)
+			asp.client = cl
 
-		metrics := rs.GetSent()
-		for _, val := range c.vals {
-			name := val.Definition.Name
-			if val.Definition.Name == templateMetricName {
-				name = expectedMetricName
+			if err := asp.HandleMetric(context.Background(), c.vals); err != nil {
+				if c.errString == "" {
+					t.Errorf("m.Record(c.vals) = %s; wanted no err", err)
+				}
+				if !strings.Contains(err.Error(), c.errString) {
+					t.Errorf("m.Record(c.vals) = %s; wanted err containing %s", err.Error(), c.errString)
+				}
 			}
-			m := metrics.CollectNamed(name)
-			if len(m) < 1 {
-				t.Errorf("[%d] metrics.CollectNamed(%s) returned no stats, expected one.\nHave metrics: %v", idx, name, metrics)
+			if err := m.Close(); err != nil {
+				t.Errorf("m.Close() = %s; wanted no err", err)
 			}
-		}
+			if c.errString != "" {
+				return
+			}
+
+			metrics := rs.GetSent()
+			for _, val := range c.vals {
+				name := val.Name
+				if val.Name == templateMetricName {
+					name = expectedMetricName
+				}
+				m := metrics.CollectNamed(name)
+				if len(m) < 1 {
+					t.Errorf("metrics.CollectNamed(%s) returned no stats, expected one.\nHave metrics: %v", name, metrics)
+				}
+			}
+		})
 	}
-}
-
-func makeMetricMap(metrics []adapter.MetricDefinition) map[string]*adapter.MetricDefinition {
-	m := make(map[string]*adapter.MetricDefinition, len(metrics))
-	for _, metric := range metrics {
-		m[metric.Name] = &metric
-	}
-
-	return m
 }

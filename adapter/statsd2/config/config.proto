@@ -42,14 +42,27 @@ message Params {
     // Chance that any particular metric is sampled when incremented; can take the range [0, 1], defaults to 1 if unspecified.
     float sampling_rate = 5;
 
-    // Map of metric name -> template string; the template will be filled with values from the metric's labels and the
-    // resulting string will be used as the statsd metric name. This allows easier creation of statsd metrics like
-    // `action_name-response_code`. The template strings must conform to go's text/template syntax. For the example of
-    // `action_name-response_code`, we use the template:
-    //    `{{.apiMethod}}-{{.responseCode}}`
-    //
-    // If a metric's name is not in the map then the exported statsd metric name will be exactly the metric's name.
-    //
-    // TODO: unify templates to use our expression language when its finalized
-    map<string, string> metric_name_template_strings = 6;
+    // Describes how to represent this metric in statsd
+    message MetricInfo {
+        // The type of metric.
+        enum Type {
+            UNKNOWN = 0;
+            COUNTER = 1;
+            GAUGE = 2;
+            DISTRIBUTION = 3;
+        }
+        Type type = 1;
+
+        // The template will be filled with values from the metric's labels and the resulting string will be used as
+        // the statsd metric name. This allows easier creation of statsd metrics like `action_name-response_code`.
+        // The template strings must conform to go's text/template syntax. For the example of `action_name-response_code`,
+        // we use the template:
+        //    `{{.apiMethod}}-{{.responseCode}}`
+        //
+        // If name_template is the empty string the Istio metric name will be used for statsd metric's name.
+        string name_template = 2;
+    }
+
+    // Map of metric name -> info. If a metric's name is not in the map then the metric will not be exported to statsd.
+    map<string, MetricInfo> metrics = 6;
 }

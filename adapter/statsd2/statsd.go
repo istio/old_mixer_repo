@@ -15,6 +15,7 @@
 package statsd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"text/template"
@@ -23,9 +24,10 @@ import (
 	"github.com/cactus/go-statsd-client/statsd"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/mixer/adapter/statsd/config"
+	"istio.io/mixer/adapter/statsd2/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/template/metric"
 )
 
 const (
@@ -34,39 +36,47 @@ const (
 
 type (
 	builder struct {
-		adapter.DefaultBuilder
+		metrics map[string]*metric.Type
+	}
+
+	info struct {
+		mtype config.Params_MetricInfo_Type
+		tmpl  *template.Template
 	}
 
 	handler struct {
 		rate      float32
 		client    statsd.Statter
-		templates map[string]*template.Template // metric name -> template
+		templates map[string]info // metric name -> template
 	}
 )
 
 var (
-	name        = "statsd"
-	desc        = "Pushes statsd metrics"
-	defaultConf = &config.Params{
-		Address:                   "localhost:8125",
-		Prefix:                    "",
-		FlushDuration:             300 * time.Millisecond,
-		FlushBytes:                512,
-		SamplingRate:              1.0,
-		MetricNameTemplateStrings: make(map[string]string),
-	}
+	_ metric.HandlerBuilder = &builder{}
+	_ metric.Handler        = &handler{}
 )
 
-// Register records the builders exposed by this adapter.
-func Register(r adapter.Registrar) {
-	r.RegisterMetricsBuilder(newBuilder())
+// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
+func GetBuilderInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
+		Name:        "istio.io/mixer/adapter/statsd2",
+		Description: "Produces statsd metrics",
+		SupportedTemplates: []string{
+			metric.TemplateName,
+		},
+		DefaultConfig: &config.Params{
+			Address:       "localhost:8125",
+			Prefix:        "",
+			FlushDuration: 300 * time.Millisecond,
+			FlushBytes:    512,
+			SamplingRate:  1.0,
+		},
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		ValidateConfig:       validateConfig,
+	}
 }
 
-func newBuilder() *builder {
-	return &builder{adapter.NewDefaultBuilder(name, desc, defaultConf)}
-}
-
-func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
+func validateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
 	if params.FlushDuration < 0 {
 		ce = ce.Appendf("flushDuration", "flush duration must be >= 0")
@@ -77,15 +87,20 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if params.SamplingRate < 0 {
 		ce = ce.Appendf("samplingRate", "sampling rate must be >= 0")
 	}
-	for metricName, s := range params.MetricNameTemplateStrings {
-		if _, err := template.New(metricName).Parse(s); err != nil {
+	for metricName, s := range params.Metrics {
+		if _, err := template.New(metricName).Parse(s.NameTemplate); err != nil {
 			ce = ce.Appendf("metricNameTemplateStrings", "failed to parse template '%s' for metric '%s': %v", s, metricName, err)
 		}
 	}
 	return
 }
 
-func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (b *builder) ConfigureMetricHandler(metrics map[string]*metric.Type) error {
+	b.metrics = metrics
+	return nil
+}
+
+func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	params := cfg.(*config.Params)
 
 	flushBytes := int(params.FlushBytes)
@@ -97,27 +112,30 @@ func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics 
 
 	client, _ := statsd.NewBufferedClient(params.Address, params.Prefix, params.FlushDuration, flushBytes)
 
-	templates := make(map[string]*template.Template)
-	for metricName, s := range params.MetricNameTemplateStrings {
-		def, found := metrics[metricName]
+	templates := make(map[string]info)
+	for metricName, s := range params.Metrics {
+		def, found := b.metrics[metricName]
 		if !found {
 			env.Logger().Infof("template registered for nonexistent metric '%s'", metricName)
 			continue // we don't have a metric that corresponds to this template, skip processing it
 		}
 
-		t, _ := template.New(metricName).Parse(s)
-		if err := t.Execute(ioutil.Discard, def.Labels); err != nil {
-			env.Logger().Warningf(
-				"skipping custom statsd metric name for metric '%s', could not satisfy template '%s' with labels '%v': %v",
-				metricName, s, def.Labels, err)
-			continue
+		var t *template.Template
+		if s.NameTemplate != "" {
+			t, _ = template.New(metricName).Parse(s.NameTemplate)
+			if err := t.Execute(ioutil.Discard, def.Dimensions); err != nil {
+				env.Logger().Warningf(
+					"skipping custom statsd metric name for metric '%s', could not satisfy template '%s' with labels '%v': %v",
+					metricName, s, def.Dimensions, err)
+				continue
+			}
 		}
-		templates[metricName] = t
+		templates[metricName] = info{mtype: s.Type, tmpl: t}
 	}
 	return &handler{params.SamplingRate, client, templates}, nil
 }
 
-func (h *handler) Record(values []adapter.Value) error {
+func (h *handler) HandleMetric(_ context.Context, values []*metric.Instance) error {
 	var result *multierror.Error
 	for _, v := range values {
 		if err := h.record(v); err != nil {
@@ -127,50 +145,51 @@ func (h *handler) Record(values []adapter.Value) error {
 	return result.ErrorOrNil()
 }
 
-func (h *handler) record(value adapter.Value) error {
-	mname := value.Definition.Name
-	if t, found := h.templates[mname]; found {
+func (h *handler) record(value *metric.Instance) error {
+	mname := value.Name
+	t, found := h.templates[mname]
+	if !found {
+		return fmt.Errorf("no info for metric named %s", value.Name)
+	}
+	if t.tmpl != nil {
 		buf := pool.GetBuffer()
-
 		// We don't check the error here because Execute should only fail when the template is invalid; since
 		// we check that the templates are parsable in ValidateConfig and further check that they can be executed
 		// with the metric's labels in NewMetricsAspect, this should never fail.
-		_ = t.Execute(buf, value.Labels)
+		_ = t.tmpl.Execute(buf, value.Dimensions)
 		mname = buf.String()
 		pool.PutBuffer(buf)
 	}
 
-	var result error
-	switch value.Definition.Kind {
-	case adapter.Gauge:
-		v, err := value.Int64()
-		if err != nil {
-			return fmt.Errorf("could not record gauge '%s': %v", mname, err)
+	switch t.mtype {
+	case config.GAUGE:
+		v, ok := value.Value.(int64)
+		if !ok {
+			return fmt.Errorf("could not record counter '%s' expected int value, got %v", mname, value.Value)
 		}
-		result = h.client.Gauge(mname, v, h.rate)
-
-	case adapter.Counter:
-		v, err := value.Int64()
-		if err != nil {
-			return fmt.Errorf("could not record counter '%s': %v", mname, err)
+		return h.client.Gauge(mname, v, h.rate)
+	case config.COUNTER:
+		v, ok := value.Value.(int64)
+		if !ok {
+			return fmt.Errorf("could not record counter '%s' expected int value, got %v", mname, value.Value)
 		}
-		result = h.client.Inc(mname, v, h.rate)
-	case adapter.Distribution:
+		return h.client.Inc(mname, v, h.rate)
+	case config.DISTRIBUTION:
 		// TODO: figure out how to program histograms via config.*
 		// updates
-		v, err := value.Duration()
-		if err == nil {
+		v, ok := value.Value.(time.Duration)
+		if ok {
 			return h.client.TimingDuration(mname, v, h.rate)
 		}
 		// TODO: figure out support for non-duration distributions.
-		vint, err := value.Int64()
-		if err == nil {
+		vint, ok := value.Value.(int64)
+		if ok {
 			return h.client.Inc(mname, vint, h.rate)
 		}
-		return fmt.Errorf("could not record distribution '%s': %v", mname, err)
+		return fmt.Errorf("could not record distribution '%s'; expected int or duration, got %v", mname, value.Value)
+	default:
+		return fmt.Errorf("unknown metric type '%v' for metric: %s", t.mtype, value.Name)
 	}
-
-	return result
 }
 
-func (a *handler) Close() error { return a.client.Close() }
+func (h *handler) Close() error { return h.client.Close() }
