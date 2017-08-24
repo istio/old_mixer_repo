@@ -56,7 +56,7 @@ const (
 	// of the caches when some CRDs are missing. The actual timeout
 	// can be customized through the timeout for the context passed to
 	// Init() method.
-	crdRetryTimeout = time.Minute * 5
+	crdRetryTimeout = time.Minute
 )
 
 type listerWatcherBuilderInterface interface {
@@ -111,6 +111,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	s.caches = make(map[string]cache.Store, len(kinds))
 	crdCtx, cancel := context.WithTimeout(ctx, crdRetryTimeout)
 	defer cancel()
+	retry := false
 	for len(s.caches) < len(kinds) {
 		if crdCtx.Err() != nil {
 			missingKinds := make([]string, 0, len(kinds)-len(s.caches))
@@ -120,6 +121,9 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 				}
 			}
 			return fmt.Errorf("CRDs for %+v are not ready", missingKinds)
+		}
+		if retry && bool(glog.V(3)) {
+			glog.Infof("Retrying to fetch config...")
 		}
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {
@@ -139,6 +143,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 			}
 		}
 	}
+	// Wait for the initial data to be in the caches.
 	// TODO: remove this time.Sleep, add a better watcher.
 	time.Sleep(initializationPeriod)
 	return nil
