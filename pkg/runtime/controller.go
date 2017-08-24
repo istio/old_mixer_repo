@@ -128,7 +128,7 @@ func (c *Controller) publishSnapShot() {
 	combineRulesHandlers(ruleConfig, ht.table)
 
 	// create rules that are in the format that resolver needs.
-	rules := convertToRuntimeRules(ruleConfig)
+	rules, nrules := convertToRuntimeRules(ruleConfig)
 
 	// Create new resolver and cleanup the old resolver.
 	c.resolverID++
@@ -143,16 +143,22 @@ func (c *Controller) publishSnapShot() {
 	c.table = ht.table
 	c.resolver = resolver
 
-	// synchronous call to cleanup.
-	cleanupResolver(oldResolver, oldTable, maxCleanupDuration)
+	glog.Infof("Published snapshot[%d] with %d rules, %d handlers", resolver.ID, nrules, len(c.table))
 
-	glog.Infof("Published snapshot with %d config items", len(c.configState))
+	// synchronous call to cleanup.
+	err := cleanupResolver(oldResolver, oldTable, maxCleanupDuration)
+	if err != nil {
+		glog.Warningf("Unable to perform cleanup: %v", err)
+	}
+
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
 // before resolver ref count does to 0. It will return after this duration without
 // calling Close() on handlers.
-const maxCleanupDuration = 10 * time.Second
+var maxCleanupDuration = 10 * time.Second
+
+var watchFlushDuration = time.Second
 
 // watchChanges watches for changes and publishes a new resolver.
 // watchChanges is started in a goroutine.
@@ -166,14 +172,14 @@ func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn) {
 		select {
 		case ev := <-wch:
 			if len(events) == 0 {
-				timer = time.NewTimer(time.Second)
+				timer = time.NewTimer(watchFlushDuration)
 				timeChan = timer.C
 			}
 			events = append(events, &ev)
 		case <-timeChan:
 			timer.Stop()
 			timeChan = nil
-			glog.Info("Publishing %d events", len(events))
+			glog.Infof("Publishing %d events", len(events))
 			applyEvents(events)
 			events = events[:0]
 		}
@@ -238,8 +244,9 @@ type rulesMapByNamespace map[string]rulesByName
 type rulesListByNamespace map[string][]*Rule
 
 // convertToRuntimeRules converts internal rules to the format that resolver needs.
-func convertToRuntimeRules(ruleConfig rulesMapByNamespace) rulesListByNamespace {
+func convertToRuntimeRules(ruleConfig rulesMapByNamespace) (rulesListByNamespace, int) {
 	// convert rules
+	nrules := 0
 	rules := make(rulesListByNamespace)
 	for ns, nsmap := range ruleConfig {
 		rulesArr := make([]*Rule, 0, len(nsmap))
@@ -247,8 +254,9 @@ func convertToRuntimeRules(ruleConfig rulesMapByNamespace) rulesListByNamespace 
 			rulesArr = append(rulesArr, rule)
 		}
 		rules[ns] = rulesArr
+		nrules += len(rulesArr)
 	}
-	return rules
+	return rules, nrules
 }
 
 // processRules builds the current consistent view of the rules keyed by Namespace and then Name.
@@ -290,7 +298,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 	return ruleConfig
 }
 
-const cleanupSleepTime = 500 * time.Millisecond
+var cleanupSleepTime = 500 * time.Millisecond
 
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
@@ -357,7 +365,7 @@ func combineRulesHandlers(ruleConfig rulesMapByNamespace, handlerTable map[strin
 						continue
 					}
 					if he.Handler == nil {
-						glog.Warningf("Filtering rule %s/%s. Handler %s could not be initialized due to %s.", ns, rn, act.handlerName, he.HandlerCreateError)
+						glog.Warningf("Filtering action from rule %s/%s. Handler %s could not be initialized due to %s.", ns, rn, act.handlerName, he.HandlerCreateError)
 						continue
 					}
 					act.handler = he.Handler
@@ -369,29 +377,32 @@ func combineRulesHandlers(ruleConfig rulesMapByNamespace, handlerTable map[strin
 					delete(rule.actions, vr)
 				}
 			}
+			if len(rule.actions) == 0 {
+				glog.Warningf("Purging rule %v with no actions")
+				delete(nsmap, rn)
+			}
 		}
 	}
 }
 
 // cleanupResolver cleans up handler table in the resolver
 // after the resolver is no longer in use.
-func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.Duration) {
+func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.Duration) error {
 	start := time.Now()
 	for {
 		rc := atomic.LoadInt32(&r.refCount)
-		if rc != 0 {
+		if rc > 0 {
 			if time.Since(start) > timeout {
-				glog.Warningf("Unable to cleanup resolver in %v time. %d references remain", timeout, rc)
-				return
+				return fmt.Errorf("unable to cleanup resolver in %v time. %d requests remain", timeout, rc)
 			}
 			if glog.V(2) {
-				glog.Infof("Waiting for resolver %d %s to finish", r.ID, rc)
+				glog.Infof("Waiting for resolver %d to finish %d remaining requests", r.ID, rc)
 			}
 			time.Sleep(cleanupSleepTime)
 			continue
 		}
 		if glog.V(2) {
-			glog.Infof("resolver %d handler table has %d entries", r.ID, len(table))
+			glog.Infof("cleanupResolver[%d] handler table has %d entries", r.ID, len(table))
 		}
 		for _, he := range table {
 			if he.closeOnCleanup && he.Handler != nil {
@@ -404,6 +415,6 @@ func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.D
 				}
 			}
 		}
-		return
+		return nil
 	}
 }
