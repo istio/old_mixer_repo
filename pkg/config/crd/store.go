@@ -46,11 +46,9 @@ const (
 	// TODO: allow customization.
 	defaultResyncPeriod = time.Minute
 
-	// initializationPeriod is the duration to wait for getting
-	// initial data. Mixer doesn't want to get added events for
-	// initial data since it may arrive in any order, and it
-	// would result in temporary invalid status.
-	initializationPeriod = time.Second * 2
+	// initWaiterDelay is the delay to close donec in initWaiter after
+	// the List() is called initially.
+	initWaiterDelay = time.Millisecond * 10
 
 	// crdRetryTimeout is the timeout duration to retry initialization
 	// of the caches when some CRDs are missing. The actual timeout
@@ -61,6 +59,58 @@ const (
 
 type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
+}
+
+type initWaiter struct {
+	builder listerWatcherBuilderInterface
+	donec   chan struct{}
+	calledc chan string
+
+	mu    sync.Mutex
+	kinds map[string]bool
+}
+
+func wrapListerWatcherBuilder(lwb listerWatcherBuilderInterface) *initWaiter {
+	iw := &initWaiter{
+		builder: lwb,
+		donec:   make(chan struct{}),
+		calledc: make(chan string),
+		kinds:   map[string]bool{},
+	}
+	go iw.run()
+	return iw
+}
+
+func (iw *initWaiter) run() {
+	for k := range iw.calledc {
+		iw.mu.Lock()
+		delete(iw.kinds, k)
+		l := len(iw.kinds)
+		iw.mu.Unlock()
+		if l == 0 {
+			break
+		}
+	}
+	// Still, there's a slight delay between the initial List() call and
+	// the data to be settled into the caches, here's an ad-hoc short delay
+	// before iw.donec is closed.
+	time.Sleep(initWaiterDelay)
+	close(iw.donec)
+}
+
+func (iw *initWaiter) build(res metav1.APIResource) cache.ListerWatcher {
+	iw.mu.Lock()
+	iw.kinds[res.Kind] = true
+	iw.mu.Unlock()
+	lw := iw.builder.build(res)
+	wrapped := &cache.ListWatch{WatchFunc: lw.Watch}
+	wrapped.ListFunc = func(opts metav1.ListOptions) (runtime.Object, error) {
+		obj, err := lw.List(opts)
+		wrapped.ListFunc = lw.List
+		iw.calledc <- res.Kind
+		return obj, err
+	}
+	return wrapped
 }
 
 type contextCh struct {
@@ -108,6 +158,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	if err != nil {
 		return err
 	}
+	waiter := wrapListerWatcherBuilder(lwBuilder)
 	s.caches = make(map[string]cache.Store, len(kinds))
 	crdCtx, cancel := context.WithTimeout(ctx, crdRetryTimeout)
 	defer cancel()
@@ -135,7 +186,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 				continue
 			}
 			if _, ok := kindsSet[res.Kind]; ok {
-				cl := lwBuilder.build(res)
+				cl := waiter.build(res)
 				informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
 				s.caches[res.Kind] = informer.GetStore()
 				informer.AddEventHandler(s)
@@ -143,9 +194,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 			}
 		}
 	}
-	// Wait for the initial data to be in the caches.
-	// TODO: remove this time.Sleep, add a better watcher.
-	time.Sleep(initializationPeriod)
+	<-waiter.donec
 	return nil
 }
 
