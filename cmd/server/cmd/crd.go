@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"sort"
+
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -59,7 +61,16 @@ func listCrdsAdapters(printf shared.FormatFn, infoFns []pkgadapter.InfoFn) {
 }
 
 func listCrdsInstances(printf shared.FormatFn, tmplInfos map[string]template.Info) {
-	for _, info := range tmplInfos {
+	tmplNames := make([]string, 0, len(tmplInfos))
+
+	for name := range tmplInfos {
+		tmplNames = append(tmplNames, name)
+	}
+
+	sort.Strings(tmplNames)
+
+	for _, tmplName := range tmplNames {
+		info := tmplInfos[tmplName]
 		printCrd(printf, info.Name, info.HndlrInterfaceName, "mixer-instance")
 	}
 }
