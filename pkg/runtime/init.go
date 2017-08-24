@@ -103,7 +103,7 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.BuilderInfo
 		resolver:               &resolver{}, // get an empty resolver
 		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
-		handlerPool:            handlerPool,
+		handlerGoRoutinePool:   handlerPool,
 		table:                  make(map[string]*HandlerEntry),
 		createHandlerFactory:   newHandlerFactory,
 	}

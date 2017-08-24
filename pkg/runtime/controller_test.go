@@ -50,7 +50,6 @@ func TestControllerEmpty(t *testing.T) {
 		resolver:               &resolver{}, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
-		handlerPool:            nil,
 		createHandlerFactory: func(templateInfo map[string]template.Info, expr expr.TypeChecker,
 			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.BuilderInfo) HandlerFactory {
 			return &fhbuilder{}
@@ -137,7 +136,6 @@ func TestController_workflow(t *testing.T) {
 		resolver:               res, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
-		handlerPool:            nil,
 		createHandlerFactory: func(templateInfo map[string]template.Info, expr expr.TypeChecker,
 			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.BuilderInfo) HandlerFactory {
 			return fb

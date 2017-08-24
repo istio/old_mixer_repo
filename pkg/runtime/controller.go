@@ -45,9 +45,8 @@ type Controller struct {
 	identityAttribute      string                          // used by resolver
 	defaultConfigNamespace string                          // used by resolver
 
-	// configState is the current view of config
+	// configState is the current (potentially inconsistent) view of config.
 	// It receives updates from the underlying config store.
-	// `Data` could be in an inconsistent state.
 	configState map[store.Key]proto.Message
 
 	// currently deployed resolver
@@ -59,12 +58,12 @@ type Controller struct {
 	// dispatcher is notified of changes.
 	dispatcher ResolverChangeListener
 
-	// handlerPool is the goroutine pool used by handler.
-	handlerPool *pool.GoroutinePool
+	// handlerGoRoutinePool is the goroutine pool used by handlers.
+	handlerGoRoutinePool *pool.GoroutinePool
 
-	// resolverID to be assigned to the next resolver.
+	// nextResolverID is the resolver ID to be assigned to the next resolver.
 	// It is incremented every call.
-	resolverID int
+	nextResolverID int
 
 	// Fields below are used for testing an debugging.
 
@@ -114,7 +113,7 @@ func (c *Controller) publishSnapShot() {
 	// to create new handlers.
 	ht := newHandlerTable(instanceConfig, handlerConfig,
 		func(handler *cpb.Handler, instances []*cpb.Instance) (adapter.Handler, error) {
-			return hb.Build(handler, instances, newEnv(handler.Name, c.handlerPool))
+			return hb.Build(handler, instances, newEnv(handler.Name, c.handlerGoRoutinePool))
 		},
 	)
 
@@ -127,12 +126,12 @@ func (c *Controller) publishSnapShot() {
 	ht.Initialize(c.table)
 
 	// Combine rules with the handler table.
-	// Actions referring to handlers in error, will be purged.
-	rules, nrules := combineRulesHandlers(ruleConfig, ht.table)
+	// Actions referring to handlers in error are logged and purged.
+	resolvedRules, nrules := generateResolvedRules(ruleConfig, ht.table)
 
 	// Create new resolver and cleanup the old resolver.
-	c.resolverID++
-	resolver := newResolver(c.eval, c.identityAttribute, c.defaultConfigNamespace, rules, c.resolverID)
+	c.nextResolverID++
+	resolver := newResolver(c.eval, c.identityAttribute, c.defaultConfigNamespace, resolvedRules, c.nextResolverID)
 	c.dispatcher.ChangeResolver(resolver)
 
 	// copy old for deletion.
@@ -145,7 +144,7 @@ func (c *Controller) publishSnapShot() {
 	c.resolver = resolver
 	c.nrules = nrules
 
-	glog.Infof("Published snapshot[%d] with %d rules, %d handlers, previously %d rules", resolver.ID, nrules, len(c.table), oldNrules)
+	glog.Infof("Published snapshot[%d] with %d rules, %d handlers, previously %d rules", resolver.id, nrules, len(c.table), oldNrules)
 
 	// synchronous call to cleanup.
 	err := cleanupResolver(oldResolver, oldTable, maxCleanupDuration)
@@ -161,7 +160,8 @@ var maxCleanupDuration = 10 * time.Second
 
 var watchFlushDuration = time.Second
 
-// watchChanges watches for changes and publishes a new resolver.
+// watchChanges watches for changes on a channel and
+// publishes a batch of changes via applyEvents.
 // watchChanges is started in a goroutine.
 func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn) {
 	// consume changes and apply them to data indefinitely
@@ -281,18 +281,19 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 		}
 		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht)
 
-		rn := ruleConfig[k.Namespace]
-		if rn == nil {
-			rn = make(map[string]*Rule)
-			ruleConfig[k.Namespace] = rn
-		}
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
 		for vr, amap := range acts {
 			for _, cf := range amap {
 				ruleActions[vr] = append(ruleActions[vr], cf)
 			}
 		}
+
 		rule.actions = ruleActions
+		rn := ruleConfig[k.Namespace]
+		if rn == nil {
+			rn = make(map[string]*Rule)
+			ruleConfig[k.Namespace] = rn
+		}
 		rn[k.Name] = rule
 	}
 
@@ -305,7 +306,9 @@ var cleanupSleepTime = 500 * time.Millisecond
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
 	instanceConfig map[string]*cpb.Instance, ht *handlerTable) map[adptTmpl.TemplateVariety]map[string]*Action {
+
 	actions := make(map[adptTmpl.TemplateVariety]map[string]*Action)
+
 	for _, ic := range acts {
 		var hc *cpb.Handler
 		if hc = handlerConfig[ic.Handler]; hc == nil {
@@ -316,8 +319,8 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 		}
 
 		for _, instName := range ic.Instances {
-			var inst *cpb.Instance
-			if inst = instanceConfig[instName]; inst == nil {
+			inst := instanceConfig[instName]
+			if inst == nil {
 				if glog.V(3) {
 					glog.Warningf("ConfigWarning unknown instance: %s", instName)
 				}
@@ -327,21 +330,24 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 			ht.Associate(ic.Handler, instName)
 
 			ti := c.templateInfo[inst.Template]
-			// grouped by adapterName.
 			vAction := actions[ti.Variety]
 			if vAction == nil {
 				vAction = make(map[string]*Action)
 				actions[ti.Variety] = vAction
 			}
 
-			act := vAction[hc.Adapter]
+			// runtime.Action requires that the instanceConfig
+			// must belong to the same template and handler.
+			templateHandlerKey := ic.Handler + "/" + inst.Template
+
+			act := vAction[templateHandlerKey]
 			if act == nil {
 				act = &Action{
 					processor:   &ti,
 					handlerName: ic.Handler,
 					adapterName: hc.Adapter,
 				}
-				vAction[hc.Adapter] = act
+				vAction[templateHandlerKey] = act
 			}
 			act.instanceConfig = append(act.instanceConfig, inst)
 		}
@@ -349,9 +355,9 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 	return actions
 }
 
-// combineRulesHandlers sets handler references in rulesConfig.
-// Reject actions from rulesConfig whose handler could not be initialized.
-func combineRulesHandlers(ruleConfig rulesMapByNamespace, handlerTable map[string]*HandlerEntry) (rulesListByNamespace, int) {
+// generateResolvedRules sets handler references in rulesConfig.
+// It reject actions from rulesConfig whose handler could not be initialized.
+func generateResolvedRules(ruleConfig rulesMapByNamespace, handlerTable map[string]*HandlerEntry) (rulesListByNamespace, int) {
 	// map by namespace
 	for ns, nsmap := range ruleConfig {
 		// map by rule name
@@ -400,13 +406,13 @@ func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.D
 				return fmt.Errorf("unable to cleanup resolver in %v time. %d requests remain", timeout, rc)
 			}
 			if glog.V(2) {
-				glog.Infof("Waiting for resolver %d to finish %d remaining requests", r.ID, rc)
+				glog.Infof("Waiting for resolver %d to finish %d remaining requests", r.id, rc)
 			}
 			time.Sleep(cleanupSleepTime)
 			continue
 		}
 		if glog.V(2) {
-			glog.Infof("cleanupResolver[%d] handler table has %d entries", r.ID, len(table))
+			glog.Infof("cleanupResolver[%d] handler table has %d entries", r.id, len(table))
 		}
 		for _, he := range table {
 			if he.closeOnCleanup && he.Handler != nil {

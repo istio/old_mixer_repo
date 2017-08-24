@@ -357,7 +357,7 @@ func runServer(sa *serverArgs, tmplRepo template.Repository, printf, fatalf shar
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
-	// FIXME construct a runtime.New as dispatcher2 param
+	// FIXME construct a runtime.New as dispatcher param
 	s := api.NewGRPCServer(adapterMgr, nil, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 

@@ -43,7 +43,7 @@ import (
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
-		dispatcher2      runtime.Dispatcher
+		dispatcher       runtime.Dispatcher
 		aspectDispatcher adapterManager.AspectDispatcher
 		gp               *pool.GoroutinePool
 
@@ -54,7 +54,7 @@ type (
 )
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher2 runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -62,7 +62,7 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher2
 	}
 
 	return &grpcServer{
-		dispatcher2:      dispatcher2,
+		dispatcher:       dispatcher,
 		aspectDispatcher: aspectDispatcher,
 		gp:               gp,
 		globalWordList:   list,
@@ -112,16 +112,16 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	responseBag := attribute.GetMutableBag(nil)
 	out2 := status.OK
 
-	if s.dispatcher2 != nil {
+	if s.dispatcher != nil {
 		// dispatch check2 and set success messages.
 		glog.V(1).Info("Dispatching Check2")
-		cr, err := s.dispatcher2.Check(legacyCtx, requestBag)
+		cr, err := s.dispatcher.Check(legacyCtx, requestBag)
 		if err != nil {
 			out2 = status.WithError(err)
 		} else {
 			resp.Precondition.ValidDuration = cr.ValidDuration
 			// FIXME cr.ValidUseCount should be int32
-			//resp.Precondition.ValidUseCount = cr.ValidUseCount
+			resp.Precondition.ValidUseCount = int32(cr.ValidUseCount)
 		}
 	}
 
@@ -244,10 +244,10 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		}
 		out2 := status.OK
 
-		if s.dispatcher2 != nil {
+		if s.dispatcher != nil {
 			// dispatch check2 and set success messages.
 			glog.V(1).Info("Dispatching Report2")
-			err := s.dispatcher2.Report(legacyCtx, preprocResponseBag)
+			err := s.dispatcher.Report(legacyCtx, preprocResponseBag)
 			if err != nil {
 				out2 = status.WithError(err)
 			}
