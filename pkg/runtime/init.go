@@ -17,8 +17,8 @@ package runtime
 import (
 	"context"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/pkg/adapter"
 	cpb "istio.io/mixer/pkg/config/proto"
@@ -36,7 +36,7 @@ import (
 // Returns a ready to use dispatcher.
 func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 	identityAttribute string, defaultConfigNamespace string,
-	s Store, adapterInfo map[string]*adapter.BuilderInfo,
+	s store.Store2, adapterInfo map[string]*adapter.BuilderInfo,
 	templateInfo map[string]template.Info, attrDescFinder expr.AttributeDescriptorFinder) (Dispatcher, error) {
 	// controller will set Resolver before the dispatcher is used.
 	d := newDispatcher(eval, nil, gp)
@@ -47,7 +47,7 @@ func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.Goroutin
 }
 
 // startWatch registers with store, initiates a watch, and returns the current config state.
-func startWatch(s Store, adapterInfo map[string]*adapter.BuilderInfo,
+func startWatch(s store.Store2, adapterInfo map[string]*adapter.BuilderInfo,
 	templateInfo map[string]template.Info) (map[store.Key]proto.Message, <-chan store.Event, error) {
 	ctx := context.Background()
 	kindMap := kindMap(adapterInfo, templateInfo)
@@ -83,7 +83,7 @@ func kindMap(adapterInfo map[string]*adapter.BuilderInfo,
 }
 
 // startController creates a controller from the given params.
-func startController(s Store, adapterInfo map[string]*adapter.BuilderInfo,
+func startController(s store.Store2, adapterInfo map[string]*adapter.BuilderInfo,
 	templateInfo map[string]template.Info, eval expr.Evaluator,
 	attrDescFinder expr.AttributeDescriptorFinder, dispatcher ResolverChangeListener,
 	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
