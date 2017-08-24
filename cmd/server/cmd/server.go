@@ -86,7 +86,7 @@ type serverArgs struct {
 	globalConfigFile string
 }
 
-func serverCmd(tmplRepo template.Repository, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(repo template.Repository, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -103,7 +103,7 @@ func serverCmd(tmplRepo template.Repository, adapters []pkgAdapter.InfoFn, print
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runServer(sa, tmplRepo, adapters, printf, fatalf)
+			runServer(sa, repo, adapters, printf, fatalf)
 		},
 	}
 
@@ -187,7 +187,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func runServer(sa *serverArgs, tmplRepo template.Repository, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) {
+func runServer(sa *serverArgs, repo template.Repository, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with args: %#v", sa)
 
 	var err error
@@ -222,13 +222,13 @@ func runServer(sa *serverArgs, tmplRepo template.Repository, adapters []pkgAdapt
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds,
-		tmplRepo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
+		repo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
 		sa.configIdentityAttribute,
 		sa.configIdentityAttributeDomain)
 
 	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
 		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapter.Inventory2(),
-		adapterMgr.SupportedKinds, store, tmplRepo)
+		adapterMgr.SupportedKinds, store, repo)
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
