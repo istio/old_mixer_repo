@@ -19,6 +19,9 @@ import (
 	"istio.io/mixer/pkg/pool"
 )
 
+// TODO this file is copied from pkg/adapterManager.
+// Remove the adapterManager package once adapters2 switch is complete.
+
 type env struct {
 	logger adapter.Logger
 	gp     *pool.GoroutinePool
