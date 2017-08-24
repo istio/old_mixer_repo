@@ -126,6 +126,7 @@ func TestController_workflow(t *testing.T) {
 	d := &fakedispatcher{}
 	hndlr := &fhandler{name: "aa"}
 	fb := &fhbuilder{a: hndlr}
+	res := &resolver{refCount: 1}
 	c := &Controller{
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
@@ -133,7 +134,7 @@ func TestController_workflow(t *testing.T) {
 		attrDescFinder:         nil,
 		configState:            configState,
 		dispatcher:             d,
-		resolver:               &resolver{refCount: 1}, // get an empty resolver
+		resolver:               res, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
 		handlerPool:            nil,
@@ -144,7 +145,7 @@ func TestController_workflow(t *testing.T) {
 	}
 
 	go func() {
-		c.resolver.decRefCount()
+		res.decRefCount()
 	}()
 
 	c.publishSnapShot()
