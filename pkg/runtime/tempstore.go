@@ -23,7 +23,7 @@ import (
 )
 
 // Store abstraction used here.
-// This is temporary.
+// This file is temporary.
 // It file will be removed when config.store.Store2 interface is added.
 type Store interface {
 	Init(ctx context.Context, kinds map[string]proto.Message) error

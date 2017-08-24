@@ -14,6 +14,9 @@
 
 package runtime
 
+// TODO this file is copied from pkg/adapterManager.
+// Remove the adapterManager package once adapters2 switch is complete.
+
 import (
 	"errors"
 	"fmt"
