@@ -25,16 +25,16 @@ import (
 	generatedTmplRepo "istio.io/mixer/template"
 )
 
-func getSupportedTemplateInfos() map[string]template.Info {
+func supportedTemplates() map[string]template.Info {
 	return generatedTmplRepo.SupportedTmplInfo
 }
 
-func getSupportedAdapters() []pkgAdapter.InfoFn {
+func supportedAdapters() []pkgAdapter.InfoFn {
 	return adapter.Inventory2()
 }
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], getSupportedTemplateInfos(), getSupportedAdapters(), shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:], supportedTemplates(), supportedAdapters(), shared.Printf, shared.Fatalf)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

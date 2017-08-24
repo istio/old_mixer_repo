@@ -60,22 +60,22 @@ func listCrdsAdapters(printf shared.FormatFn, infoFns []pkgadapter.InfoFn) {
 	}
 }
 
-func listCrdsInstances(printf shared.FormatFn, tmplInfos map[string]template.Info) {
-	tmplNames := make([]string, 0, len(tmplInfos))
+func listCrdsInstances(printf shared.FormatFn, infos map[string]template.Info) {
+	tmplNames := make([]string, 0, len(infos))
 
-	for name := range tmplInfos {
+	for name := range infos {
 		tmplNames = append(tmplNames, name)
 	}
 
 	sort.Strings(tmplNames)
 
 	for _, tmplName := range tmplNames {
-		info := tmplInfos[tmplName]
+		info := infos[tmplName]
 		printCrd(printf, info.Name, info.HndlrInterfaceName, "mixer-instance")
 	}
 }
 
-func printCrd(printf shared.FormatFn, shrtName string, implName string, istioLabel string) {
+func printCrd(printf shared.FormatFn, shrtName, implName, label string) {
 	crd := apiextensionsv1beta1.CustomResourceDefinition{
 		TypeMeta: meta_v1.TypeMeta{
 			Kind: "CustomResourceDefinition",
@@ -84,7 +84,7 @@ func printCrd(printf shared.FormatFn, shrtName string, implName string, istioLab
 			Name: shrtName + ".config.istio.io",
 			Labels: map[string]string{
 				"impl":  implName,
-				"istio": istioLabel,
+				"istio": label,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
