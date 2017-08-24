@@ -53,8 +53,6 @@ type Controller struct {
 	// currently deployed resolver
 	resolver *resolver
 
-	// tableCache maps resolverId to handler table.
-	//tableCache map[int]map[string]*HandlerEntry
 	// table is the handler state currently in use.
 	table map[string]*HandlerEntry
 
@@ -100,11 +98,11 @@ const maxEvents = 50
 func (c *Controller) publishSnapShot() {
 	// current consistent view of handler configuration
 	// keyed by Name.Kind.NameSpace
-	handlerConfig := c.filterHandlerConfig()
+	handlerConfig := c.validHandlerConfigs()
 
 	// current consistent view of the Instance configuration
 	// keyed by Name.Kind.NameSpace
-	instanceConfig := c.filterInstanceConfig()
+	instanceConfig := c.validInstanceConfigs()
 
 	// new handler factory is created for every config change.
 	hb := c.createHandlerFactory(c.templateInfo, c.eval, c.attrDescFinder, c.adapterInfo)
@@ -195,9 +193,9 @@ func (c *Controller) applyEvents(events []*store.Event) {
 	c.publishSnapShot()
 }
 
-// filterInstanceConfig filters the configState and produces instanceConfig
-// that points to valid templates.
-func (c *Controller) filterInstanceConfig() map[string]*cpb.Instance {
+// validInstanceConfigs returns instanceConfigs from the configState that
+// point to valid templates.
+func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 	instanceConfig := make(map[string]*cpb.Instance)
 
 	// first pass get all the validated instance and handler references
@@ -214,9 +212,9 @@ func (c *Controller) filterInstanceConfig() map[string]*cpb.Instance {
 	return instanceConfig
 }
 
-// filterHandlerConfig filters the configState and produces handlerConfig
-// that points to valid adapters.
-func (c *Controller) filterHandlerConfig() map[string]*cpb.Handler {
+// validHandlerConfigs returns handlerConfigs from the configState that
+// point to valid adapters.
+func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 	handlerConfig := make(map[string]*cpb.Handler)
 	for k, cfg := range c.configState {
 		if _, found := c.adapterInfo[k.Kind]; !found {
@@ -231,10 +229,18 @@ func (c *Controller) filterHandlerConfig() map[string]*cpb.Handler {
 	return handlerConfig
 }
 
+type rulesByName map[string]*Rule
+
+// rulesByName indexed by namespace
+type rulesMapByNamespace map[string]rulesByName
+
+// rulesListByNamespace is the type needed by resolver.
+type rulesListByNamespace map[string][]*Rule
+
 // convertToRuntimeRules converts internal rules to the format that resolver needs.
-func convertToRuntimeRules(ruleConfig map[string]map[string]*Rule) map[string][]*Rule {
+func convertToRuntimeRules(ruleConfig rulesMapByNamespace) rulesListByNamespace {
 	// convert rules
-	rules := make(map[string][]*Rule)
+	rules := make(rulesListByNamespace)
 	for ns, nsmap := range ruleConfig {
 		rulesArr := make([]*Rule, 0, len(nsmap))
 		for _, rule := range nsmap {
@@ -248,10 +254,10 @@ func convertToRuntimeRules(ruleConfig map[string]map[string]*Rule) map[string][]
 // processRules builds the current consistent view of the rules keyed by Namespace and then Name.
 // ht (handlerTable) keeps track of handler-instance association.
 func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable) map[string]map[string]*Rule {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable) rulesMapByNamespace {
 	// current consistent view of the rules
 	// keyed by Namespace and then Name.
-	ruleConfig := make(map[string]map[string]*Rule)
+	ruleConfig := make(rulesMapByNamespace)
 
 	// check rules and ensure only good handlers and instances are used.
 	// record handler - instance associations
@@ -334,9 +340,9 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 	return actions
 }
 
-// combineRulesHandlers set handler references into rulesConfig.
-// Filter actions from rulesConfig whose adapter could not be initialized.
-func combineRulesHandlers(ruleConfig map[string]map[string]*Rule, handlerTable map[string]*HandlerEntry) {
+// combineRulesHandlers sets handler references in rulesConfig.
+// Reject actions from rulesConfig whose handler could not be initialized.
+func combineRulesHandlers(ruleConfig rulesMapByNamespace, handlerTable map[string]*HandlerEntry) {
 	// map by namespace
 	for ns, nsmap := range ruleConfig {
 		// map by rule name
@@ -357,7 +363,11 @@ func combineRulesHandlers(ruleConfig map[string]map[string]*Rule, handlerTable m
 					act.handler = he.Handler
 					newvact = append(newvact, act)
 				}
-				rule.actions[vr] = newvact
+				if len(newvact) > 0 {
+					rule.actions[vr] = newvact
+				} else {
+					delete(rule.actions, vr)
+				}
 			}
 		}
 	}
@@ -384,7 +394,7 @@ func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.D
 			glog.Infof("resolver %d handler table has %d entries", r.ID, len(table))
 		}
 		for _, he := range table {
-			if he.notInUse && he.Handler != nil {
+			if he.closeOnCleanup && he.Handler != nil {
 				msg := fmt.Sprintf("closing %s/%v", he.Name, he.Handler)
 				err := he.Handler.Close()
 				if err != nil {
