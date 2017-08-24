@@ -54,7 +54,7 @@ type HandlerEntry struct {
 	// recreation of the handler.
 	sha [sha1.Size]byte
 
-	// If this is set, the handler is closed.
+	// If this is set, the handler is closed during cleanup.
 	notInUse bool
 }
 
@@ -64,6 +64,7 @@ func newHandlerTable(instanceConfig map[string]*cpb.Instance, handlerConfig map[
 		instanceConfig: instanceConfig,
 		handlerConfig:  handlerConfig,
 		buildHandler:   buildHandler,
+		table:          make(map[string]*HandlerEntry),
 	}
 }
 
@@ -137,7 +138,7 @@ func (t *handlerTable) Initialize(oldTable map[string]*HandlerEntry) {
 // initialize handler, mark the handler as bad
 func (t *handlerTable) initHandler(he *HandlerEntry) {
 	hc := t.handlerConfig[he.Name]
-	insts := make([]*cpb.Instance, len(he.Instances))
+	insts := make([]*cpb.Instance, 0, len(he.Instances))
 
 	for instName := range he.Instances {
 		insts = append(insts, t.instanceConfig[instName])

@@ -15,7 +15,6 @@
 package runtime
 
 import (
-	"context"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -68,143 +67,36 @@ type Controller struct {
 	// resolverID to be assigned to the next resolver.
 	// It is incremented every call.
 	resolverID int
+
+	// Fields below are used for testing.
+
+	// createHandlerFactory for testing.
+	createHandlerFactory factoryCreatorFunc
 }
+
+// RulesKind defines the config kind name of mixer rules.
+const RulesKind = "mixer-rules"
 
 // ResolverChangeListener is notified when a new resolver is created due to config change.
 type ResolverChangeListener interface {
 	ChangeResolver(rt Resolver)
 }
 
-// RulesKind defines the config kind name of mixer rules.
-const RulesKind = "mixer-rules"
+// factoryCreatorFunc creates a handler factory. It is used for testing.
+type factoryCreatorFunc func(templateInfo map[string]template.Info, expr expr.TypeChecker,
+	df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.BuilderInfo) HandlerFactory
 
-// New creates a new runtime Dispatcher
-// Create a new controller and a dispatcher.
-// Returns a ready to use dispatcher.
-func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
-	identityAttribute string, defaultConfigNamespace string,
-	s Store, adapterInfo map[string]*adapter.BuilderInfo,
-	templateInfo map[string]template.Info, attrDescFinder expr.AttributeDescriptorFinder) (Dispatcher, error) {
-	// controller will set Resolver before the dispatcher is used.
-	d := newDispatcher(eval, nil, gp)
-	err := startController(s, adapterInfo, templateInfo, eval, attrDescFinder, d,
-		identityAttribute, defaultConfigNamespace, handlerPool)
+// applyEventsFn is used for testing
+type applyEventsFn func(events []*store.Event)
 
-	return d, err
-}
-
-// KindMap generates a map from object kind to its proto message.
-func KindMap(adapterInfo map[string]*adapter.BuilderInfo,
-	templateInfo map[string]template.Info) map[string]proto.Message {
-	kindMap := make(map[string]proto.Message)
-	// typed instances
-	for kind, info := range templateInfo {
-		kindMap[kind] = info.CtrCfg
-	}
-	// typed handlers
-	for kind, info := range adapterInfo {
-		kindMap[kind] = info.DefaultConfig
-	}
-	kindMap[RulesKind] = &cpb.Rule{}
-
-	if glog.V(3) {
-		glog.Info("kindMap = %v", kindMap)
-	}
-	return kindMap
-}
-
-// startWatch registers with store, initiates a watch, and returns the current config state.
-func startWatch(s Store, adapterInfo map[string]*adapter.BuilderInfo,
-	templateInfo map[string]template.Info) (map[store.Key]proto.Message, <-chan store.Event, error) {
-	ctx := context.Background()
-	kindMap := KindMap(adapterInfo, templateInfo)
-	if err := s.Init(ctx, kindMap); err != nil {
-		return nil, nil, err
-	}
-	// create channel before listing.
-	watchChan, err := s.Watch(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return s.List(), watchChan, nil
-}
-
-// startController creates a controller from the given params.
-func startController(s Store, adapterInfo map[string]*adapter.BuilderInfo,
-	templateInfo map[string]template.Info, eval expr.Evaluator,
-	attrDescFinder expr.AttributeDescriptorFinder, dispatcher ResolverChangeListener,
-	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
-
-	data, watchChan, err := startWatch(s, adapterInfo, templateInfo)
-	if err != nil {
-		return err
-	}
-
-	c := &Controller{
-		adapterInfo:            adapterInfo,
-		templateInfo:           templateInfo,
-		eval:                   eval,
-		attrDescFinder:         attrDescFinder,
-		configState:            data,
-		dispatcher:             dispatcher,
-		resolver:               &resolver{}, // get an empty resolver
-		identityAttribute:      identityAttribute,
-		defaultConfigNamespace: defaultConfigNamespace,
-		handlerPool:            handlerPool,
-		table:                  make(map[string]*HandlerEntry),
-	}
-
-	c.publishSnapShot()
-	glog.Info("Config controller has started with %d config elements", len(c.configState))
-	go watchChanges(watchChan, c.applyEvents)
-	return nil
-}
-
-type applyEvents func(events []*store.Event)
-
+// maxEvents is the likely maximum number of events
+// we can expect in a second. It is used to avoid slice reallocation.
 const maxEvents = 50
 
-// watchChanges watches for changes and publishes a new resolver.
-func watchChanges(wch <-chan store.Event, applyEvents applyEvents) {
-	// consume changes and apply them to data indefinitely
-	var timeChan <-chan time.Time
-	var timer *time.Timer
-	events := make([]*store.Event, 0, maxEvents)
-
-	for {
-		select {
-		case ev := <-wch:
-			if len(events) == 0 {
-				timer = time.NewTimer(time.Second)
-				timeChan = timer.C
-			}
-			events = append(events, &ev)
-		case <-timeChan:
-			timer.Stop()
-			timeChan = nil
-			glog.Info("Publishing %d events", len(events))
-			applyEvents(events)
-			events = events[:0]
-		}
-	}
-}
-
-func (c *Controller) applyEvents(events []*store.Event) {
-	for _, ev := range events {
-		switch ev.Type {
-		case store.Update:
-			c.configState[ev.Key] = ev.Value
-		case store.Delete:
-			delete(c.configState, ev.Key)
-		}
-	}
-	c.publishSnapShot()
-}
-
-// publishSnapShot converts the currently available db into a resolver.
-// The db may be in an inconsistent state, however it *must* be converted into a consistent resolver.
-// The previous handler table enables connection re-use.
-// This code is single threaded, it only runs on a config change.
+// publishSnapShot converts the currently available configState into a resolver.
+// The config may be in an inconsistent state, however it *must* be converted into a consistent resolver.
+// The previous handler table enables handler cleanup and reuse.
+// This code is single threaded, it only runs on a config change control loop.
 func (c *Controller) publishSnapShot() {
 	// current consistent view of handler configuration
 	// keyed by Name.Kind.NameSpace
@@ -215,7 +107,7 @@ func (c *Controller) publishSnapShot() {
 	instanceConfig := c.filterInstanceConfig()
 
 	// new handler factory is created for every config change.
-	hb := newHandlerFactory(c.templateInfo, c.eval, c.attrDescFinder, c.adapterInfo)
+	hb := c.createHandlerFactory(c.templateInfo, c.eval, c.attrDescFinder, c.adapterInfo)
 
 	// new handler table is created for every config change. It uses handler factory
 	// to create new handlers.
@@ -259,7 +151,49 @@ func (c *Controller) publishSnapShot() {
 	glog.Infof("Published snapshot with %d config items", len(c.configState))
 }
 
+// maxCleanupDuration is the maximum amount of time cleanup operation will wait
+// before resolver ref count does to 0. It will return after this duration without
+// calling Close() on handlers.
 const maxCleanupDuration = 10 * time.Second
+
+// watchChanges watches for changes and publishes a new resolver.
+// watchChanges is started in a goroutine.
+func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn) {
+	// consume changes and apply them to data indefinitely
+	var timeChan <-chan time.Time
+	var timer *time.Timer
+	events := make([]*store.Event, 0, maxEvents)
+
+	for {
+		select {
+		case ev := <-wch:
+			if len(events) == 0 {
+				timer = time.NewTimer(time.Second)
+				timeChan = timer.C
+			}
+			events = append(events, &ev)
+		case <-timeChan:
+			timer.Stop()
+			timeChan = nil
+			glog.Info("Publishing %d events", len(events))
+			applyEvents(events)
+			events = events[:0]
+		}
+	}
+}
+
+// applyEvents applies given events to config state and then publishes a snapshot.
+func (c *Controller) applyEvents(events []*store.Event) {
+	for _, ev := range events {
+		switch ev.Type {
+		case store.Update:
+			c.configState[ev.Key] = ev.Value
+		case store.Delete:
+			delete(c.configState, ev.Key)
+		}
+	}
+	c.publishSnapShot()
+}
 
 // filterInstanceConfig filters the configState and produces instanceConfig
 // that points to valid templates.
@@ -352,41 +286,6 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 const cleanupSleepTime = 500 * time.Millisecond
 
-// cleanupResolver cleans up handler table in the resolver
-// after the resolver is no longer in use.
-func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.Duration) {
-	start := time.Now()
-	for {
-		rc := atomic.LoadInt32(&r.refCount)
-		if rc != 0 {
-			if time.Since(start) > timeout {
-				glog.Warningf("Unable to cleanup resolver in %v time. %d references remain", timeout, rc)
-				return
-			}
-			if glog.V(2) {
-				glog.Infof("Waiting for resolver %d %s to finish", r.ID, rc)
-			}
-			time.Sleep(cleanupSleepTime)
-			continue
-		}
-		if glog.V(2) {
-			glog.Infof("resolver %d handler table has %d entries", r.ID, len(table))
-		}
-		for _, he := range table {
-			if he.notInUse && he.Handler != nil {
-				msg := fmt.Sprintf("closing %s/%v", he.Name, he.Handler)
-				err := he.Handler.Close()
-				if err != nil {
-					glog.Warningf("Error "+msg+": %s", err)
-				} else {
-					glog.Info(msg)
-				}
-			}
-		}
-		return
-	}
-}
-
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
@@ -461,5 +360,40 @@ func combineRulesHandlers(ruleConfig map[string]map[string]*Rule, handlerTable m
 				rule.actions[vr] = newvact
 			}
 		}
+	}
+}
+
+// cleanupResolver cleans up handler table in the resolver
+// after the resolver is no longer in use.
+func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.Duration) {
+	start := time.Now()
+	for {
+		rc := atomic.LoadInt32(&r.refCount)
+		if rc != 0 {
+			if time.Since(start) > timeout {
+				glog.Warningf("Unable to cleanup resolver in %v time. %d references remain", timeout, rc)
+				return
+			}
+			if glog.V(2) {
+				glog.Infof("Waiting for resolver %d %s to finish", r.ID, rc)
+			}
+			time.Sleep(cleanupSleepTime)
+			continue
+		}
+		if glog.V(2) {
+			glog.Infof("resolver %d handler table has %d entries", r.ID, len(table))
+		}
+		for _, he := range table {
+			if he.notInUse && he.Handler != nil {
+				msg := fmt.Sprintf("closing %s/%v", he.Name, he.Handler)
+				err := he.Handler.Close()
+				if err != nil {
+					glog.Warningf("Error "+msg+": %s", err)
+				} else {
+					glog.Info(msg)
+				}
+			}
+		}
+		return
 	}
 }
