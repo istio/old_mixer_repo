@@ -79,20 +79,21 @@ func listCrdsInstances(printf shared.FormatFn, infos map[string]template.Info) {
 }
 
 func printCrd(printf shared.FormatFn, shrtName, implName, pluralName, label string) {
+	group := "config.istio.io"
 	crd := apiextensionsv1beta1.CustomResourceDefinition{
 		TypeMeta: meta_v1.TypeMeta{
 			Kind:       "CustomResourceDefinition",
 			APIVersion: "apiextensions.k8s.io/v1beta1",
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: shrtName + ".config.istio.io",
+			Name: pluralName + "." + group,
 			Labels: map[string]string{
 				"impl":  implName,
 				"istio": label,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "config.istio.io",
+			Group:   group,
 			Version: "v1alpha2",
 			Scope:   apiextensionsv1beta1.NamespaceScoped,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{

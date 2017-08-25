@@ -39,7 +39,7 @@ metadata:
   labels:
     impl: foo-bar
     istio: mixer-adapter
-  name: foo-bar.config.istio.io
+  name: foo-bars.config.istio.io
 spec:
   group: config.istio.io
   names:
@@ -61,7 +61,7 @@ metadata:
   labels:
     impl: abcd
     istio: mixer-adapter
-  name: abcd.config.istio.io
+  name: abcds.config.istio.io
 spec:
   group: config.istio.io
   names:
@@ -90,7 +90,7 @@ metadata:
   labels:
     impl: ""
     istio: mixer-instance
-  name: abcd-foo.config.istio.io
+  name: abcd-foos.config.istio.io
 spec:
   group: config.istio.io
   names:
@@ -112,7 +112,7 @@ metadata:
   labels:
     impl: ""
     istio: mixer-instance
-  name: abcdBar.config.istio.io
+  name: abcdBars.config.istio.io
 spec:
   group: config.istio.io
   names:
