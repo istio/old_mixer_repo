@@ -15,6 +15,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"io/ioutil"
@@ -30,94 +31,128 @@ import (
 
 const defaultDuration = time.Second / 2
 
+type resourceMeta struct {
+	Name      string
+	Namespace string
+}
+
+type resource struct {
+	Kind       string
+	APIVersion string `json:"apiVersion"`
+	Metadata   resourceMeta
+	Spec       map[string]interface{}
+	sha        [sha1.Size]byte
+}
+
+func (r *resource) Key() Key {
+	return Key{Kind: r.Kind, Namespace: r.Metadata.Namespace, Name: r.Metadata.Name}
+}
+
 // fsStore2 is Store2Backend implementation using filesystem.
 type fsStore2 struct {
 	root          string
-	kinds         []string
+	kinds         map[string]bool
 	checkDuration time.Duration
 	chs           *ContextChList
 
 	mu   sync.RWMutex
-	data map[Key]map[string]interface{}
-	shas map[Key][sha1.Size]byte
+	data map[Key]*resource
 }
 
 var _ Store2Backend = &fsStore2{}
 
-func (s *fsStore2) readFiles() (map[Key][]byte, map[Key][sha1.Size]byte) {
-	const suffix = ".yaml"
-	result := map[Key][]byte{}
-
-	for _, kind := range s.kinds {
-		root := filepath.Join(s.root, kind)
-		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if strings.HasSuffix(path, suffix) && (info.Mode()&os.ModeType) == 0 {
-				data, err := ioutil.ReadFile(path)
-				if err != nil {
-					glog.Warningf("Failed to read %s: %v", path, err)
-					return nil
-				}
-				path = path[len(root)+1 : len(path)-len(suffix)]
-				paths := strings.Split(path, string(filepath.Separator))
-				if len(paths) != 2 {
-					glog.Warningf("Unrecognized path pattern %s", path)
-					return nil
-				}
-				key := Key{Kind: kind, Namespace: paths[0], Name: paths[1]}
-				result[key] = data
-			}
-			return nil
-		})
-		if err != nil {
-			glog.Errorf("failure during filepath.Walk: %v", err)
+func parseFile(path string, data []byte) []*resource {
+	if bytes.HasPrefix(data, []byte("---\n")) {
+		data = data[4:]
+	}
+	if bytes.HasSuffix(data, []byte("\n")) {
+		data = data[:len(data)-1]
+	}
+	if bytes.HasSuffix(data, []byte("\n---")) {
+		data = data[:len(data)-4]
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	chunks := bytes.Split(data, []byte("\n---\n"))
+	resources := make([]*resource, 0, len(chunks))
+	for i, chunk := range chunks {
+		r := &resource{}
+		if err := yaml.Unmarshal(chunk, r); err != nil {
+			glog.Errorf("Failed to parse %d-th part in file %s: %v", i, path, err)
+			continue
 		}
+		if r.Kind == "" || r.Metadata.Namespace == "" || r.Metadata.Name == "" {
+			glog.Errorf("Key elements are empty. Extracted as %s", r.Key())
+			continue
+		}
+		r.sha = sha1.Sum(chunk)
+		resources = append(resources, r)
 	}
-	shas := make(map[Key][sha1.Size]byte, len(result))
-	for k, b := range result {
-		shas[k] = sha1.Sum(b)
+	return resources
+}
+
+func (s *fsStore2) readFiles() map[Key]*resource {
+	const suffix = ".yaml"
+	result := map[Key]*resource{}
+
+	err := filepath.Walk(s.root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !strings.HasSuffix(path, suffix) || (info.Mode()&os.ModeType) != 0 {
+			return nil
+		}
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			glog.Warningf("Failed to read %s: %v", path, err)
+			return err
+		}
+		for _, r := range parseFile(path, data) {
+			k := r.Key()
+			if !s.kinds[k.Kind] {
+				glog.Warningf("Unknown kind %s is in the file", k.Kind)
+				continue
+			}
+			result[r.Key()] = r
+		}
+		return nil
+	})
+	if err != nil {
+		glog.Errorf("failure during filepath.Walk: %v", err)
 	}
-	return result, shas
+	return result
 }
 
 func (s *fsStore2) update() {
-	newData, newShas := s.readFiles()
+	newData := s.readFiles()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	updated := []Key{}
 	removed := map[Key]bool{}
-	for k := range s.shas {
+	for k := range s.data {
 		removed[k] = true
 	}
-	for k, v := range newShas {
-		oldV, ok := s.shas[k]
+	for k, r := range newData {
+		oldR, ok := s.data[k]
 		if !ok {
 			updated = append(updated, k)
 			continue
 		}
 		delete(removed, k)
-		if v != oldV {
+		if r.sha != oldR.sha {
 			updated = append(updated, k)
 		}
 	}
 	if len(updated) == 0 && len(removed) == 0 {
 		return
 	}
-	s.shas = newShas
+	s.data = newData
 	evs := make([]BackendEvent, 0, len(updated)+len(removed))
 	for _, key := range updated {
-		parsed := map[string]interface{}{}
-		if err := yaml.Unmarshal(newData[key], &parsed); err != nil {
-			glog.Errorf("failed to parse yaml content: %v", err)
-			continue
-		}
-		s.data[key] = parsed
-		evs = append(evs, BackendEvent{Key: key, Type: Update, Value: parsed})
+		evs = append(evs, BackendEvent{Key: key, Type: Update, Value: s.data[key].Spec})
 	}
 	for key := range removed {
-		delete(s.data, key)
 		evs = append(evs, BackendEvent{Key: key, Type: Delete})
 	}
 	for _, ev := range evs {
@@ -129,17 +164,18 @@ func (s *fsStore2) update() {
 func NewFsStore2(root string) Store2Backend {
 	return &fsStore2{
 		root:          root,
+		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,
 		chs:           &ContextChList{},
-		shas:          map[Key][sha1.Size]byte{},
-		data:          map[Key]map[string]interface{}{},
+		data:          map[Key]*resource{},
 	}
 }
 
 // Init implements Store2Backend interface.
 func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
-	// TBD
-	s.kinds = kinds
+	for _, k := range kinds {
+		s.kinds[k] = true
+	}
 	s.update()
 	go func() {
 		tick := time.NewTicker(s.checkDuration)
@@ -165,19 +201,19 @@ func (s *fsStore2) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 func (s *fsStore2) Get(key Key) (map[string]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	spec, ok := s.data[key]
+	r, ok := s.data[key]
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return spec, nil
+	return r.Spec, nil
 }
 
 // List implements Store2Backend interface.
 func (s *fsStore2) List() map[Key]map[string]interface{} {
 	s.mu.RLock()
 	result := make(map[Key]map[string]interface{}, len(s.data))
-	for k, v := range s.data {
-		result[k] = v
+	for k, r := range s.data {
+		result[k] = r.Spec
 	}
 	s.mu.RUnlock()
 	return result

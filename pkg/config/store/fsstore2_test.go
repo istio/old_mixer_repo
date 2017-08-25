@@ -16,6 +16,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -55,7 +56,7 @@ func waitFor(wch <-chan BackendEvent, ct ChangeType, key Key) {
 
 func write(fsroot string, k Key, data map[string]interface{}) error {
 	path := filepath.Join(fsroot, k.Kind, k.Namespace, k.Name+".yaml")
-	bytes, err := yaml.Marshal(data)
+	bytes, err := yaml.Marshal(&resource{Kind: k.Kind, Metadata: resourceMeta{Namespace: k.Namespace, Name: k.Name}, Spec: data})
 	if err != nil {
 		return err
 	}
@@ -141,6 +142,87 @@ func TestFSStore2WrongKind(t *testing.T) {
 	}
 }
 
+func TestFSStore2FileFormat(t *testing.T) {
+	const good = `
+Kind: Foo
+APIVersion: testing
+Metadata:
+  Namespace: ns
+  Name: foo
+Spec:
+`
+	const bad = "abc"
+	for _, c := range []struct {
+		title         string
+		resourceCount int
+		data          string
+	}{
+		{
+			"base",
+			1,
+			good,
+		},
+		{
+			"illformed",
+			0,
+			bad,
+		},
+		{
+			"key missing",
+			0,
+			`
+Kind: Foo
+APIVersion: testing
+Metadata:
+	Name: foo
+Spec:
+			`,
+		},
+		{
+			"hyphened",
+			1,
+			"---\n" + good + "\n---",
+		},
+		{
+			"empty",
+			0,
+			"",
+		},
+		{
+			"hyphen",
+			0,
+			"---",
+		},
+		{
+			"multiple",
+			2,
+			good + "\n---\n" + good + "\n---\n",
+		},
+		{
+			"fail later",
+			1,
+			good + "\n---\n" + bad,
+		},
+		{
+			"fail former",
+			1,
+			bad + "\n---\n" + good,
+		},
+		{
+			"fail mulitiple",
+			0,
+			bad + "\n---\n" + bad,
+		},
+	} {
+		t.Run(c.title, func(tt *testing.T) {
+			resources := parseFile(c.title, []byte(c.data))
+			if len(resources) != c.resourceCount {
+				tt.Errorf("Got %d, Want %d", len(resources), c.resourceCount)
+			}
+		})
+	}
+}
+
 func TestFSStore2MissingRoot(t *testing.T) {
 	s, fsroot := getTempFSStore2()
 	if err := os.RemoveAll(fsroot); err != nil {
@@ -156,6 +238,15 @@ func TestFSStore2MissingRoot(t *testing.T) {
 
 func TestFSStore2Robust(t *testing.T) {
 	const ns = "testing"
+	const tmpl = `
+Kind: %s
+APIVersion: config.istio.io/v1alpha2
+Metadata:
+  Namespace: testing
+  Name: %s
+Spec:
+  %s
+`
 	for _, c := range []struct {
 		title   string
 		prepare func(fsroot string) error
@@ -163,15 +254,8 @@ func TestFSStore2Robust(t *testing.T) {
 		{
 			"wrong permission",
 			func(fsroot string) error {
-				path := filepath.Join(fsroot, "Handler", ns, "aa.yaml")
-				return ioutil.WriteFile(path, []byte("foo: bar\n"), 0300)
-			},
-		},
-		{
-			"illformed file path",
-			func(fsroot string) error {
-				path := filepath.Join(fsroot, "Handler", "foo.yaml")
-				return ioutil.WriteFile(path, []byte("foo: bar\n"), 0644)
+				path := filepath.Join(fsroot, "aa.yaml")
+				return ioutil.WriteFile(path, []byte(fmt.Sprintf(tmpl, "Handler", "aa", "foo: bar\n")), 0300)
 			},
 		},
 		{
