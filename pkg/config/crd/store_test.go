@@ -34,6 +34,9 @@ import (
 	"istio.io/mixer/pkg/config/store"
 )
 
+// The "retryTimeout" used by the test.
+const testingRetryTimeout = 10 * time.Millisecond
+
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -128,7 +131,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:             &rest.Config{},
-		retryTimeout:     crdRetryTimeout,
+		retryTimeout:     testingRetryTimeout,
 		discoveryBuilder: createFakeDiscovery,
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil
@@ -238,14 +241,13 @@ func TestCrdsAreNotReady(t *testing.T) {
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return emptyDiscovery, nil
 	}
-	s.retryTimeout = time.Millisecond
 	start := time.Now()
 	err := s.Init(context.Background(), []string{"Handler", "Action"})
 	d := time.Since(start)
-	if err == nil {
-		t.Errorf("Got nil, Want error")
+	if err != nil {
+		t.Errorf("Got %v, Want nil", err)
 	}
-	if d < time.Millisecond {
+	if d < testingRetryTimeout {
 		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
 	}
 }
@@ -280,6 +282,8 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return fakeDiscovery, nil
 	}
+	// Should set a longer timeout to avoid early quitting retry loop due to lack of computational power.
+	s.retryTimeout = 2 * time.Second
 	err := s.Init(context.Background(), []string{"Handler", "Action"})
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)

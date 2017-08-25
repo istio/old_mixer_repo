@@ -166,13 +166,8 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	retry := false
 	for len(s.caches) < len(kinds) {
 		if crdCtx.Err() != nil {
-			missingKinds := make([]string, 0, len(kinds)-len(s.caches))
-			for _, kind := range kinds {
-				if _, ok := s.caches[kind]; !ok {
-					missingKinds = append(missingKinds, kind)
-				}
-			}
-			return fmt.Errorf("CRDs for %+v are not ready", missingKinds)
+			// TODO: runs goroutines for remaining kinds.
+			break
 		}
 		if retry && bool(glog.V(3)) {
 			glog.Infof("Retrying to fetch config...")
@@ -195,7 +190,9 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 			}
 		}
 	}
-	<-waiter.donec
+	if len(s.caches) > 0 {
+		<-waiter.donec
+	}
 	return nil
 }
 
