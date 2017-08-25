@@ -59,7 +59,7 @@ var (
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:        "istio.io/mixer/adapter/statsd2",
+		Name:        "istio.io/mixer/adapter/statsd",
 		Description: "Produces statsd metrics",
 		SupportedTemplates: []string{
 			metric.TemplateName,

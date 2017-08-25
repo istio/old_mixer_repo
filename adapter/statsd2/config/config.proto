@@ -31,8 +31,8 @@ message Params {
     // Metric prefix, do not specify for no prefix
     string prefix = 2;
 
-    // Flush Interval controls the maximum amount of time between sending metrics to the statsd collection server.
-    // Metrics are reported when either flush_bytes is full or flush_interval time has elapsed since the last report.
+    // FlushDuration controls the maximum amount of time between sending metrics to the statsd collection server.
+    // Metrics are reported when either flush_bytes is full or flush_duration time has elapsed since the last report.
     google.protobuf.Duration flush_duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
     // Maximum UDP packet size to send; if not specified defaults to 512 bytes. If the statsd server is running on the
