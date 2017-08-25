@@ -58,7 +58,7 @@ var (
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:        "prometheus",
+		Name:        "istio-io-mixer-adapter-prometheus",
 		Description: "Publishes prometheus metrics",
 		SupportedTemplates: []string{
 			metric.TemplateName,
