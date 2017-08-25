@@ -124,8 +124,8 @@ func TestStore2WatchMultiple(t *testing.T) {
 	if _, err := s.Watch(ctx); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if _, err := s.Watch(context.Background()); err != ErrWatchAlreadyExist {
-		t.Errorf("Got %v, Want %v", err, ErrWatchAlreadyExist)
+	if _, err := s.Watch(context.Background()); err != ErrWatchAlreadyExists {
+		t.Errorf("Got %v, Want %v", err, ErrWatchAlreadyExists)
 	}
 	cancel()
 	// short sleep to make sure the goroutine for canceling watch status in store.

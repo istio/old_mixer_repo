@@ -36,6 +36,10 @@ type resourceMeta struct {
 	Namespace string
 }
 
+// resource is almost identical to crd/resource.go. This is defined here
+// separately because:
+// - no dependencies on actual k8s libraries
+// - sha1 hash field, required for fsstore to check updates
 type resource struct {
 	Kind       string
 	APIVersion string `json:"apiVersion"`
@@ -62,6 +66,8 @@ type fsStore2 struct {
 
 var _ Store2Backend = &fsStore2{}
 
+// parseFile parses the data and returns as a slice of resources. "path" is only used
+// for error reporting.
 func parseFile(path string, data []byte) []*resource {
 	if bytes.HasPrefix(data, []byte("---\n")) {
 		data = data[4:]
@@ -125,7 +131,7 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 	return result
 }
 
-func (s *fsStore2) update() {
+func (s *fsStore2) checkAndUpdate() {
 	newData := s.readFiles()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -167,7 +173,7 @@ func (s *fsStore2) update() {
 	}
 }
 
-// NewFsStore2 creates a new Store2Backend backed by filesystem.
+// NewFsStore2 creates a new Store2Backend backed by the filesystem.
 func NewFsStore2(root string) Store2Backend {
 	return &fsStore2{
 		root:          root,
@@ -182,7 +188,7 @@ func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
 	for _, k := range kinds {
 		s.kinds[k] = true
 	}
-	s.update()
+	s.checkAndUpdate()
 	go func() {
 		tick := time.NewTicker(s.checkDuration)
 		for {
@@ -191,7 +197,7 @@ func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
 				tick.Stop()
 				return
 			case <-tick.C:
-				s.update()
+				s.checkAndUpdate()
 			}
 		}
 	}()

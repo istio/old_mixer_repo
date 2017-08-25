@@ -28,8 +28,8 @@ import (
 // ErrNotFound is the error to be returned when the given key does not exist in the storage.
 var ErrNotFound = errors.New("not found")
 
-// ErrWatchAlreadyExist is the error to report that the watching channel already exists.
-var ErrWatchAlreadyExist = errors.New("watch already exist")
+// ErrWatchAlreadyExists is the error to report that the watching channel already exists.
+var ErrWatchAlreadyExists = errors.New("watch already exists")
 
 // Key represents the key to identify a resource in the store.
 type Key struct {
@@ -119,7 +119,7 @@ func (s *store2) Watch(ctx context.Context) (<-chan Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.queue != nil {
-		return nil, ErrWatchAlreadyExist
+		return nil, ErrWatchAlreadyExists
 	}
 	ch, err := s.backend.Watch(ctx)
 	if err != nil {
