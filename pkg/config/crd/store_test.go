@@ -128,6 +128,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:             &rest.Config{},
+		retryTimeout:     crdRetryTimeout,
 		discoveryBuilder: createFakeDiscovery,
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil
@@ -237,10 +238,9 @@ func TestCrdsAreNotReady(t *testing.T) {
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return emptyDiscovery, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
-	defer cancel()
+	s.retryTimeout = time.Millisecond
 	start := time.Now()
-	err := s.Init(ctx, []string{"Handler", "Action"})
+	err := s.Init(context.Background(), []string{"Handler", "Action"})
 	d := time.Since(start)
 	if err == nil {
 		t.Errorf("Got nil, Want error")

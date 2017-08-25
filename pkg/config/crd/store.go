@@ -48,13 +48,13 @@ const (
 
 	// initWaiterDelay is the delay to close donec in initWaiter after
 	// the List() is called initially.
-	initWaiterDelay = time.Millisecond * 10
+	initWaiterDelay = time.Millisecond * 100
 
-	// crdRetryTimeout is the timeout duration to retry initialization
-	// of the caches when some CRDs are missing. The actual timeout
-	// can be customized through the timeout for the context passed to
-	// Init() method.
-	crdRetryTimeout = time.Minute
+	// crdRetryTimeout is the default timeout duration to retry initialization
+	// of the caches when some CRDs are missing. The timeout can be customized
+	// through "retry-timeout" query parameter in the config URL,
+	// like k8s://?retry-timeout=1m
+	crdRetryTimeout = time.Second * 30
 )
 
 type listerWatcherBuilderInterface interface {
@@ -120,9 +120,10 @@ type contextCh struct {
 
 // Store offers store.Store2Backend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf   *rest.Config
-	ns     map[string]bool
-	caches map[string]cache.Store
+	conf         *rest.Config
+	ns           map[string]bool
+	caches       map[string]cache.Store
+	retryTimeout time.Duration
 
 	mu  sync.Mutex
 	chs []*contextCh
@@ -160,7 +161,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	}
 	waiter := wrapListerWatcherBuilder(lwBuilder)
 	s.caches = make(map[string]cache.Store, len(kinds))
-	crdCtx, cancel := context.WithTimeout(ctx, crdRetryTimeout)
+	crdCtx, cancel := context.WithTimeout(ctx, s.retryTimeout)
 	defer cancel()
 	retry := false
 	for len(s.caches) < len(kinds) {
