@@ -79,7 +79,7 @@ subject: namespace:ns
 revision: "2022"
 handlers:
   - name: fooHandler
-    adapter: fakeHandler
+    adapter: fakehandler
 
 manifests:
   - name: istio-proxy

@@ -23,6 +23,9 @@ import (
 type BuilderInfo struct {
 	// Name returns the official name of the adapter.
 	Name string
+	// ShortName is used to register this type with the config system.
+	// It must be DNS-1035 compatible. If it is not specified, it will be derived from 'Name'.
+	ShortName string
 	// Description returns a user-friendly description of the adapter.
 	Description string
 	// CreateHandlerBuilder is a function that creates a HandlerBuilder which implements Builders associated

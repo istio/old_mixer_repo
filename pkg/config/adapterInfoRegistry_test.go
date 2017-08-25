@@ -197,3 +197,41 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 
 	t.Error("Should not reach this statement due to panic.")
 }
+
+func TestNameToCfgKind(t *testing.T) {
+	tests := map[string]string{
+		"istio.io/mixer/adapter/denier":                "denier-mixer-istio-io",
+		"github.com/user1/mixerAdapters/denier":        "denier-mixeradapters-user1",
+		"metricsco.io/mixerAdapters/metrics1":          "metrics1-mixeradapters-metricsco-io",
+		"metricsco.io/mixerAdapters/adapters/metrics2": "metrics2-mixeradapters-metricsco-io",
+		"mixerAdapterDenier":                           "mixeradapterdenier",
+		"mixer.Adapter.Denier":                         "mixer-adapter-denier",
+	}
+
+	for q, a := range tests {
+		t.Run(q, func(t *testing.T) {
+			aa, err := NameToCfgKind(q)
+			if err != nil {
+				t.Fatalf("Unexpected error %v", err)
+			}
+			if aa != a {
+				t.Fatalf("got %s, want %s", aa, a)
+			}
+			if !DNS1035.MatchString(aa) {
+				t.Fatalf("did not return DNS1035 compatible string")
+			}
+		})
+	}
+
+	// test failures
+	for _, str := range []string{"istio.io/mixer",
+		"github.com/user1/mixerAdapters",
+		"metricsco.io/mixerAdapters/adapters/2metrics2"} {
+		t.Run(str, func(t *testing.T) {
+			_, err := NameToCfgKind(str)
+			if err == nil {
+				t.Fatalf("expected error, got success")
+			}
+		})
+	}
+}
