@@ -32,6 +32,7 @@ var exampleAdapters = []pkgadapter.InfoFn{
 	func() adapter.BuilderInfo { return adapter.BuilderInfo{Name: "abcd"} },
 }
 var exampleAdaptersCrd = `
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
@@ -53,6 +54,7 @@ status:
     plural: ""
   conditions: null
 ---
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
@@ -81,6 +83,7 @@ var exampleTmplInfos = map[string]template.Info{
 	"abcdBar":  {Name: "abcdBar"},
 }
 var exampleInstanceCrd = `
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
@@ -102,6 +105,7 @@ status:
     plural: ""
   conditions: null
 ---
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null

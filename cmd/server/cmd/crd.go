@@ -56,7 +56,9 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []pkgAdapter.InfoFn, pr
 func listCrdsAdapters(printf shared.FormatFn, infoFns []pkgadapter.InfoFn) {
 	for _, infoFn := range infoFns {
 		info := infoFn()
-		printCrd(printf, info.Name /* TODO make this info.shortName when related PR is in. */, info.Name, "mixer-adapter")
+		shrtName := info.Name /* TODO make this info.shortName when related PR is in. */
+		// TODO : Use the plural name from the adapter info
+		printCrd(printf, shrtName, info.Name, shrtName+"s", "mixer-adapter")
 	}
 }
 
@@ -71,14 +73,16 @@ func listCrdsInstances(printf shared.FormatFn, infos map[string]template.Info) {
 
 	for _, tmplName := range tmplNames {
 		info := infos[tmplName]
-		printCrd(printf, info.Name, info.HndlrInterfaceName, "mixer-instance")
+		// TODO : Use the plural name from the template info
+		printCrd(printf, info.Name, info.HndlrInterfaceName, info.Name+"s", "mixer-instance")
 	}
 }
 
-func printCrd(printf shared.FormatFn, shrtName, implName, label string) {
+func printCrd(printf shared.FormatFn, shrtName, implName, pluralName, label string) {
 	crd := apiextensionsv1beta1.CustomResourceDefinition{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind: "CustomResourceDefinition",
+			Kind:       "CustomResourceDefinition",
+			APIVersion: "apiextensions.k8s.io/v1beta1",
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: shrtName + ".config.istio.io",
@@ -92,7 +96,7 @@ func printCrd(printf shared.FormatFn, shrtName, implName, label string) {
 			Version: "v1alpha2",
 			Scope:   apiextensionsv1beta1.NamespaceScoped,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   shrtName + "s",
+				Plural:   pluralName,
 				Singular: shrtName,
 				Kind:     shrtName,
 			},
