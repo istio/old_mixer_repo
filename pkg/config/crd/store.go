@@ -70,14 +70,10 @@ func waitForSynced(ctx context.Context, informers map[string]cache.SharedInforme
 			case <-ctx.Done():
 				break loop
 			case <-tick.C:
-				synced := make([]string, 0, len(informers))
 				for k, i := range informers {
 					if i.HasSynced() {
-						synced = append(synced, k)
+						delete(informers, k)
 					}
-				}
-				for _, k := range synced {
-					delete(informers, k)
 				}
 			}
 		}
