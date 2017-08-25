@@ -229,7 +229,7 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:        "istio.io/mixer/adapter/stdio",
+		Name:        "istio-io-mixer-adapter-stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",
 		SupportedTemplates: []string{
 			logentry.TemplateName,
