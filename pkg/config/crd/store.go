@@ -63,7 +63,7 @@ type listerWatcherBuilderInterface interface {
 func waitForSynced(ctx context.Context, informers map[string]cache.SharedInformer) <-chan struct{} {
 	out := make(chan struct{})
 	go func() {
-		tick := time.NewTicker(time.Millisecond)
+		tick := time.NewTicker(initWaiterInterval)
 	loop:
 		for len(informers) > 0 {
 			select {
