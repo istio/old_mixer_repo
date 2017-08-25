@@ -46,11 +46,9 @@ const (
 	// TODO: allow customization.
 	defaultResyncPeriod = time.Minute
 
-	// initWaiterDelay is the delay to close donec in initWaiter after
-	// the List() is called initially.
-	// TODO: reconsider this value. Or introduce a better approach to minimize
-	// the wait delay.
-	initWaiterDelay = time.Millisecond * 100
+	// initWaiterInterval is the interval to check if the initial data is ready
+	// in the cache.
+	initWaiterInterval = time.Millisecond
 
 	// crdRetryTimeout is the default timeout duration to retry initialization
 	// of the caches when some CRDs are missing. The timeout can be customized
@@ -63,56 +61,31 @@ type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
 }
 
-type initWaiter struct {
-	builder listerWatcherBuilderInterface
-	donec   chan struct{}
-	calledc chan string
-
-	mu    sync.Mutex
-	kinds map[string]bool
-}
-
-func wrapListerWatcherBuilder(lwb listerWatcherBuilderInterface) *initWaiter {
-	iw := &initWaiter{
-		builder: lwb,
-		donec:   make(chan struct{}),
-		calledc: make(chan string),
-		kinds:   map[string]bool{},
-	}
-	go iw.run()
-	return iw
-}
-
-func (iw *initWaiter) run() {
-	for k := range iw.calledc {
-		iw.mu.Lock()
-		delete(iw.kinds, k)
-		l := len(iw.kinds)
-		iw.mu.Unlock()
-		if l == 0 {
-			break
+func waitForSynced(ctx context.Context, informers map[string]cache.SharedInformer) <-chan struct{} {
+	out := make(chan struct{})
+	go func() {
+		tick := time.NewTicker(time.Millisecond)
+	loop:
+		for len(informers) > 0 {
+			select {
+			case <-ctx.Done():
+				break loop
+			case <-tick.C:
+				synced := make([]string, 0, len(informers))
+				for k, i := range informers {
+					if i.HasSynced() {
+						synced = append(synced, k)
+					}
+				}
+				for _, k := range synced {
+					delete(informers, k)
+				}
+			}
 		}
-	}
-	// Still, there's a slight delay between the initial List() call and
-	// the data to be settled into the caches, here's an ad-hoc short delay
-	// before iw.donec is closed.
-	time.Sleep(initWaiterDelay)
-	close(iw.donec)
-}
-
-func (iw *initWaiter) build(res metav1.APIResource) cache.ListerWatcher {
-	iw.mu.Lock()
-	iw.kinds[res.Kind] = true
-	iw.mu.Unlock()
-	lw := iw.builder.build(res)
-	wrapped := &cache.ListWatch{WatchFunc: lw.Watch}
-	wrapped.ListFunc = func(opts metav1.ListOptions) (runtime.Object, error) {
-		obj, err := lw.List(opts)
-		wrapped.ListFunc = lw.List
-		iw.calledc <- res.Kind
-		return obj, err
-	}
-	return wrapped
+		tick.Stop()
+		close(out)
+	}()
+	return out
 }
 
 type contextCh struct {
@@ -161,11 +134,11 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	if err != nil {
 		return err
 	}
-	waiter := wrapListerWatcherBuilder(lwBuilder)
 	s.caches = make(map[string]cache.Store, len(kinds))
 	crdCtx, cancel := context.WithTimeout(ctx, s.retryTimeout)
 	defer cancel()
 	retry := false
+	informers := map[string]cache.SharedInformer{}
 	for len(s.caches) < len(kinds) {
 		if crdCtx.Err() != nil {
 			// TODO: runs goroutines for remaining kinds.
@@ -184,16 +157,17 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 				continue
 			}
 			if _, ok := kindsSet[res.Kind]; ok {
-				cl := waiter.build(res)
+				cl := lwBuilder.build(res)
 				informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
 				s.caches[res.Kind] = informer.GetStore()
+				informers[res.Kind] = informer
 				informer.AddEventHandler(s)
 				go informer.Run(ctx.Done())
 			}
 		}
 	}
 	if len(s.caches) > 0 {
-		<-waiter.donec
+		<-waitForSynced(ctx, informers)
 	}
 	return nil
 }
