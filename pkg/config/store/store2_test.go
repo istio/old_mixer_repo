@@ -117,7 +117,9 @@ func TestStore2WatchMultiple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}})
+	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	if _, err := s.Watch(ctx); err != nil {
 		t.Errorf("Got %v, Want nil", err)
