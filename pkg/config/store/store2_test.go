@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -106,6 +107,29 @@ func TestStore2(t *testing.T) {
 	wantEv := Event{Key: k, Type: Update, Value: want}
 	if ev := <-ch; !reflect.DeepEqual(ev, wantEv) {
 		t.Errorf("Got %+v, Want %+v", ev, wantEv)
+	}
+}
+
+func TestStore2WatchMultiple(t *testing.T) {
+	r := NewRegistry2(registerMemstore)
+	s, err := r.NewStore2("memstore://")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}})
+	ctx, cancel := context.WithCancel(context.Background())
+	if _, err := s.Watch(ctx); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	if _, err := s.Watch(context.Background()); err != ErrWatchAlreadyExist {
+		t.Errorf("Got %v, Want %v", err, ErrWatchAlreadyExist)
+	}
+	cancel()
+	// short sleep to make sure the goroutine for canceling watch status in store.
+	time.Sleep(time.Millisecond * 5)
+	if _, err := s.Watch(context.Background()); err != nil {
+		t.Errorf("Got %v, Want nil", err)
 	}
 }
 

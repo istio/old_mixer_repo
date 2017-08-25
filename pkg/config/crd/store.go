@@ -58,10 +58,11 @@ type listerWatcherBuilderInterface interface {
 
 // Store offers store.Store2Backend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf   *rest.Config
-	ns     map[string]bool
-	caches map[string]cache.Store
-	chs    *store.ContextChList
+	conf     *rest.Config
+	ns       map[string]bool
+	caches   map[string]cache.Store
+	watchCtx context.Context
+	watchCh  chan store.BackendEvent
 
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
@@ -114,7 +115,9 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 
 // Watch implements store.Store2Backend interface.
 func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
-	return s.chs.Add(ctx), nil
+	s.watchCtx = ctx
+	s.watchCh = make(chan store.BackendEvent)
+	return s.watchCh, nil
 }
 
 // Get implements store.Store2Backend interface.
@@ -167,12 +170,22 @@ func toEvent(t store.ChangeType, obj interface{}) (store.BackendEvent, error) {
 	}, nil
 }
 
+func (s *Store) dispatch(ev store.BackendEvent) {
+	if s.watchCtx == nil {
+		return
+	}
+	select {
+	case <-s.watchCtx.Done():
+	case s.watchCh <- ev:
+	}
+}
+
 // OnAdd implements cache.ResourceEventHandler interface.
 func (s *Store) OnAdd(obj interface{}) {
 	if ev, err := toEvent(store.Update, obj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
-		s.chs.Send(ev)
+		s.dispatch(ev)
 	}
 }
 
@@ -181,7 +194,7 @@ func (s *Store) OnUpdate(oldObj, newObj interface{}) {
 	if ev, err := toEvent(store.Update, newObj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
-		s.chs.Send(ev)
+		s.dispatch(ev)
 	}
 }
 
@@ -191,6 +204,6 @@ func (s *Store) OnDelete(obj interface{}) {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
 		ev.Value = nil
-		s.chs.Send(ev)
+		s.dispatch(ev)
 	}
 }

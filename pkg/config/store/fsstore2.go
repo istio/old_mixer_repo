@@ -53,7 +53,8 @@ type fsStore2 struct {
 	root          string
 	kinds         map[string]bool
 	checkDuration time.Duration
-	chs           *ContextChList
+	watchCtx      context.Context
+	watchCh       chan BackendEvent
 
 	mu   sync.RWMutex
 	data map[Key]*resource
@@ -148,6 +149,9 @@ func (s *fsStore2) update() {
 		return
 	}
 	s.data = newData
+	if s.watchCtx == nil || s.watchCtx.Err() != nil {
+		return
+	}
 	evs := make([]BackendEvent, 0, len(updated)+len(removed))
 	for _, key := range updated {
 		evs = append(evs, BackendEvent{Key: key, Type: Update, Value: s.data[key].Spec})
@@ -156,7 +160,10 @@ func (s *fsStore2) update() {
 		evs = append(evs, BackendEvent{Key: key, Type: Delete})
 	}
 	for _, ev := range evs {
-		s.chs.Send(ev)
+		select {
+		case <-s.watchCtx.Done():
+		case s.watchCh <- ev:
+		}
 	}
 }
 
@@ -166,7 +173,6 @@ func NewFsStore2(root string) Store2Backend {
 		root:          root,
 		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,
-		chs:           &ContextChList{},
 		data:          map[Key]*resource{},
 	}
 }
@@ -194,7 +200,9 @@ func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
 
 // Watch implements Store2Backend interface.
 func (s *fsStore2) Watch(ctx context.Context) (<-chan BackendEvent, error) {
-	return s.chs.Add(ctx), nil
+	s.watchCtx = ctx
+	s.watchCh = make(chan BackendEvent)
+	return s.watchCh, nil
 }
 
 // Get implements Store2Backend interface.

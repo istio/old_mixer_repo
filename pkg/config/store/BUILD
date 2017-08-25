@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "contextch.go",
         "convert.go",
         "fsstore.go",
         "fsstore2.go",
@@ -27,7 +26,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "contextch_test.go",
         "convert_test.go",
         "fsstore2_test.go",
         "fsstore_test.go",
