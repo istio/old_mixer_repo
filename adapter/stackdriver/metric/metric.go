@@ -165,7 +165,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	}
 	buffered := &buffered{
 		pushMetrics: client.CreateTimeSeries,
-		closeMe: 	 client,
+		closeMe:     client,
 		project:     cfg.ProjectId,
 		m:           sync.Mutex{},
 		l:           env.Logger(),
