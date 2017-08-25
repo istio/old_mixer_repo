@@ -127,7 +127,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:             &rest.Config{},
-		chs:              store.NewContextChList(),
+		chs:              &store.ContextChList{},
 		discoveryBuilder: createFakeDiscovery,
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil

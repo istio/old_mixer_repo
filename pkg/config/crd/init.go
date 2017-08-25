@@ -69,7 +69,7 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
 	s := &Store{
 		conf:                 conf,
-		chs:                  store.NewContextChList(),
+		chs:                  &store.ContextChList{},
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 	}

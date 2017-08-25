@@ -59,7 +59,7 @@ func (r *contextChReceiver) GetReceivedAndReset() []BackendEvent {
 }
 
 func TestContextCh(t *testing.T) {
-	cch := NewContextChList()
+	cch := &ContextChList{}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r1 := newContextChReceiver(ctx, cch)

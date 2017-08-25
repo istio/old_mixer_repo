@@ -32,11 +32,6 @@ type ContextChList struct {
 	list []*contextCh
 }
 
-// NewContextChList creates a new list of ContextCh.
-func NewContextChList() *ContextChList {
-	return &ContextChList{}
-}
-
 // Add adds a new ContextCh instance. The instance will be removed when the context is done.
 func (l *ContextChList) Add(ctx context.Context) <-chan BackendEvent {
 	l.mu.Lock()

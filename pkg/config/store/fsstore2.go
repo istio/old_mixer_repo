@@ -30,8 +30,8 @@ import (
 
 const defaultDuration = time.Second / 2
 
-// FsStore2 is Store2Backend implementation using filesystem.
-type FsStore2 struct {
+// fsStore2 is Store2Backend implementation using filesystem.
+type fsStore2 struct {
 	root          string
 	kinds         []string
 	checkDuration time.Duration
@@ -42,9 +42,9 @@ type FsStore2 struct {
 	shas map[Key][sha1.Size]byte
 }
 
-var _ Store2Backend = &FsStore2{}
+var _ Store2Backend = &fsStore2{}
 
-func (s *FsStore2) readFiles() (map[Key][]byte, map[Key][sha1.Size]byte) {
+func (s *fsStore2) readFiles() (map[Key][]byte, map[Key][sha1.Size]byte) {
 	const suffix = ".yaml"
 	result := map[Key][]byte{}
 
@@ -82,7 +82,7 @@ func (s *FsStore2) readFiles() (map[Key][]byte, map[Key][sha1.Size]byte) {
 	return result, shas
 }
 
-func (s *FsStore2) update() {
+func (s *fsStore2) update() {
 	newData, newShas := s.readFiles()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -109,7 +109,6 @@ func (s *FsStore2) update() {
 	evs := make([]BackendEvent, 0, len(updated)+len(removed))
 	for _, key := range updated {
 		parsed := map[string]interface{}{}
-		glog.Errorf("%+v", key)
 		if err := yaml.Unmarshal(newData[key], &parsed); err != nil {
 			glog.Errorf("failed to parse yaml content: %v", err)
 			continue
@@ -126,19 +125,19 @@ func (s *FsStore2) update() {
 	}
 }
 
-// NewFsStore2 creates a new FsStore2 instance.
-func NewFsStore2(root string) *FsStore2 {
-	return &FsStore2{
+// NewFsStore2 creates a new Store2Backend backed by filesystem.
+func NewFsStore2(root string) Store2Backend {
+	return &fsStore2{
 		root:          root,
 		checkDuration: defaultDuration,
-		chs:           NewContextChList(),
+		chs:           &ContextChList{},
 		shas:          map[Key][sha1.Size]byte{},
 		data:          map[Key]map[string]interface{}{},
 	}
 }
 
 // Init implements Store2Backend interface.
-func (s *FsStore2) Init(ctx context.Context, kinds []string) error {
+func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
 	// TBD
 	s.kinds = kinds
 	s.update()
@@ -158,12 +157,12 @@ func (s *FsStore2) Init(ctx context.Context, kinds []string) error {
 }
 
 // Watch implements Store2Backend interface.
-func (s *FsStore2) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+func (s *fsStore2) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 	return s.chs.Add(ctx), nil
 }
 
 // Get implements Store2Backend interface.
-func (s *FsStore2) Get(key Key) (map[string]interface{}, error) {
+func (s *fsStore2) Get(key Key) (map[string]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	spec, ok := s.data[key]
@@ -174,7 +173,7 @@ func (s *FsStore2) Get(key Key) (map[string]interface{}, error) {
 }
 
 // List implements Store2Backend interface.
-func (s *FsStore2) List() map[Key]map[string]interface{} {
+func (s *fsStore2) List() map[Key]map[string]interface{} {
 	s.mu.RLock()
 	result := make(map[Key]map[string]interface{}, len(s.data))
 	for k, v := range s.data {
