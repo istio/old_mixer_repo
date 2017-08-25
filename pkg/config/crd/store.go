@@ -48,6 +48,8 @@ const (
 
 	// initWaiterDelay is the delay to close donec in initWaiter after
 	// the List() is called initially.
+	// TODO: reconsider this value. Or introduce a better approach to minimize
+	// the wait delay.
 	initWaiterDelay = time.Millisecond * 100
 
 	// crdRetryTimeout is the default timeout duration to retry initialization
