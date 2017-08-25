@@ -133,8 +133,8 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 			// TODO: runs goroutines for remaining kinds.
 			break
 		}
-		if retry && bool(glog.V(3)) {
-			glog.Infof("Retrying to fetch config...")
+		if retry {
+			glog.V(3).Infof("Retrying to fetch config...")
 		}
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {
@@ -154,6 +154,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 				go informer.Run(ctx.Done())
 			}
 		}
+		retry = true
 	}
 	if len(s.caches) > 0 {
 		<-waitForSynced(ctx, informers)
