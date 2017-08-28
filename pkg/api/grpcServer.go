@@ -120,8 +120,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			out2 = status.WithError(err)
 		} else {
 			resp.Precondition.ValidDuration = cr.ValidDuration
-			// FIXME cr.ValidUseCount should be int32
-			resp.Precondition.ValidUseCount = int32(cr.ValidUseCount)
+			resp.Precondition.ValidUseCount = cr.ValidUseCount
 		}
 	}
 
