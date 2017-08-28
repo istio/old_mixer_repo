@@ -353,7 +353,7 @@ func (m *dispatcher) run(ctx context.Context, runArgs []*runArg) (adapter.Result
 
 // runAsync runs the dispatchFn using a scheduler. It also adds a new span and records prometheus metrics.
 func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results chan *result, do dispatchFn) {
-	if glog.V(3) {
+	if glog.V(4) {
 		glog.Infof("runAsync %v", *callinfo)
 	}
 
@@ -363,7 +363,7 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)
 		start := time.Now()
 
-		if glog.V(3) {
+		if glog.V(4) {
 			glog.Infof("runAsync %s -> %v", op, *callinfo)
 		}
 
@@ -373,7 +373,7 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 			st = status.WithError(out.err)
 		}
 
-		if glog.V(3) {
+		if glog.V(4) {
 			glog.Infof("runAsync %s <- %v", op, out.res)
 		}
 

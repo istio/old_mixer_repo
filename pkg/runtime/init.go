@@ -77,9 +77,9 @@ func kindMap(adapterInfo map[string]*adapter.BuilderInfo,
 		glog.Infof("adapter Kind: %s, %v", kind, info.DefaultConfig)
 	}
 	kindMap[RulesKind] = &cpb.Rule{}
-	glog.Infof("template Kind: %s, %v", RulesKind, &cpb.Rule{})
+	glog.Infof("template Kind: %s", RulesKind)
 	kindMap[AttributeManifestKind] = &cpb.AttributeManifest{}
-	glog.Infof("template Kind: %s, %v", AttributeManifestKind, &cpb.AttributeManifest{})
+	glog.Infof("template Kind: %s", AttributeManifestKind)
 
 	return kindMap
 }
