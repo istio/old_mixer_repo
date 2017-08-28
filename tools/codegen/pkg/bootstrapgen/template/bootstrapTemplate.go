@@ -45,6 +45,7 @@ import (
 	"istio.io/mixer/pkg/template"
 	"github.com/golang/glog"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
+	"errors"
 	{{range .TemplateModels}}
 		"{{.PackageImportPath}}"
 	{{end}}
@@ -87,7 +88,7 @@ var (
 							}
 						{{else}}
 							if cpb.{{.GoName}} == "" {
-								return nil, fmt.Errorf("expression for field {{.GoName}} cannot be empty")
+								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
 							}
 							if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
 								return nil, err
@@ -105,7 +106,7 @@ var (
 							}
 						{{else}}
 							if cpb.{{.GoName}} == "" {
-								return nil, fmt.Errorf("expression for field {{.GoName}} cannot be empty")
+								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
 							}
 							if t, e := tEvalFn(cpb.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
 								if e != nil {
@@ -144,7 +145,7 @@ var (
 								if err != nil {
 									msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", name, err)
 									glog.Error(msg)
-									return fmt.Errorf(msg)
+									return errors.New(msg)
 								}
 						{{end}}
 
@@ -189,7 +190,7 @@ var (
 							if err != nil {
 								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", instName, err)
 								glog.Error(msg)
-								return adapter.CheckResult{}, fmt.Errorf(msg)
+								return adapter.CheckResult{}, errors.New(msg)
 							}
 					{{end}}
 					_ = castedInst
@@ -229,7 +230,7 @@ var (
 							if err != nil {
 								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", quotaName, err)
 								glog.Error(msg)
-								return adapter.QuotaResult2{}, fmt.Errorf(msg)
+								return adapter.QuotaResult2{}, errors.New(msg)
 							}
 					{{end}}
 
