@@ -119,9 +119,15 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		if err != nil {
 			out2 = status.WithError(err)
 		} else {
+			out2 = cr.Status
 			resp.Precondition.ValidDuration = cr.ValidDuration
 			// FIXME cr.ValidUseCount should be int32
 			resp.Precondition.ValidUseCount = int32(cr.ValidUseCount)
+		}
+		if status.IsOK(out2) {
+			glog.V(1).Info("Check2 returned with ok : ", statusString(out2))
+		} else {
+			glog.Error("Check2 returned with error : ", statusString(out2))
 		}
 	}
 
@@ -253,7 +259,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			}
 		}
 
-		glog.V(1).Info("Dispatching Report %d out of %d", i, len(req.Attributes))
+		glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
 		out = s.aspectDispatcher.Report(legacyCtx, preprocResponseBag)
 
 		// if out2 fails, we want to see that error

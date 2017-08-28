@@ -41,7 +41,6 @@ type Controller struct {
 	adapterInfo            map[string]*adapter.BuilderInfo // maps adapter shortName to Info.
 	templateInfo           map[string]template.Info        // maps template name to Info.
 	eval                   expr.Evaluator                  // Used to infer types. Used by resolver and dispatcher.
-	attrDescFinder         expr.AttributeDescriptorFinder  // used by typeChecker
 	identityAttribute      string                          // used by resolver
 	defaultConfigNamespace string                          // used by resolver
 
@@ -75,11 +74,19 @@ type Controller struct {
 }
 
 // RulesKind defines the config kind name of mixer rules.
-const RulesKind = "mixer-rules"
+const RulesKind = "mixer-rule"
+
+// AttributeManifestKind define the config kind name of attribute manifests.
+const AttributeManifestKind = "attribute-manifest"
 
 // ResolverChangeListener is notified when a new resolver is created due to config change.
 type ResolverChangeListener interface {
 	ChangeResolver(rt Resolver)
+}
+
+// VocabularyChangeListener is notified when attribute vocabulary changes.
+type VocabularyChangeListener interface {
+	ChangeVocabulary(finder expr.AttributeDescriptorFinder)
 }
 
 // factoryCreatorFunc creates a handler factory. It is used for testing.
@@ -98,6 +105,14 @@ const maxEvents = 50
 // The previous handler table enables handler cleanup and reuse.
 // This code is single threaded, it only runs on a config change control loop.
 func (c *Controller) publishSnapShot() {
+	// current view of attributes
+	// attribute manifests are used by type inference during handler creation.
+	attributes := c.processAttributeManifests()
+
+	if cl, ok := c.eval.(VocabularyChangeListener); ok {
+		cl.ChangeVocabulary(attributes)
+	}
+
 	// current consistent view of handler configuration
 	// keyed by Name.Kind.NameSpace
 	handlerConfig := c.validHandlerConfigs()
@@ -107,7 +122,7 @@ func (c *Controller) publishSnapShot() {
 	instanceConfig := c.validInstanceConfigs()
 
 	// new handler factory is created for every config change.
-	hb := c.createHandlerFactory(c.templateInfo, c.eval, c.attrDescFinder, c.adapterInfo)
+	hb := c.createHandlerFactory(c.templateInfo, c.eval, attributes, c.adapterInfo)
 
 	// new handler table is created for every config change. It uses handler factory
 	// to create new handlers.
@@ -233,12 +248,58 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 			Params:  cfg,
 		}
 	}
+	if glog.V(3) {
+		glog.Infof("handler = %v", handlerConfig)
+	}
 	return handlerConfig
 }
 
+// maxAttributeManifests is the likely maximum number of manifests in the config.
+// It is used to avoid reallocation on config change.
+const maxAttributeManifests = 5
+
+// processAttributeManifests loads attribute manifests to produce an AttributeDescriptorFinder.
+// TODO in apply events mark if AttributeManifestKind changes, so this step is skipped.
+// attribute manifests are not expected to change often.
+func (c *Controller) processAttributeManifests() expr.AttributeDescriptorFinder {
+	attrs := make([]*cpb.AttributeManifest, 0, maxAttributeManifests)
+	// check rules and ensure only good handlers and instances are used.
+	// record handler - instance associations
+	nattributes := 0
+	for k, cfg := range c.configState {
+		if k.Kind != AttributeManifestKind {
+			continue
+		}
+		attrs = append(attrs, cfg.(*cpb.AttributeManifest))
+		nattributes += len(cfg.(*cpb.AttributeManifest).Attributes)
+	}
+	if glog.V(2) {
+		glog.Infof("%d known attributes", nattributes)
+	}
+	return &attributeFinder{attrs: attrs}
+}
+
+// attributeFinder exposes expr.AttributeDescriptorFinder
+type attributeFinder struct {
+	attrs []*cpb.AttributeManifest
+}
+
+// GetAttribute finds an attribute by name.
+// This function is only called when a new handler is instantiated.
+func (a attributeFinder) GetAttribute(name string) *cpb.AttributeManifest_AttributeInfo {
+	for _, am := range a.attrs {
+		aa := am.Attributes[name]
+		if aa != nil {
+			return aa
+		}
+	}
+	return nil
+}
+
+// rulesByName is rules indexed by name.
 type rulesByName map[string]*Rule
 
-// rulesByName indexed by namespace
+// rulesMapByNamespace is rulesByName indexed by namespace.
 type rulesMapByNamespace map[string]rulesByName
 
 // rulesListByNamespace is the type needed by resolver.

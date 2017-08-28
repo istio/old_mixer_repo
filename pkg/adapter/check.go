@@ -15,6 +15,7 @@
 package adapter
 
 import (
+	"fmt"
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -52,4 +53,8 @@ func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
 		r.ValidUseCount = other.ValidUseCount
 	}
 	return r
+}
+
+func (r *CheckResult) String() string {
+	return fmt.Sprintf("CheckResult: status:%d, duration:%d, usecount:%d", r.Status, r.ValidDuration, r.ValidDuration)
 }

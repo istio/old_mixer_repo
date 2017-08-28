@@ -44,7 +44,6 @@ func TestControllerEmpty(t *testing.T) {
 		adapterInfo:            make(map[string]*adapter.BuilderInfo),
 		templateInfo:           make(map[string]template.Info),
 		eval:                   nil,
-		attrDescFinder:         nil,
 		configState:            make(map[store.Key]proto.Message),
 		dispatcher:             d,
 		resolver:               &resolver{}, // get an empty resolver
@@ -153,7 +152,6 @@ func TestController_workflow(t *testing.T) {
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
 		eval:                   nil,
-		attrDescFinder:         nil,
 		configState:            configState,
 		dispatcher:             d,
 		resolver:               res, // get an empty resolver
