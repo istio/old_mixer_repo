@@ -2,17 +2,17 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: denier
 metadata:
   name: denyall
-  namespace: default
+  namespace: istio-config-default
 spec:
   status:
-    code: 4
+    code: 7
     message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: denyrequest
-  namespace: default
+  namespace: istio-config-default
 spec:
  
 ---
@@ -20,9 +20,9 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: mixer-rule
 metadata:
   name: mixerdenysome
-  namespace: default
+  namespace: istio-config-default
 spec:
   selector: request.headers["clnt"] == "abc"
   actions:
-  - handler: denyall.denier.default
-    instances: [ denyrequest.checknothing.default ]
+  - handler: denyall.denier.istio-config-default
+    instances: [ denyrequest.checknothing.istio-config-default ]
