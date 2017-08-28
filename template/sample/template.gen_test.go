@@ -33,12 +33,13 @@ import (
 	//"istio.io/mixer/pkg/expr"
 	"context"
 
+	"time"
+
+	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
 	sample_check "istio.io/mixer/template/sample/check"
 	sample_quota "istio.io/mixer/template/sample/quota"
 	sample_report "istio.io/mixer/template/sample/report"
-	"istio.io/mixer/pkg/expr"
-	"time"
-	"istio.io/mixer/pkg/attribute"
 )
 
 // Does not implement any template interfaces.
@@ -602,7 +603,6 @@ func TestConfigureType(t *testing.T) {
 	}
 }
 
-
 type fakeExpr struct {
 }
 
@@ -631,7 +631,7 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 		return 10 * time.Second, nil
 	}
 	if strings.HasSuffix(expr2, "timestamp") {
-		return time.Date(2017, time.January, 01, 0,0,0,0, time.UTC), nil
+		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
 	}
 	ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	return ev.Eval(expr2, attrs)
@@ -666,26 +666,26 @@ func TestProcessReport(t *testing.T) {
 			name: "Simple",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
-					Value: "1",
-					Dimensions: map[string]string{"s": "2"},
-					BoolPrimitive: "true",
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
 					DoublePrimitive: "1.2",
-					Int64Primitive: "54362",
+					Int64Primitive:  "54362",
 					StringPrimitive: `"mystring"`,
-					Int64Map: map[string]string{"a": "1"},
-					TimeStamp: "request.timestamp",
-					Duration: "request.duration",
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
 				},
 				"bar": &sample_report.InstanceParam{
-					Value: "2",
-					Dimensions: map[string]string{"k": "3"},
-					BoolPrimitive: "true",
+					Value:           "2",
+					Dimensions:      map[string]string{"k": "3"},
+					BoolPrimitive:   "true",
 					DoublePrimitive: "1.2",
-					Int64Primitive: "54362",
+					Int64Primitive:  "54362",
 					StringPrimitive: `"mystring"`,
-					Int64Map: map[string]string{"b": "1"},
-					TimeStamp: "request.timestamp",
-					Duration: "request.duration",
+					Int64Map:        map[string]string{"b": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
 				},
 			},
 			hdlr: &fakeReportHandler{},
@@ -699,8 +699,8 @@ func TestProcessReport(t *testing.T) {
 					Int64Primitive:  54362,
 					StringPrimitive: "mystring",
 					Int64Map:        map[string]int64{"a": int64(1)},
-					TimeStamp: time.Date(2017, time.January, 01, 0,0,0,0, time.UTC),
-					Duration: 10 * time.Second,
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
 				},
 				{
 					Name:            "bar",
@@ -711,8 +711,8 @@ func TestProcessReport(t *testing.T) {
 					Int64Primitive:  54362,
 					StringPrimitive: "mystring",
 					Int64Map:        map[string]int64{"b": int64(1)},
-					TimeStamp: time.Date(2017, time.January, 01, 0,0,0,0, time.UTC),
-					Duration: 10 * time.Second,
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
 				},
 			},
 		},
@@ -721,15 +721,15 @@ func TestProcessReport(t *testing.T) {
 			name: "EvalAllError",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
-					Value: "1",
-					Dimensions: map[string]string{"s": "bad.attribute"},
-					BoolPrimitive: "true",
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "bad.attribute"},
+					BoolPrimitive:   "true",
 					DoublePrimitive: "1.2",
-					Int64Primitive: "54362",
+					Int64Primitive:  "54362",
 					StringPrimitive: `"mystring"`,
-					Int64Map: map[string]string{"a": "1"},
-					TimeStamp: "request.timestamp",
-					Duration: "request.duration",
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
 				},
 			},
 			hdlr:      &fakeReportHandler{},
@@ -739,15 +739,15 @@ func TestProcessReport(t *testing.T) {
 			name: "EvalError",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
-					Value: "bad.attribute",
-					Dimensions: map[string]string{"s": "2"},
-					BoolPrimitive: "true",
+					Value:           "bad.attribute",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
 					DoublePrimitive: "1.2",
-					Int64Primitive: "54362",
+					Int64Primitive:  "54362",
 					StringPrimitive: `"mystring"`,
-					Int64Map: map[string]string{"a": "1"},
-					TimeStamp: "request.timestamp",
-					Duration: "request.duration",
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
 				},
 			},
 			hdlr:      &fakeReportHandler{},
@@ -757,15 +757,15 @@ func TestProcessReport(t *testing.T) {
 			name: "ProcessError",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
-					Value: "1",
-					Dimensions: map[string]string{"s": "2"},
-					BoolPrimitive: "true",
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
 					DoublePrimitive: "1.2",
-					Int64Primitive: "54362",
+					Int64Primitive:  "54362",
 					StringPrimitive: `"mystring"`,
-					Int64Map: map[string]string{"a": "1"},
-					TimeStamp: "request.timestamp",
-					Duration: "request.duration",
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
 				},
 			},
 			hdlr:      &fakeReportHandler{retError: fmt.Errorf("error from process method")},
