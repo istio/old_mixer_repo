@@ -27,6 +27,7 @@ import (
 	"istio.io/mixer/adapter/stackdriver"
 	"istio.io/mixer/adapter/statsd"
 	"istio.io/mixer/adapter/stdioLogger"
+	"istio.io/mixer/adapter/token"
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -45,5 +46,6 @@ func Inventory() []adapter.RegisterFn {
 		stdioLogger.Register,
 		kubernetes.Register,
 		noop.Register,
+		token.Register,
 	}
 }

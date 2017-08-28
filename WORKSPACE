@@ -597,3 +597,15 @@ git_repository(
     commit = "b0822890273f91d5aa8c40ea1a89ba01e0f0ee9d",   # Aug 22, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
+
+go_repository(
+    name = "com_github_asaskevich_govalidator",
+    commit = "15028e809df8c71964e8efa6c11e81d5c0262302", # Jul 30, 2017
+    importpath = "github.com/asaskevich/govalidator",
+)
+
+go_repository(
+    name = "com_github_dgrijalva_jwt-go",
+    commit = "a539ee1a749a2b895533f979515ac7e6e0f5b650", # June 8, 2017
+    importpath = "github.com/dgrijalva/jwt-go",
+)

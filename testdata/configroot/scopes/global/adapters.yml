@@ -1,5 +1,13 @@
 subject: global
 adapters:
+  - name: token
+    kind: attributes
+    impl: token
+    params:
+      issuers:
+      - name: "local"
+        pubKeyUrl: "http://jwktestserver:21356/keys"
+        claimNames: ['name','locations.us.ca','servers.haifa']
   - name: default
     kind: quotas
     impl: memQuota
