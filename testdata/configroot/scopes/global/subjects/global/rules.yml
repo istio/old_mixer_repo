@@ -29,7 +29,7 @@ rules:
     adapter: token
     params:
       input_expressions:
-        authorizationHeader: request.headers["Authorization"] | ""
+        authorizationHeader: request.headers["authorization"] | ""
       attribute_bindings:
         request.token.exists: request.token.exists
         request.token.encrypted: request.token.encrypted

@@ -6,9 +6,7 @@ import (
 	"regexp"
 	"sync"
 	"time"
-
 	"github.com/golang/glog"
-
 	"istio.io/mixer/adapter/token/config"
 	"istio.io/mixer/pkg/adapter"
 	"strings"
@@ -117,6 +115,7 @@ func (*tokenBuilder) BuildAttributesGenerator(env adapter.Env, cfg adapter.Confi
 
 func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[string]interface{}, error) {
 	tokenAttrs := make(map[string]interface{})
+
 	//default values:
 	tokenAttrs[exists_key]=false
 	tokenAttrs[encrypted_key]=false
@@ -127,7 +126,8 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 	tokenAttrs[claims_key]=make(map[string]string) //attribute ValueType STRING_MAP
 
 	authHeader, exists := inputAttributes[authHeader_key]
-	if !exists || authHeader == "" {
+	tag.env.Logger().Warningf("auth: %v",authHeader)
+	if !exists || authHeader==nil || authHeader=="" {
 		tag.env.Logger().Infof("Request with no Authorization header made")
 		return tokenAttrs, nil
 	}
@@ -139,7 +139,7 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 		return tokenAttrs, nil
 	}
 
-	metaData := &tokenMetaData{ttype:"Unknown"}
+	metaData := &tokenMetaData{ttype:"Unknown",signAlg:"none",signed:false,encrypted:false}
 
 	//currently only JWT supported:
 	parser := &defaultJWTTokenParser{tag.cfg.Issuers}
@@ -208,6 +208,7 @@ func (tag tokenAttrGen) Generate(inputAttributes map[string]interface{}) (map[st
 		tokenAttrs[signAlg_key] = metaData.signAlg
 	}
 	tokenAttrs[type_key] = metaData.ttype
+
 	return tokenAttrs, nil
 }
 

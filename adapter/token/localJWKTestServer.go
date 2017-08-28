@@ -4,9 +4,6 @@ import (
 
 	"crypto/rsa"
 	"net/http"
-	"fmt"
-	"html"
-
 	"math/big"
 	"encoding/json"
 	"github.com/dgrijalva/jwt-go"
@@ -37,12 +34,13 @@ const (
 	pf22 = "159899509147884038632862931597948599270924347531228992364878986822592193680714224767384304053858742301471116154931570373700983478968478282953925017232663946607129278051489510801378158804603842299070848025853283091336478855290464481487032201709094752992371420467698434292476967920390192649972794486283447983349"
 	d2 = "5310883242099246582055379189764035713887461036450131655545721631529284066508138152127248675181611049785142652980114771689370394874042641934677790497876064089580655466795485926408436813878561367807092837505758861492098776501347090296089575210055330681334555532437299709565286549211695590275234300301451682693102288624096514691128949947594591261255948183601048882968485353155140873746321068859878263384160725663632310802980595887254424374025115006794290572247259941828876950676384153853707242655255856161137167248806714800238827774357654522275030683789906678584657804382840143464549275931644179828567102619623960795137"
 	id2 = "2"
+	expDuration = 30000000 * time.Minute
 )
 
 type (
 	test_jwk_server struct{
 		privKeys map[string]*rsa.PrivateKey //maps from key id to private key
-		_status bool //whether the server is running
+		_status bool //whether the server finished initializing, and isn't closed
 	}
 )
 
@@ -69,9 +67,6 @@ func(ts *test_jwk_server) start(){
 		keySet.Keys = append(keySet.Keys,key)
 	}
 	//starts the test server, listening for requests for the JWKs
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
-	})
 	http.HandleFunc(test_server_keys_location, func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(keySet)
 	})
@@ -105,7 +100,7 @@ func (ts *test_jwk_server) get_valid_no_claims_token() string {
 	//build the test token:
 		claims := make(jwt.MapClaims)
 		claims["iss"] = test_server_iss_name //token issued by test issuer
-		claims["exp"] = time.Now().Add(30 * time.Minute).Unix() //not expired
+		claims["exp"] = time.Now().Add(expDuration).Unix() //not expired
 		testToken := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 		kid := ts.get_kid_at_random()
 		testToken.Header["kid"] = kid
@@ -129,7 +124,7 @@ func (ts *test_jwk_server) get_late_nbf_token() string {
 	//build the test token:
 	claims := make(jwt.MapClaims)
 	claims["iss"] = test_server_iss_name //token issued by test issuer
-	claims["exp"] = time.Now().Add(30 * time.Minute).Unix() //not expired
+	claims["exp"] = time.Now().Add(expDuration).Unix() //not expired
 	claims["nbf"] = time.Now().Add(20 * time.Minute).Unix() //not valid yet
 	testToken := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	kid := ts.get_kid_at_random()
@@ -142,7 +137,7 @@ func (ts *test_jwk_server) get_late_nbf_token() string {
 func (ts *test_jwk_server) get_no_iss_token() string {
 	//build the test token:
 	claims := make(jwt.MapClaims)
-	claims["exp"] = time.Now().Add(30 * time.Minute).Unix() //not expired
+	claims["exp"] = time.Now().Add(expDuration).Unix() //not expired
 	testToken := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	kid := ts.get_kid_at_random()
 	testToken.Header["kid"] = kid
@@ -154,7 +149,7 @@ func (ts *test_jwk_server) get_no_kid_token() string {
 	//build the test token:
 	claims := make(jwt.MapClaims)
 	claims["iss"] = test_server_iss_name //token issued by test issuer
-	claims["exp"] = time.Now().Add(30 * time.Minute).Unix() //not expired
+	claims["exp"] = time.Now().Add(expDuration).Unix() //not expired
 	testToken := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	kid := ts.get_kid_at_random()
 	tokenString, _ := testToken.SignedString(ts.privKeys[kid])
@@ -176,7 +171,7 @@ func (ts *test_jwk_server) get_invalid_token() string {
 	//build the test token:
 	claims := make(jwt.MapClaims)
 	claims["iss"] = test_server_iss_name //token issued by test issuer
-	claims["exp"] = time.Now().Add(30 * time.Minute).Unix() //not expired
+	claims["exp"] = time.Now().Add(expDuration).Unix() //not expired
 	testToken := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	kid := ts.get_kid_at_random()
 	testToken.Header["kid"] = kid
@@ -190,7 +185,7 @@ func (ts *test_jwk_server) get_valid_with_claims_token() string {
 	//build the test token:
 	claims := make(jwt.MapClaims)
 	claims["iss"] = test_server_iss_name //token issued by test issuer
-	claims["exp"] = time.Now().Add(30 * time.Minute).Unix() //not expired
+	claims["exp"] = time.Now().Add(expDuration).Unix() //not expired
 	claims["locations"] = make(map[string](map[string]int))
 	locations := claims["locations"].(map[string](map[string]int))
 	locations["us"] = map[string]int{
