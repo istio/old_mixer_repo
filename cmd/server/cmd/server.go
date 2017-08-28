@@ -228,22 +228,26 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []pkgAdap
 		eval = ilEval
 	}
 
+	var dispatcher mixerRuntime.Dispatcher
+
+	// TODO until the dispatcher 2 switch is complete,
+	// dispatcher 2 is only enabled when configStore2URL is specified.
+	if sa.configStore2URL != "" {
+		adapterMap := adapter.InventoryMap(adapters)
+		store2, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(sa.configStore2URL)
+		if err != nil {
+			fatalf("Failed to connect to the configuration2 server. %v", err)
+		}
+		dispatcher, err = mixerRuntime.New(eval, gp, adapterGP,
+			sa.configIdentityAttribute, sa.configDefaultNamespace,
+			store2, adapterMap, info,
+		)
+		if err != nil {
+			fatalf("Failed to create runtime dispatcher. %v", err)
+		}
+	}
+
 	repo := template.NewRepository(info)
-	adapter.Inventory2()
-	adapterMap := adapter.InventoryMap(adapters)
-
-	store2, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(sa.configStore2URL)
-	if err != nil {
-		fatalf("Failed to connect to the configuration2 server. %v", err)
-	}
-	dispatcher, err := mixerRuntime.New(eval, gp, adapterGP,
-		sa.configIdentityAttribute, sa.configDefaultNamespace,
-		store2, adapterMap, info,
-	)
-	if err != nil {
-		fatalf("Failed to create runtime dispatcher. %v", err)
-	}
-
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
