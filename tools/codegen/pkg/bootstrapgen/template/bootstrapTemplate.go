@@ -48,7 +48,10 @@ import (
 	{{range .TemplateModels}}
 		"{{.PackageImportPath}}"
 	{{end}}
+	$$additional_imports$$
 )
+
+
 
 var (
 	SupportedTmplInfo = map[string]template.Info {
@@ -160,7 +163,7 @@ var (
 											return res
 										}({{.GoName}}),
 									{{else}}
-										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
 									{{end}}
 								{{end}}
 							{{end}}
@@ -206,7 +209,7 @@ var (
 										return res
 									}({{.GoName}}),
 								{{else}}
-									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
 								{{end}}
 							{{end}}
 						{{end}}
@@ -245,7 +248,7 @@ var (
 										return res
 									}({{.GoName}}),
 								{{else}}
-									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
 								{{end}}
 							{{end}}
 						{{end}}
