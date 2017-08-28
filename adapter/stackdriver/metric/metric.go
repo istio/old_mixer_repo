@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
-	gapiopts "google.golang.org/api/option"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -32,6 +31,7 @@ import (
 
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/stackdriver/config"
+	"istio.io/mixer/adapter/stackdriver/helper"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/template/metric"
 )
@@ -108,23 +108,7 @@ func NewBuilder() metric.HandlerBuilder {
 }
 
 func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
-	return monitoring.NewMetricClient(context.Background(), toOpts(cfg)...)
-}
-
-// We keep this function separate from createClient to enable easy testing
-func toOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
-	switch cfg.Creds.(type) {
-	case *config.Params_ApiKey:
-		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
-	case *config.Params_ServiceAccountPath:
-		opts = append(opts, gapiopts.WithServiceAccountFile(cfg.GetServiceAccountPath()))
-	case *config.Params_AppCredentials:
-		// When using default app credentials the SDK handles everything for us.
-	}
-	if cfg.Endpoint != "" {
-		opts = append(opts, gapiopts.WithEndpoint(cfg.Endpoint))
-	}
-	return
+	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg)...)
 }
 
 func (b *builder) ConfigureMetricHandler(metrics map[string]*metric.Type) error {
