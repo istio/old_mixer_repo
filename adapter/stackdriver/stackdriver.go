@@ -107,6 +107,7 @@ var (
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
 		Name:        "stackdriver",
+		Impl:        "istio.io/mixer/adapter/stackdriver",
 		Description: "Pushes metrics to Stackdriver.",
 		SupportedTemplates: []string{
 			metric.TemplateName,
