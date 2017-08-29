@@ -51,7 +51,7 @@ func TestBuild(t *testing.T) {
 		{"missing",
 			map[string]*logentry.Type{},
 			&config.Params{LogInfo: map[string]*config.Params_LogInfo{"missing": {}}},
-			[]string{"which is not an Istio metric"}},
+			[]string{"which is not an Istio log"}},
 		{"bad tmpl",
 			map[string]*logentry.Type{"bad": {}},
 			&config.Params{LogInfo: map[string]*config.Params_LogInfo{"bad": {PayloadTemplate: "{{}"}}},
@@ -203,10 +203,10 @@ func TestHandleLogEntry(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			actuals := make([]logging.Entry, 0)
 			h := &handler{
-				info:   tt.info,
-				logger: test.NewEnv(t).Logger(),
-				now:    func() time.Time { return now },
-				log:    func(entry logging.Entry) { actuals = append(actuals, entry) },
+				info: tt.info,
+				l:    test.NewEnv(t).Logger(),
+				now:  func() time.Time { return now },
+				log:  func(entry logging.Entry) { actuals = append(actuals, entry) },
 			}
 			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {
 				t.Fatalf("Got error while logging, should never happen.")
@@ -243,7 +243,7 @@ func TestHandleLogEntry_Errors(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			env := test.NewEnv(t)
 
-			h := &handler{logger: env.Logger(), log: func(entry logging.Entry) {}}
+			h := &handler{l: env.Logger(), log: func(entry logging.Entry) {}}
 
 			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {
 				t.Fatalf("Got error while logging, should never happen.")
