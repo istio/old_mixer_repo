@@ -76,14 +76,18 @@ func Test_DurationPanics(t *testing.T) {
 	_ = r.AsDuration()
 }
 
-func Test_InterfaceReturnsNilOnUnknown(t *testing.T) {
+func Test_InterfacePanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("The code did not panic")
+		}
+	}()
+
 	r := Result{
 		t: il.Unknown,
 	}
 
-	if r.AsInterface() != nil {
-		t.Fatalf("nil was expected")
-	}
+	_ = r.AsInterface()
 }
 
 func Test_String_WithNonString(t *testing.T) {
