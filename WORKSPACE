@@ -218,19 +218,19 @@ go_repository(
 )
 
 go_repository(
+    name = "io_k8s_apiserver",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "149fc2228647cea28b0670c240ec582e985e8eda",  # Aug 1, 2017 (no release)
+    importpath = "k8s.io/apiserver",
+)
+
+go_repository(
     name = "io_k8s_client_go",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
     commit = "7c69e980210777a6292351ac6873de083526f08e",  # Jul 18, 2017 (no releases)
     importpath = "k8s.io/client-go",
-)
-
-go_repository(
-    name = "io_k8s_apiextensions_apiserver",
-    build_file_generation = "on",
-    build_file_name = "BUILD.bazel",
-    commit = "c682349b0d1c12975d8e24a9799b66747255d7a5",  #  Jul 18, 2017 (no releases)
-    importpath = "k8s.io/apiextensions-apiserver",
 )
 
 go_repository(

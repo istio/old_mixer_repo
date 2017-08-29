@@ -15,6 +15,16 @@ pkg_tar(
     tags = ["manual"],
 )
 
+pkg_tar(
+    name = "validator_certs_tar",
+    extension = "tar.gz",
+    files = [
+        "//testdata/certs",
+    ],
+    mode = "0755",
+    package_dir = "/etc/certs/",
+)
+
 sh_binary(
     name = "extract_certs",
     srcs = ["extract.sh"],
@@ -62,5 +72,6 @@ mixer_docker_build(
         ":mixer_tar",
         "//testdata:configs_tar",
         ":cacerts.tar",
+        ":validator_certs_tar",
     ],
 )

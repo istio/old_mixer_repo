@@ -58,6 +58,16 @@ func (m *memstore) List() map[Key]map[string]interface{} {
 	return m.data
 }
 
+func (m *memstore) Put(key Key, spec map[string]interface{}) error {
+	m.data[key] = spec
+	return nil
+}
+
+func (m *memstore) Delete(key Key) error {
+	delete(m.data, key)
+	return nil
+}
+
 func registerMemstore(builders map[string]Store2Builder) {
 	builders["memstore"] = func(*url.URL) (Store2Backend, error) {
 		return &memstore{data: map[Key]map[string]interface{}{}}, nil
@@ -80,7 +90,9 @@ func TestStore2(t *testing.T) {
 	if err = s.Get(k, h1); err != ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
-	m.data[k] = map[string]interface{}{"name": "default", "adapter": "noop"}
+	if err = m.Put(k, map[string]interface{}{"name": "default", "adapter": "noop"}); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
 	if err = s.Get(k, h1); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
@@ -117,7 +129,7 @@ func TestStore2WatchMultiple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
+	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}, nil); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -157,12 +169,12 @@ func TestStore2Fail(t *testing.T) {
 		t.Errorf("Got %v, Want watch error", err)
 	}
 
-	m.data[Key{Kind: "Handler", Name: "name", Namespace: "ns"}] = map[string]interface{}{
+	m.Put(Key{Kind: "Handler", Name: "name", Namespace: "ns"}, map[string]interface{}{
 		"foo": 1,
-	}
-	m.data[Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}] = map[string]interface{}{
+	})
+	m.Put(Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}, map[string]interface{}{
 		"unknown": "unknown",
-	}
+	})
 	if lst := s.List(); len(lst) != 0 {
 		t.Errorf("Got %v, Want empty", lst)
 	}

@@ -15,6 +15,9 @@
 package crd
 
 import (
+	"crypto/tls"
+	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -100,4 +103,31 @@ func Register(builders map[string]store.Store2Builder) {
 	builders["k8s"] = NewStore
 	builders["kube"] = NewStore
 	builders["kubernetes"] = NewStore
+}
+
+// Start starts the validation server.
+func (v *ValidatorServer) Start(port uint16, certProvider CertProvider) error {
+	key, cert, caCert, err := certProvider.Get()
+	if err != nil {
+		return err
+	}
+	sCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+	// Unlike the webhook example code, this validation server does not take the kube-system's certificate and does not
+	// require client cert, since istioctl (which is not a kube-system client) will take the role of the validation
+	// if the external admission webhook isn't ready.
+	cfg := &tls.Config{Certificates: []tls.Certificate{sCert}}
+	server := &http.Server{
+		Addr:      fmt.Sprintf(":%d", port),
+		Handler:   v,
+		TLSConfig: cfg,
+	}
+	// ensureRegistration can fail if external admission webhook is not yet ready.
+	if err = v.ensureRegistration(caCert); err != nil {
+		glog.V(3).Infof("Failed to register the validation server as the webhook: %v", err)
+	}
+	glog.Infof("server starting with port %d", port)
+	return server.ListenAndServeTLS("", "")
 }

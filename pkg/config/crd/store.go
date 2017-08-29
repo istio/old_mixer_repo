@@ -128,7 +128,7 @@ func (s *Store) checkAndCreateCaches(
 			break
 		}
 		if retry {
-			glog.V(4).Infof("Retrying to fetch config...")
+			glog.V(4).Infof("Retrying to fetch config... %v", kindsSet)
 			time.Sleep(retryInterval)
 		}
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
@@ -158,6 +158,9 @@ func (s *Store) checkAndCreateCaches(
 	remaining = make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
 		remaining = append(remaining, k)
+	}
+	if len(remaining) > 0 {
+		glog.V(4).Infof("finished the loop, still %+v is remaining", remaining)
 	}
 	return informers, remaining
 }

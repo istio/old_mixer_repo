@@ -154,9 +154,9 @@ func readdb(store store.KeyValueStore, prefix string) (map[string]string, map[st
 func (c *Manager) fetch() (*runtime, descriptor.Finder, map[string]*HandlerInfo, error) {
 
 	data, shas, index, err := readdb(c.store, "/")
-	if glog.V(9) {
-		glog.Infof("Fetched config payload:\n%v", data)
-	}
+	// if glog.V(9) {
+	// 	glog.Infof("Fetched config payload:\n%v", data)
+	// }
 	if err != nil {
 		return nil, nil, nil, errors.New("Unable to read database: " + err.Error())
 	}
