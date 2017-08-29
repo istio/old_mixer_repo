@@ -29,4 +29,10 @@ message Template {
 
     // The unique identity of the particular metric to report.
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+
+    // An expression to compute the type of the monitored resource this metric is being reported on.
+    string monitored_resource_type = 3;
+
+    // A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
+    map<string, istio.mixer.v1.config.descriptor.ValueType> monitored_resource_dimensions = 4;
 }

@@ -33,4 +33,10 @@ message Template {
 
     // Severity indicates the importance of the log entry.
     string severity = 3;
+
+    // An expression to compute the type of the monitored resource this log entry is being recorded on.
+    string monitored_resource_type = 4;
+
+    // A set of expressions that will form the dimensions of the monitored resource this log entry is being recorded on.
+    map<string, istio.mixer.v1.config.descriptor.ValueType> monitored_resource_dimensions = 5;
 }
