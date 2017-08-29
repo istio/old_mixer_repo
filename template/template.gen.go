@@ -18,6 +18,7 @@ package template
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gogo/protobuf/proto"
@@ -41,6 +42,8 @@ import (
 	"istio.io/mixer/template/quota"
 
 	"istio.io/mixer/template/reportnothing"
+
+	"time"
 )
 
 var (
@@ -115,7 +118,7 @@ var (
 				infrdType := &listentry.Type{}
 
 				if cpb.Value == "" {
-					return nil, fmt.Errorf("expression for field Value cannot be empty")
+					return nil, errors.New("expression for field Value cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.Value); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
@@ -148,7 +151,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				_ = castedInst
@@ -189,8 +192,18 @@ var (
 					}
 				}
 
+				if cpb.Timestamp == "" {
+					return nil, errors.New("expression for field Timestamp cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.Timestamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Timestamp: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Timestamp: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
 				if cpb.Severity == "" {
-					return nil, fmt.Errorf("expression for field Severity cannot be empty")
+					return nil, errors.New("expression for field Severity cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.Severity); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
@@ -224,7 +237,15 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Variables for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
+					}
+
+					Timestamp, err := mapper.Eval(md.Timestamp, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval Timestamp for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
 					}
 
 					Severity, err := mapper.Eval(md.Severity, attrs)
@@ -232,13 +253,15 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Severity for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					instances = append(instances, &logentry.Instance{
 						Name: name,
 
 						Variables: Variables,
+
+						Timestamp: Timestamp.(time.Time),
 
 						Severity: Severity.(string),
 					})
@@ -273,7 +296,7 @@ var (
 				infrdType := &metric.Type{}
 
 				if cpb.Value == "" {
-					return nil, fmt.Errorf("expression for field Value cannot be empty")
+					return nil, errors.New("expression for field Value cannot be empty")
 				}
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
 					return nil, err
@@ -311,7 +334,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
@@ -319,7 +342,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					instances = append(instances, &metric.Instance{
@@ -390,7 +413,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, fmt.Errorf(msg)
+					return adapter.QuotaResult2{}, errors.New(msg)
 				}
 
 				instance := &quota.Instance{
