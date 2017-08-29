@@ -15,7 +15,8 @@
 package expr
 
 import (
-	"fmt"
+	"errors"
+	"net"
 	"reflect"
 	"strings"
 
@@ -252,31 +253,36 @@ func (f *indexFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[strin
 	return mp.(map[string]string)[key.(string)], nil
 }
 
-// func (Value) string
-type stringFunc struct {
+// func (string) []uint8
+type ipFunc struct {
 	*baseFunc
 }
 
-// newString returns a string converter fn.
-func newString() Func {
-	return &stringFunc{
+// newIP returns a fn that converts strings to IP_ADDRESSes.
+func newIP() Func {
+	return &ipFunc{
 		baseFunc: &baseFunc{
-			name:     "STRING",
-			retType:  config.STRING,
-			argTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED},
+			name:     "ip",
+			retType:  config.IP_ADDRESS,
+			argTypes: []config.ValueType{config.STRING},
 		},
 	}
 }
 
-func (f *stringFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
-	val, err := args[0].Var.Eval(attrs)
+// TODO: fix when proper net.IP support is added to Mixer.
+func (f *ipFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	val, err := args[0].Eval(attrs, fMap)
 	if err != nil {
 		return nil, err
 	}
-	if converted, ok := val.(string); ok {
-		return converted, nil
+	rawIP, ok := val.(string)
+	if !ok {
+		return nil, errors.New("input to 'ip' func was not a string")
 	}
-	return fmt.Sprintf("%v", val), nil
+	if ip := net.ParseIP(rawIP); ip != nil {
+		return []uint8(ip), nil
+	}
+	return []uint8{}, nil
 }
 
 func inventory() []FuncBase {
@@ -287,7 +293,7 @@ func inventory() []FuncBase {
 		newLOR(),
 		newLAND(),
 		newIndex(),
-		newString(),
+		newIP(),
 	}
 }
 

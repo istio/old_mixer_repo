@@ -16,6 +16,7 @@ package evaluator
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
@@ -146,7 +147,18 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 		glog.Infof("caching expression for '%s''", expr)
 	}
 
-	intr := interpreter.New(result.Program, make(map[string]interpreter.Extern))
+	ipExtern := interpreter.ExternFromFn("ip", func(in string) []byte {
+		if ip := net.ParseIP(in); ip != nil {
+			return []byte(ip)
+		}
+		return []byte{}
+	})
+
+	externMap := map[string]interpreter.Extern{
+		"ip": ipExtern,
+	}
+
+	intr := interpreter.New(result.Program, externMap)
 	entry := cacheEntry{
 		expression:  result.Expression,
 		interpreter: intr,
