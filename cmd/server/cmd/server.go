@@ -163,7 +163,7 @@ func serverCmd(info map[string]template.Info, adapters []pkgAdapter.InfoFn, prin
 		fatalf("unable to hide: %v", err)
 	}
 
-	serverCmd.PersistentFlags().BoolVarP(&sa.useAst, "useAst", "", true,
+	serverCmd.PersistentFlags().BoolVarP(&sa.useAst, "useAst", "", false,
 		"Use AST instead of Mixer IL to evaluate configuration against the adapters.")
 
 	// serviceConfig and gobalConfig are for compatibility only

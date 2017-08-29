@@ -385,8 +385,18 @@ func canonicalName(service, namespace, clusterDomain string) (string, error) {
 func serviceIdentifier(inputs map[string]interface{}, keys ...string) (string, bool) {
 	for _, key := range keys {
 		if id, found := inputs[key]; found {
-			if idstr, ok := id.(string); ok {
-				return idstr, true
+			switch id.(type) {
+			// TODO: update when support for golang net.IP is added to attribute.Bag
+			case []uint8:
+				rawIP := id.([]uint8)
+				if len(rawIP) == net.IPv4len || len(rawIP) == net.IPv6len {
+					ip := net.IP(rawIP)
+					if !ip.IsUnspecified() {
+						return ip.String(), true
+					}
+				}
+			case string:
+				return id.(string), true
 			}
 		}
 	}

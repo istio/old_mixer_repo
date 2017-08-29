@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"errors"
+	"net"
 	"os"
 	"reflect"
 	"testing"
@@ -305,7 +306,7 @@ func TestKubegen_Generate(t *testing.T) {
 		"targetPodName":   "bad-svc-pod",
 	}
 
-	ipTargetSvcIn := map[string]interface{}{"targetIP": "192.168.234.3"}
+	ipTargetSvcIn := map[string]interface{}{"targetIP": []uint8(net.ParseIP("192.168.234.3"))}
 
 	ipTargetOut := map[string]interface{}{
 		"targetLabels": map[string]string{
