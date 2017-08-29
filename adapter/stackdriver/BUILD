@@ -27,5 +27,3 @@ go_test(
         "//template/metric:go_default_library",
     ],
 )
-
-go_prefix("istio.io/mixer")
