@@ -128,7 +128,7 @@ func (s *Store) checkAndCreateCaches(
 			break
 		}
 		if retry {
-			glog.V(3).Infof("Retrying to fetch config...")
+			glog.V(4).Infof("Retrying to fetch config...")
 		}
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {
@@ -151,8 +151,8 @@ func (s *Store) checkAndCreateCaches(
 				added++
 			}
 		}
-		retry = true
 		s.cacheMutex.Unlock()
+		retry = true
 	}
 	remaining = make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
@@ -241,15 +241,14 @@ func toEvent(t store.ChangeType, obj interface{}) store.BackendEvent {
 
 func (s *Store) dispatch(ev store.BackendEvent) {
 	s.watchMutex.RLock()
+	defer s.watchMutex.RUnlock()
 	if s.watchCtx == nil {
-		s.watchMutex.RUnlock()
 		return
 	}
 	select {
 	case <-s.watchCtx.Done():
 	case s.watchCh <- ev:
 	}
-	s.watchMutex.RUnlock()
 }
 
 // OnAdd implements cache.ResourceEventHandler interface.
