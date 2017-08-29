@@ -63,6 +63,7 @@ var (
 	_ logentry.Handler        = &handler{}
 )
 
+// NewBuilder returns a builder implementing the logentry.HandlerBuilder interface.
 func NewBuilder() logentry.HandlerBuilder {
 	return &builder{makeClient: logging.NewClient}
 }
@@ -84,7 +85,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 		}
 		tmpl, err := template.New(name).Parse(log.PayloadTemplate)
 		if err != nil {
-			logger.Errorf("failed to evaluate template for log %s, skipping: %v", name, err)
+			_ = logger.Errorf("failed to evaluate template for log %s, skipping: %v", name, err)
 			continue
 		}
 		infos[name] = info{
@@ -101,12 +102,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	return &handler{log: client.Logger("istio-mixer").Log, client: client, now: time.Now, logger: logger}, nil
 }
 
-func validate(msg adapter.Config) *adapter.ConfigErrors {
-	// todo: check labels
-	return nil
-}
-
-func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instance) error {
+func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
 	for _, v := range values {
 		linfo, found := h.info[v.Name]
 		if !found {
@@ -117,13 +113,13 @@ func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instanc
 		buf := pool.GetBuffer()
 		if err := linfo.tmpl.Execute(buf, v.Variables); err != nil {
 			// We'll just continue on with an empty payload for this entry - we could still be populating the HTTP req with valuable info, for example.
-			h.logger.Errorf("failed to execute template for log '%s': %v", v.Name, err)
+			_ = h.logger.Errorf("failed to execute template for log '%s': %v", v.Name, err)
 		}
 		payload := buf.String()
 		pool.PutBuffer(buf)
 
 		h.log(logging.Entry{
-			Timestamp:   h.now(), // TOOD: use timestamp on Instance when timestamps work
+			Timestamp:   h.now(), // TODO: use timestamp on Instance when timestamps work
 			Severity:    logging.ParseSeverity(v.Severity),
 			LogName:     v.Name,
 			Labels:      toLabelMap(linfo.labels, v.Variables),

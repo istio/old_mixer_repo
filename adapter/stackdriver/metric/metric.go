@@ -103,6 +103,7 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
+// NewBuilder returns a builder implementing the metric.HandlerBuilder interface.
 func NewBuilder() metric.HandlerBuilder {
 	return &builder{createClient: createClient}
 }
@@ -173,7 +174,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 	// TODO: len(vals) is constant for config lifetime, consider pooling
 	data := make([]*monitoringpb.TimeSeries, 0, len(vals))
 	for _, val := range vals {
-		info, found := h.metricInfo[val.Name]
+		minfo, found := h.metricInfo[val.Name]
 		if !found {
 			// We weren't configured with stackdriver data about this metric, so we don't know how to publish it.
 			if h.l.VerbosityLevel(4) {
@@ -190,7 +191,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 
 		data = append(data, &monitoringpb.TimeSeries{
 			Metric: &metricpb.Metric{
-				Type:   info.ttype,
+				Type:   minfo.ttype,
 				Labels: toStringMap(val.Dimensions),
 			},
 			// TODO: handle MRs; today we publish all metrics to SD'h global MR because it'h easy.
@@ -200,8 +201,8 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 					"project_id": h.projectID,
 				},
 			},
-			MetricKind: info.kind,
-			ValueType:  info.value,
+			MetricKind: minfo.kind,
+			ValueType:  minfo.value,
 			// Since we're sending a `CreateTimeSeries` request we can only populate a single point, see
 			// the documentation on the `points` field: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
 			Points: []*monitoringpb.Point{{
@@ -209,7 +210,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 					StartTime: start,
 					EndTime:   end,
 				},
-				Value: toTypedVal(val.Value, info.vtype)},
+				Value: toTypedVal(val.Value, minfo.vtype)},
 			},
 		})
 	}
