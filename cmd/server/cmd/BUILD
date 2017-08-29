@@ -10,6 +10,7 @@ go_library(
         "root.go",
         "server.go",
         "test_server.go",
+        "validator.go",
     ],
     visibility = [
         "//cmd:__subpackages__",
@@ -32,6 +33,7 @@ go_library(
         "//pkg/tracing/zipkin:go_default_library",
         "//pkg/version:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_middleware//:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_prometheus//:go_default_library",
         "@com_github_grpc_ecosystem_grpc_opentracing//go/otgrpc:go_default_library",

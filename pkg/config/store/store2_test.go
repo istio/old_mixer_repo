@@ -16,6 +16,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"reflect"
@@ -186,6 +187,46 @@ func TestRegistry2(t *testing.T) {
 		ok := err == nil
 		if ok != c.ok {
 			t.Errorf("Want %v, Got %v, Err %v", c.ok, ok, err)
+		}
+	}
+}
+
+func TestChangeTypeEncoding(t *testing.T) {
+	for _, c := range []struct {
+		in string
+		t  ChangeType
+		ok bool
+	}{
+		{`"update"`, Update, true},
+		{`"uPDatE"`, Update, true},
+		{`"delete"`, Delete, true},
+		{`"del"`, Update, false},
+		{`0`, Update, true},
+		{`1`, Delete, true},
+		{`2`, Update, false},
+		{`[]`, Update, false},
+		{`{}`, Update, false},
+	} {
+		var out ChangeType
+		err := json.Unmarshal([]byte(c.in), &out)
+		succeeded := err == nil
+		if succeeded != c.ok {
+			t.Errorf("Unmarshal %s, got %v, want %v", c.in, err, c.ok)
+		}
+	}
+	for _, c := range []struct {
+		t   ChangeType
+		out string
+	}{
+		{Update, `"update"`},
+		{Delete, `"delete"`},
+	} {
+		bytes, err := json.Marshal(c.t)
+		if err != nil {
+			t.Errorf("Failed to marshal %v: %v", c.t, err)
+		}
+		if string(bytes) != c.out {
+			t.Errorf("Got %s, want %s", bytes, c.out)
 		}
 	}
 }
