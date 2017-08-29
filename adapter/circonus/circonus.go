@@ -58,7 +58,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics ma
 	cmc.CheckManager.Check.SubmissionURL = params.SubmissionUrl
 	cm, err := cgm.NewCirconusMetrics(cmc)
 	if err != nil {
-		env.Logger().Errorf("Could not create NewCirconusMetrics: %v", err)
+		err = env.Logger().Errorf("Could not create NewCirconusMetrics: %v", err)
 		return nil, err
 	}
 
