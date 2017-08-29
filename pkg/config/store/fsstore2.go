@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -36,8 +35,8 @@ var supportedExtensions = map[string]bool{
 }
 
 type resourceMeta struct {
-	Name      string
-	Namespace string
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 // resource is almost identical to crd/resource.go. This is defined here
@@ -45,10 +44,10 @@ type resourceMeta struct {
 // - no dependencies on actual k8s libraries
 // - sha1 hash field, required for fsstore to check updates
 type resource struct {
-	Kind       string
-	APIVersion string `json:"apiVersion"`
-	Metadata   resourceMeta
-	Spec       map[string]interface{}
+	Kind       string                 `json:"kind"`
+	APIVersion string                 `json:"apiVersion"`
+	Metadata   resourceMeta           `json:"metadata"`
+	Spec       map[string]interface{} `json:"spec"`
 	sha        [sha1.Size]byte
 }
 
@@ -58,14 +57,11 @@ func (r *resource) Key() Key {
 
 // fsStore2 is Store2Backend implementation using filesystem.
 type fsStore2 struct {
+	memstore
 	root          string
 	kinds         map[string]bool
 	checkDuration time.Duration
-	watchCtx      context.Context
-	watchCh       chan BackendEvent
-
-	mu   sync.RWMutex
-	data map[Key]*resource
+	shas          map[Key][sha1.Size]byte
 }
 
 var _ Store2Backend = &fsStore2{}
@@ -135,53 +131,43 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 
 func (s *fsStore2) checkAndUpdate() {
 	newData := s.readFiles()
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	updated := []Key{}
 	removed := map[Key]bool{}
 	for k := range s.data {
 		removed[k] = true
 	}
 	for k, r := range newData {
-		oldR, ok := s.data[k]
+		oldSha, ok := s.shas[k]
+		s.shas[k] = r.sha
 		if !ok {
 			updated = append(updated, k)
 			continue
 		}
 		delete(removed, k)
-		if r.sha != oldR.sha {
+		if r.sha != oldSha {
 			updated = append(updated, k)
 		}
 	}
 	if len(updated) == 0 && len(removed) == 0 {
 		return
 	}
-	s.data = newData
-	if s.watchCtx == nil || s.watchCtx.Err() != nil {
-		return
+	for _, k := range updated {
+		s.Put(k, newData[k].Spec)
 	}
-	evs := make([]BackendEvent, 0, len(updated)+len(removed))
-	for _, key := range updated {
-		evs = append(evs, BackendEvent{Key: key, Type: Update, Value: s.data[key].Spec})
-	}
-	for key := range removed {
-		evs = append(evs, BackendEvent{Key: key, Type: Delete})
-	}
-	for _, ev := range evs {
-		select {
-		case <-s.watchCtx.Done():
-		case s.watchCh <- ev:
-		}
+	for k := range removed {
+		s.Delete(k)
 	}
 }
 
 // NewFsStore2 creates a new Store2Backend backed by the filesystem.
 func NewFsStore2(root string) Store2Backend {
 	return &fsStore2{
+		// Not using createMemstore to avoid access of MemstoreWriter for fsstore2.
+		memstore:      memstore{data: map[Key]map[string]interface{}{}},
 		root:          root,
 		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,
-		data:          map[Key]*resource{},
+		shas:          map[Key][sha1.Size]byte{},
 	}
 }
 
@@ -204,33 +190,4 @@ func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
 		}
 	}()
 	return nil
-}
-
-// Watch implements Store2Backend interface.
-func (s *fsStore2) Watch(ctx context.Context) (<-chan BackendEvent, error) {
-	s.watchCtx = ctx
-	s.watchCh = make(chan BackendEvent)
-	return s.watchCh, nil
-}
-
-// Get implements Store2Backend interface.
-func (s *fsStore2) Get(key Key) (map[string]interface{}, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	r, ok := s.data[key]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	return r.Spec, nil
-}
-
-// List implements Store2Backend interface.
-func (s *fsStore2) List() map[Key]map[string]interface{} {
-	s.mu.RLock()
-	result := make(map[Key]map[string]interface{}, len(s.data))
-	for k, r := range s.data {
-		result[k] = r.Spec
-	}
-	s.mu.RUnlock()
-	return result
 }

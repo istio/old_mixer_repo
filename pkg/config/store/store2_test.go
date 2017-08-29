@@ -27,50 +27,40 @@ import (
 	cfg "istio.io/mixer/pkg/config/proto"
 )
 
-type memstore struct {
-	data     map[Key]map[string]interface{}
-	ch       chan BackendEvent
+type testStore struct {
+	memstore
 	initErr  error
 	watchErr error
 }
 
-func (m *memstore) Init(ctx context.Context, kinds []string) error {
-	return m.initErr
-}
-
-func (m *memstore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
-	if m.watchErr != nil {
-		return nil, m.watchErr
+func (t *testStore) Init(ctx context.Context, kinds []string) error {
+	if t.initErr != nil {
+		return t.initErr
 	}
-	m.ch = make(chan BackendEvent)
-	return m.ch, nil
+	return t.memstore.Init(ctx, kinds)
 }
 
-func (m *memstore) Get(key Key) (map[string]interface{}, error) {
-	v, ok := m.data[key]
-	if !ok {
-		return nil, ErrNotFound
+func (t *testStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+	if t.watchErr != nil {
+		return nil, t.watchErr
 	}
-	return v, nil
+	return t.memstore.Watch(ctx)
 }
 
-func (m *memstore) List() map[Key]map[string]interface{} {
-	return m.data
-}
-
-func registerMemstore(builders map[string]Store2Builder) {
-	builders["memstore"] = func(*url.URL) (Store2Backend, error) {
-		return &memstore{data: map[Key]map[string]interface{}{}}, nil
+func registerTestStore(builders map[string]Store2Builder) {
+	builders["test"] = func(u *url.URL) (Store2Backend, error) {
+		return &testStore{memstore: *createMemstore(u)}, nil
 	}
 }
 
 func TestStore2(t *testing.T) {
-	r := NewRegistry2(registerMemstore)
-	s, err := r.NewStore2("memstore://")
+	r := NewRegistry2(registerTestStore)
+	u := "memstore://" + t.Name()
+	s, err := r.NewStore2(u)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := s.(*store2).backend.(*memstore)
+	m := GetMemstoreWriter(u)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
 	if err = s.Init(context.Background(), kinds); err != nil {
 		t.Fatal(err)
@@ -80,7 +70,7 @@ func TestStore2(t *testing.T) {
 	if err = s.Get(k, h1); err != ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
-	m.data[k] = map[string]interface{}{"name": "default", "adapter": "noop"}
+	m.Put(k, map[string]interface{}{"name": "default", "adapter": "noop"})
 	if err = s.Get(k, h1); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
@@ -99,11 +89,7 @@ func TestStore2(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	m.ch <- BackendEvent{
-		Key:   k,
-		Type:  Update,
-		Value: map[string]interface{}{"name": "default", "adapter": "noop"},
-	}
+	m.Put(k, map[string]interface{}{"name": "default", "adapter": "noop"})
 	wantEv := Event{Key: k, Type: Update, Value: want}
 	if ev := <-ch; !reflect.DeepEqual(ev, wantEv) {
 		t.Errorf("Got %+v, Want %+v", ev, wantEv)
@@ -111,8 +97,8 @@ func TestStore2(t *testing.T) {
 }
 
 func TestStore2WatchMultiple(t *testing.T) {
-	r := NewRegistry2(registerMemstore)
-	s, err := r.NewStore2("memstore://")
+	r := NewRegistry2(registerTestStore)
+	s, err := r.NewStore2("memstore://" + t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,40 +122,40 @@ func TestStore2WatchMultiple(t *testing.T) {
 }
 
 func TestStore2Fail(t *testing.T) {
-	r := NewRegistry2(registerMemstore)
-	s, err := r.NewStore2("memstore://")
+	r := NewRegistry2(registerTestStore)
+	s, err := r.NewStore2("test://" + t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := s.(*store2).backend.(*memstore)
+	ts := s.(*store2).backend.(*testStore)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
-	m.initErr = errors.New("dummy")
+	ts.initErr = errors.New("dummy")
 	if err = s.Init(context.Background(), kinds); err.Error() != "dummy" {
 		t.Errorf("Got %v, Want dummy error", err)
 	}
-	m.initErr = nil
+	ts.initErr = nil
 	if err = s.Init(context.Background(), kinds); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 
-	m.watchErr = errors.New("watch error")
+	ts.watchErr = errors.New("watch error")
 	if _, err := s.Watch(context.Background()); err.Error() != "watch error" {
 		t.Errorf("Got %v, Want watch error", err)
 	}
 
-	m.data[Key{Kind: "Handler", Name: "name", Namespace: "ns"}] = map[string]interface{}{
+	ts.Put(Key{Kind: "Handler", Name: "name", Namespace: "ns"}, map[string]interface{}{
 		"foo": 1,
-	}
-	m.data[Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}] = map[string]interface{}{
+	})
+	ts.Put(Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}, map[string]interface{}{
 		"unknown": "unknown",
-	}
+	})
 	if lst := s.List(); len(lst) != 0 {
 		t.Errorf("Got %v, Want empty", lst)
 	}
 }
 
 func TestRegistry2(t *testing.T) {
-	r := NewRegistry2(registerMemstore)
+	r := NewRegistry2(registerTestStore)
 	for _, c := range []struct {
 		u  string
 		ok bool
@@ -178,6 +164,7 @@ func TestRegistry2(t *testing.T) {
 		{"mem://", false},
 		{"fs:///", true},
 		{"://", false},
+		{"test://", true},
 	} {
 		_, err := r.NewStore2(c.u)
 		ok := err == nil
