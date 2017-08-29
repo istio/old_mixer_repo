@@ -126,7 +126,9 @@ func TestDispatchHandleAndClose(t *testing.T) {
 		t.Error("Called handler.HandleLogEntry, but call not forwarded to log aspect")
 	}
 
-	ms.Close()
+	if err := ms.Close(); err != nil {
+		t.Errorf("Unexpected error when calling close: %v", err)
+	}
 	if !ma.calledClose {
 		t.Error("Called handler.Close, but call not forwarded to metric aspect")
 	}
