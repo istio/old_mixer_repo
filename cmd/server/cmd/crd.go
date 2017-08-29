@@ -104,7 +104,6 @@ type crdVar struct {
 	Version    string
 }
 
-// newCrdVar get a new crdVar
 func newCrdVar(shrtName, implName, pluralName, label string) *crdVar {
 	return &crdVar{
 		ShrtName:   shrtName,
