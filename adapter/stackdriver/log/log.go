@@ -51,7 +51,7 @@ type (
 	handler struct {
 		now func() time.Time // used for testing
 
-		logger adapter.Logger
+		l      adapter.Logger
 		client io.Closer
 		log    logFn
 		info   map[string]info
@@ -80,7 +80,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	for name, log := range cfg.LogInfo {
 		_, found := b.types[name]
 		if !found {
-			logger.Infof("configured with log info about %s which is not an Istio metric", name)
+			logger.Infof("configured with log info about %s which is not an Istio log", name)
 			continue
 		}
 		tmpl, err := template.New(name).Parse(log.PayloadTemplate)
@@ -99,21 +99,21 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stackdriver logging client: %v", err)
 	}
-	return &handler{log: client.Logger("istio-mixer").Log, client: client, now: time.Now, logger: logger}, nil
+	return &handler{log: client.Logger("istio-mixer").Log, client: client, now: time.Now, l: logger}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
 	for _, v := range values {
 		linfo, found := h.info[v.Name]
 		if !found {
-			h.logger.Warningf("got instance for unknown log '%s', skipping", v.Name)
+			h.l.Warningf("got instance for unknown log '%s', skipping", v.Name)
 			continue
 		}
 
 		buf := pool.GetBuffer()
 		if err := linfo.tmpl.Execute(buf, v.Variables); err != nil {
 			// We'll just continue on with an empty payload for this entry - we could still be populating the HTTP req with valuable info, for example.
-			_ = h.logger.Errorf("failed to execute template for log '%s': %v", v.Name, err)
+			_ = h.l.Errorf("failed to execute template for log '%s': %v", v.Name, err)
 		}
 		payload := buf.String()
 		pool.PutBuffer(buf)
@@ -152,45 +152,39 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 	req := &logging.HTTPRequest{}
 	if mapping != nil {
 		reqs := variables[mapping.RequestSize]
-		reqsize, ok := toInt(reqs)
-		if ok {
+		if reqsize, ok := toInt64(reqs); ok {
 			req.RequestSize = reqsize
 		}
 
 		resps := variables[mapping.ResponseSize]
-		respsize, ok := toInt(resps)
-		if ok {
+		if respsize, ok := toInt64(resps); ok {
 			req.ResponseSize = respsize
 		}
 
 		code := variables[mapping.Status]
-		status, ok := code.(int)
-		if ok {
+		if status, ok := code.(int); ok {
 			req.Status = status
 		}
 
 		l := variables[mapping.Latency]
-		latency, ok := l.(time.Duration)
-		if ok {
+		if latency, ok := l.(time.Duration); ok {
 			req.Latency = latency
 		}
 
 		lip := variables[mapping.LocalIp]
-		localip, ok := lip.(string)
-		if ok {
+		if localip, ok := lip.(string); ok {
 			req.LocalIP = localip
 		}
 
 		rip := variables[mapping.RemoteIp]
-		remoteip, ok := rip.(string)
-		if ok {
+		if remoteip, ok := rip.(string); ok {
 			req.RemoteIP = remoteip
 		}
 	}
 	return req
 }
 
-func toInt(v interface{}) (int64, bool) {
+func toInt64(v interface{}) (int64, bool) {
 	// case int, int8, int16, ...: return int64(i), true
 	// does not compile because go can't handle the type conversion for multiple types in a single branch.
 	switch i := v.(type) {
