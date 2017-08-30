@@ -41,6 +41,19 @@ type IL struct {
 var _ expr.Evaluator = &IL{}
 var _ config.ChangeListener = &IL{}
 
+const ipFnName = "ip"
+
+var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, error) {
+	if ip := net.ParseIP(in); ip != nil {
+		return []byte(ip), nil
+	}
+	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
+})
+
+var externMap = map[string]interpreter.Extern{
+	ipFnName: ipExternFn,
+}
+
 type cacheEntry struct {
 	expression  *expr.Expression
 	interpreter *interpreter.Interpreter
@@ -145,17 +158,6 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 
 	if glog.V(4) {
 		glog.Infof("caching expression for '%s''", expr)
-	}
-
-	ipExtern := interpreter.ExternFromFn("ip", func(in string) []byte {
-		if ip := net.ParseIP(in); ip != nil {
-			return []byte(ip)
-		}
-		return []byte{}
-	})
-
-	externMap := map[string]interpreter.Extern{
-		"ip": ipExtern,
 	}
 
 	intr := interpreter.New(result.Program, externMap)
