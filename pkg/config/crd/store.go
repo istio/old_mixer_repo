@@ -50,6 +50,10 @@ const (
 	crdRetryTimeout = time.Second * 30
 )
 
+// The interval to wait between the attempt to initialize caches. This is not const
+// to allow changing the value for unittests.
+var retryInterval = time.Second / 2
+
 type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
 }
@@ -125,6 +129,7 @@ func (s *Store) checkAndCreateCaches(
 		}
 		if retry {
 			glog.V(4).Infof("Retrying to fetch config...")
+			time.Sleep(retryInterval)
 		}
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {

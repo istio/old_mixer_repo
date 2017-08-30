@@ -160,8 +160,8 @@ func (s *fsStore2) checkAndUpdate() {
 	}
 	s.data = newData
 	s.watchMutex.RLock()
+	defer s.watchMutex.RUnlock()
 	if s.watchCtx == nil || s.watchCtx.Err() != nil {
-		s.watchMutex.RUnlock()
 		return
 	}
 	evs := make([]BackendEvent, 0, len(updated)+len(removed))
@@ -177,7 +177,6 @@ func (s *fsStore2) checkAndUpdate() {
 		case s.watchCh <- ev:
 		}
 	}
-	s.watchMutex.RUnlock()
 }
 
 // NewFsStore2 creates a new Store2Backend backed by the filesystem.
