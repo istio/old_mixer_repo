@@ -39,10 +39,6 @@ const (
 )
 
 const (
-	// defaultResyncPeriod is the resync period for the k8s cache.
-	// TODO: allow customization.
-	defaultResyncPeriod = time.Minute
-
 	// initWaiterInterval is the interval to check if the initial data is ready
 	// in the cache.
 	initWaiterInterval = time.Millisecond
@@ -142,7 +138,7 @@ func (s *Store) checkAndCreateCaches(
 			}
 			if _, ok := kindsSet[res.Kind]; ok {
 				cl := lwBuilder.build(res)
-				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, defaultResyncPeriod)
+				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
 				s.caches[res.Kind] = informer.GetStore()
 				informers[res.Kind] = informer
 				delete(kindsSet, res.Kind)
