@@ -15,12 +15,11 @@
 package prometheus
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"time"
+	"sync"
 
 	"istio.io/mixer/pkg/adapter"
 )
@@ -34,7 +33,10 @@ type (
 
 	serverInst struct {
 		addr string
-		srv  *http.Server
+
+		lock    sync.Mutex
+		srv     *http.Server
+		handler *metaHandler
 	}
 )
 
@@ -47,14 +49,44 @@ func newServer(addr string) server {
 	return &serverInst{addr: addr}
 }
 
-func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) error {
-	var listener net.Listener
+// metaHandler switches the delegate without downtime.
+type metaHandler struct {
+	delegate http.Handler
+	lock     sync.RWMutex
+}
+
+func (m *metaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.lock.RLock()
+	m.delegate.ServeHTTP(w, r)
+	m.lock.RUnlock()
+}
+
+func (m *metaHandler) setDelegate(delegate http.Handler) {
+	m.lock.Lock()
+	m.delegate = delegate
+	m.lock.Unlock()
+}
+
+// Start the prometheus singleton listener.
+func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) (err error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	// if server is already running,
+	// just switch the delegate handler.
+	if s.handler != nil {
+		s.handler.setDelegate(metricsHandler)
+		return nil
+	}
+
 	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("could not start prometheus metrics server: %v", err)
 	}
+
 	srvMux := http.NewServeMux()
-	srvMux.Handle(metricsPath, metricsHandler)
+	s.handler = &metaHandler{delegate: metricsHandler}
+	srvMux.Handle(metricsPath, s.handler)
 	s.srv = &http.Server{Addr: s.addr, Handler: srvMux}
 	env.ScheduleDaemon(func() {
 		env.Logger().Infof("serving prometheus metrics on %s", s.addr)
@@ -62,14 +94,11 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) error {
 			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
 		}
 	})
+
 	return nil
 }
 
+// Close -- server once started should not be closed.
 func (s *serverInst) Close() error {
-	if s.srv == nil {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	return s.srv.Shutdown(ctx)
+	return nil
 }

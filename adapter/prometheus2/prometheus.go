@@ -17,13 +17,17 @@
 package prometheus
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/gob"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -34,17 +38,24 @@ import (
 )
 
 type (
-	newServerFn func(string) server
+	// cinfo is a collector, its kind and the sha
+	// of config that produced the collector.
+	// sha is used to confirm a cache hit.
+	cinfo struct {
+		c    prometheus.Collector
+		sha  [sha1.Size]byte
+		kind config.Params_MetricInfo_Kind
+	}
 
 	builder struct {
-		newServer newServerFn
-		registry  *prometheus.Registry
+		metrics  map[string]*cinfo
+		registry *prometheus.Registry
+		srv      server
 	}
 
 	handler struct {
 		srv     server
-		metrics map[string]prometheus.Collector
-		kinds   map[string]config.Params_MetricInfo_Kind
+		metrics map[string]*cinfo
 	}
 )
 
@@ -55,8 +66,16 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
-// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
+// GetBuilderInfo returns the BuilderInfo associated with this adapter.
 func GetBuilderInfo() adapter.BuilderInfo {
+	// prometheus uses a singleton http port, so we make the
+	// builder itself a singleton, when defaultAddr become configurable
+	// srv will be a map[string]server
+	singletonBuilder := &builder{
+		srv:      newServer(defaultAddr),
+		registry: prometheus.NewPedanticRegistry(),
+		metrics:  make(map[string]*cinfo),
+	}
 	return adapter.BuilderInfo{
 		Name:        "prometheus",
 		Impl:        "istio.io/mixer/adapter/prometheus",
@@ -64,72 +83,102 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{newServer, prometheus.NewPedanticRegistry()} },
-		DefaultConfig:        &config.Params{},
-		ValidateConfig:       func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder {
+			return singletonBuilder
+		},
+		DefaultConfig:  &config.Params{},
+		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
 func (b *builder) ConfigureMetricHandler(map[string]*metric.Type) error { return nil }
 
 func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	srv := b.newServer(defaultAddr)
-	if err := srv.Start(env, promhttp.HandlerFor(b.registry, promhttp.HandlerOpts{})); err != nil {
-		return nil, err
-	}
 
 	cfg := c.(*config.Params)
 	var metricErr *multierror.Error
-	metricsMap := make(map[string]prometheus.Collector, len(cfg.Metrics))
-	kinds := make(map[string]config.Params_MetricInfo_Kind, len(cfg.Metrics))
+
+	// newMetrics collects new metric configuration
+	newMetrics := make([]*config.Params_MetricInfo, 0, len(cfg.Metrics))
+
+	// check for metric redefinition - if metric is redefined clear
+	// metric state: registry, metric map.
+	// Addition or removal of metrics is ok.
+	var cl *cinfo
 	for _, m := range cfg.Metrics {
+		// metric is not found in the current metric table
+		// should be added.
+		if cl = b.metrics[m.Name]; cl == nil {
+			newMetrics = append(newMetrics, m)
+			continue
+		}
+
+		// metric collector found and sha matches
+		// safe to reuse the existing collector.
+		if cl.sha == computeSha(m) {
+			continue
+		}
+
+		// sha does not match.
+		glog.Warningf("Metric %s redefined. Reloading adapter.", m.Name)
+		b.registry = prometheus.NewPedanticRegistry()
+		newMetrics = cfg.Metrics
+		b.metrics = make(map[string]*cinfo)
+		break
+	}
+
+	if glog.V(4) {
+		glog.Infof("%d new metrics defined", len(newMetrics))
+	}
+
+	var err error
+	for _, m := range newMetrics {
+		ci := &cinfo{kind: m.Kind, sha: computeSha(m)}
 		switch m.Kind {
 		case config.GAUGE:
-			c, err := registerOrGet(b.registry, newGaugeVec(m.Name, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newGaugeVec(m.Name, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
-			metricsMap[m.Name] = c
-			kinds[m.Name] = config.GAUGE
+			b.metrics[m.Name] = ci
 		case config.COUNTER:
-			c, err := registerOrGet(b.registry, newCounterVec(m.Name, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newCounterVec(m.Name, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
-			metricsMap[m.Name] = c
-			kinds[m.Name] = config.COUNTER
+			b.metrics[m.Name] = ci
 		case config.DISTRIBUTION:
-			c, err := registerOrGet(b.registry, newHistogramVec(m.Name, m.Description, m.LabelNames, m.Buckets))
+			ci.c, err = registerOrGet(b.registry, newHistogramVec(m.Name, m.Description, m.LabelNames, m.Buckets))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
-			metricsMap[m.Name] = c
-			kinds[m.Name] = config.DISTRIBUTION
+			b.metrics[m.Name] = ci
 		default:
 			metricErr = multierror.Append(metricErr, fmt.Errorf("unknown metric kind (%d); could not register metric", m.Kind))
 		}
 	}
-	return &handler{srv, metricsMap, kinds}, metricErr.ErrorOrNil()
+
+	if err := b.srv.Start(env, promhttp.HandlerFor(b.registry, promhttp.HandlerOpts{})); err != nil {
+		return nil, err
+	}
+
+	return &handler{b.srv, b.metrics}, metricErr.ErrorOrNil()
 }
 
 func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error {
 	var result *multierror.Error
 
 	for _, val := range vals {
-		collector, found := h.metrics[val.Name]
+		ci, found := h.metrics[val.Name]
 		if !found {
 			result = multierror.Append(result, fmt.Errorf("could not find metric info from adapter config for %s", val.Name))
 			continue
 		}
-		kind, found := h.kinds[val.Name]
-		if !found {
-			result = multierror.Append(result, fmt.Errorf("could not find kind for metric %s", val.Name))
-			continue
-		}
-		switch kind {
+		collector := ci.c
+		switch ci.kind {
 		case config.GAUGE:
 			vec := collector.(*prometheus.GaugeVec)
 			amt, err := promValue(val.Value)
@@ -233,6 +282,7 @@ func labelNames(m []string) []string {
 // targeted for removal soon(tm). So, we duplicate that functionality here
 // to maintain it long-term, as we have a use case for the convenience.
 func registerOrGet(registry *prometheus.Registry, c prometheus.Collector) (prometheus.Collector, error) {
+
 	if err := registry.Register(c); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
 			return are.ExistingCollector, nil
@@ -274,4 +324,14 @@ func promLabels(l map[string]interface{}) prometheus.Labels {
 		labels[i] = fmt.Sprintf("%v", label)
 	}
 	return labels
+}
+
+func computeSha(m *config.Params_MetricInfo) [sha1.Size]byte {
+	var buff bytes.Buffer
+	enc := gob.NewEncoder(&buff)
+
+	if err := enc.Encode(m); err != nil {
+		glog.Warningf("Unable to encode %v", err)
+	}
+	return sha1.Sum(buff.Bytes())
 }
