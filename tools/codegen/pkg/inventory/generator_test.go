@@ -44,8 +44,8 @@ import (
 )
 
 // Inventory2 returns the inventory of all available adapters.
-func Inventory2() []adapter.InfoFn {
-	return []adapter.InfoFn{}
+func Inventory2() []handler.InfoFn {
+	return []handler.InfoFn{}
 }
 `
 
@@ -58,8 +58,8 @@ import (
 )
 
 // Inventory2 returns the inventory of all available adapters.
-func Inventory2() []adapter.InfoFn {
-	return []adapter.InfoFn{
+func Inventory2() []handler.InfoFn {
+	return []handler.InfoFn{
 		kubernetes.GetBuilderInfo,
 		noop.GetBuilderInfo,
 		prometheus.GetBuilderInfo,

@@ -31,6 +31,7 @@ import (
 
 	"istio.io/mixer/adapter/prometheus2/config"
 	"istio.io/mixer/pkg/adapter"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
 
@@ -63,6 +64,7 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
+<<<<<<< HEAD
 // GetBuilderInfo returns the BuilderInfo associated with this adapter.
 func GetBuilderInfo() adapter.BuilderInfo {
 	// prometheus uses a singleton http port, so we make the
@@ -73,6 +75,11 @@ func GetBuilderInfo() adapter.BuilderInfo {
 	}
 	singletonBuilder.clearState()
 	return adapter.BuilderInfo{
+=======
+// GetBuilderInfo returns the Info associated with this adapter implementation.
+func GetBuilderInfo() pkgHndlr.Info {
+	return pkgHndlr.Info{
+>>>>>>> Clean build
 		Name:        "prometheus",
 		Impl:        "istio.io/mixer/adapter/prometheus",
 		Description: "Publishes prometheus metrics",
