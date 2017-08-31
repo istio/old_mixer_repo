@@ -15,9 +15,14 @@
 package e2e
 
 import (
-	"testing"
+	"fmt"
+	"google.golang.org/grpc"
+	"istio.io/api/mixer/v1"
 	adp "istio.io/mixer/adapter"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapterManager"
+	"istio.io/mixer/pkg/api"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
@@ -25,14 +30,9 @@ import (
 	"istio.io/mixer/pkg/pool"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
 	"istio.io/mixer/pkg/template"
-	"fmt"
-	"istio.io/mixer/pkg/api"
-	"istio.io/api/mixer/v1"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/adapterManager"
-	"time"
 	"net"
-	"google.golang.org/grpc"
+	"testing"
+	"time"
 )
 
 const (
@@ -40,9 +40,7 @@ const (
 	identityDomainAttribute = "svc.cluster.local"
 )
 
-
 type testState struct {
-
 	client     istio_mixer_v1.MixerClient
 	gs         *grpc.Server
 	gp         *pool.GoroutinePool
@@ -88,7 +86,7 @@ func initMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn,
 	if err != nil {
 		t.Fatalf("Failed to create runtime dispatcher. %v", err)
 	}
-	adapterMgr :=   adapterManager.NewManager(adp.Inventory(),  aspect.Inventory(), eval, gp, adapterGP)
+	adapterMgr := adapterManager.NewManager(adp.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 
 	repo := template.NewRepository(tmplInfos)
 

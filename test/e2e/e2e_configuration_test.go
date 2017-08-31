@@ -16,13 +16,13 @@ package e2e
 
 import (
 	"context"
+	"istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/template"
 	e2eTmpl "istio.io/mixer/test/e2e/template"
 	reportTmpl "istio.io/mixer/test/e2e/template/report"
 	"os"
 	"testing"
-	"istio.io/api/mixer/v1"
 )
 
 const (
@@ -111,7 +111,7 @@ func TestReport(t *testing.T) {
 				cmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandler_types,
 					map[string]interface{}{
 						"reportInstance": &reportTmpl.Type{
-							Value: pb.INT64,
+							Value:      pb.INT64,
 							Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
 						},
 					},
@@ -120,9 +120,9 @@ func TestReport(t *testing.T) {
 				cmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_instances,
 					[]*reportTmpl.Instance{
 						&reportTmpl.Instance{
-							Name:"reportInstance",
-							Value: int64(2),
-							Dimensions:map[string]interface{} {"source": "mysrc", "target_ip": "somesrvcname"},
+							Name:       "reportInstance",
+							Value:      int64(2),
+							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
 						},
 					},
 				)

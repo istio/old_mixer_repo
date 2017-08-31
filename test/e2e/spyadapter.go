@@ -32,9 +32,9 @@ type (
 
 	fakeBldr struct {
 		// return values from the builder
-		bldrbehavior  builderBehavior
+		bldrbehavior builderBehavior
 		// records input to the builder function.
-		bldrCallData  *bldrCallData
+		bldrCallData *bldrCallData
 
 		// return values from the handler
 		hndlrbehavior hndlrBehavior
@@ -44,20 +44,20 @@ type (
 
 	spyAdapter struct {
 		// builder and handler behavior
-		behavior      adptBehavior
+		behavior adptBehavior
 		// records input to the builder function.
-		bldrCallData  *bldrCallData
+		bldrCallData *bldrCallData
 		// records input to the handler function.
 		hndlrCallData *hndlrCallData
 	}
 
 	adptBehavior struct {
 		// adapter name
-		name          string
+		name string
 		// handler behavior (return values + should panic)
 		hndlrBehavior hndlrBehavior
 		// builder behavior (return values + should panic)
-		bldrBehavior  builderBehavior
+		bldrBehavior builderBehavior
 	}
 
 	hndlrBehavior struct {
@@ -84,12 +84,12 @@ type (
 
 	builderBehavior struct {
 		// error to returned
-		ConfigureSampleReportHandler_err   error
+		ConfigureSampleReportHandler_err error
 		// should panic
 		ConfigureSampleReportHandler_panic bool
 
 		// error to return
-		Build_err   error
+		Build_err error
 		// should panic
 		Build_panic bool
 	}
@@ -98,7 +98,7 @@ type (
 		// no of time called
 		ConfigureSampleReportHandler_cnt int
 		// input to the method
-		ConfigureSampleReportHandler_types   map[string]*reportTmpl.Type
+		ConfigureSampleReportHandler_types map[string]*reportTmpl.Type
 
 		// no of time called
 		Build_cnt int

@@ -15,15 +15,15 @@
 package e2e
 
 import (
-	"testing"
-	"istio.io/mixer/pkg/adapter"
-	"os"
-	"path"
-	"istio.io/mixer/pkg/attribute"
-	"reflect"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/attribute"
+	"os"
+	"path"
+	"reflect"
+	"testing"
 )
 
 func getCnfgs(srvcCnfg, attrCnfg string) (dir string) {
@@ -70,7 +70,7 @@ func cmpSliceAndErr(msg string, t *testing.T, act, exp interface{}) {
 	a := InterfaceSlice(exp)
 	b := InterfaceSlice(act)
 	if len(a) != len(b) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s",msg, spew.Sdump(act), spew.Sdump(exp)))
+		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
 		return
 	}
 
@@ -82,36 +82,34 @@ func cmpSliceAndErr(msg string, t *testing.T, act, exp interface{}) {
 			}
 		}
 		if !f {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s",msg, spew.Sdump(act), spew.Sdump(exp)))
+			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
 			return
 		}
 	}
 	return
 }
 
-
 func cmpMapAndErr(msg string, t *testing.T, act, exp interface{}) {
 	want := InterfaceMap(exp)
 	got := InterfaceMap(act)
 	if len(want) != len(got) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s",msg, spew.Sdump(act), spew.Sdump(exp)))
+		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
 		return
 	}
 
 	for wk, wv := range want {
 		if v, found := got[wk]; !found {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s",msg, spew.Sdump(act), spew.Sdump(exp)))
+			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
 			return
 		} else {
 			if !reflect.DeepEqual(wv, v) {
-				t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s",msg, spew.Sdump(act), spew.Sdump(exp)))
+				t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
 				return
 			}
 		}
 	}
 	return
 }
-
 
 func InterfaceSlice(slice interface{}) []interface{} {
 	s := reflect.ValueOf(slice)
@@ -123,7 +121,6 @@ func InterfaceSlice(slice interface{}) []interface{} {
 
 	return ret
 }
-
 
 func InterfaceMap(m interface{}) map[interface{}]interface{} {
 	s := reflect.ValueOf(m)
