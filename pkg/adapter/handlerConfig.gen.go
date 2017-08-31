@@ -23,15 +23,12 @@ package adapter
 //"istio.io/mixer/template/quota"
 //"istio.io/mixer/template/reportnothing"
 
-// HandlerConfig represents configuration specific to each of the declared operator's handler configs.
+// HandlerConfig represents configuration specific to each of the the handlers defined by the operator.
 //
-// HandlerConfig contains adapter-specific configuration as well template specific Type information for instances
-// that the handler object, built using HandlerConfig, would receive during request time.
-//
-// NOTE: HandlerConfig struct contains fields, describing Type information, corresponding for all the supported
-// templates within a build of mixer. However, for a HandlerConfig object, only those fields will be set that correspond
-// to templates that are supported by the Adapter referenced within the operator's handler configuration. Fields
-// corresponding to all other templates (not supported by the Adapter) will be nil.
+// HandlerConfig contains adapter-specific configuration, as well as template-specific type information for each of the
+// templates supported by the adapter. Mixer prepares HandlerConfig and provides it to the adapter during the
+// configuration time. The type information it contains describes the shape of the instances the adapter may
+// receive at runtime. Mixer only supplies type information related to templates the adapter explicitly supports.
 type HandlerConfig struct {
 	AdapterConfig Config
 

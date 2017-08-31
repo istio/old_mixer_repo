@@ -53,8 +53,8 @@ type BuilderInfo struct {
 	ValidateConfig2 ValidateConfigFn2
 
 	// NewHandler must return a handler that implements all the template-specific runtime request serving
-	// interfaces that adapter supports.
-	// If the returned Handler fails to implement the required interfaces, mixer will report an error and stop serving
+	// interfaces that the adapter supports.
+	// If the returned Handler fails to implement the required interfaces, Mixer will report an error and stop serving
 	// runtime traffic to the particular Handler.
 	NewHandler NewHandlerFn
 }
@@ -64,7 +64,7 @@ type CreateHandlerBuilderFn func() HandlerBuilder
 
 // NewHandlerFn must return a handler that implements all the template-specific runtime request serving
 // interfaces that adapter supports.
-// If the returned Handler fails to implement the required interfaces, mixer will report an error and stop serving
+// If the returned Handler fails to implement the required interfaces, Mixer will report an error and stop serving
 // runtime traffic to the particular Handler.
 type NewHandlerFn func(context.Context, Env, *HandlerConfig) (Handler, error)
 
