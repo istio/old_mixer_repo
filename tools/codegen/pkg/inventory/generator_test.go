@@ -40,12 +40,12 @@ package adapter
 
 var empty = header + `
 import (
-	"istio.io/mixer/pkg/adapter"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 )
 
 // Inventory2 returns the inventory of all available adapters.
-func Inventory2() []handler.InfoFn {
-	return []handler.InfoFn{}
+func Inventory2() []pkgHndlr.InfoFn {
+	return []pkgHndlr.InfoFn{}
 }
 `
 
@@ -54,12 +54,12 @@ import (
 	kubernetes "istio.io/mixer/adapter/kubernetes"
 	noop "istio.io/mixer/adapter/noop"
 	prometheus "istio.io/mixer/adapter/prometheus"
-	"istio.io/mixer/pkg/adapter"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 )
 
 // Inventory2 returns the inventory of all available adapters.
-func Inventory2() []handler.InfoFn {
-	return []handler.InfoFn{
+func Inventory2() []pkgHndlr.InfoFn {
+	return []pkgHndlr.InfoFn{
 		kubernetes.GetBuilderInfo,
 		noop.GetBuilderInfo,
 		prometheus.GetBuilderInfo,

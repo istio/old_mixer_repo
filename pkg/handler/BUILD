@@ -12,6 +12,12 @@ go_library(
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/status:go_default_library",
+        "//template/checknothing:go_default_library",
+        "//template/listentry:go_default_library",
+        "//template/logentry:go_default_library",
+        "//template/metric:go_default_library",
+        "//template/quota:go_default_library",
+        "//template/reportnothing:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",

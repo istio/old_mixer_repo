@@ -18,14 +18,15 @@ package handler
 
 import (
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/template/checknothing"
+	"istio.io/mixer/template/listentry"
+	"istio.io/mixer/template/logentry"
+	"istio.io/mixer/template/metric"
+	"istio.io/mixer/template/quota"
+	"istio.io/mixer/template/reportnothing"
 )
 
-//"istio.io/mixer/template/checknothing"
-//"istio.io/mixer/template/listentry"
-//"istio.io/mixer/template/logentry"
-//"istio.io/mixer/template/metric"
-//"istio.io/mixer/template/quota"
-//"istio.io/mixer/template/reportnothing"
+//
 
 // HandlerConfig represents configuration specific to each of the the handlers defined by the operator.
 //
@@ -36,10 +37,10 @@ import (
 type HandlerConfig struct {
 	AdapterConfig adapter.Config
 
-	// CheckNothingTypes map[string]*checknothing.Type
-	// ListEntryTypes map[string]*listentry.Type
-	// LogEntryTypes map[string]*logentry.Type
-	// MetricEntryTypes map[string]*metric.Type
-	// QuotaTypes map[string]*quota.Type
-	// ReportNothingTypes map[string]*reportnothing.Type
+	CheckNothingTypes  map[string]*checknothing.Type
+	ListEntryTypes     map[string]*listentry.Type
+	LogEntryTypes      map[string]*logentry.Type
+	MetricEntryTypes   map[string]*metric.Type
+	QuotaTypes         map[string]*quota.Type
+	ReportNothingTypes map[string]*reportnothing.Type
 }
