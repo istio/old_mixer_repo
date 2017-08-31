@@ -109,7 +109,7 @@ func TestReport(t *testing.T) {
 
 				adptr := spyAdpts[0]
 
-				CmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandlerTypes,
+				CmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandler_Types,
 					map[string]interface{}{
 						"reportInstance": &reportTmpl.Type{
 							Value:      pb.INT64,
@@ -118,7 +118,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				CmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReportInstances,
+				CmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_Instances,
 					[]*reportTmpl.Instance{
 						{
 							Name:       "reportInstance",

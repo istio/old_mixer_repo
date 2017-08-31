@@ -26,12 +26,12 @@ import (
 )
 
 type (
-	fakeHndlr struct {
+	fakeHndlr struct { //nolint: aligncheck
 		hndlrbehavior hndlrBehavior
 		hndlrCallData *hndlrCallData
 	}
 
-	fakeBldr struct {
+	fakeBldr struct { //nolint: aligncheck
 		// return values from the builder
 		bldrbehavior builderBehavior
 		// return values from the handler
@@ -63,90 +63,94 @@ type (
 		hndlrBehavior hndlrBehavior
 	}
 
+	// nolint
 	hndlrBehavior struct {
 		// error to returned
-		HandleSampleReportError error
+		HandleSampleReport_Error error
 		// error to returned
-		CloseError error
+		Close_Error error
 
 		// should panic
-		HandleSampleReportPanic bool
+		HandleSampleReport_Panic bool
 		// should panic
-		ClosePanic bool
+		Close_Panic bool
 	}
 
+	// nolint
 	hndlrCallData struct {
 		// input to the method
-		HandleSampleReportInstances []*reportTmpl.Instance
+		HandleSampleReport_Instances []*reportTmpl.Instance
 		// no of time called
-		HandleSampleReportCnt int
+		HandleSampleReport_Cnt int
 
 		// no of time called
-		CloseCnt int
+		Close_Cnt int
 	}
 
+	// nolint
 	builderBehavior struct {
 		// error to returned
-		ConfigureSampleReportHandlerErr error
-		// error to return
-		BuildErr error
+		ConfigureSampleReportHandler_Err error
+		// should panic
+		ConfigureSampleReportHandler_Panic bool
 
+		// error to return
+		Build_Err error
 		// should panic
-		ConfigureSampleReportHandlerPanic bool
-		// should panic
-		BuildPanic bool
+		Build_Panic bool
 	}
 
+	// nolint
 	bldrCallData struct {
 		// no of time called
-		ConfigureSampleReportHandlerCnt int
+		ConfigureSampleReportHandler_Cnt int
 		// input to the method
-		ConfigureSampleReportHandlerTypes map[string]*reportTmpl.Type
+		ConfigureSampleReportHandler_Types map[string]*reportTmpl.Type
 
-		// no of time called
-		BuildCnt int
 		// input to the method
-		BuildAdptCnfg adapter.Config
+		Build_AdptCnfg adapter.Config
+		// no of time called
+		Build_Cnt int
 	}
 )
 
 func (f fakeBldr) Build(cnfg adapter.Config, _ adapter.Env) (adapter.Handler, error) {
-	f.bldrCallData.BuildCnt++
-	if f.bldrbehavior.BuildPanic {
+	f.bldrCallData.Build_Cnt++
+	if f.bldrbehavior.Build_Panic {
 		panic("Build")
 	}
 
-	f.bldrCallData.BuildAdptCnfg = cnfg
+	f.bldrCallData.Build_AdptCnfg = cnfg
 	hndlr := fakeHndlr{hndlrbehavior: f.hndlrbehavior, hndlrCallData: f.hndlrCallData}
-	return hndlr, f.bldrbehavior.BuildErr
+	return hndlr, f.bldrbehavior.Build_Err
 }
 func (f fakeBldr) ConfigureSampleReportHandler(typeParams map[string]*reportTmpl.Type) error {
-	f.bldrCallData.ConfigureSampleReportHandlerCnt++
-	if f.bldrbehavior.ConfigureSampleReportHandlerPanic {
+	f.bldrCallData.ConfigureSampleReportHandler_Cnt++
+	if f.bldrbehavior.ConfigureSampleReportHandler_Panic {
 		panic("ConfigureSampleReportHandler")
 	}
 
-	f.bldrCallData.ConfigureSampleReportHandlerTypes = typeParams
-	return f.bldrbehavior.ConfigureSampleReportHandlerErr
+	f.bldrCallData.ConfigureSampleReportHandler_Types = typeParams
+	return f.bldrbehavior.ConfigureSampleReportHandler_Err
 }
 
 func (f fakeHndlr) HandleSampleReport(ctx context.Context, instances []*reportTmpl.Instance) error {
-	f.hndlrCallData.HandleSampleReportCnt++
-	if f.hndlrbehavior.HandleSampleReportPanic {
+	f.hndlrCallData.HandleSampleReport_Cnt++
+	if f.hndlrbehavior.HandleSampleReport_Panic {
 		panic("HandleSampleReport")
 	}
 
-	f.hndlrCallData.HandleSampleReportInstances = instances
-	return f.hndlrbehavior.HandleSampleReportError
+	f.hndlrCallData.HandleSampleReport_Instances = instances
+	return f.hndlrbehavior.HandleSampleReport_Error
 }
 
 func (f fakeHndlr) Close() error {
-	f.hndlrCallData.CloseCnt++
-	if f.hndlrbehavior.ClosePanic {
+	f.hndlrCallData.Close_Cnt++
+	if f.hndlrbehavior.Close_Panic {
 		panic("Close")
 	}
 
-	return f.hndlrbehavior.CloseError
+	return f.hndlrbehavior.Close_Error
 }
 
 func newSpyAdapter(b adptBehavior) *SpyAdapter {
