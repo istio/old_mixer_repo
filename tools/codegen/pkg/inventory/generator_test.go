@@ -60,9 +60,9 @@ import (
 // Inventory2 returns the inventory of all available adapters.
 func Inventory2() []pkgHndlr.InfoFn {
 	return []pkgHndlr.InfoFn{
-		kubernetes.GetBuilderInfo,
-		noop.GetBuilderInfo,
-		prometheus.GetBuilderInfo,
+		kubernetes.GetInfo,
+		noop.GetInfo,
+		prometheus.GetInfo,
 	}
 }
 `

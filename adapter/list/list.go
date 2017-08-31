@@ -269,8 +269,8 @@ func (h *handler) purgeList() {
 
 ///////////////// Bootstrap ///////////////
 
-// GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
 		Name:               "list-checker",
 		Impl:               "istio.io/mixer/adapter/list",

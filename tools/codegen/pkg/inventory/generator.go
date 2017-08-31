@@ -53,7 +53,7 @@ import(
 // Inventory2 returns the inventory of all available adapters.
 func Inventory2() []pkgHndlr.InfoFn {
 	return []pkgHndlr.InfoFn{
-{{range .}}{{.Package}}.GetBuilderInfo,
+{{range .}}{{.Package}}.GetInfo,
 {{end}}
 	}
 }

@@ -64,9 +64,8 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
-<<<<<<< HEAD
-// GetBuilderInfo returns the BuilderInfo associated with this adapter.
-func GetBuilderInfo() adapter.BuilderInfo {
+// GetInfo returns the BuilderInfo associated with this adapter.
+func GetInfo() pkgHndlr.Info {
 	// prometheus uses a singleton http port, so we make the
 	// builder itself a singleton, when defaultAddr become configurable
 	// srv will be a map[string]server
@@ -74,12 +73,7 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		srv: newServer(defaultAddr),
 	}
 	singletonBuilder.clearState()
-	return adapter.BuilderInfo{
-=======
-// GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
->>>>>>> Clean build
 		Name:        "prometheus",
 		Impl:        "istio.io/mixer/adapter/prometheus",
 		Description: "Publishes prometheus metrics",

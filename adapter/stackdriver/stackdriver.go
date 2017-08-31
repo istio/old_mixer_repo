@@ -104,8 +104,8 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
-// GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
 		Name:        "stackdriver",
 		Impl:        "istio.io/mixer/adapter/stackdriver",
