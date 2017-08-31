@@ -49,7 +49,7 @@ func GetCnfgs(srvcCnfg, attrCnfg string) (dir string) {
 // the constructed spyAdapters along with the adapters Info functions.
 func CnstrAdapterInfos(adptBehaviors []adptBehavior) ([]adapter.InfoFn, []*spyAdapter) {
 	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
-	var spyAdapters []*spyAdapter = make([]*spyAdapter, 0)
+	spyAdapters := make([]*spyAdapter, 0)
 	for _, b := range adptBehaviors {
 		sa := newSpyAdapter(b)
 		spyAdapters = append(spyAdapters, sa)
@@ -107,11 +107,9 @@ func CmpMapAndErr(msg string, t *testing.T, act, exp interface{}) {
 	for wk, wv := range want {
 		if v, found := got[wk]; !found {
 			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-			return
 		} else {
 			if !reflect.DeepEqual(wv, v) {
 				t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-				return
 			}
 		}
 	}

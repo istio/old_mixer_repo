@@ -34,11 +34,11 @@ type (
 	fakeBldr struct {
 		// return values from the builder
 		bldrbehavior builderBehavior
-		// records input to the builder function.
-		bldrCallData *bldrCallData
-
 		// return values from the handler
 		hndlrbehavior hndlrBehavior
+
+		// records input to the builder function.
+		bldrCallData *bldrCallData
 		// records input to the handler function.
 		hndlrCallData *hndlrCallData
 	}
@@ -55,20 +55,20 @@ type (
 	adptBehavior struct {
 		// adapter name
 		name string
-		// handler behavior (return values + should panic)
-		hndlrBehavior hndlrBehavior
 		// builder behavior (return values + should panic)
 		bldrBehavior builderBehavior
+		// handler behavior (return values + should panic)
+		hndlrBehavior hndlrBehavior
 	}
 
 	hndlrBehavior struct {
 		// error to returned
 		HandleSampleReport_error error
-		// should panic
-		HandleSampleReport_panic bool
-
 		// error to returned
 		Close_error error
+
+		// should panic
+		HandleSampleReport_panic bool
 		// should panic
 		Close_panic bool
 	}
@@ -86,11 +86,11 @@ type (
 	builderBehavior struct {
 		// error to returned
 		ConfigureSampleReportHandler_err error
-		// should panic
-		ConfigureSampleReportHandler_panic bool
-
 		// error to return
 		Build_err error
+
+		// should panic
+		ConfigureSampleReportHandler_panic bool
 		// should panic
 		Build_panic bool
 	}
@@ -172,3 +172,9 @@ func (s *spyAdapter) getAdptInfoFn() adapter.InfoFn {
 		}
 	}
 }
+
+/*
+I0831 21:54:01.727] test/e2e/spyadapter.go:55:2:warning: struct adptBehavior could have size 104 (currently 112) (aligncheck)
+I0831 21:54:01.727] test/e2e/spyadapter.go:64:2:warning: struct hndlrBehavior could have size 40 (currently 48) (aligncheck)
+I0831 21:54:01.728] test/e2e/spyadapter.go:86:2:warning: struct builderBehavior could have size 40 (currently 48) (aligncheck)
+*/
