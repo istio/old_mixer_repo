@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"text/template"
 	"time"
 
@@ -46,6 +48,7 @@ type (
 		labels []string
 		tmpl   *template.Template
 		req    *config.Params_LogInfo_HttpRequestMapping
+		log    logFn
 	}
 
 	handler struct {
@@ -53,12 +56,12 @@ type (
 
 		l      adapter.Logger
 		client io.Closer
-		log    logFn
 		info   map[string]info
 	}
 )
 
 var (
+	// compile-time assertion that we implement the interfaces we promise
 	_ logentry.HandlerBuilder = &builder{}
 	_ logentry.Handler        = &handler{}
 )
@@ -76,6 +79,14 @@ func (b *builder) ConfigureLogEntryHandler(types map[string]*logentry.Type) erro
 func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	logger := env.Logger()
 	cfg := c.(*config.Params)
+	client, err := b.makeClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stackdriver logging client: %v", err)
+	}
+	client.OnError = func(err error) {
+		_ = logger.Errorf("Stackdriver logger failed with: %v", err)
+	}
+
 	infos := make(map[string]info)
 	for name, log := range cfg.LogInfo {
 		_, found := b.types[name]
@@ -92,14 +103,10 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 			labels: log.LabelNames,
 			tmpl:   tmpl,
 			req:    log.HttpMapping,
+			log:    client.Logger(name).Log,
 		}
 	}
-
-	client, err := b.makeClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stackdriver logging client: %v", err)
-	}
-	return &handler{log: client.Logger("istio-mixer").Log, client: client, now: time.Now, l: logger}, nil
+	return &handler{client: client, now: time.Now, l: logger}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
@@ -118,10 +125,9 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 		payload := buf.String()
 		pool.PutBuffer(buf)
 
-		h.log(logging.Entry{
+		linfo.log(logging.Entry{
 			Timestamp:   h.now(), // TODO: use timestamp on Instance when timestamps work
 			Severity:    logging.ParseSeverity(v.Severity),
-			LogName:     v.Name,
 			Labels:      toLabelMap(linfo.labels, v.Variables),
 			Payload:     payload,
 			HTTPRequest: toReq(linfo.req, v.Variables),
@@ -149,37 +155,44 @@ func toLabelMap(names []string, variables map[string]interface{}) map[string]str
 }
 
 func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[string]interface{}) *logging.HTTPRequest {
-	req := &logging.HTTPRequest{}
-	if mapping != nil {
-		reqs := variables[mapping.RequestSize]
-		if reqsize, ok := toInt64(reqs); ok {
-			req.RequestSize = reqsize
-		}
+	if mapping == nil {
+		return nil
+	}
 
-		resps := variables[mapping.ResponseSize]
-		if respsize, ok := toInt64(resps); ok {
-			req.ResponseSize = respsize
-		}
+	// Required to make the Stackdriver client lib not barf.
+	// TODO: see if we can plumb the URL through to here to populate this meaningfully.
+	req := &logging.HTTPRequest{
+		Request: &http.Request{URL: &url.URL{}},
+	}
 
-		code := variables[mapping.Status]
-		if status, ok := code.(int); ok {
-			req.Status = status
-		}
+	reqs := variables[mapping.RequestSize]
+	if reqsize, ok := toInt64(reqs); ok {
+		req.RequestSize = reqsize
+	}
 
-		l := variables[mapping.Latency]
-		if latency, ok := l.(time.Duration); ok {
-			req.Latency = latency
-		}
+	resps := variables[mapping.ResponseSize]
+	if respsize, ok := toInt64(resps); ok {
+		req.ResponseSize = respsize
+	}
 
-		lip := variables[mapping.LocalIp]
-		if localip, ok := lip.(string); ok {
-			req.LocalIP = localip
-		}
+	code := variables[mapping.Status]
+	if status, ok := code.(int); ok {
+		req.Status = status
+	}
 
-		rip := variables[mapping.RemoteIp]
-		if remoteip, ok := rip.(string); ok {
-			req.RemoteIP = remoteip
-		}
+	l := variables[mapping.Latency]
+	if latency, ok := l.(time.Duration); ok {
+		req.Latency = latency
+	}
+
+	lip := variables[mapping.LocalIp]
+	if localip, ok := lip.(string); ok {
+		req.LocalIP = localip
+	}
+
+	rip := variables[mapping.RemoteIp]
+	if remoteip, ok := rip.(string); ok {
+		req.RemoteIP = remoteip
 	}
 	return req
 }

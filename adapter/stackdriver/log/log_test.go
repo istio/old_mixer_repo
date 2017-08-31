@@ -17,6 +17,8 @@ package log
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -93,6 +95,7 @@ func TestBuild(t *testing.T) {
 
 func TestHandleLogEntry(t *testing.T) {
 	now := time.Now()
+	log := func(entry logging.Entry) {}
 
 	tests := []struct {
 		name     string
@@ -103,42 +106,36 @@ func TestHandleLogEntry(t *testing.T) {
 		{"empty", map[string]info{}, []*logentry.Instance{}, []logging.Entry{}},
 		{"missing", map[string]info{}, []*logentry.Instance{{Name: "missing"}}, []logging.Entry{}},
 		{"happy",
-			map[string]info{"happy": {tmpl: template.Must(template.New("").Parse("literal"))}},
+			map[string]info{"happy": {tmpl: template.Must(template.New("").Parse("literal")), log: log}},
 			[]*logentry.Instance{{Name: "happy"}},
 			[]logging.Entry{
 				{
-					Timestamp:   now,
-					Severity:    logging.Default,
-					LogName:     "happy",
-					Labels:      map[string]string{},
-					Payload:     "literal",
-					HTTPRequest: &logging.HTTPRequest{},
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{},
+					Payload:   "literal",
 				},
 			}},
 		{"labels",
-			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo", "time"}}},
+			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo", "time"}, log: log}},
 			[]*logentry.Instance{{Name: "labels", Variables: map[string]interface{}{"foo": "bar", "time": now}}},
 			[]logging.Entry{
 				{
-					Timestamp:   now,
-					Severity:    logging.Default,
-					LogName:     "labels",
-					Labels:      map[string]string{"foo": "bar", "time": fmt.Sprintf("%v", now)},
-					Payload:     "literal",
-					HTTPRequest: &logging.HTTPRequest{},
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{"foo": "bar", "time": fmt.Sprintf("%v", now)},
+					Payload:   "literal",
 				},
 			}},
 		{"labels only one",
-			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo"}}},
+			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo"}, log: log}},
 			[]*logentry.Instance{{Name: "labels", Variables: map[string]interface{}{"foo": "bar", "time": fmt.Sprintf("%v", now)}}},
 			[]logging.Entry{
 				{
-					Timestamp:   now,
-					Severity:    logging.Default,
-					LogName:     "labels",
-					Labels:      map[string]string{"foo": "bar"},
-					Payload:     "literal",
-					HTTPRequest: &logging.HTTPRequest{},
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{"foo": "bar"},
+					Payload:   "literal",
 				},
 			}},
 		{"req map",
@@ -153,6 +150,7 @@ func TestHandleLogEntry(t *testing.T) {
 					ResponseSize: "respsize",
 					Latency:      "latency",
 				},
+				log: log,
 			}},
 			[]*logentry.Instance{{
 				Name: "reqmap",
@@ -171,7 +169,6 @@ func TestHandleLogEntry(t *testing.T) {
 				{
 					Timestamp: now,
 					Severity:  logging.Default,
-					LogName:   "reqmap",
 					Labels:    map[string]string{"foo": "bar"},
 					Payload:   "literal",
 					HTTPRequest: &logging.HTTPRequest{
@@ -181,20 +178,19 @@ func TestHandleLogEntry(t *testing.T) {
 						Latency:      time.Second,
 						RequestSize:  123,
 						ResponseSize: 456,
+						Request:      &http.Request{URL: &url.URL{}},
 					},
 				},
 			}},
 		{"template",
-			map[string]info{"template": {tmpl: template.Must(template.New("").Parse("{{.a}}-{{.b}}-{{.c}}"))}},
+			map[string]info{"template": {tmpl: template.Must(template.New("").Parse("{{.a}}-{{.b}}-{{.c}}")), log: log}},
 			[]*logentry.Instance{{Name: "template", Variables: map[string]interface{}{"a": 1, "b": "foo", "c": now}}},
 			[]logging.Entry{
 				{
-					Timestamp:   now,
-					Severity:    logging.Default,
-					LogName:     "template",
-					Labels:      map[string]string{},
-					Payload:     fmt.Sprintf("%d-%s-%v", 1, "foo", now),
-					HTTPRequest: &logging.HTTPRequest{},
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{},
+					Payload:   fmt.Sprintf("%d-%s-%v", 1, "foo", now),
 				},
 			}},
 	}
@@ -202,11 +198,19 @@ func TestHandleLogEntry(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			actuals := make([]logging.Entry, 0)
+			tinfo := make(map[string]info, len(tt.info))
+			for name, i := range tt.info {
+				tinfo[name] = info{
+					labels: i.labels,
+					tmpl:   i.tmpl,
+					req:    i.req,
+					log:    func(entry logging.Entry) { actuals = append(actuals, entry) },
+				}
+			}
 			h := &handler{
-				info: tt.info,
+				info: tinfo,
 				l:    test.NewEnv(t).Logger(),
 				now:  func() time.Time { return now },
-				log:  func(entry logging.Entry) { actuals = append(actuals, entry) },
 			}
 			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {
 				t.Fatalf("Got error while logging, should never happen.")
@@ -243,7 +247,7 @@ func TestHandleLogEntry_Errors(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			env := test.NewEnv(t)
 
-			h := &handler{l: env.Logger(), log: func(entry logging.Entry) {}}
+			h := &handler{l: env.Logger()}
 
 			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {
 				t.Fatalf("Got error while logging, should never happen.")
