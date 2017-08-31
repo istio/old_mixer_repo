@@ -16,19 +16,21 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	"istio.io/api/mixer/v1"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/attribute"
 	"os"
 	"path"
 	"reflect"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+
+	"istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/attribute"
 )
 
 func getCnfgs(srvcCnfg, attrCnfg string) (dir string) {
 	tmpDir := path.Join(os.TempDir(), "e2eStoreDir")
-	os.MkdirAll(tmpDir, os.ModePerm)
+	_ = os.MkdirAll(tmpDir, os.ModePerm)
 
 	srvcCnfgFile, _ := os.Create(path.Join(tmpDir, "srvc.yaml"))
 	globalCnfgFile, _ := os.Create(path.Join(tmpDir, "global.yaml"))
@@ -67,8 +69,8 @@ func getAttrBag(attribs map[string]interface{}) istio_mixer_v1.Attributes {
 }
 
 func cmpSliceAndErr(msg string, t *testing.T, act, exp interface{}) {
-	a := InterfaceSlice(exp)
-	b := InterfaceSlice(act)
+	a := interfaceSlice(exp)
+	b := interfaceSlice(act)
 	if len(a) != len(b) {
 		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
 		return
@@ -90,8 +92,8 @@ func cmpSliceAndErr(msg string, t *testing.T, act, exp interface{}) {
 }
 
 func cmpMapAndErr(msg string, t *testing.T, act, exp interface{}) {
-	want := InterfaceMap(exp)
-	got := InterfaceMap(act)
+	want := interfaceMap(exp)
+	got := interfaceMap(act)
 	if len(want) != len(got) {
 		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
 		return
@@ -111,7 +113,7 @@ func cmpMapAndErr(msg string, t *testing.T, act, exp interface{}) {
 	return
 }
 
-func InterfaceSlice(slice interface{}) []interface{} {
+func interfaceSlice(slice interface{}) []interface{} {
 	s := reflect.ValueOf(slice)
 
 	ret := make([]interface{}, s.Len())
@@ -122,7 +124,7 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	return ret
 }
 
-func InterfaceMap(m interface{}) map[interface{}]interface{} {
+func interfaceMap(m interface{}) map[interface{}]interface{} {
 	s := reflect.ValueOf(m)
 
 	ret := make(map[interface{}]interface{}, s.Len())

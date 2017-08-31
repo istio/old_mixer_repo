@@ -16,7 +16,12 @@ package e2e
 
 import (
 	"fmt"
+	"net"
+	"testing"
+	"time"
+
 	"google.golang.org/grpc"
+
 	"istio.io/api/mixer/v1"
 	adp "istio.io/mixer/adapter"
 	"istio.io/mixer/pkg/adapter"
@@ -30,9 +35,6 @@ import (
 	"istio.io/mixer/pkg/pool"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
 	"istio.io/mixer/pkg/template"
-	"net"
-	"testing"
-	"time"
 )
 
 const (

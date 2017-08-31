@@ -17,9 +17,10 @@
 package e2e
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/types"
 
-	"context"
 	"istio.io/mixer/pkg/adapter"
 	reportTmpl "istio.io/mixer/test/e2e/template/report"
 )

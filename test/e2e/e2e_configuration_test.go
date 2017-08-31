@@ -16,13 +16,14 @@ package e2e
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/template"
 	e2eTmpl "istio.io/mixer/test/e2e/template"
 	reportTmpl "istio.io/mixer/test/e2e/template/report"
-	"os"
-	"testing"
 )
 
 const (
@@ -101,7 +102,7 @@ func TestReport(t *testing.T) {
 		{
 			name:          "Report",
 			oprtrCnfg:     reportTestCnfg,
-			adptBehaviors: []adptBehavior{adptBehavior{name: "fakeHandler"}},
+			adptBehaviors: []adptBehavior{{name: "fakeHandler"}},
 			templates:     e2eTmpl.SupportedTmplInfo,
 			attribs:       map[string]interface{}{"target.name": "somesrvcname"},
 			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter) {
@@ -119,7 +120,7 @@ func TestReport(t *testing.T) {
 
 				cmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_instances,
 					[]*reportTmpl.Instance{
-						&reportTmpl.Instance{
+						{
 							Name:       "reportInstance",
 							Value:      int64(2),
 							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},

@@ -29,7 +29,6 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/template"
-
 	"istio.io/mixer/test/e2e/template/report"
 )
 
