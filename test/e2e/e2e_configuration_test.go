@@ -145,7 +145,7 @@ func TestReport(t *testing.T) {
 		defer ts.cleanupTestState()
 
 		req := istio_mixer_v1.ReportRequest{Attributes: []istio_mixer_v1.Attributes{getAttrBag(tt.attribs)}}
-		_, err := ts.server.Report(context.Background(), &req)
+		_, err := ts.client.Report(context.Background(), &req)
 
 		tt.validate(t, err, spyAdapters)
 	}
