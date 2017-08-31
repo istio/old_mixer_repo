@@ -70,7 +70,7 @@ type CreateHandlerBuilderFn func() adapter.HandlerBuilder
 // runtime traffic to the particular Handler.
 type NewHandlerFn func(context.Context, adapter.Env, *HandlerConfig) (adapter.Handler, error)
 
-// ValidateConfigFn is a function that determines whether the given handler configuration meets all
+// ValidateConfigFn2 is a function that determines whether the given handler configuration meets all
 // correctness requirements.
 type ValidateConfigFn2 func(*HandlerConfig) *adapter.ConfigErrors
 
