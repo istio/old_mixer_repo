@@ -42,7 +42,8 @@ const (
 	identityDomainAttribute = "svc.cluster.local"
 )
 
-type testState struct {
+// TestState represents a in-memory Mixer instance.
+type TestState struct {
 	client     istio_mixer_v1.MixerClient
 	gs         *grpc.Server
 	gp         *pool.GoroutinePool
@@ -50,8 +51,8 @@ type testState struct {
 	connection *grpc.ClientConn
 }
 
-// fail fatal if dispatcher cannot be constructed
-func initMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn, tmplInfos map[string]template.Info) *testState {
+// InitMixer creates an in memory mixer, and returns TestState associated with it.
+func InitMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn, tmplInfos map[string]template.Info) *TestState {
 	// TODO replace
 	useIL := false
 	apiPoolSize := 1024
@@ -109,7 +110,7 @@ func initMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn,
 	}
 	configManager.Start()
 
-	ts := testState{}
+	ts := TestState{}
 	ts.server = api.NewGRPCServer(adapterMgr, dispatcher, gp)
 
 	// get the network stuff setup
@@ -145,12 +146,12 @@ func initMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn,
 	return &ts
 }
 
-func (ts *testState) deleteGRPCServer() {
+func (ts *TestState) deleteGRPCServer() {
 	ts.gs.GracefulStop()
 	ts.gp.Close()
 }
 
-func (ts *testState) createAPIClient(dial string) error {
+func (ts *TestState) createAPIClient(dial string) error {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 
@@ -163,12 +164,12 @@ func (ts *testState) createAPIClient(dial string) error {
 	return nil
 }
 
-func (ts *testState) cleanupTestState() {
+func (ts *TestState) cleanupTestState() {
 	ts.deleteAPIClient()
 	ts.deleteGRPCServer()
 }
 
-func (ts *testState) deleteAPIClient() {
+func (ts *TestState) deleteAPIClient() {
 	_ = ts.connection.Close()
 	ts.client = nil
 	ts.connection = nil

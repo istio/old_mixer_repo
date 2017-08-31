@@ -109,7 +109,7 @@ func TestReport(t *testing.T) {
 
 				adptr := spyAdpts[0]
 
-				cmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandler_types,
+				CmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandler_types,
 					map[string]interface{}{
 						"reportInstance": &reportTmpl.Type{
 							Value:      pb.INT64,
@@ -118,7 +118,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				cmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_instances,
+				CmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_instances,
 					[]*reportTmpl.Instance{
 						{
 							Name:       "reportInstance",
@@ -131,7 +131,7 @@ func TestReport(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		configDir := getCnfgs(tt.oprtrCnfg, globalCnfg)
+		configDir := GetCnfgs(tt.oprtrCnfg, globalCnfg)
 		defer func() {
 			if !t.Failed() {
 				_ = os.RemoveAll(configDir)
@@ -140,12 +140,12 @@ func TestReport(t *testing.T) {
 			}
 		}() // nolint: gas
 
-		adapterInfos, spyAdapters := cnstrAdapterInfos(tt.adptBehaviors)
+		adapterInfos, spyAdapters := CnstrAdapterInfos(tt.adptBehaviors)
 
-		ts := initMixer(t, "fs://"+configDir, adapterInfos, tt.templates)
+		ts := InitMixer(t, "fs://"+configDir, adapterInfos, tt.templates)
 		defer ts.cleanupTestState()
 
-		req := istio_mixer_v1.ReportRequest{Attributes: []istio_mixer_v1.Attributes{getAttrBag(tt.attribs)}}
+		req := istio_mixer_v1.ReportRequest{Attributes: []istio_mixer_v1.Attributes{GetAttributes(tt.attribs)}}
 		_, err := ts.client.Report(context.Background(), &req)
 
 		tt.validate(t, err, spyAdapters)

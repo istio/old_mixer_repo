@@ -28,7 +28,8 @@ import (
 	"istio.io/mixer/pkg/attribute"
 )
 
-func getCnfgs(srvcCnfg, attrCnfg string) (dir string) {
+// GetCnfgs takes the operator configuration as strings and creates directory with config files from it.
+func GetCnfgs(srvcCnfg, attrCnfg string) (dir string) {
 	tmpDir := path.Join(os.TempDir(), "e2eStoreDir")
 	_ = os.MkdirAll(tmpDir, os.ModePerm)
 
@@ -44,8 +45,9 @@ func getCnfgs(srvcCnfg, attrCnfg string) (dir string) {
 	return tmpDir
 }
 
-// return adapterInfoFns + corresponding SkyAdapter object.
-func cnstrAdapterInfos(adptBehaviors []adptBehavior) ([]adapter.InfoFn, []*spyAdapter) {
+// CnstrAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
+// the constructed spyAdapters along with the adapters Info functions.
+func CnstrAdapterInfos(adptBehaviors []adptBehavior) ([]adapter.InfoFn, []*spyAdapter) {
 	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
 	var spyAdapters []*spyAdapter = make([]*spyAdapter, 0)
 	for _, b := range adptBehaviors {
@@ -56,7 +58,8 @@ func cnstrAdapterInfos(adptBehaviors []adptBehavior) ([]adapter.InfoFn, []*spyAd
 	return adapterInfos, spyAdapters
 }
 
-func getAttrBag(attribs map[string]interface{}) istio_mixer_v1.Attributes {
+// GetAttributes returns mixer Attributes
+func GetAttributes(attribs map[string]interface{}) istio_mixer_v1.Attributes {
 	requestBag := attribute.GetMutableBag(nil)
 	requestBag.Set(configIdentityAttribute, identityDomainAttribute)
 	for k, v := range attribs {
@@ -68,7 +71,8 @@ func getAttrBag(attribs map[string]interface{}) istio_mixer_v1.Attributes {
 	return attrs
 }
 
-func cmpSliceAndErr(msg string, t *testing.T, act, exp interface{}) {
+// CmpSliceAndErr compares two slices
+func CmpSliceAndErr(msg string, t *testing.T, act, exp interface{}) {
 	a := interfaceSlice(exp)
 	b := interfaceSlice(act)
 	if len(a) != len(b) {
@@ -91,7 +95,8 @@ func cmpSliceAndErr(msg string, t *testing.T, act, exp interface{}) {
 	return
 }
 
-func cmpMapAndErr(msg string, t *testing.T, act, exp interface{}) {
+// CmpMapAndErr compares two maps
+func CmpMapAndErr(msg string, t *testing.T, act, exp interface{}) {
 	want := interfaceMap(exp)
 	got := interfaceMap(act)
 	if len(want) != len(got) {
