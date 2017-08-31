@@ -94,7 +94,7 @@ type testData struct {
 	adptBehaviors []adptBehavior
 	templates     map[string]template.Info
 	attribs       map[string]interface{}
-	validate      func(t *testing.T, err error, sypAdpts []*spyAdapter)
+	validate      func(t *testing.T, err error, sypAdpts []*SpyAdapter)
 }
 
 func TestReport(t *testing.T) {
@@ -105,11 +105,11 @@ func TestReport(t *testing.T) {
 			adptBehaviors: []adptBehavior{{name: "fakeHandler"}},
 			templates:     e2eTmpl.SupportedTmplInfo,
 			attribs:       map[string]interface{}{"target.name": "somesrvcname"},
-			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter) {
+			validate: func(t *testing.T, err error, spyAdpts []*SpyAdapter) {
 
 				adptr := spyAdpts[0]
 
-				CmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandler_types,
+				CmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandlerTypes,
 					map[string]interface{}{
 						"reportInstance": &reportTmpl.Type{
 							Value:      pb.INT64,
@@ -118,7 +118,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				CmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_instances,
+				CmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReportInstances,
 					[]*reportTmpl.Instance{
 						{
 							Name:       "reportInstance",

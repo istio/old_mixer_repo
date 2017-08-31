@@ -47,9 +47,9 @@ func GetCnfgs(srvcCnfg, attrCnfg string) (dir string) {
 
 // CnstrAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
 // the constructed spyAdapters along with the adapters Info functions.
-func CnstrAdapterInfos(adptBehaviors []adptBehavior) ([]adapter.InfoFn, []*spyAdapter) {
+func CnstrAdapterInfos(adptBehaviors []adptBehavior) ([]adapter.InfoFn, []*SpyAdapter) {
 	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
-	spyAdapters := make([]*spyAdapter, 0)
+	spyAdapters := make([]*SpyAdapter, 0)
 	for _, b := range adptBehaviors {
 		sa := newSpyAdapter(b)
 		spyAdapters = append(spyAdapters, sa)

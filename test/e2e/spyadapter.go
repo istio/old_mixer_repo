@@ -43,7 +43,9 @@ type (
 		hndlrCallData *hndlrCallData
 	}
 
-	spyAdapter struct {
+	// SpyAdapter is a fake Adapter. It is used for controlling the Adapter's behavior as well as
+	// inspect the input values that adapter receives from Mixer
+	SpyAdapter struct {
 		// builder and handler behavior
 		behavior adptBehavior
 		// records input to the builder function.
@@ -63,95 +65,95 @@ type (
 
 	hndlrBehavior struct {
 		// error to returned
-		HandleSampleReport_error error
+		HandleSampleReportError error
 		// error to returned
-		Close_error error
+		CloseError error
 
 		// should panic
-		HandleSampleReport_panic bool
+		HandleSampleReportPanic bool
 		// should panic
-		Close_panic bool
+		ClosePanic bool
 	}
 
 	hndlrCallData struct {
 		// input to the method
-		HandleSampleReport_instances []*reportTmpl.Instance
+		HandleSampleReportInstances []*reportTmpl.Instance
 		// no of time called
-		HandleSampleReport_cnt int
+		HandleSampleReportCnt int
 
 		// no of time called
-		Close_cnt int
+		CloseCnt int
 	}
 
 	builderBehavior struct {
 		// error to returned
-		ConfigureSampleReportHandler_err error
+		ConfigureSampleReportHandlerErr error
 		// error to return
-		Build_err error
+		BuildErr error
 
 		// should panic
-		ConfigureSampleReportHandler_panic bool
+		ConfigureSampleReportHandlerPanic bool
 		// should panic
-		Build_panic bool
+		BuildPanic bool
 	}
 
 	bldrCallData struct {
 		// no of time called
-		ConfigureSampleReportHandler_cnt int
+		ConfigureSampleReportHandlerCnt int
 		// input to the method
-		ConfigureSampleReportHandler_types map[string]*reportTmpl.Type
+		ConfigureSampleReportHandlerTypes map[string]*reportTmpl.Type
 
 		// no of time called
-		Build_cnt int
+		BuildCnt int
 		// input to the method
-		Build_adptCnfg adapter.Config
+		BuildAdptCnfg adapter.Config
 	}
 )
 
 func (f fakeBldr) Build(cnfg adapter.Config, _ adapter.Env) (adapter.Handler, error) {
-	f.bldrCallData.Build_cnt++
-	if f.bldrbehavior.Build_panic {
+	f.bldrCallData.BuildCnt++
+	if f.bldrbehavior.BuildPanic {
 		panic("Build")
 	}
 
-	f.bldrCallData.Build_adptCnfg = cnfg
+	f.bldrCallData.BuildAdptCnfg = cnfg
 	hndlr := fakeHndlr{hndlrbehavior: f.hndlrbehavior, hndlrCallData: f.hndlrCallData}
-	return hndlr, f.bldrbehavior.Build_err
+	return hndlr, f.bldrbehavior.BuildErr
 }
 func (f fakeBldr) ConfigureSampleReportHandler(typeParams map[string]*reportTmpl.Type) error {
-	f.bldrCallData.ConfigureSampleReportHandler_cnt++
-	if f.bldrbehavior.ConfigureSampleReportHandler_panic {
+	f.bldrCallData.ConfigureSampleReportHandlerCnt++
+	if f.bldrbehavior.ConfigureSampleReportHandlerPanic {
 		panic("ConfigureSampleReportHandler")
 	}
 
-	f.bldrCallData.ConfigureSampleReportHandler_types = typeParams
-	return f.bldrbehavior.ConfigureSampleReportHandler_err
+	f.bldrCallData.ConfigureSampleReportHandlerTypes = typeParams
+	return f.bldrbehavior.ConfigureSampleReportHandlerErr
 }
 
 func (f fakeHndlr) HandleSampleReport(ctx context.Context, instances []*reportTmpl.Instance) error {
-	f.hndlrCallData.HandleSampleReport_cnt++
-	if f.hndlrbehavior.HandleSampleReport_panic {
+	f.hndlrCallData.HandleSampleReportCnt++
+	if f.hndlrbehavior.HandleSampleReportPanic {
 		panic("HandleSampleReport")
 	}
 
-	f.hndlrCallData.HandleSampleReport_instances = instances
-	return f.hndlrbehavior.HandleSampleReport_error
+	f.hndlrCallData.HandleSampleReportInstances = instances
+	return f.hndlrbehavior.HandleSampleReportError
 }
 
 func (f fakeHndlr) Close() error {
-	f.hndlrCallData.Close_cnt++
-	if f.hndlrbehavior.Close_panic {
+	f.hndlrCallData.CloseCnt++
+	if f.hndlrbehavior.ClosePanic {
 		panic("Close")
 	}
 
-	return f.hndlrbehavior.Close_error
+	return f.hndlrbehavior.CloseError
 }
 
-func newSpyAdapter(b adptBehavior) *spyAdapter {
-	return &spyAdapter{behavior: b, bldrCallData: &bldrCallData{}, hndlrCallData: &hndlrCallData{}}
+func newSpyAdapter(b adptBehavior) *SpyAdapter {
+	return &SpyAdapter{behavior: b, bldrCallData: &bldrCallData{}, hndlrCallData: &hndlrCallData{}}
 }
 
-func (s *spyAdapter) getAdptInfoFn() adapter.InfoFn {
+func (s *SpyAdapter) getAdptInfoFn() adapter.InfoFn {
 	return func() adapter.BuilderInfo {
 		return adapter.BuilderInfo{
 			Name:               s.behavior.name,
