@@ -60,7 +60,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestServerInst_Close(t *testing.T) {
-	testAddr := "127.0.0.1:9992"
+	testAddr := "127.0.0.1:0"
 	s := newServer(testAddr)
 	env := test.NewEnv(t)
 
