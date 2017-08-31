@@ -17,10 +17,8 @@
 package prometheus
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
-	"encoding/gob"
 	"fmt"
 	"math"
 	"strconv"
@@ -71,10 +69,9 @@ func GetBuilderInfo() adapter.BuilderInfo {
 	// builder itself a singleton, when defaultAddr become configurable
 	// srv will be a map[string]server
 	singletonBuilder := &builder{
-		srv:      newServer(defaultAddr),
-		registry: prometheus.NewPedanticRegistry(),
-		metrics:  make(map[string]*cinfo),
+		srv: newServer(defaultAddr),
 	}
+	singletonBuilder.clearState()
 	return adapter.BuilderInfo{
 		Name:        "prometheus",
 		Impl:        "istio.io/mixer/adapter/prometheus",
@@ -88,6 +85,11 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		DefaultConfig:  &config.Params{},
 		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
+}
+
+func (b *builder) clearState() {
+	b.registry = prometheus.NewPedanticRegistry()
+	b.metrics = make(map[string]*cinfo)
 }
 
 func (b *builder) ConfigureMetricHandler(map[string]*metric.Type) error { return nil }
@@ -121,8 +123,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 
 		// sha does not match.
 		env.Logger().Warningf("Metric %s redefined. Reloading adapter.", m.Name)
-		b.registry = prometheus.NewPedanticRegistry()
-		b.metrics = make(map[string]*cinfo)
+		b.clearState()
 		// consider all configured metrics to be "new".
 		newMetrics = cfg.Metrics
 		break
@@ -328,11 +329,9 @@ func promLabels(l map[string]interface{}) prometheus.Labels {
 }
 
 func computeSha(m *config.Params_MetricInfo, log adapter.Logger) [sha1.Size]byte {
-	var buff bytes.Buffer
-	enc := gob.NewEncoder(&buff)
-
-	if err := enc.Encode(m); err != nil {
+	ba, err := m.Marshal()
+	if err != nil {
 		log.Warningf("Unable to encode %v", err)
 	}
-	return sha1.Sum(buff.Bytes())
+	return sha1.Sum(ba)
 }

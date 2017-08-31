@@ -91,10 +91,10 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) (err er
 	srvMux := http.NewServeMux()
 	s.handler = &metaHandler{delegate: metricsHandler}
 	srvMux.Handle(metricsPath, s.handler)
-	s.srv = &http.Server{Addr: s.addr, Handler: srvMux}
+	srv := &http.Server{Addr: s.addr, Handler: srvMux}
 	env.ScheduleDaemon(func() {
 		env.Logger().Infof("serving prometheus metrics on %s", s.addr)
-		if err := s.srv.Serve(listener.(*net.TCPListener)); err != nil {
+		if err := srv.Serve(listener.(*net.TCPListener)); err != nil {
 			if err == http.ErrServerClosed {
 				env.Logger().Infof("HTTP server stopped")
 			} else {
@@ -102,6 +102,7 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) (err er
 			}
 		}
 	})
+	s.srv = srv
 	s.refCnt++
 
 	return nil
