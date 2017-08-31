@@ -26,12 +26,15 @@ import (
 )
 
 type (
-	fakeHndlr struct { //nolint: aligncheck
+
+	// nolint
+	fakeHndlr struct {
 		hndlrbehavior hndlrBehavior
 		hndlrCallData *hndlrCallData
 	}
 
-	fakeBldr struct { //nolint: aligncheck
+	// nolint
+	fakeBldr struct {
 		// return values from the builder
 		bldrbehavior builderBehavior
 		// return values from the handler
@@ -45,6 +48,7 @@ type (
 
 	// SpyAdapter is a fake Adapter. It is used for controlling the Adapter's behavior as well as
 	// inspect the input values that adapter receives from Mixer
+	// nolint
 	SpyAdapter struct {
 		// builder and handler behavior
 		behavior adptBehavior
@@ -54,6 +58,7 @@ type (
 		hndlrCallData *hndlrCallData
 	}
 
+	// nolint
 	adptBehavior struct {
 		// adapter name
 		name string
@@ -178,9 +183,3 @@ func (s *SpyAdapter) getAdptInfoFn() adapter.InfoFn {
 		}
 	}
 }
-
-/*
-I0831 21:54:01.727] test/e2e/spyadapter.go:55:2:warning: struct adptBehavior could have size 104 (currently 112) (aligncheck)
-I0831 21:54:01.727] test/e2e/spyadapter.go:64:2:warning: struct hndlrBehavior could have size 40 (currently 48) (aligncheck)
-I0831 21:54:01.728] test/e2e/spyadapter.go:86:2:warning: struct builderBehavior could have size 40 (currently 48) (aligncheck)
-*/
