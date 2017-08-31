@@ -15,11 +15,13 @@
 package prometheus
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"istio.io/mixer/pkg/adapter"
 )
@@ -34,9 +36,10 @@ type (
 	serverInst struct {
 		addr string
 
-		lock    sync.Mutex
+		lock    sync.Mutex // protects resources below
 		srv     *http.Server
 		handler *metaHandler
+		refCnt  int
 	}
 )
 
@@ -45,7 +48,7 @@ const (
 	defaultAddr = ":42422"
 )
 
-func newServer(addr string) server {
+func newServer(addr string) *serverInst {
 	return &serverInst{addr: addr}
 }
 
@@ -74,7 +77,8 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) (err er
 
 	// if server is already running,
 	// just switch the delegate handler.
-	if s.handler != nil {
+	if s.srv != nil {
+		s.refCnt++
 		s.handler.setDelegate(metricsHandler)
 		return nil
 	}
@@ -91,14 +95,39 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) (err er
 	env.ScheduleDaemon(func() {
 		env.Logger().Infof("serving prometheus metrics on %s", s.addr)
 		if err := s.srv.Serve(listener.(*net.TCPListener)); err != nil {
-			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
+			if err == http.ErrServerClosed {
+				env.Logger().Infof("HTTP server stopped")
+			} else {
+				_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
+			}
 		}
 	})
+	s.refCnt++
 
 	return nil
 }
 
-// Close -- server once started should not be closed.
+// Close -- closes the HTTP server if reference Count is 0.
 func (s *serverInst) Close() error {
-	return nil
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	// not started yet, nothing to close.
+	if s.srv == nil {
+		return nil
+	}
+
+	s.refCnt--
+	if s.refCnt > 0 {
+		return nil
+	}
+
+	// reference count is 0, cleanup.
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	srv := s.srv
+	s.srv = nil
+	s.handler = nil
+	return srv.Shutdown(ctx)
 }

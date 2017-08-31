@@ -31,10 +31,10 @@ import (
 )
 
 type testServer struct {
-	server
-
 	errOnStart bool
 }
+
+var _ server = &testServer{}
 
 func (t testServer) Start(adapter.Env, http.Handler) error {
 	if t.errOnStart {

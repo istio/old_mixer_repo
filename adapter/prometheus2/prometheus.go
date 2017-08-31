@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -101,9 +100,10 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	// newMetrics collects new metric configuration
 	newMetrics := make([]*config.Params_MetricInfo, 0, len(cfg.Metrics))
 
-	// check for metric redefinition - if metric is redefined clear
-	// metric state: registry, metric map.
-	// Addition or removal of metrics is ok.
+	// Check for metric redefinition.
+	// If a metric is redefined clear the metric registry and metric map.
+	// prometheus client panics on metric redefinition.
+	// Addition and removal of metrics is ok.
 	var cl *cinfo
 	for _, m := range cfg.Metrics {
 		// metric is not found in the current metric table
@@ -115,25 +115,26 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 
 		// metric collector found and sha matches
 		// safe to reuse the existing collector.
-		if cl.sha == computeSha(m) {
+		if cl.sha == computeSha(m, env.Logger()) {
 			continue
 		}
 
 		// sha does not match.
-		glog.Warningf("Metric %s redefined. Reloading adapter.", m.Name)
+		env.Logger().Warningf("Metric %s redefined. Reloading adapter.", m.Name)
 		b.registry = prometheus.NewPedanticRegistry()
-		newMetrics = cfg.Metrics
 		b.metrics = make(map[string]*cinfo)
+		// consider all configured metrics to be "new".
+		newMetrics = cfg.Metrics
 		break
 	}
 
-	if glog.V(4) {
-		glog.Infof("%d new metrics defined", len(newMetrics))
+	if env.Logger().VerbosityLevel(4) {
+		env.Logger().Infof("%d new metrics defined", len(newMetrics))
 	}
 
 	var err error
 	for _, m := range newMetrics {
-		ci := &cinfo{kind: m.Kind, sha: computeSha(m)}
+		ci := &cinfo{kind: m.Kind, sha: computeSha(m, env.Logger())}
 		switch m.Kind {
 		case config.GAUGE:
 			ci.c, err = registerOrGet(b.registry, newGaugeVec(m.Name, m.Description, m.LabelNames))
@@ -172,8 +173,8 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 	var result *multierror.Error
 
 	for _, val := range vals {
-		ci, found := h.metrics[val.Name]
-		if !found {
+		ci := h.metrics[val.Name]
+		if ci == nil {
 			result = multierror.Append(result, fmt.Errorf("could not find metric info from adapter config for %s", val.Name))
 			continue
 		}
@@ -326,12 +327,12 @@ func promLabels(l map[string]interface{}) prometheus.Labels {
 	return labels
 }
 
-func computeSha(m *config.Params_MetricInfo) [sha1.Size]byte {
+func computeSha(m *config.Params_MetricInfo, log adapter.Logger) [sha1.Size]byte {
 	var buff bytes.Buffer
 	enc := gob.NewEncoder(&buff)
 
 	if err := enc.Encode(m); err != nil {
-		glog.Warningf("Unable to encode %v", err)
+		log.Warningf("Unable to encode %v", err)
 	}
 	return sha1.Sum(buff.Bytes())
 }
