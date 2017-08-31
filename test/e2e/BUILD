@@ -7,7 +7,7 @@ go_test(
     name = "go_default_test_e2e",
     size = "small",
     srcs = [
-        "e2e_configuration_test.go",
+        "e2e_report_test.go",
         "spyadapter.go",
         "teststate.go",
         "util.go",
