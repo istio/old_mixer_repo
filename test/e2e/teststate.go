@@ -46,12 +46,12 @@ type testState struct {
 	client     istio_mixer_v1.MixerClient
 	gs         *grpc.Server
 	gp         *pool.GoroutinePool
-	s          istio_mixer_v1.MixerServer
+	server     istio_mixer_v1.MixerServer
 	connection *grpc.ClientConn
 }
 
 // fail fatal if dispatcher cannot be constructed
-func getDispatcher(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn, tmplInfos map[string]template.Info) *testState {
+func initMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn, tmplInfos map[string]template.Info) *testState {
 	// TODO replace
 	useIL := false
 	apiPoolSize := 1024
@@ -110,7 +110,7 @@ func getDispatcher(t *testing.T, configStore2URL string, adptInfos []adapter.Inf
 	configManager.Start()
 
 	ts := testState{}
-	ts.s = api.NewGRPCServer(adapterMgr, dispatcher, gp)
+	ts.server = api.NewGRPCServer(adapterMgr, dispatcher, gp)
 
 	// get the network stuff setup
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
@@ -128,7 +128,7 @@ func getDispatcher(t *testing.T, configStore2URL string, adptInfos []adapter.Inf
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	istio_mixer_v1.RegisterMixerServer(ts.gs, ts.s)
+	istio_mixer_v1.RegisterMixerServer(ts.gs, ts.server)
 
 	go func() {
 		_ = ts.gs.Serve(listener)

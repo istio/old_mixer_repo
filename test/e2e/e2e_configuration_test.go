@@ -141,13 +141,11 @@ func TestReport(t *testing.T) {
 
 		adapterInfos, spyAdapters := cnstrAdapterInfos(tt.adptBehaviors)
 
-		attrs := getAttrBag(tt.attribs)
-		req := istio_mixer_v1.ReportRequest{Attributes: []istio_mixer_v1.Attributes{attrs}}
-
-		ts := getDispatcher(t, "fs://"+configDir, adapterInfos, tt.templates)
+		ts := initMixer(t, "fs://"+configDir, adapterInfos, tt.templates)
 		defer ts.cleanupTestState()
 
-		_, err := ts.s.Report(context.Background(), &req)
+		req := istio_mixer_v1.ReportRequest{Attributes: []istio_mixer_v1.Attributes{getAttrBag(tt.attribs)}}
+		_, err := ts.server.Report(context.Background(), &req)
 
 		tt.validate(t, err, spyAdapters)
 	}
