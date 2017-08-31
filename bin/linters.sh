@@ -83,6 +83,7 @@ go_metalinter() {
         --enable=vetshadow\
         --skip=testdata\
         --skip=vendor\
+        --skip=test\e2e\
         --vendor\
         $PKGS
 }
