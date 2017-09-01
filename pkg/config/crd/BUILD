@@ -27,7 +27,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    size = "small",
+    size = "large",
     srcs = [
         "store_test.go",
     ],
