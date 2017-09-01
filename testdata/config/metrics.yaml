@@ -5,10 +5,10 @@ metadata:
   namespace: istio-config-default
 spec:
   metrics:
-  - name: requestcount
+  - name: requestcount.metric.istio-config-default
     kind: COUNTER
     label_names: [ source, target, service, method, version,  response_code ]
-  - name: requestduration
+  - name: requestduration.metric.istio-config-default
     kind: COUNTER
     label_names: [ source, target, service, method, version,  response_code ]
 ---
