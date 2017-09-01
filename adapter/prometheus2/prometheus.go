@@ -58,7 +58,7 @@ type (
 )
 
 var (
-	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_")
+	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_", "-", "")
 
 	_ metric.HandlerBuilder = &builder{}
 	_ metric.Handler        = &handler{}
@@ -91,12 +91,6 @@ func GetInfo() pkgHndlr.Info {
 func (b *builder) clearState() {
 	b.registry = prometheus.NewPedanticRegistry()
 	b.metrics = make(map[string]*cinfo)
-}
-
-// promName converts an instance name into a prometheus friendly name.
-// Instance name contains "." and "-" which are not valid metric names.
-func promName(name string) string {
-	return strings.Replace(name, "-", "", -1)
 }
 
 func (b *builder) ConfigureMetricHandler(map[string]*metric.Type) error { return nil }
@@ -143,24 +137,23 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	var err error
 	for _, m := range newMetrics {
 		ci := &cinfo{kind: m.Kind, sha: computeSha(m, env.Logger())}
-		mname := promName(m.Name)
 		switch m.Kind {
 		case config.GAUGE:
-			ci.c, err = registerOrGet(b.registry, newGaugeVec(mname, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newGaugeVec(m.Name, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
 			b.metrics[m.Name] = ci
 		case config.COUNTER:
-			ci.c, err = registerOrGet(b.registry, newCounterVec(mname, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newCounterVec(m.Name, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
 			b.metrics[m.Name] = ci
 		case config.DISTRIBUTION:
-			ci.c, err = registerOrGet(b.registry, newHistogramVec(mname, m.Description, m.LabelNames, m.Buckets))
+			ci.c, err = registerOrGet(b.registry, newHistogramVec(m.Name, m.Description, m.LabelNames, m.Buckets))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
