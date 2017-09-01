@@ -618,7 +618,7 @@ git_repository(
 
 go_repository(
     name = "com_github_douglas-reid_mixer-noop-reporter",
-    commit = "62d4a27c3c986ea5fbf6ca99cb525828d33e1b0a",
+    commit = "a66cbd5399f0db7a3eaddb4880beee723dd9081d",
     importpath = "github.com/douglas-reid/mixer-noop-reporter",
 )
 

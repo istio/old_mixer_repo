@@ -1,0 +1,26 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: mixer-noop-reporter
+metadata:
+  name: noopreporter
+  namespace: istio-config-default
+spec:
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: logs
+  namespace: istio-config-default
+spec:
+  timestamp: request.time
+  severity: target.service
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: mixer-rule
+metadata:
+  name: reportall
+  namespace: istio-config-default
+spec:
+  selector: "true"
+  actions:
+  - handler: noopreporter.mixer-noop-reporter.istio-config-default
+    instances: [ logs.logentry.istio-config-default ]
