@@ -5,14 +5,14 @@ metadata:
   namespace: istio-config-default
 spec:
   quotas:
-  - name: requestcount1
+  - name: requestcount.quota.istio-config-default
     max_amount: 5
     valid_duration: 1s
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: quota
 metadata:
-  name: requestcount1
+  name: requestcount
   namespace: istio-config-default
 spec:
   dimensions:
@@ -29,5 +29,5 @@ spec:
   actions:
   - handler: memquota.memquota.istio-config-default
     instances:
-    - requestcount1.quota.istio-config-default
+    - requestcount.quota.istio-config-default
 ---
