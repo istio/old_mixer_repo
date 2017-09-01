@@ -16,6 +16,7 @@ go_library(
         "//adapter/ipListChecker:go_default_library",
         "//adapter/kubernetes:go_default_library",
         "//adapter/memQuota:go_default_library",
+        "//adapter/memquota2:go_default_library",
         "//adapter/noop:go_default_library",
         "//adapter/prometheus:go_default_library",
         "//adapter/redisquota:go_default_library",
@@ -33,12 +34,12 @@ inventory_library(
     packages = {
         "denier": "istio.io/mixer/adapter/denier",
         "list": "istio.io/mixer/adapter/list",
-        "memquota2": "istio.io/mixer/adapter/memquota2",
         "noop2": "istio.io/mixer/adapter/noop2",
         "prometheus": "istio.io/mixer/adapter/prometheus2",
         "stackdriver": "istio.io/mixer/adapter/stackdriver",
         "stdio": "istio.io/mixer/adapter/stdio",
         "svcctrl": "istio.io/mixer/adapter/svcctrl",
+        "memquota": "istio.io/mixer/adapter/memquota2",
     },
     deps = [
         "//adapter/denier:go_default_library",
