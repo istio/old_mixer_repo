@@ -15,8 +15,7 @@ spec:
   # apiKey:
   # serviceAccountPath:
 
-  # Describes how to map Istio metrics into stackdriver.
-  # Note that custom metrics cannot be DELTAs
+  # Describes how to map Istio metrics into Stackdriver.
   metricInfo:
     request_count:
       # Due to a bug in gogoproto deserialization, Enums in maps must be
@@ -32,11 +31,24 @@ spec:
       # attached to int64, double, and distribution values. But those are
       # only provided at metric creation time.
       value: 2 # INT64
+
+  # Describes how to map Istio logs into Stackdriver.
+  logInfo:
+    common.logentry.istio-config-default:
+      payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+      httpMapping:
+        status: responseCode
+        requestSize: requestSize
+        responseSize: responseSize
+        latency: latency
+        localIp: originIp
+        remoteIp: targetIp
+
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: mixer-rule
 metadata:
-  name: prommetrics
+  name: stackdriver
   namespace: istio-config-default
 spec:
   selector: "true"
@@ -45,3 +57,26 @@ spec:
     instances:
     - requestcount.metric.istio-config-default
     - requestduration.metric.istio-config-default
+    - global.logentry.stackdriver.istio-config-default
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: global
+  namespace: stackdriver.istio-config-default
+spec:
+  timestamp: request.time
+  variables:
+    originIp: origin.ip
+    targetIp: target.ip
+    sourceUser: origin.user
+    method: request.method
+    url: request.path
+    protocol: request.scheme
+    responseCode: response.code
+    responseSize: response.size
+    requestSize: request.size
+    latency: response.duration
+  monitoredResourceType: "global"
+  monitoredResourceDimensions:
+    project_id: 
