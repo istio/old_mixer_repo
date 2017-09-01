@@ -30,7 +30,6 @@ import (
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adpTmpl "istio.io/mixer/pkg/adapter/template"
-	//"istio.io/mixer/pkg/expr"
 	"context"
 
 	"time"
