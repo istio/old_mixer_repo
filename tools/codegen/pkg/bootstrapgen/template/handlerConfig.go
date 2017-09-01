@@ -47,7 +47,7 @@ import (
 // configuration time. The type information it contains describes the shape of the instances the adapter may
 // receive at runtime. Mixer only supplies type information related to templates the adapter explicitly supports.
 type HandlerConfig struct {
-    // Adapter specfic configuration
+    // Adapter specific configuration
 	AdapterConfig adapter.Config
 
 	{{range .TemplateModels}}

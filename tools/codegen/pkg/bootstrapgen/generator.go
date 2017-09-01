@@ -137,7 +137,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		}
 		bytesWithImpts := bytes.Replace(buf.Bytes(), []byte("$$additional_imports$$"), []byte(strings.Join(imprts, "\n")), 1)
 
-		if err := printFile(bytesWithImpts, g.OutTmplInfoFilePath); err != nil {
+		if err = printFile(bytesWithImpts, g.OutTmplInfoFilePath); err != nil {
 			return fmt.Errorf("cannot pring to file %s: %v", g.OutTmplInfoFilePath, err)
 		}
 	}
@@ -151,7 +151,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			return fmt.Errorf("cannot execute the template with the given data: %v", err)
 		}
 
-		if err := printFile(buf.Bytes(), g.OutHndlrConfigFilePath); err != nil {
+		if err = printFile(buf.Bytes(), g.OutHndlrConfigFilePath); err != nil {
 			return fmt.Errorf("cannot pring to file %s: %v", g.OutHndlrConfigFilePath, err)
 		}
 		return nil

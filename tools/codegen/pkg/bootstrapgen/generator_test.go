@@ -48,13 +48,6 @@ var (
 // TestGenerator_Generate uses the outputs file descriptors generated via bazel
 // and compares them against the golden files.
 func TestGenerator_GenerateTmplInfo(t *testing.T) {
-	importmap := map[string]string{
-		"mixer/v1/config/descriptor/value_type.proto":   "istio.io/api/mixer/v1/config/descriptor",
-		"pkg/adapter/template/TemplateExtensions.proto": "istio.io/mixer/pkg/adapter/template",
-		"gogoproto/gogo.proto":                          "github.com/gogo/protobuf/gogoproto",
-		"google/protobuf/duration.proto":                "github.com/gogo/protobuf/types",
-	}
-
 	tests := []testData{
 		{"AllTemplatesInfo", inputFiles,
 			"testdata/AllTemplatesInfo.go.golden"},
