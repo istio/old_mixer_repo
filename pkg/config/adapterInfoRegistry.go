@@ -21,7 +21,7 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	pkgHndlr "istio.io/mixer/pkg/handlers"
 )
 
 type adapterInfoRegistry struct {

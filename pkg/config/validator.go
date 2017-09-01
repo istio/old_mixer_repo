@@ -41,7 +41,7 @@ import (
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -75,7 +75,7 @@ type (
 	AdapterToAspectMapper func(builder string) KindSet
 
 	// BuilderInfoFinder is used to find specific handlers Info for configuration.
-	BuilderInfoFinder func(name string) (*handler.Info, bool)
+	BuilderInfoFinder func(name string) (*handlers.Info, bool)
 
 	// SetupHandlerFn is used to configure handler implementation with Types associated with all the templates that
 	// it supports.
@@ -219,7 +219,7 @@ const (
 	instances   = "instances"
 	actionRules = "action_rules"
 	adapters    = "adapters"
-	handlers    = "handlers"
+	handler     = "handlers"
 	descriptors = "descriptors"
 
 	keyAdapters            = "/scopes/global/adapters"
@@ -502,8 +502,8 @@ func classifyKeys(cfg map[string]string) map[string][]string {
 			k = actionRules
 		case adapters:
 			k = adapters
-		case handlers:
-			k = handlers
+		case handler:
+			k = handler
 		case descriptors:
 			k = descriptors
 		default:
@@ -541,7 +541,7 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 		}
 	}
 
-	for _, kk := range keymap[handlers] {
+	for _, kk := range keymap[handler] {
 		if re := p.validateHandlers(cfg[kk]); re != nil {
 			rce = rce.Extend(re)
 		}
@@ -745,7 +745,7 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func convertHandlerParams(bi *handler.Info, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
+func convertHandlerParams(bi *handlers.Info, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
 	hc = bi.DefaultConfig
 	if err := decode(params, hc, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)

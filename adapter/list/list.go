@@ -31,7 +31,7 @@ import (
 
 	"istio.io/mixer/adapter/list/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/listentry"
 )
 
@@ -234,8 +234,8 @@ func (h *handler) purgeList() {
 ///////////////// Bootstrap ///////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() handlers.Info {
+	return handlers.Info{
 		Name:               "list-checker",
 		Impl:               "istio.io/mixer/adapter/list",
 		Description:        "Checks whether an entry is present in a list",
@@ -252,7 +252,7 @@ func GetInfo() pkgHndlr.Info {
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+			return validateConfig(&handlers.HandlerConfig{AdapterConfig: cfg})
 		},
 
 		ValidateConfig2: validateConfig,
@@ -260,7 +260,7 @@ func GetInfo() pkgHndlr.Info {
 	}
 }
 
-func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+func validateConfig(hc *handlers.HandlerConfig) (ce *adapter.ConfigErrors) {
 	c := hc.AdapterConfig.(*config.Params)
 
 	if c.ProviderUrl != "" {
@@ -305,7 +305,7 @@ func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func newHandler(context context.Context, env adapter.Env, hc *handlers.HandlerConfig) (adapter.Handler, error) {
 	ac := hc.AdapterConfig.(*config.Params)
 
 	h := &handler{
@@ -336,7 +336,7 @@ func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerCo
 type builder struct{}
 
 func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return newHandler(context.Background(), env, &pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+	return newHandler(context.Background(), env, &handlers.HandlerConfig{AdapterConfig: cfg})
 }
 
 func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {

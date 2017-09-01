@@ -27,7 +27,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/checknothing"
 	"istio.io/mixer/template/listentry"
 	"istio.io/mixer/template/logentry"
@@ -49,7 +49,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: cfg}
 
 	if err := validateConfig(hc); err != nil {
 		t.Errorf("Got error %v, expecting success", err)

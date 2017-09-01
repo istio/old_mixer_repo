@@ -28,7 +28,7 @@ import (
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/stdio/config"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/logentry"
 	"istio.io/mixer/template/metric"
 )
@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: cfg}
 
 	if err := validateConfig(hc); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
@@ -138,7 +138,7 @@ func TestBuilder(t *testing.T) {
 				return newZapLogger(outputPath, encoding)
 			}
 
-			hc := &pkgHndlr.HandlerConfig{AdapterConfig: &c.config}
+			hc := &handlers.HandlerConfig{AdapterConfig: &c.config}
 			h, err := newHandlerWithZapBuilder(context.Background(), env, hc, zb)
 
 			if (err != nil) && c.success {
@@ -212,7 +212,7 @@ func TestLogEntry(t *testing.T) {
 
 	info := GetInfo()
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: cfg}
 	env := test.NewEnv(t)
 	hc.LogEntryTypes = types
 	h, _ := newHandler(context.Background(), env, hc)
@@ -310,7 +310,7 @@ func TestMetricEntry(t *testing.T) {
 
 	info := GetInfo()
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: cfg}
 	env := test.NewEnv(t)
 	hc.MetricEntryTypes = types
 	h, _ := newHandler(context.Background(), env, hc)

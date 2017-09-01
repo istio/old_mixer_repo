@@ -33,7 +33,7 @@ import (
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/metric"
 )
 
@@ -105,8 +105,8 @@ var (
 )
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() handlers.Info {
+	return handlers.Info{
 		Name:        "stackdriver",
 		Impl:        "istio.io/mixer/adapter/stackdriver",
 		Description: "Pushes metrics to Stackdriver.",

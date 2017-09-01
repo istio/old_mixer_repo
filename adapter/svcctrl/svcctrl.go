@@ -24,7 +24,7 @@ import (
 
 	"istio.io/mixer/adapter/svcctrl/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/metric"
 )
 
@@ -89,8 +89,8 @@ func (h *handler) Close() error {
 ////////////////// Config //////////////////////////
 
 // GetInfo registers Adapter with Mixer.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() handlers.Info {
+	return handlers.Info{
 		Name:        "svcctrl",
 		Impl:        "istio.io/mixer/adapter/svcctrl",
 		Description: "Interface to Google Service Control",
@@ -104,7 +104,7 @@ func GetInfo() pkgHndlr.Info {
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+			return validateConfig(&handlers.HandlerConfig{AdapterConfig: cfg})
 		},
 
 		ValidateConfig2: validateConfig,
@@ -112,11 +112,11 @@ func GetInfo() pkgHndlr.Info {
 	}
 }
 
-func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+func validateConfig(*handlers.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func newHandler(_ context.Context, env adapter.Env, hc *handlers.HandlerConfig) (adapter.Handler, error) {
 	client, err := createClient(env.Logger())
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ type builder struct{}
 
 // Build is to be deleted
 func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
+	hc := &handlers.HandlerConfig{
 		AdapterConfig: cfg,
 	}
 	return newHandler(context.Background(), env, hc)
