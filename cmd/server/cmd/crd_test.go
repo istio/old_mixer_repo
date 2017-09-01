@@ -20,15 +20,15 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/template"
 )
 
 var empty = ``
 
-var exampleAdapters = []handler.InfoFn{
-	func() handler.Info { return handler.Info{Name: "foo-bar"} },
-	func() handler.Info { return handler.Info{Name: "abcd"} },
+var exampleAdapters = []handlers.InfoFn{
+	func() handlers.Info { return handlers.Info{Name: "foo-bar"} },
+	func() handlers.Info { return handlers.Info{Name: "abcd"} },
 }
 var exampleAdaptersCrd = `
 kind: CustomResourceDefinition
@@ -156,10 +156,10 @@ spec:
 func TestListCrdsAdapters(t *testing.T) {
 	tests := []struct {
 		name    string
-		args    []handler.InfoFn
+		args    []handlers.InfoFn
 		wantOut string
 	}{
-		{"empty", []handler.InfoFn{}, empty},
+		{"empty", []handlers.InfoFn{}, empty},
 		{"example", exampleAdapters, exampleAdaptersCrd},
 	}
 	for _, tt := range tests {

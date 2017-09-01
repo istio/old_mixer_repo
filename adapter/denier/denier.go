@@ -25,7 +25,7 @@ import (
 
 	"istio.io/mixer/adapter/denier/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/checknothing"
 	"istio.io/mixer/template/listentry"
 	"istio.io/mixer/template/quota"
@@ -62,8 +62,8 @@ func (*handler) Close() error { return nil }
 ////////////////// Bootstrap //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() handlers.Info {
+	return handlers.Info{
 		Name:        "denier",
 		Impl:        "istio.io/mixer/adapter/denier",
 		Description: "Rejects any check and quota request with a configurable error",
@@ -79,7 +79,7 @@ func GetInfo() pkgHndlr.Info {
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+			return validateConfig(&handlers.HandlerConfig{AdapterConfig: cfg})
 		},
 
 		ValidateConfig2: validateConfig,
@@ -87,11 +87,11 @@ func GetInfo() pkgHndlr.Info {
 	}
 }
 
-func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+func validateConfig(*handlers.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func newHandler(context context.Context, env adapter.Env, hc *handlers.HandlerConfig) (adapter.Handler, error) {
 	return &handler{status: hc.AdapterConfig.(*config.Params).Status}, nil
 }
 
@@ -100,7 +100,7 @@ func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerCo
 type builder struct{}
 
 func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return newHandler(context.Background(), env, &pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+	return newHandler(context.Background(), env, &handlers.HandlerConfig{AdapterConfig: cfg})
 }
 
 func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {

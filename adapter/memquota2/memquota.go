@@ -33,7 +33,7 @@ import (
 
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
 )
@@ -163,8 +163,8 @@ func (h *handler) Close() error {
 ////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() handlers.Info {
+	return handlers.Info{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
 		Description: "Volatile memory-based quota tracking",
@@ -178,7 +178,7 @@ func GetInfo() pkgHndlr.Info {
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+			return validateConfig(&handlers.HandlerConfig{AdapterConfig: cfg})
 		},
 
 		ValidateConfig2: validateConfig,
@@ -186,7 +186,7 @@ func GetInfo() pkgHndlr.Info {
 	}
 }
 
-func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+func validateConfig(hc *handlers.HandlerConfig) (ce *adapter.ConfigErrors) {
 	ac := hc.AdapterConfig.(*config.Params)
 
 	if ac.MinDeduplicationDuration <= 0 {
@@ -195,12 +195,12 @@ func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func newHandler(context context.Context, env adapter.Env, hc *handlers.HandlerConfig) (adapter.Handler, error) {
 	ac := hc.AdapterConfig.(*config.Params)
 	return newHandlerWithDedup(context, env, hc, time.NewTicker(ac.MinDeduplicationDuration))
 }
 
-func newHandlerWithDedup(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig, ticker *time.Ticker) (*handler, error) {
+func newHandlerWithDedup(_ context.Context, env adapter.Env, hc *handlers.HandlerConfig, ticker *time.Ticker) (*handler, error) {
 	ac := hc.AdapterConfig.(*config.Params)
 
 	limits := make(map[string]config.Params_Quota, len(ac.Quotas))
@@ -246,7 +246,7 @@ type builder struct {
 
 // Build is to be deleted
 func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
+	hc := &handlers.HandlerConfig{
 		AdapterConfig: cfg,
 		QuotaTypes:    b.QuotaTypes,
 	}

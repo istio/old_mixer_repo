@@ -28,7 +28,7 @@ import (
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/statsd2/config"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/metric"
 )
 
@@ -46,7 +46,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 	for idx, c := range cases {
 		errString := ""
-		hc := &pkgHndlr.HandlerConfig{AdapterConfig: c.conf}
+		hc := &handlers.HandlerConfig{AdapterConfig: c.conf}
 		if err := validateConfig(hc); err != nil {
 			errString = err.Error()
 		}
@@ -65,7 +65,7 @@ func TestNewMetricsAspect(t *testing.T) {
 		SamplingRate:  1.0,
 		Metrics:       map[string]*config.Params_MetricInfo{"a": {NameTemplate: `{{(.apiMethod) "-" (.responseCode)}}`}},
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: conf}
+	hc := &handlers.HandlerConfig{AdapterConfig: conf}
 	env := test.NewEnv(t)
 	if _, err := newHandler(context.Background(), env, hc); err != nil {
 		t.Errorf("b.NewMetrics(test.NewEnv(t), &config.Params{}) = %s, wanted no err", err)
@@ -100,7 +100,7 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 	metrics := map[string]*metric.Type{
 		name: {Dimensions: map[string]descriptor.ValueType{"apiMethod": descriptor.STRING, "responseCode": descriptor.INT64}},
 	}
-	hc := &pkgHndlr.HandlerConfig{
+	hc := &handlers.HandlerConfig{
 		AdapterConfig:    conf,
 		MetricEntryTypes: metrics,
 	}
@@ -138,7 +138,7 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 		}
 	}()
 
-	hc := &pkgHndlr.HandlerConfig{
+	hc := &handlers.HandlerConfig{
 		AdapterConfig:    conf,
 		MetricEntryTypes: metrics,
 	}
@@ -229,7 +229,7 @@ func TestRecord(t *testing.T) {
 	}
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			hc := &pkgHndlr.HandlerConfig{
+			hc := &handlers.HandlerConfig{
 				AdapterConfig:    conf,
 				MetricEntryTypes: metrics,
 			}

@@ -26,7 +26,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/checknothing"
 	"istio.io/mixer/template/listentry"
 	"istio.io/mixer/template/quota"
@@ -41,7 +41,7 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: info.DefaultConfig}
+	hc := &handlers.HandlerConfig{AdapterConfig: info.DefaultConfig}
 
 	if err := validateConfig(hc); err != nil {
 		t.Errorf("Got error %v, expecting success", err)

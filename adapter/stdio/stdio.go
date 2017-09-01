@@ -26,7 +26,7 @@ import (
 
 	"istio.io/mixer/adapter/stdio/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/logentry"
 	"istio.io/mixer/template/metric"
 )
@@ -111,8 +111,8 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 ////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() handlers.Info {
+	return handlers.Info{
 		Name:        "istio.io/mixer/adapter/stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",
 		SupportedTemplates: []string{
@@ -128,7 +128,7 @@ func GetInfo() pkgHndlr.Info {
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+			return validateConfig(&handlers.HandlerConfig{AdapterConfig: cfg})
 		},
 
 		ValidateConfig2: validateConfig,
@@ -136,15 +136,15 @@ func GetInfo() pkgHndlr.Info {
 	}
 }
 
-func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+func validateConfig(*handlers.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(ctx context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func newHandler(ctx context.Context, env adapter.Env, hc *handlers.HandlerConfig) (adapter.Handler, error) {
 	return newHandlerWithZapBuilder(ctx, env, hc, newZapLogger)
 }
 
-func newHandlerWithZapBuilder(_ context.Context, _ adapter.Env, hc *pkgHndlr.HandlerConfig, zb zapBuilderFn) (adapter.Handler, error) {
+func newHandlerWithZapBuilder(_ context.Context, _ adapter.Env, hc *handlers.HandlerConfig, zb zapBuilderFn) (adapter.Handler, error) {
 	// We produce sorted tables of the variables we'll receive such that
 	// we send output to the zap logger in a consistent order at runtime
 	varLists := make(map[string][]string, len(hc.LogEntryTypes))
@@ -242,7 +242,7 @@ type builder struct {
 
 // Build is to be deleted
 func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
+	hc := &handlers.HandlerConfig{
 		AdapterConfig: cfg,
 	}
 	return newHandler(context.Background(), env, hc)

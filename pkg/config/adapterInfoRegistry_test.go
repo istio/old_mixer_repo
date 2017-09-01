@@ -21,7 +21,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/template"
 	"istio.io/mixer/template/sample"
 	sample_report "istio.io/mixer/template/sample/report"
@@ -31,8 +31,8 @@ type TestBuilderInfoInventory struct {
 	name string
 }
 
-func createBuilderInfo(name string) handler.Info {
-	return handler.Info{
+func createBuilderInfo(name string) handlers.Info {
+	return handlers.Info{
 		Name:                 name,
 		Description:          "mock adapter for testing",
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
@@ -42,7 +42,7 @@ func createBuilderInfo(name string) handler.Info {
 	}
 }
 
-func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() handler.Info {
+func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() handlers.Info {
 	return createBuilderInfo(t.name)
 }
 
@@ -67,7 +67,7 @@ func fakeValidateSupportedTmpl(hndlrBuilder adapter.HandlerBuilder, t string) (b
 
 func TestRegisterSampleProcessor(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
-	reg := newRegistry2([]handler.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
+	reg := newRegistry2([]handlers.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
 		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 
 	builderInfo, ok := reg.FindAdapterInfo(testBuilderInfoInventory.name)
@@ -91,7 +91,7 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]handler.InfoFn{
+	_ = newRegistry2([]handlers.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
 	)
@@ -111,7 +111,7 @@ func TestMissingDefaultValue(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]handler.InfoFn{func() handler.Info { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]handlers.InfoFn{func() handlers.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -128,7 +128,7 @@ func TestMissingValidateConfigFn(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]handler.InfoFn{func() handler.Info { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]handlers.InfoFn{func() handlers.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -137,7 +137,7 @@ func TestHandlerMap(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
 	testBuilderInfoInventory2 := TestBuilderInfoInventory{"bar"}
 
-	mp := AdapterInfoMap([]handler.InfoFn{
+	mp := AdapterInfoMap([]handlers.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn,
 	}, fakeValidateSupportedTmpl)
@@ -164,8 +164,8 @@ func (badHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, er
 }
 
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
-	badHandlerBuilderBuilderInfo1 := func() handler.Info {
-		return handler.Info{
+	badHandlerBuilderBuilderInfo1 := func() handlers.Info {
+		return handlers.Info{
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
@@ -174,8 +174,8 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			SupportedTemplates:   []string{sample_report.TemplateName},
 		}
 	}
-	badHandlerBuilderBuilderInfo2 := func() handler.Info {
-		return handler.Info{
+	badHandlerBuilderBuilderInfo2 := func() handlers.Info {
+		return handlers.Info{
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
@@ -192,7 +192,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]handler.InfoFn{
+	_ = newRegistry2([]handlers.InfoFn{
 		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate,
 	)
 

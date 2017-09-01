@@ -28,7 +28,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/template"
 	"istio.io/mixer/template/sample"
@@ -61,8 +61,8 @@ func (fakeHndlr) Close() error {
 	globalActualHandlerCallInfoToValidate["Close"] = nil
 	return nil
 }
-func GetFakeHndlrBuilderInfo() handler.Info {
-	return handler.Info{
+func GetFakeHndlrBuilderInfo() handlers.Info {
+	return handlers.Info{
 		Name:                 "fakeHandler",
 		Description:          "",
 		SupportedTemplates:   []string{sample_report.TemplateName},
@@ -180,7 +180,7 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 		return
 	}
 
-	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, []handler.InfoFn{GetFakeHndlrBuilderInfo},
+	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, []handlers.InfoFn{GetFakeHndlrBuilderInfo},
 		adapterMgr.SupportedKinds, template.NewRepository(sample.SupportedTmplInfo), store,
 		loopDelay,
 		identityAttribute, identityDomainAttribute)

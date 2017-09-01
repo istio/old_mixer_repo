@@ -25,7 +25,7 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/checknothing"
 	"istio.io/mixer/template/listentry"
 	"istio.io/mixer/template/logentry"
@@ -75,8 +75,8 @@ func (*handler) Close() error { return nil }
 ////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() handlers.Info {
+	return handlers.Info{
 		Name:        "noop",
 		Impl:        "istio.io/mixer/adapter/noop",
 		Description: "Does nothing (useful for testing)",
@@ -93,7 +93,7 @@ func GetInfo() pkgHndlr.Info {
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+			return validateConfig(&handlers.HandlerConfig{AdapterConfig: cfg})
 		},
 
 		ValidateConfig2: validateConfig,
@@ -101,11 +101,11 @@ func GetInfo() pkgHndlr.Info {
 	}
 }
 
-func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+func validateConfig(*handlers.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(context.Context, adapter.Env, *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func newHandler(context.Context, adapter.Env, *handlers.HandlerConfig) (adapter.Handler, error) {
 	return &handler{}, nil
 }
 
@@ -115,7 +115,7 @@ type builder struct{}
 
 // Build is to be deleted
 func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
+	hc := &handlers.HandlerConfig{
 		AdapterConfig: cfg,
 	}
 	return newHandler(context.Background(), env, hc)

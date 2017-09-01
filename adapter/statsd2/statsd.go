@@ -26,7 +26,7 @@ import (
 
 	"istio.io/mixer/adapter/statsd2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/template/metric"
 )
@@ -110,8 +110,8 @@ func (h *handler) Close() error { return h.client.Close() }
 ////////////////// Config //////////////////////////
 
 // GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetBuilderInfo() handlers.Info {
+	return handlers.Info{
 		Name:        "istio.io/mixer/adapter/statsd",
 		Description: "Produces statsd metrics",
 		SupportedTemplates: []string{
@@ -128,7 +128,7 @@ func GetBuilderInfo() pkgHndlr.Info {
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+			return validateConfig(&handlers.HandlerConfig{AdapterConfig: cfg})
 		},
 
 		ValidateConfig2: validateConfig,
@@ -136,7 +136,7 @@ func GetBuilderInfo() pkgHndlr.Info {
 	}
 }
 
-func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+func validateConfig(hc *handlers.HandlerConfig) (ce *adapter.ConfigErrors) {
 	ac := hc.AdapterConfig.(*config.Params)
 	if ac.FlushDuration < 0 {
 		ce = ce.Appendf("flushDuration", "flush duration must be >= 0")
@@ -155,7 +155,7 @@ func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func newHandler(_ context.Context, env adapter.Env, hc *handlers.HandlerConfig) (adapter.Handler, error) {
 	ac := hc.AdapterConfig.(*config.Params)
 
 	flushBytes := int(ac.FlushBytes)
@@ -198,7 +198,7 @@ type builder struct {
 
 // Build is to be deleted
 func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
+	hc := &handlers.HandlerConfig{
 		AdapterConfig:    cfg,
 		MetricEntryTypes: b.MetricTypes,
 	}

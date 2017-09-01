@@ -20,7 +20,7 @@ import (
 	adapter "istio.io/mixer/adapter"
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
-	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/template"
 	generatedTmplRepo "istio.io/mixer/template"
 )
@@ -29,7 +29,7 @@ func supportedTemplates() map[string]template.Info {
 	return generatedTmplRepo.SupportedTmplInfo
 }
 
-func supportedAdapters() []handler.InfoFn {
+func supportedAdapters() []handlers.InfoFn {
 	return adapter.Inventory2()
 }
 

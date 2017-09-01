@@ -23,7 +23,7 @@ import (
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/template/quota"
 )
 
@@ -35,7 +35,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: cfg}
 
 	if err := validateConfig(hc); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
@@ -85,7 +85,7 @@ func TestAllocAndRelease(t *testing.T) {
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: &cfg}
 
 	hndlr, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
@@ -196,7 +196,7 @@ func TestAllocAndRelease(t *testing.T) {
 func TestBadConfig(t *testing.T) {
 	info := GetInfo()
 	cfg := info.DefaultConfig.(*config.Params)
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: cfg}
 
 	cfg.MinDeduplicationDuration = 0
 	if err := validateConfig(hc); err == nil {
@@ -235,7 +235,7 @@ func TestReaper(t *testing.T) {
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: &cfg}
 
 	hndlr, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
@@ -313,7 +313,7 @@ func TestReaperTicker(t *testing.T) {
 	cfg := info.DefaultConfig.(*config.Params)
 	cfg.Quotas = limits
 
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	hc := &handlers.HandlerConfig{AdapterConfig: cfg}
 
 	h, err := newHandlerWithDedup(context.Background(), test.NewEnv(t), hc, testTicker)
 	if err != nil {

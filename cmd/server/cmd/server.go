@@ -46,7 +46,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/handlers"
 	"istio.io/mixer/pkg/il/evaluator"
 	"istio.io/mixer/pkg/pool"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
@@ -89,7 +89,7 @@ type serverArgs struct {
 	globalConfigFile string
 }
 
-func serverCmd(info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(info map[string]template.Info, adapters []handlers.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -196,7 +196,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) {
+func runServer(sa *serverArgs, info map[string]template.Info, adapters []handlers.InfoFn, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with args: %#v", sa)
 
 	var err error
