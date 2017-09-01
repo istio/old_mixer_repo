@@ -39,6 +39,9 @@ import (
 // The "retryTimeout" used by the test.
 const testingRetryTimeout = 10 * time.Millisecond
 
+// The timeout for "waitFor" func, which waits for an emit of the expected event.
+const waitTimeout = time.Second / 2
+
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -58,17 +61,17 @@ func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 type dummyListerWatcherBuilder struct {
 	mu       sync.RWMutex
 	data     map[store.Key]*unstructured.Unstructured
-	watchers map[string]*watch.FakeWatcher
+	watchers map[cacheKey]*watch.FakeWatcher
 }
 
-func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
+func (d *dummyListerWatcherBuilder) build(res metav1.APIResource, ns string) cache.ListerWatcher {
 	return &cache.ListWatch{
 		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
 			d.mu.RLock()
 			defer d.mu.RUnlock()
 			list := &unstructured.UnstructuredList{}
 			for k, v := range d.data {
-				if k.Kind == res.Kind {
+				if k.Kind == res.Kind && (ns == "" || ns == k.Namespace) {
 					list.Items = append(list.Items, *v)
 				}
 			}
@@ -78,7 +81,7 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 			d.mu.Lock()
 			defer d.mu.Unlock()
 			w := watch.NewFake()
-			d.watchers[res.Kind] = w
+			d.watchers[cacheKey{res.Kind, ns}] = w
 			return w, nil
 		},
 	}
@@ -95,9 +98,12 @@ func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface
 	res.Object["spec"] = spec
 	_, existed := d.data[key]
 	d.data[key] = res
-	w, ok := d.watchers[key.Kind]
+	w, ok := d.watchers[cacheKey{key.Kind, key.Namespace}]
 	if !ok {
-		return nil
+		w, ok = d.watchers[cacheKey{key.Kind, ""}]
+		if !ok {
+			return nil
+		}
 	}
 	if existed {
 		w.Modify(res)
@@ -115,9 +121,12 @@ func (d *dummyListerWatcherBuilder) delete(key store.Key) {
 		return
 	}
 	delete(d.data, key)
-	w, ok := d.watchers[key.Kind]
+	w, ok := d.watchers[cacheKey{key.Kind, key.Namespace}]
 	if !ok {
-		return
+		w, ok = d.watchers[cacheKey{key.Kind, ""}]
+		if !ok {
+			return
+		}
 	}
 	w.Delete(value)
 }
@@ -127,7 +136,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	ns := "istio-mixer-testing"
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
-		watchers: map[string]*watch.FakeWatcher{},
+		watchers: map[cacheKey]*watch.FakeWatcher{},
 	}
 	client := &Store{
 		conf:             &rest.Config{},
@@ -140,10 +149,17 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	return client, ns, lw
 }
 
-func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) {
-	for ev := range wch {
-		if ev.Key == key && ev.Type == ct {
-			return
+func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) error {
+	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
+	defer cancel()
+	for {
+		select {
+		case ev := <-wch:
+			if ev.Key == key && ev.Type == ct {
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
@@ -168,7 +184,9 @@ func TestStore(t *testing.T) {
 	if err = lw.put(k, h); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	waitFor(wch, store.Update, k)
+	if err = waitFor(wch, store.Update, k); err != nil {
+		t.Errorf("Want event %v/%s hasn't arrived", store.Update, k)
+	}
 	h2, err := s.Get(k)
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
@@ -192,7 +210,9 @@ func TestStore(t *testing.T) {
 		t.Errorf("Got %+v, Want %+v", h2, h)
 	}
 	lw.delete(k)
-	waitFor(wch, store.Delete, k)
+	if err = waitFor(wch, store.Delete, k); err != nil {
+		t.Errorf("Want event %v/%s hasn't arrived", store.Delete, k)
+	}
 	if _, err := s.Get(k); err != store.ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
@@ -202,18 +222,80 @@ func TestStoreWrongKind(t *testing.T) {
 	s, ns, lw := getTempClient()
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := s.Init(ctx, []string{"Action"}); err != nil {
-		t.Fatal(err.Error())
+		t.Fatal(err)
 	}
 	defer cancel()
+	wch, err := s.Watch(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
-	if err := lw.put(k, h); err != nil {
+	if err = lw.put(k, h); err != nil {
 		t.Error("Got nil, Want error")
 	}
-
-	if _, err := s.Get(k); err == nil {
+	if err = waitFor(wch, store.Update, k); err == nil {
+		t.Error("Got nil, Want error")
+	}
+	if _, err = s.Get(k); err == nil {
 		t.Errorf("Got nil, Want error")
+	}
+}
+
+func TestStoreLimitNamespaces(t *testing.T) {
+	s, ns, lw := getTempClient()
+	ns2 := "foo-namespace"
+	s.ns = []string{ns, ns2}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
+		t.Fatal(err)
+	}
+
+	wch, err := s.Watch(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	k1 := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
+	h := map[string]interface{}{"name": "default", "adapter": "noop"}
+	if err = lw.put(k1, h); err != nil {
+		t.Error("Got nil, Want error")
+	}
+	if err = waitFor(wch, store.Update, k1); err != nil {
+		t.Errorf("Want event %v/%s hasn't arrived", store.Update, k1)
+	}
+	k2 := store.Key{Kind: "Handler", Namespace: ns2, Name: "default"}
+	if err = lw.put(k2, h); err != nil {
+		t.Error("Got nil, Want error")
+	}
+	if err = waitFor(wch, store.Update, k2); err != nil {
+		t.Errorf("Want event %v/%s hasn't arrived", store.Update, k2)
+	}
+	k3 := store.Key{Kind: "Handler", Namespace: "other-ns", Name: "default"}
+	if err = lw.put(k3, h); err != nil {
+		t.Error("Got nil, Want error")
+	}
+	if err = waitFor(wch, store.Update, k3); err == nil {
+		t.Errorf("Got success, Want fail")
+	}
+	h1, err := s.Get(k1)
+	if err != nil {
+		t.Errorf("Got %s, Want nil", err)
+	}
+	if !reflect.DeepEqual(h, h1) {
+		t.Errorf("Got %+v, Want %+v", h1, h)
+	}
+	h2, err := s.Get(k2)
+	if err != nil {
+		t.Errorf("Got %s, Want nil", err)
+	}
+	if !reflect.DeepEqual(h, h2) {
+		t.Errorf("Got %+v, Want %+v", h2, h)
+	}
+	if _, err := s.Get(k3); err != store.ErrNotFound {
+		t.Errorf("Got %v, Want not found", err)
 	}
 }
 

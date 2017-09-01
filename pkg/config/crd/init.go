@@ -55,14 +55,14 @@ func newDynamicListenerWatcherBuilder(conf *rest.Config) (listerWatcherBuilderIn
 	return &dynamicListerWatcherBuilder{client}, nil
 }
 
-func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
-	return b.client.Resource(&res, "")
+func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource, ns string) cache.ListerWatcher {
+	return b.client.Resource(&res, ns)
 }
 
 // NewStore creates a new Store instance.
 func NewStore(u *url.URL) (store.Store2Backend, error) {
 	kubeconfig := u.Path
-	namespaces := u.Query().Get("ns")
+	namespaces := u.Query().Get("namespaces")
 	retryTimeout := crdRetryTimeout
 	retryTimeoutParam := u.Query().Get("retry-timeout")
 	if retryTimeoutParam != "" {
@@ -84,11 +84,8 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 	}
-	if len(namespaces) > 0 {
-		s.ns = map[string]bool{}
-		for _, n := range strings.Split(namespaces, ",") {
-			s.ns[n] = true
-		}
+	if namespaces != "" {
+		s.ns = strings.Split(namespaces, ",")
 	}
 	return s, nil
 }
