@@ -80,6 +80,7 @@ func contains(s []string, e string) bool {
 }
 
 func TestBuilder(t *testing.T) {
+	info := GetInfo()
 	env := test.NewEnv(t)
 
 	cases := []struct {
