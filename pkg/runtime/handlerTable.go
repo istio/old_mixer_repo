@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/gogo/protobuf/proto"
@@ -146,21 +147,21 @@ func (t *handlerTable) initHandler(he *HandlerEntry) {
 	he.Handler, he.HandlerCreateError = t.buildHandler(hc, insts)
 }
 
-func encode(buf *bytes.Buffer, v interface{}) {
+func encode(w io.Writer, v interface{}) {
 	switch t := v.(type) {
 	case string:
-		if _, err := buf.Write([]byte(t)); err != nil {
+		if _, err := w.Write([]byte(t)); err != nil {
 			glog.Warningf("Failed to write %v to a buffer: %v", t, err)
 		}
 	case proto.Message:
 		if b, err := proto.Marshal(t); err != nil {
 			glog.Warningf("Failed to marshall %v into a proto: %v", t, err)
-		} else if _, err := buf.Write(b); err != nil {
+		} else if _, err := w.Write(b); err != nil {
 			glog.Warningf("Failed to write %v to buffer: %v", b, err)
 		}
 	default:
 		glog.Warningf("Fell into default case for v.(type): %#v; falling back to fmt.Fprintf()", t)
-		if _, err := fmt.Fprintf(buf, "%+v", t); err != nil {
+		if _, err := fmt.Fprintf(w, "%+v", t); err != nil {
 			glog.Warningf("Failed to write %v to buffer: %v", t, err)
 		}
 	}
