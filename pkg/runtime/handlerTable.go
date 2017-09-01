@@ -153,14 +153,14 @@ func encode(buf *bytes.Buffer, v interface{}) {
 			glog.Warningf("Failed to write %v to a buffer: %v", t, err)
 		}
 	case proto.Message:
-		if b, err := proto.Marshal(proto.Message(t)); err != nil {
+		if b, err := proto.Marshal(t); err != nil {
 			glog.Warningf("Failed to marshall %v into a proto: %v", t, err)
 		} else if _, err := buf.Write(b); err != nil {
 			glog.Warningf("Failed to write %v to buffer: %v", b, err)
 		}
 	default:
 		glog.Warningf("Fell into default case for v.(type): %#v; falling back to fmt.Fprintf()", t)
-		if _, err := fmt.Fprintf(buf, "%v", t); err != nil {
+		if _, err := fmt.Fprintf(buf, "%+v", t); err != nil {
 			glog.Warningf("Failed to write %v to buffer: %v", t, err)
 		}
 	}
