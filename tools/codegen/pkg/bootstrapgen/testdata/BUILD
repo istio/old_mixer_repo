@@ -42,6 +42,7 @@ filegroup(
     name = "golden_files",
     testonly = True,
     srcs = [
-        "AllTemplates.go.golden",
+        "AllTemplatesHandlerCnfg.go.golden",
+        "AllTemplatesInfo.go.golden",
     ],
 )

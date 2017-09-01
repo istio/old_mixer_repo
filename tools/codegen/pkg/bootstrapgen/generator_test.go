@@ -22,11 +22,32 @@ import (
 	"testing"
 )
 
-type logFn func(string, ...interface{})
+type (
+	logFn    func(string, ...interface{})
+	testData struct {
+		name     string
+		fdsFiles map[string]string // FDS and their package import paths
+		want     string
+	}
+)
+
+var (
+	inputFiles = map[string]string{
+		"testdata/check_proto.descriptor_set":   "istio.io/mixer/template/list",
+		"testdata/report2_proto.descriptor_set": "istio.io/mixer/template/metric",
+		"testdata/quota_proto.descriptor_set":   "istio.io/mixer/template/quota",
+		"testdata/report1_proto.descriptor_set": "istio.io/mixer/template/log"}
+	importmap = map[string]string{
+		"mixer/v1/config/descriptor/value_type.proto":   "istio.io/api/mixer/v1/config/descriptor",
+		"pkg/adapter/template/TemplateExtensions.proto": "istio.io/mixer/pkg/adapter/template",
+		"gogoproto/gogo.proto":                          "github.com/gogo/protobuf/gogoproto",
+		"google/protobuf/duration.proto":                "github.com/gogo/protobuf/types",
+	}
+)
 
 // TestGenerator_Generate uses the outputs file descriptors generated via bazel
 // and compares them against the golden files.
-func TestGenerator_Generate(t *testing.T) {
+func TestGenerator_GenerateTmplInfo(t *testing.T) {
 	importmap := map[string]string{
 		"mixer/v1/config/descriptor/value_type.proto":   "istio.io/api/mixer/v1/config/descriptor",
 		"pkg/adapter/template/TemplateExtensions.proto": "istio.io/mixer/pkg/adapter/template",
@@ -34,21 +55,13 @@ func TestGenerator_Generate(t *testing.T) {
 		"google/protobuf/duration.proto":                "github.com/gogo/protobuf/types",
 	}
 
-	tests := []struct {
-		name     string
-		fdsFiles map[string]string // FDS and their package import paths
-		want     string
-	}{
-		{"AllTemplates", map[string]string{
-			"testdata/check_proto.descriptor_set":   "istio.io/mixer/template/list",
-			"testdata/report2_proto.descriptor_set": "istio.io/mixer/template/metric",
-			"testdata/quota_proto.descriptor_set":   "istio.io/mixer/template/quota",
-			"testdata/report1_proto.descriptor_set": "istio.io/mixer/template/log"},
-			"testdata/AllTemplates.go.golden"},
+	tests := []testData{
+		{"AllTemplatesInfo", inputFiles,
+			"testdata/AllTemplatesInfo.go.golden"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			testTmpDir := path.Join(os.TempDir(), "bootstrapTemplateTest")
+			testTmpDir := path.Join(os.TempDir(), "TestBootstrapGenerateTmplInfo")
 			_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
 			outFile, err := os.Create(path.Join(testTmpDir, path.Base(v.want)))
 			if err != nil {
@@ -62,7 +75,43 @@ func TestGenerator_Generate(t *testing.T) {
 				}
 			}()
 
-			g := Generator{OutFilePath: outFile.Name(), ImportMapping: importmap}
+			g := Generator{OutTmplInfoFilePath: outFile.Name(), ImportMapping: importmap}
+			if err := g.Generate(v.fdsFiles); err != nil {
+				t.Fatalf("Generate(%s) produced an error: %v", v.fdsFiles, err)
+			}
+
+			if same := fileCompare(outFile.Name(), v.want, t.Errorf); !same {
+				t.Error("Files were not the same.")
+			}
+		})
+	}
+}
+
+func TestGenerator_GenerateHandlerConfig(t *testing.T) {
+
+	tests := []testData{
+		{"AllTemplatesHandlerConfig", inputFiles,
+			"testdata/AllTemplatesHandlerCnfg.go.golden"},
+	}
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			testTmpDir := path.Join(os.TempDir(), "TestBootstrapGenerateHandlerCnfg")
+			_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
+			outFile, err := os.Create(path.Join(testTmpDir, path.Base(v.want)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if !t.Failed() {
+					if removeErr := os.RemoveAll(testTmpDir); removeErr != nil {
+						t.Logf("Could not remove temporary folder %s: %v", testTmpDir, removeErr)
+					}
+				} else {
+					t.Logf("Output file saved at %s", testTmpDir)
+				}
+			}()
+
+			g := Generator{OutHndlrConfigFilePath: outFile.Name(), ImportMapping: importmap}
 			if err := g.Generate(v.fdsFiles); err != nil {
 				t.Fatalf("Generate(%s) produced an error: %v", v.fdsFiles, err)
 			}

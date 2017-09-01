@@ -37,8 +37,9 @@ import (
 // Generator creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
 type Generator struct {
-	OutFilePath   string
-	ImportMapping map[string]string
+	OutTmplInfoFilePath    string
+	OutHndlrConfigFilePath string
+	ImportMapping          map[string]string
 }
 
 const (
@@ -70,7 +71,7 @@ const goImportFmt = "\"%s\""
 // template specific code that mixer needs to add support for different passed in templates.
 func (g *Generator) Generate(fdsFiles map[string]string) error {
 	imprts := make([]string, 0)
-	tmpl, err := template.New("MixerBootstrap").Funcs(
+	tmplInfo, err := template.New("MixerTmplInfo").Funcs(
 		template.FuncMap{
 			"getValueType": func(goType modelgen.TypeInfo) string {
 				return primitiveToValueType[goType.Name]
@@ -86,8 +87,13 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 				// do nothing, just record the import so that we can add them later (only for the types that got printed)
 				return ""
 			},
-		}).Parse(tmplPkg.InterfaceTemplate)
+		}).Parse(tmplPkg.InfoTmpl)
 
+	if err != nil {
+		return fmt.Errorf("cannot load template: %v", err)
+	}
+
+	tmplHndlrCnfg, err := template.New("MixerHndlrCnfg").Parse(tmplPkg.HndlrCnfgTmpl)
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
 	}
@@ -121,27 +127,53 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		models = append(models, model)
 	}
 
-	pkgName := getParentDirName(g.OutFilePath)
+	if len(g.OutTmplInfoFilePath) > 0 {
+		pkgName := getParentDirName(g.OutTmplInfoFilePath)
 
-	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, bootstrapModel{pkgName, models})
-	if err != nil {
-		return fmt.Errorf("cannot execute the template with the given data: %v", err)
+		buf := new(bytes.Buffer)
+		err = tmplInfo.Execute(buf, bootstrapModel{pkgName, models})
+		if err != nil {
+			return fmt.Errorf("cannot execute the template with the given data: %v", err)
+		}
+		bytesWithImpts := bytes.Replace(buf.Bytes(), []byte("$$additional_imports$$"), []byte(strings.Join(imprts, "\n")), 1)
+
+		if err := printFile(bytesWithImpts, g.OutTmplInfoFilePath); err != nil {
+			return fmt.Errorf("cannot pring to file %s: %v", g.OutTmplInfoFilePath, err)
+		}
 	}
-	bytesWithImpts := bytes.Replace(buf.Bytes(), []byte("$$additional_imports$$"), []byte(strings.Join(imprts, "\n")), 1)
-	fmtd, err := format.Source(bytesWithImpts)
+
+	if len(g.OutHndlrConfigFilePath) > 0 {
+		pkgName := getParentDirName(g.OutHndlrConfigFilePath)
+
+		buf := new(bytes.Buffer)
+		err = tmplHndlrCnfg.Execute(buf, bootstrapModel{pkgName, models})
+		if err != nil {
+			return fmt.Errorf("cannot execute the template with the given data: %v", err)
+		}
+
+		if err := printFile(buf.Bytes(), g.OutHndlrConfigFilePath); err != nil {
+			return fmt.Errorf("cannot pring to file %s: %v", g.OutHndlrConfigFilePath, err)
+		}
+		return nil
+	}
+
+	return nil
+}
+
+func printFile(bytes []byte, outFile string) error {
+	fmtd, err := format.Source(bytes)
 	if err != nil {
-		return fmt.Errorf("could not format generated code: %v. Source code is %s", err, string(buf.Bytes()))
+		return fmt.Errorf("could not format generated code: %v. Source code is %s", err, string(bytes))
 	}
 
 	imports.LocalPrefix = "istio.io"
-	// OutFilePath provides context for import path. We rely on the supplied bytes for content.
-	imptd, err := imports.Process(g.OutFilePath, fmtd, &imports.Options{FormatOnly: true, Comments: true})
+	// OutTmplInfoFilePath provides context for import path. We rely on the supplied bytes for content.
+	imptd, err := imports.Process(outFile, fmtd, &imports.Options{FormatOnly: true, Comments: true})
 	if err != nil {
 		return fmt.Errorf("could not fix imports for generated code: %v", err)
 	}
 
-	f, err := os.Create(g.OutFilePath)
+	f, err := os.Create(outFile)
 	if err != nil {
 		return err
 	}
