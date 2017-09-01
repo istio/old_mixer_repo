@@ -39,9 +39,6 @@ import (
 // The "retryTimeout" used by the test.
 const testingRetryTimeout = 10 * time.Millisecond
 
-// The timeout for "waitFor" func, which waits for an emit of the expected event.
-const waitTimeout = time.Second / 2
-
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -149,17 +146,10 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	return client, ns, lw
 }
 
-func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) error {
-	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
-	defer cancel()
-	for {
-		select {
-		case ev := <-wch:
-			if ev.Key == key && ev.Type == ct {
-				return nil
-			}
-		case <-ctx.Done():
-			return ctx.Err()
+func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) {
+	for ev := range wch {
+		if ev.Key == key && ev.Type == ct {
+			return
 		}
 	}
 }
@@ -184,9 +174,7 @@ func TestStore(t *testing.T) {
 	if err = lw.put(k, h); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if err = waitFor(wch, store.Update, k); err != nil {
-		t.Errorf("Want event %v/%s hasn't arrived", store.Update, k)
-	}
+	waitFor(wch, store.Update, k)
 	h2, err := s.Get(k)
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
@@ -210,9 +198,7 @@ func TestStore(t *testing.T) {
 		t.Errorf("Got %+v, Want %+v", h2, h)
 	}
 	lw.delete(k)
-	if err = waitFor(wch, store.Delete, k); err != nil {
-		t.Errorf("Want event %v/%s hasn't arrived", store.Delete, k)
-	}
+	waitFor(wch, store.Delete, k)
 	if _, err := s.Get(k); err != store.ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
@@ -225,20 +211,13 @@ func TestStoreWrongKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
-	wch, err := s.Watch(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
-	if err = lw.put(k, h); err != nil {
+	if err := lw.put(k, h); err != nil {
 		t.Error("Got nil, Want error")
 	}
-	if err = waitFor(wch, store.Update, k); err == nil {
-		t.Error("Got nil, Want error")
-	}
-	if _, err = s.Get(k); err == nil {
+	if _, err := s.Get(k); err == nil {
 		t.Errorf("Got nil, Want error")
 	}
 }
@@ -263,22 +242,15 @@ func TestStoreLimitNamespaces(t *testing.T) {
 	if err = lw.put(k1, h); err != nil {
 		t.Error("Got nil, Want error")
 	}
-	if err = waitFor(wch, store.Update, k1); err != nil {
-		t.Errorf("Want event %v/%s hasn't arrived", store.Update, k1)
-	}
+	waitFor(wch, store.Update, k1)
 	k2 := store.Key{Kind: "Handler", Namespace: ns2, Name: "default"}
 	if err = lw.put(k2, h); err != nil {
 		t.Error("Got nil, Want error")
 	}
-	if err = waitFor(wch, store.Update, k2); err != nil {
-		t.Errorf("Want event %v/%s hasn't arrived", store.Update, k2)
-	}
+	waitFor(wch, store.Update, k2)
 	k3 := store.Key{Kind: "Handler", Namespace: "other-ns", Name: "default"}
 	if err = lw.put(k3, h); err != nil {
 		t.Error("Got nil, Want error")
-	}
-	if err = waitFor(wch, store.Update, k3); err == nil {
-		t.Errorf("Got success, Want fail")
 	}
 	h1, err := s.Get(k1)
 	if err != nil {
@@ -425,9 +397,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	if err = lw.put(k2, map[string]interface{}{"test": "value"}); err != nil {
 		t.Error(err)
 	}
-	if err = waitFor(wch, store.Update, k2); err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
+	waitFor(wch, store.Update, k2)
 
 	after := time.After(time.Second / 10)
 	tick := time.Tick(time.Millisecond)
