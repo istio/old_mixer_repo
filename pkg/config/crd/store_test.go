@@ -425,7 +425,9 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	if err = lw.put(k2, map[string]interface{}{"test": "value"}); err != nil {
 		t.Error(err)
 	}
-	waitFor(wch, store.Update, k2)
+	if err = waitFor(wch, store.Update, k2); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
 
 	after := time.After(time.Second / 10)
 	tick := time.Tick(time.Millisecond)
