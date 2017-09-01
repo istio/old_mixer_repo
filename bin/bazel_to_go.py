@@ -177,6 +177,7 @@ def bazel_to_vendor(WKSPC):
     config_proto(WKSPC, genfiles)
     attributes_list(WKSPC, genfiles)
     inventory(WKSPC)
+    handlerConfig(WKSPC)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(external+"/"+file)]
@@ -250,6 +251,14 @@ def inventory(WKSPC):
         for file in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
             if file.endswith(".gen.go"):
                 makelink(WKSPC + "/bazel-genfiles/adapter/" + file, WKSPC + "/adapter/" + file)
+
+
+def handlerConfig(WKSPC):
+    if os.path.exists(WKSPC + "/bazel-genfiles/pkg/handler/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/handler/"):
+            if file.endswith(".gen.go"):
+                makelink(WKSPC + "/bazel-genfiles/pkg/handler/" + file, WKSPC + "/pkg/handler/" + file)
+
 
 if __name__ == "__main__":
     import sys

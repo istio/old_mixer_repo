@@ -312,7 +312,7 @@ func TestMetricEntry(t *testing.T) {
 	cfg := info.DefaultConfig
 	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
 	env := test.NewEnv(t)
-	hc.MetricEntryTypes = types
+	hc.MetricTypes = types
 	h, _ := newHandler(context.Background(), env, hc)
 	handler := h.(*handler)
 	tz := newTestZap()

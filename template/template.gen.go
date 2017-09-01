@@ -212,6 +212,23 @@ var (
 					return nil, fmt.Errorf("error type checking for field Severity: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
 				}
 
+				if cpb.MonitoredResourceType == "" {
+					return nil, errors.New("expression for field MonitoredResourceType cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.MonitoredResourceType); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field MonitoredResourceType: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field MonitoredResourceType: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				infrdType.MonitoredResourceDimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.MonitoredResourceDimensions))
+				for k, v := range cpb.MonitoredResourceDimensions {
+					if infrdType.MonitoredResourceDimensions[k], err = tEvalFn(v); err != nil {
+						return nil, err
+					}
+				}
+
 				_ = cpb
 				return infrdType, err
 			},
@@ -256,6 +273,22 @@ var (
 						return errors.New(msg)
 					}
 
+					MonitoredResourceType, err := mapper.Eval(md.MonitoredResourceType, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceType for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					MonitoredResourceDimensions, err := template.EvalAll(md.MonitoredResourceDimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceDimensions for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
 					instances = append(instances, &logentry.Instance{
 						Name: name,
 
@@ -264,6 +297,10 @@ var (
 						Timestamp: Timestamp.(time.Time),
 
 						Severity: Severity.(string),
+
+						MonitoredResourceType: MonitoredResourceType.(string),
+
+						MonitoredResourceDimensions: MonitoredResourceDimensions,
 					})
 					_ = md
 				}
@@ -309,6 +346,23 @@ var (
 					}
 				}
 
+				if cpb.MonitoredResourceType == "" {
+					return nil, errors.New("expression for field MonitoredResourceType cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.MonitoredResourceType); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field MonitoredResourceType: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field MonitoredResourceType: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				infrdType.MonitoredResourceDimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.MonitoredResourceDimensions))
+				for k, v := range cpb.MonitoredResourceDimensions {
+					if infrdType.MonitoredResourceDimensions[k], err = tEvalFn(v); err != nil {
+						return nil, err
+					}
+				}
+
 				_ = cpb
 				return infrdType, err
 			},
@@ -345,12 +399,32 @@ var (
 						return errors.New(msg)
 					}
 
+					MonitoredResourceType, err := mapper.Eval(md.MonitoredResourceType, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceType for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					MonitoredResourceDimensions, err := template.EvalAll(md.MonitoredResourceDimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceDimensions for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
 					instances = append(instances, &metric.Instance{
 						Name: name,
 
 						Value: Value,
 
 						Dimensions: Dimensions,
+
+						MonitoredResourceType: MonitoredResourceType.(string),
+
+						MonitoredResourceDimensions: MonitoredResourceDimensions,
 					})
 					_ = md
 				}

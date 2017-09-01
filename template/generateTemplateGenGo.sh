@@ -17,6 +17,6 @@ bazel-genfiles/template/metric/go_default_library_proto.descriptor_set:istio.io/
 bazel-genfiles/template/quota/go_default_library_proto.descriptor_set:istio.io/mixer/template/quota \
 bazel-genfiles/template/reportnothing/go_default_library_proto.descriptor_set:istio.io/mixer/template/reportnothing \
 bazel-genfiles/template/checknothing/go_default_library_proto.descriptor_set:istio.io/mixer/template/checknothing \
--o $MIXERPATH/template/template.gen.go
+--out_tmpl_info $MIXERPATH/template/template.gen.go
 
 bazel build ...

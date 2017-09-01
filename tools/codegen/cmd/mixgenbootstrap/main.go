@@ -27,7 +27,8 @@ import (
 
 func withArgs(args []string, errorf func(format string, a ...interface{})) {
 
-	var outFilePath string
+	var outTmplInfoFilePath string
+	var outHndlrConfigFilePath string
 	var mappings []string
 
 	// TODO add support for passing import mapping for individual template. For now, this tool just takes
@@ -51,10 +52,23 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 				errorf("Must specify at least one file descriptor set protobuf file.")
 			}
 
-			outFileFullPath, err := filepath.Abs(outFilePath)
-			if err != nil {
-				errorf("Invalid path %s. %v", outFilePath, err)
+			var err error
+			outTmplInfoFullFilePath := ""
+			outHndlrConfigFullFilePath := ""
+			if len(outTmplInfoFilePath) > 0 {
+				outTmplInfoFullFilePath, err = filepath.Abs(outTmplInfoFilePath)
+				if err != nil {
+					errorf("Invalid path %s. %v", outTmplInfoFilePath, err)
+				}
 			}
+
+			if len(outHndlrConfigFilePath) > 0 {
+				outHndlrConfigFullFilePath, err = filepath.Abs(outHndlrConfigFilePath)
+				if err != nil {
+					errorf("Invalid path %s. %v", outHndlrConfigFilePath, err)
+				}
+			}
+
 			importMapping := make(map[string]string)
 			for _, maps := range mappings {
 				m := strings.Split(maps, ":")
@@ -71,7 +85,11 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 				fdsFiles[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
 
-			generator := bootstrapgen.Generator{OutFilePath: outFileFullPath, ImportMapping: importMapping}
+			generator := bootstrapgen.Generator{
+				OutTmplInfoFilePath:    outTmplInfoFullFilePath,
+				OutHndlrConfigFilePath: outHndlrConfigFullFilePath,
+				ImportMapping:          importMapping,
+			}
 
 			if err := generator.Generate(fdsFiles); err != nil {
 				errorf("%v", err)
@@ -81,8 +99,11 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 
 	rootCmd.SetArgs(args)
 
-	rootCmd.PersistentFlags().StringVarP(&outFilePath, "output", "o", "./template.gen.go", "Output "+
-		"path for generated Go source file.")
+	rootCmd.PersistentFlags().StringVarP(&outTmplInfoFilePath, "out_tmpl_info", "", "", "Output "+
+		"path for generated Go source file that contains the template info for all supported templates.")
+
+	rootCmd.PersistentFlags().StringVarP(&outHndlrConfigFilePath, "out_handlerconfig", "", "", "Output "+
+		"path for generated Go source file that contains the HandlerConfig struct for all supported templates.")
 
 	rootCmd.PersistentFlags().StringArrayVarP(&mappings, "importmapping",
 		"m", []string{},

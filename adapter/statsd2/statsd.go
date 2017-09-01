@@ -169,7 +169,7 @@ func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) 
 
 	templates := make(map[string]info)
 	for metricName, s := range ac.Metrics {
-		def, found := hc.MetricEntryTypes[metricName]
+		def, found := hc.MetricTypes[metricName]
 		if !found {
 			env.Logger().Infof("template registered for nonexistent metric '%s'", metricName)
 			continue // we don't have a metric that corresponds to this template, skip processing it
@@ -199,8 +199,8 @@ type builder struct {
 // Build is to be deleted
 func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig:    cfg,
-		MetricEntryTypes: b.MetricTypes,
+		AdapterConfig: cfg,
+		MetricTypes:   b.MetricTypes,
 	}
 	return newHandler(context.Background(), env, hc)
 }

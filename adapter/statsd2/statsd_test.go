@@ -101,8 +101,8 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 		name: {Dimensions: map[string]descriptor.ValueType{"apiMethod": descriptor.STRING, "responseCode": descriptor.INT64}},
 	}
 	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig:    conf,
-		MetricEntryTypes: metrics,
+		AdapterConfig: conf,
+		MetricTypes:   metrics,
 	}
 	env := test.NewEnv(t)
 	if _, err := newHandler(context.Background(), env, hc); err != nil {
@@ -139,8 +139,8 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 	}()
 
 	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig:    conf,
-		MetricEntryTypes: metrics,
+		AdapterConfig: conf,
+		MetricTypes:   metrics,
 	}
 	if _, err := newHandler(context.Background(), test.NewEnv(t), hc); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), config, nil) = %v; wanted panic not err", err)
@@ -230,8 +230,8 @@ func TestRecord(t *testing.T) {
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
 			hc := &pkgHndlr.HandlerConfig{
-				AdapterConfig:    conf,
-				MetricEntryTypes: metrics,
+				AdapterConfig: conf,
+				MetricTypes:   metrics,
 			}
 
 			m, err := newHandler(context.Background(), test.NewEnv(t), hc)

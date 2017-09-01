@@ -160,8 +160,8 @@ func newHandlerWithZapBuilder(_ context.Context, _ adapter.Env, hc *pkgHndlr.Han
 
 	// We produce sorted tables of the dimensions we'll receive such that
 	// we send output to the zap logger in a consistent order at runtime
-	dimLists := make(map[string][]string, len(hc.MetricEntryTypes))
-	for tn, tv := range hc.MetricEntryTypes {
+	dimLists := make(map[string][]string, len(hc.MetricTypes))
+	for tn, tv := range hc.MetricTypes {
 		l := make([]string, 0, len(tv.Dimensions))
 		for v := range tv.Dimensions {
 			l = append(l, v)
