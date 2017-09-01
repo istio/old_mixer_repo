@@ -230,6 +230,13 @@ func quotaOld(legacyCtx legacyContext.Context, d adapterManager.AspectDispatcher
 		glog.V(1).Infof("Quota returned with ok '%s' and quota response '%v'", status.String(out), qmr)
 	} else {
 		glog.Warningf("Quota returned with error '%s' and quota response '%v'", status.String(out), qmr)
+
+		if out.Code == int32(rpc.RESOURCE_EXHAUSTED) {
+			qmr = &aspect.QuotaMethodResp{
+				Amount:     0,
+				Expiration: defaultValidDuration,
+			}
+		}
 	}
 	if qmr == nil {
 		return nil
