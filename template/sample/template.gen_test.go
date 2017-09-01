@@ -15,11 +15,13 @@
 package sample
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
@@ -27,14 +29,9 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"context"
-
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adpTmpl "istio.io/mixer/pkg/adapter/template"
-
-	"time"
-
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 	sample_check "istio.io/mixer/template/sample/check"
