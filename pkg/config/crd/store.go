@@ -128,15 +128,11 @@ func (s *Store) checkAndCreateCaches(
 		retryCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
-	checkNs := ""
-	if len(s.ns) > 0 {
-		checkNs = s.ns[0]
-	}
 	namespaces := s.ns
 	if len(namespaces) == 0 {
 		namespaces = []string{""}
 	}
-	for added := 0; added < len(kinds); {
+	for added := 0; added < len(kinds)*len(namespaces); {
 		if retryCtx.Err() != nil {
 			break
 		}
@@ -151,20 +147,21 @@ func (s *Store) checkAndCreateCaches(
 		}
 		s.cacheMutex.Lock()
 		for _, res := range resources.APIResources {
-			if _, ok := s.caches[cacheKey{res.Kind, checkNs}]; ok {
+			if _, ok := kindsSet[res.Kind]; !ok {
 				continue
 			}
-			if _, ok := kindsSet[res.Kind]; ok {
-				for _, ns := range namespaces {
-					ck := cacheKey{res.Kind, ns}
-					cl := lwBuilder.build(res, ns)
-					informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
-					s.caches[ck] = informer.GetStore()
-					informers[ck] = informer
-					delete(kindsSet, res.Kind)
-					informer.AddEventHandler(s)
-					go informer.Run(ctx.Done())
+			for _, ns := range namespaces {
+				ck := cacheKey{res.Kind, ns}
+				if _, ok := s.caches[ck]; ok {
+					continue
 				}
+				cl := lwBuilder.build(res, ns)
+				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
+				s.caches[ck] = informer.GetStore()
+				informers[ck] = informer
+				delete(kindsSet, res.Kind)
+				informer.AddEventHandler(s)
+				go informer.Run(ctx.Done())
 				added++
 			}
 		}
