@@ -8,14 +8,14 @@ MIXER_DEPS = [
     "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
 ]
 MIXER_INPUTS = [
-    "//pkg/adapter/template:protos",
+    "@com_github_istio_mixer//pkg/adapter/template:protos",
     "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
 ]
 MIXER_IMPORT_MAP = {
     "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
     "pkg/adapter/template/TemplateExtensions.proto": "istio.io/mixer/pkg/adapter/template",
 }
-MIXER_IMPORTS = [ "external/com_github_istio_api" ]
+MIXER_IMPORTS = [ "external/com_github_istio_api", "../../external/com_github_istio_api", "external/com_github_istio_mixer" ]
 
 # TODO: fill in with complete set of GOGO DEPS and IMPORT MAPPING
 GOGO_DEPS = [
@@ -28,7 +28,7 @@ GOGO_IMPORT_MAP = {
     "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
 }
 
-PROTO_IMPORTS = ["external/com_github_google_protobuf/src"]
+PROTO_IMPORTS = [ "external/com_github_google_protobuf/src", "../../external/com_github_google_protobuf/src" ]
 PROTO_INPUTS = [ "@com_github_google_protobuf//:well_known_protos" ]
 
 def _gen_template_and_handler(name, importmap = {}):   
