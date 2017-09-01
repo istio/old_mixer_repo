@@ -24,13 +24,13 @@ import (
 
 	"istio.io/api/mixer/v1"
 	adp "istio.io/mixer/adapter"
-	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/il/evaluator"
 	"istio.io/mixer/pkg/pool"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
@@ -52,7 +52,7 @@ type TestState struct {
 }
 
 // InitMixer creates an in memory mixer, and returns TestState associated with it.
-func InitMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn, tmplInfos map[string]template.Info) *TestState {
+func InitMixer(t *testing.T, configStore2URL string, adptInfos []handler.InfoFn, tmplInfos map[string]template.Info) *TestState {
 	// TODO replace
 	useIL := false
 	apiPoolSize := 1024
@@ -63,7 +63,7 @@ func InitMixer(t *testing.T, configStore2URL string, adptInfos []adapter.InfoFn,
 	configDefaultNamespace := "istio-config-default"
 	gp := getGoRoutinePool(apiPoolSize, singleThreadedGoRoutinePool)
 	adapterGP := getAdapterGoRoutinePool(adapterPoolSize, singleThreadedGoRoutinePool)
-	adapterMap := adp.InventoryMap(adptInfos)
+	adapterMap := config.InventoryMap(adptInfos)
 	eval, err := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	if err != nil {
 		t.Errorf("Failed to create expression evaluator: %v", err)

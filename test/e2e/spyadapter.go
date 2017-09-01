@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/handler"
 	reportTmpl "istio.io/mixer/test/e2e/template/report"
 )
 
@@ -162,9 +163,9 @@ func newSpyAdapter(b adptBehavior) *SpyAdapter {
 	return &SpyAdapter{behavior: b, bldrCallData: &bldrCallData{}, hndlrCallData: &hndlrCallData{}}
 }
 
-func (s *SpyAdapter) getAdptInfoFn() adapter.InfoFn {
-	return func() adapter.BuilderInfo {
-		return adapter.BuilderInfo{
+func (s *SpyAdapter) getAdptInfoFn() handler.InfoFn {
+	return func() handler.Info {
+		return handler.Info{
 			Name:               s.behavior.name,
 			Description:        "",
 			SupportedTemplates: []string{reportTmpl.TemplateName},

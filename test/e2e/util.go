@@ -24,8 +24,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	"istio.io/api/mixer/v1"
-	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/handler"
 )
 
 // GetCnfgs takes the operator configuration as strings and creates directory with config files from it.
@@ -47,8 +47,8 @@ func GetCnfgs(srvcCnfg, attrCnfg string) (dir string) {
 
 // CnstrAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
 // the constructed spyAdapters along with the adapters Info functions.
-func CnstrAdapterInfos(adptBehaviors []adptBehavior) ([]adapter.InfoFn, []*SpyAdapter) {
-	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
+func CnstrAdapterInfos(adptBehaviors []adptBehavior) ([]handler.InfoFn, []*SpyAdapter) {
+	var adapterInfos []handler.InfoFn = make([]handler.InfoFn, 0)
 	spyAdapters := make([]*SpyAdapter, 0)
 	for _, b := range adptBehaviors {
 		sa := newSpyAdapter(b)
