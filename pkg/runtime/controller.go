@@ -87,7 +87,7 @@ type Controller struct {
 const RulesKind = "rule"
 
 // AttributeManifestKind define the config kind name of attribute manifests.
-const AttributeManifestKind = "attribute"
+const AttributeManifestKind = "attributemanifest"
 
 // ResolverChangeListener is notified when a new resolver is created due to config change.
 type ResolverChangeListener interface {
