@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"google.golang.org/grpc"
 
-	"istio.io/api/mixer/v1"
 	adp "istio.io/mixer/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"

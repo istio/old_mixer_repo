@@ -19,7 +19,7 @@ import (
 	"os"
 	"testing"
 
-	"istio.io/api/mixer/v1"
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/template"
 	e2eTmpl "istio.io/mixer/test/e2e/template"

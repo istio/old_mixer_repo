@@ -20,10 +20,9 @@ import (
 	"path"
 	"reflect"
 	"testing"
-
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"github.com/davecgh/go-spew/spew"
 
-	"istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/handler"
 )

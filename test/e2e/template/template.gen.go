@@ -20,10 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 
-	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
