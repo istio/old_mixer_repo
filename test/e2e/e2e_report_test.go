@@ -111,7 +111,7 @@ func TestReport(t *testing.T) {
 
 				CmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandler_Types,
 					map[string]interface{}{
-						"reportInstance": &reportTmpl.Type{
+						"reportInstance.report.istio-config-default": &reportTmpl.Type{
 							Value:      pb.INT64,
 							Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
 						},
@@ -121,7 +121,7 @@ func TestReport(t *testing.T) {
 				CmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_Instances,
 					[]*reportTmpl.Instance{
 						{
-							Name:       "reportInstance",
+							Name:       "reportInstance.report.istio-config-default",
 							Value:      int64(2),
 							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
 						},
