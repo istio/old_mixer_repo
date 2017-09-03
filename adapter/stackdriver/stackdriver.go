@@ -22,7 +22,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/googleapis/gax-go"
+	gax "github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
 	gapiopts "google.golang.org/api/option"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
@@ -33,7 +33,6 @@ import (
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
 
@@ -104,9 +103,9 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
-// GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+// GetInfo returns the BuilderInfo associated with this adapter implementation.
+func GetInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:        "stackdriver",
 		Impl:        "istio.io/mixer/adapter/stackdriver",
 		Description: "Pushes metrics to Stackdriver.",
@@ -139,7 +138,7 @@ func toOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 	return
 }
 
-func (b *builder) ConfigureMetricHandler(metrics map[string]*metric.Type) error {
+func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) error {
 	b.metrics = metrics
 	return nil
 }

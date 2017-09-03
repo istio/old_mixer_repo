@@ -31,7 +31,6 @@ import (
 
 	"istio.io/mixer/adapter/prometheus2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
 
@@ -66,7 +65,7 @@ var (
 )
 
 // GetInfo returns the BuilderInfo associated with this adapter.
-func GetInfo() pkgHndlr.Info {
+func GetInfo() adapter.BuilderInfo {
 	// prometheus uses a singleton http port, so we make the
 	// builder itself a singleton, when defaultAddr become configurable
 	// srv will be a map[string]server
@@ -74,7 +73,7 @@ func GetInfo() pkgHndlr.Info {
 		srv: newServer(defaultAddr),
 	}
 	singletonBuilder.clearState()
-	return pkgHndlr.Info{
+	return adapter.BuilderInfo{
 		Name:        "prometheus",
 		Impl:        "istio.io/mixer/adapter/prometheus",
 		Description: "Publishes prometheus metrics",
@@ -94,7 +93,7 @@ func (b *builder) clearState() {
 	b.metrics = make(map[string]*cinfo)
 }
 
-func (b *builder) ConfigureMetricHandler(map[string]*metric.Type) error { return nil }
+func (b *builder) SetMetricTypes(map[string]*metric.Type) error { return nil }
 
 func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
 
