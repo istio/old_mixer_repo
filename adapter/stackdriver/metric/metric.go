@@ -112,7 +112,7 @@ func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
 	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg)...)
 }
 
-func (b *builder) ConfigureMetricHandler(metrics map[string]*metric.Type) error {
+func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) error {
 	b.metrics = metrics
 	return nil
 }
