@@ -67,19 +67,19 @@ type dummyListerWatcherBuilder struct {
 func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
 	w := watch.NewRaceFreeFake()
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	d.watchers[res.Kind] = w
+	d.mu.Unlock()
 
 	return &cache.ListWatch{
 		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
-			d.mu.RLock()
-			defer d.mu.RUnlock()
 			list := &unstructured.UnstructuredList{}
+			d.mu.RLock()
 			for k, v := range d.data {
 				if k.Kind == res.Kind {
 					list.Items = append(list.Items, *v)
 				}
 			}
+			d.mu.RUnlock()
 			return list, nil
 		},
 		WatchFunc: func(metav1.ListOptions) (watch.Interface, error) {
@@ -89,14 +89,15 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 }
 
 func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
 	res := &unstructured.Unstructured{}
 	res.SetKind(key.Kind)
 	res.SetAPIVersion(apiGroupVersion)
 	res.SetName(key.Name)
 	res.SetNamespace(key.Namespace)
 	res.Object["spec"] = spec
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	_, existed := d.data[key]
 	d.data[key] = res
 	w, ok := d.watchers[key.Kind]
