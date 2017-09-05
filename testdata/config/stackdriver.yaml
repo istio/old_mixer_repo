@@ -1,7 +1,7 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: stackdriver
 metadata:
-  name: stackdriver
+  name: handler
   namespace: istio-config-default
 spec:
   # We'll use the default value from the adapter, once per minute, so we don't need to supply a value.
@@ -18,30 +18,66 @@ spec:
   # Describes how to map Istio metrics into stackdriver.
   # Note that custom metrics cannot be DELTAs
   metricInfo:
-    request_count:
+    requestcount.metric.istio-config-default:
       # Due to a bug in gogoproto deserialization, Enums in maps must be
       # specified by their integer value, not variant name. See
       # https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
       # MetricKind and ValueType for the values to provide.
       kind: 2 # DELTA
       value: 2 # INT64
-    request_duration:
+    requestduration.metric.istio-config-default:
       kind: 2 # DELTA
       # TODO: determine how we want to represent time: stackdriver does
       # not have a time primitive, but does support a notion of units
       # attached to int64, double, and distribution values. But those are
       # only provided at metric creation time.
       value: 2 # INT64
+  logInfo:
+    global.logentry.stackdriver.istio-config-default:
+      # Apache common log format
+      payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+      httpMapping:
+        status: responseCode
+        requestSize: requestSize
+        responseSize: responseSize
+        latency: latency
+        localIp: originIp
+        remoteIp: targetIp
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: mixer-rule
+kind: logentry
 metadata:
-  name: prommetrics
+  name: global
+  namespace: stackdriver.istio-config-default
+spec:
+  timestamp: request.time
+  severity: '"Default"'
+  variables:
+    originIp: origin.ip | ip("0.0.0.0")
+    targetIp: target.ip | ip("0.0.0.0")
+    sourceUser: origin.user | ""
+    method: request.method | ""
+    url: request.path | ""
+    protocol: request.scheme | ""
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    latency: response.duration | "0s"
+  monitoredResourceType: global
+  monitoredResourceDimensions:
+    project_id:
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: sdmetrics
   namespace: istio-config-default
 spec:
   selector: "true"
   actions:
-  - handler: stackdriver.stackdriver.istio-config-default
+  - handler: handler.stackdriver.istio-config-default
     instances:
     - requestcount.metric.istio-config-default
     - requestduration.metric.istio-config-default
+    - requestsize.metric.istio-config-default
+    - responsesize.metric.istio-config-default
+    - global.logentry.stackdriver.istio-config-default

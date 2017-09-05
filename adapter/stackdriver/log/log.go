@@ -106,7 +106,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 			log:    client.Logger(name).Log,
 		}
 	}
-	return &handler{client: client, now: time.Now, l: logger}, nil
+	return &handler{client: client, now: time.Now, l: logger, info: infos}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
