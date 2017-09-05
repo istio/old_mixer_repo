@@ -109,17 +109,17 @@ func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, 
 	return o.b.Build(context.Background(), env)
 }
 
-// ConfigureCheckNothingHandler is to be deleted
-func (*obuilder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
+// SetCheckNothingTypes is to be deleted
+func (*obuilder) SetCheckNothingTypes(map[string]*checknothing.Type) error {
 	return nil
 }
 
-// ConfigureListEntryHandler is to be deleted
-func (*obuilder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+// SetListEntryTypes is to be deleted
+func (*obuilder) SetListEntryTypes(map[string]*listentry.Type) error {
 	return nil
 }
 
-// ConfigureQuotaHandler is to be deleted
-func (*obuilder) ConfigureQuotaHandler(map[string]*quota.Type) error {
+// SetQuotaTypes is to be deleted
+func (*obuilder) SetQuotaTypes(map[string]*quota.Type) error {
 	return nil
 }

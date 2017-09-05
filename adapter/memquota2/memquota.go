@@ -254,8 +254,8 @@ func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, 
 	return o.b.Build(context.Background(), env)
 }
 
-// ConfigureQuotaHandler is to be deleted
-func (o *obuilder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
+// SetQuotaTypes is to be deleted
+func (o *obuilder) SetQuotaTypes(types map[string]*quota.Type) error {
 	o.b.SetQuotaTypes(types)
 	return nil
 }

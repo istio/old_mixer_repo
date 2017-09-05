@@ -347,7 +347,7 @@ func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, 
 	return o.b.Build(context.Background(), env)
 }
 
-// ConfigureListEntryHandler is to be deleted
-func (*obuilder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+// SetListEntryTypes is to be deleted
+func (*obuilder) SetListEntryTypes(map[string]*listentry.Type) error {
 	return nil
 }
