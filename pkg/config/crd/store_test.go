@@ -61,11 +61,11 @@ func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 type dummyListerWatcherBuilder struct {
 	mu       sync.RWMutex
 	data     map[store.Key]*unstructured.Unstructured
-	watchers map[string]*watch.FakeWatcher
+	watchers map[string]*watch.RaceFreeFakeWatcher
 }
 
 func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
-	w := watch.NewFake()
+	w := watch.NewRaceFreeFake()
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.watchers[res.Kind] = w
@@ -131,7 +131,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	ns := "istio-mixer-testing"
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
-		watchers: map[string]*watch.FakeWatcher{},
+		watchers: map[string]*watch.RaceFreeFakeWatcher{},
 	}
 	client := &Store{
 		conf:             &rest.Config{},
@@ -215,10 +215,10 @@ func TestStore(t *testing.T) {
 func TestStoreWrongKind(t *testing.T) {
 	s, ns, lw := getTempClient()
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	if err := s.Init(ctx, []string{"Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
-	defer cancel()
 
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
@@ -233,7 +233,8 @@ func TestStoreWrongKind(t *testing.T) {
 
 func TestStoreFailToInit(t *testing.T) {
 	s, _, _ := getTempClient()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return nil, errors.New("dummy")
 	}
@@ -255,8 +256,10 @@ func TestCrdsAreNotReady(t *testing.T) {
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return emptyDiscovery, nil
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	start := time.Now()
-	err := s.Init(context.Background(), []string{"Handler", "Action"})
+	err := s.Init(ctx, []string{"Handler", "Action"})
 	d := time.Since(start)
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
@@ -298,7 +301,9 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 	}
 	// Should set a longer timeout to avoid early quitting retry loop due to lack of computational power.
 	s.retryTimeout = 2 * time.Second
-	err := s.Init(context.Background(), []string{"Handler", "Action"})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err := s.Init(ctx, []string{"Handler", "Action"})
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
@@ -339,7 +344,9 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	if err := lw.put(k1, map[string]interface{}{"adapter": "noop"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Init(context.Background(), []string{"Handler", "Action"}); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
 		t.Fatal(err)
 	}
 	s.cacheMutex.Lock()
@@ -348,18 +355,11 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	if ncaches != 1 {
 		t.Errorf("Has %d caches, Want 1 caches", ncaches)
 	}
-	wch, err := s.Watch(context.Background())
+	wch, err := s.Watch(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	atomic.StoreInt32(&count, 1)
-	k2 := store.Key{Kind: "Action", Namespace: ns, Name: "default"}
-	if err = lw.put(k2, map[string]interface{}{"test": "value"}); err != nil {
-		t.Error(err)
-	}
-	if err = waitFor(wch, store.Update, k2); err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
 
 	after := time.After(time.Second / 10)
 	tick := time.Tick(time.Millisecond)
@@ -378,6 +378,14 @@ loop:
 		}
 	}
 	if ncaches != 2 {
-		t.Errorf("Has %d caches, Want 2 caches", ncaches)
+		t.Fatalf("Has %d caches, Want 2 caches", ncaches)
+	}
+
+	k2 := store.Key{Kind: "Action", Namespace: ns, Name: "default"}
+	if err = lw.put(k2, map[string]interface{}{"test": "value"}); err != nil {
+		t.Error(err)
+	}
+	if err = waitFor(wch, store.Update, k2); err != nil {
+		t.Errorf("Got %v, Want nil", err)
 	}
 }
