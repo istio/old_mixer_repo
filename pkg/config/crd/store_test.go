@@ -65,6 +65,11 @@ type dummyListerWatcherBuilder struct {
 }
 
 func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
+	w := watch.NewFake()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.watchers[res.Kind] = w
+
 	return &cache.ListWatch{
 		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
 			d.mu.RLock()
@@ -78,10 +83,6 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 			return list, nil
 		},
 		WatchFunc: func(metav1.ListOptions) (watch.Interface, error) {
-			d.mu.Lock()
-			defer d.mu.Unlock()
-			w := watch.NewFake()
-			d.watchers[res.Kind] = w
 			return w, nil
 		},
 	}
