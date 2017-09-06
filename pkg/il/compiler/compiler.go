@@ -209,8 +209,12 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	case "ip":
 		g.generate(f.Args[0], depth+1, nmNone, "")
 		g.builder.Call("ip")
+	case "matches":
+		g.generate(f.Args[0], depth+1, nmNone, "")
+		g.generate(f.Args[1], depth+1, nmNone, "")
+		g.builder.Call("matches")
 	default:
-		// TODO: generalize "ip" case to iterate over Args and append Call
+		// TODO: generalize "ip" and "matches" case to iterate over Args and append Call
 		g.internalError("function not yet implemented: %s", f.Name)
 	}
 }
