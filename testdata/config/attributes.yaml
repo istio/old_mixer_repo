@@ -90,6 +90,8 @@ spec:
         valueType: STRING
       source.serviceAccount:
         valueType: STRING
+      source.user:
+        valueType: STRING
       target.ip:
         valueType: IP_ADDRESS
       target.labels:
