@@ -16,9 +16,9 @@
 #
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
-load("@com_github_istio_mixer//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("@com_github_istio_mixer//:googleapis.bzl", "go_googleapis_repositories")
-load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 
 
 # This function should be used by others to use mock mixer.
@@ -38,13 +38,7 @@ load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
 #     remote = "https://github.com/pubref/rules_protobuf",
 # )
 #
-# git_repository(
-#     name = "com_github_istio_mixer",
-#     commit = "4b3296a43ce940ba47fab7ad35fdf5c0c18778cd",
-#     importpath = "github.com/istio/mixer",
-# )
-#
-# load("@com_github_istio_mixer//test:repositories.bzl", "mixer_test_repositories")
+# load("//test:repositories.bzl", "mixer_test_repositories")
 # mixer_test_repositories(False)
 #
 def mixer_test_repositories(use_local_api=False):
