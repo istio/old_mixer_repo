@@ -41,7 +41,7 @@ var defaultSeverArgs = serverArgs{
 	configFetchIntervalSec:        3,
 	configIdentityAttribute:       "target.service",
 	configIdentityAttributeDomain: "",
-	useAst: false,
+	useAst: true,
 }
 
 // SetupTestServer sets up a test server environment

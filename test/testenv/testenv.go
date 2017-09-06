@@ -1,0 +1,82 @@
+package testenv
+
+import (
+	"io"
+	"net"
+
+	"google.golang.org/grpc"
+	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/cmd/server/cmd"
+	"istio.io/mixer/cmd/shared"
+	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/template"
+)
+
+// TestEnv interface
+type TestEnv interface {
+	io.Closer
+	CreateMixerClient() (mixerpb.MixerClient, *grpc.ClientConn, error)
+}
+
+type testEnv struct {
+	addr         string
+	mixerContext *cmd.ServerContext
+	shutdown     chan struct{}
+}
+
+// Args includes the required args to initialize Mixer server.
+type Args struct {
+	ConfigStoreURL                string
+	ConfigStore2URL               string
+	ConfigDefaultNamespace        string
+	ConfigIdentityAttributeDomain string
+}
+
+// NewTestEnv creates a TestEnv instance.
+func NewTestEnv(args *Args, adapters []handler.InfoFn) (TestEnv, error) {
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return nil, err
+	}
+
+	context := cmd.SetupTestServer(template.SupportedTmplInfo, adapters, args.ConfigStoreURL, args.ConfigStore2URL,
+		args.ConfigDefaultNamespace, args.ConfigIdentityAttributeDomain)
+	shutdown := make(chan struct{})
+
+	go func() {
+		shared.Printf("Start test mixer on:%v", lis.Addr())
+		{
+			defer context.GP.Close()
+			defer context.AdapterGP.Close()
+			if err := context.Server.Serve(lis); err != nil {
+				shared.Printf("Mixer Shutdown: %v", err)
+			}
+		}
+		shutdown <- struct{}{}
+	}()
+
+	return &testEnv{
+		addr:         lis.Addr().String(),
+		mixerContext: context,
+		shutdown:     shutdown,
+	}, nil
+}
+
+// CreateMixerClient returns a Mixer Grpc client.
+func (env *testEnv) CreateMixerClient() (mixerpb.MixerClient, *grpc.ClientConn, error) {
+	conn, err := grpc.Dial(env.addr, grpc.WithInsecure())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return mixerpb.NewMixerClient(conn), conn, nil
+}
+
+// Close cleans up TestEnv.
+func (env *testEnv) Close() error {
+	env.mixerContext.Server.GracefulStop()
+	<-env.shutdown
+	close(env.shutdown)
+	env.mixerContext = nil
+	return nil
+}
