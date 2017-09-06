@@ -16,8 +16,6 @@ manifests:
         valueType: STRING
       source.serviceAccount:
         valueType: STRING
-      source.user:
-        valueType: STRING
       target.ip:
         valueType: IP_ADDRESS
       target.labels:
@@ -74,6 +72,8 @@ manifests:
       response.time:
         valueType: TIMESTAMP
       source.uid:
+        valueType: STRING
+      source.user:
         valueType: STRING
       target.uid:
         valueType: STRING

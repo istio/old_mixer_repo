@@ -47,6 +47,8 @@ spec:
         valueType: TIMESTAMP
       source.uid:
         valueType: STRING
+      source.user:
+        valueType: STRING
       target.uid:
         valueType: STRING
       connection.id:
@@ -89,8 +91,6 @@ spec:
       source.service:
         valueType: STRING
       source.serviceAccount:
-        valueType: STRING
-      source.user:
         valueType: STRING
       target.ip:
         valueType: IP_ADDRESS
