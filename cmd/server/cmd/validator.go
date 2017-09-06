@@ -38,7 +38,7 @@ type validatorConfig struct {
 	certsDir         string
 }
 
-func validatorCmd(info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func validatorCmd(info map[string]template.Info, adapters []handler.InfoFn, fatalf shared.FormatFn) *cobra.Command {
 	handlers := make(map[string]*handler.Info, len(adapters))
 	for _, infoFn := range adapters {
 		ainfo := infoFn()
@@ -51,7 +51,7 @@ func validatorCmd(info map[string]template.Info, adapters []handler.InfoFn, prin
 		Use:   "validator",
 		Short: "Runs an https server for validations. Works as an external admission webhook for k8s",
 		Run: func(cmd *cobra.Command, args []string) {
-			runValidator(vc, printf, fatalf)
+			runValidator(vc, fatalf)
 		},
 	}
 	validatorCmd.PersistentFlags().StringVar(&vc.namespace, "namespace", "default", "the namespace where this webhook is deployed")
@@ -94,7 +94,7 @@ func createCertProvider(vc *validatorConfig, client *kubernetes.Clientset) crd.C
 	return crd.NewFileCertProvider(vc.certsDir)
 }
 
-func runValidator(vc *validatorConfig, printf, fatalf shared.FormatFn) {
+func runValidator(vc *validatorConfig, fatalf shared.FormatFn) {
 	client, err := createK8sClient()
 	if err != nil {
 		fatalf("Failed to create kubernetes client: %v", err)

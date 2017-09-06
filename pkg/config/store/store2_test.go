@@ -58,14 +58,12 @@ func (m *memstore) List() map[Key]map[string]interface{} {
 	return m.data
 }
 
-func (m *memstore) Put(key Key, spec map[string]interface{}) error {
+func (m *memstore) Put(key Key, spec map[string]interface{}) {
 	m.data[key] = spec
-	return nil
 }
 
-func (m *memstore) Delete(key Key) error {
+func (m *memstore) Delete(key Key) {
 	delete(m.data, key)
-	return nil
 }
 
 func registerMemstore(builders map[string]Store2Builder) {
@@ -90,9 +88,7 @@ func TestStore2(t *testing.T) {
 	if err = s.Get(k, h1); err != ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
-	if err = m.Put(k, map[string]interface{}{"name": "default", "adapter": "noop"}); err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
+	m.Put(k, map[string]interface{}{"name": "default", "adapter": "noop"})
 	if err = s.Get(k, h1); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
@@ -129,7 +125,7 @@ func TestStore2WatchMultiple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}, nil); err != nil {
+	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

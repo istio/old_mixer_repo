@@ -54,7 +54,7 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []handler
 	rootCmd.AddCommand(adapterCmd(printf))
 	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(crdCmd(info, adapters, printf, fatalf))
-	rootCmd.AddCommand(validatorCmd(info, adapters, printf, fatalf))
+	rootCmd.AddCommand(validatorCmd(info, adapters, fatalf))
 	rootCmd.AddCommand(shared.VersionCmd(printf))
 
 	return rootCmd

@@ -124,7 +124,12 @@ type ValidatorServer struct {
 }
 
 // NewValidatorServer creates a new ValidatorServer.
-func NewValidatorServer(name, namespace string, resources []string, targetNamespaces []string, client kubernetes.Interface, validator store.BackendValidator) *ValidatorServer {
+func NewValidatorServer(
+	name, namespace string,
+	resources []string,
+	targetNamespaces []string,
+	client kubernetes.Interface,
+	validator store.BackendValidator) *ValidatorServer {
 	if name == "" {
 		name = webhookServiceName
 	}

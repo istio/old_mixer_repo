@@ -57,7 +57,7 @@ func (w *mockWriter) Header() http.Header {
 func (w *mockWriter) WriteHeader(int) {
 }
 
-func sendRecv(h http.Handler, ctype string, in []byte) []byte {
+func sendRecv(h http.Handler, in []byte) []byte {
 	inBuf := bytes.NewBuffer(in)
 	outBuf := &mockWriter{bytes.NewBuffer(nil)}
 	req, err := http.NewRequest("GET", "/", inBuf)
@@ -141,7 +141,7 @@ func TestValidation(t *testing.T) {
 	} {
 		t.Run(c.title, func(tt *testing.T) {
 			v := NewValidatorServer("", "ns", []string{"Handler"}, c.targetNS, nil, c.validator)
-			result := sendRecv(v, "", []byte(c.in))
+			result := sendRecv(v, []byte(c.in))
 			review := &admissionV1alpha1.AdmissionReview{}
 			if err := json.Unmarshal(result, review); err != nil {
 				tt.Fatalf("Failed to unmarshal response: %v (got %s)", err, result)
@@ -154,27 +154,27 @@ func TestValidation(t *testing.T) {
 }
 
 func testCertProvider(t *testing.T, cp CertProvider, add func(name string, data []byte)) {
-	key, cert, ca, err := cp.Get()
+	_, _, _, err := cp.Get()
 	if err == nil {
 		t.Errorf("Got nil, Want error")
 	}
 	add(keyFilename, []byte("key-data"))
-	key, cert, ca, err = cp.Get()
+	_, _, _, err = cp.Get()
 	if err == nil {
 		t.Errorf("Got nil, Want error")
 	}
 	add(certFilename, []byte("cert-data"))
-	key, cert, ca, err = cp.Get()
+	_, _, _, err = cp.Get()
 	if err == nil {
 		t.Errorf("Got nil, Want error")
 	}
 	add("unrelated.pem", []byte("unrelated-data"))
-	key, cert, ca, err = cp.Get()
+	_, _, _, err = cp.Get()
 	if err == nil {
 		t.Errorf("Got nil, Want error")
 	}
 	add(caFilename, []byte("ca-data"))
-	key, cert, ca, err = cp.Get()
+	key, cert, ca, err := cp.Get()
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
@@ -194,13 +194,15 @@ func TestFileCertProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(fsroot)
 	fp := NewFileCertProvider(fsroot)
 	testCertProvider(t, fp, func(name string, data []byte) {
-		if err := ioutil.WriteFile(filepath.Join(fsroot, name), data, 0644); err != nil {
+		if err = ioutil.WriteFile(filepath.Join(fsroot, name), data, 0644); err != nil {
 			t.Fatal(err)
 		}
 	})
+	if err = os.RemoveAll(fsroot); err != nil {
+		t.Error(err)
+	}
 }
 
 func TestSecretCertProvider(t *testing.T) {
