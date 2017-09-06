@@ -355,11 +355,7 @@ func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, 
 	return o.b.Build(context.Background(), env)
 }
 
-<<<<<<< HEAD
 // SetMetricTypes is to be deleted
-=======
-// ConfigureMetricHandler is to be deleted
->>>>>>> Rename prometheus Config method to Set method
 func (o *obuilder) SetMetricTypes(types map[string]*metric.Type) error {
 	o.b.SetMetricTypes(types)
 	return nil
