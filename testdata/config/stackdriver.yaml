@@ -58,6 +58,7 @@ spec:
     - requestcount.metric.istio-config-default
     - requestduration.metric.istio-config-default
     - global.logentry.stackdriver.istio-config-default
+
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
@@ -77,6 +78,11 @@ spec:
     responseSize: response.size
     requestSize: request.size
     latency: response.duration
+  # The Monitored Resource must match a Stackdriver Monitored resource type defined at:
+  #     https://cloud.google.com/monitoring/api/resources
+  # Sending invalid MRs will result in the entire metric entry being rejected.
   monitoredResourceType: "global"
   monitoredResourceDimensions:
-    project_id: 
+    # When using the global MR, this must be filled in, preferably matching the
+    # project_id given above in stackdriver config.
+    project_id:
