@@ -9,7 +9,7 @@ import (
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/handler"
-	"istio.io/mixer/template"
+	"istio.io/mixer/pkg/template"
 )
 
 // TestEnv interface
@@ -26,30 +26,31 @@ type testEnv struct {
 
 // Args includes the required args to initialize Mixer server.
 type Args struct {
+	MixerServerAddr               string
 	ConfigStoreURL                string
 	ConfigStore2URL               string
 	ConfigDefaultNamespace        string
 	ConfigIdentityAttributeDomain string
 }
 
-// NewTestEnv creates a TestEnv instance.
-func NewTestEnv(args *Args, adapters []handler.InfoFn) (TestEnv, error) {
-	lis, err := net.Listen("tcp", "localhost:0")
+// NewEnv creates a TestEnv instance.
+func NewEnv(args *Args, info map[string]template.Info, adapters []handler.InfoFn) (TestEnv, error) {
+	lis, err := net.Listen("tcp", args.MixerServerAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	context := cmd.SetupTestServer(template.SupportedTmplInfo, adapters, args.ConfigStoreURL, args.ConfigStore2URL,
+	context := cmd.SetupTestServer(info, adapters, args.ConfigStoreURL, args.ConfigStore2URL,
 		args.ConfigDefaultNamespace, args.ConfigIdentityAttributeDomain)
 	shutdown := make(chan struct{})
 
 	go func() {
-		shared.Printf("Start test mixer on:%v", lis.Addr())
+		shared.Printf("Start test Mixer on:%v\n", lis.Addr())
 		{
 			defer context.GP.Close()
 			defer context.AdapterGP.Close()
 			if err := context.Server.Serve(lis); err != nil {
-				shared.Printf("Mixer Shutdown: %v", err)
+				shared.Printf("Mixer Shutdown: %v\n", err)
 			}
 		}
 		shutdown <- struct{}{}

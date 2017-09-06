@@ -11,7 +11,7 @@ go_library(
         "//cmd/server/cmd:go_default_library",
         "//cmd/shared:go_default_library",
         "//pkg/handler:go_default_library",
-        "//template:go_default_library",
+        "//pkg/template:go_default_library",
         "@com_github_istio_api//:mixer/v1",  # keep
         "@org_golang_google_grpc//:go_default_library",
     ],
@@ -29,7 +29,7 @@ go_test(
         "//adapter/denier:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/handler:go_default_library",
-        "//pkg/template:go_default_library",
+        "//template:go_default_library",
         "//test/testenv:go_default_library",
         "@com_github_istio_api//:mixer/v1",  # keep
         "@com_github_pborman_uuid//:go_default_library",

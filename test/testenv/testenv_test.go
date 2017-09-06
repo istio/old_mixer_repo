@@ -14,6 +14,7 @@ import (
 	"istio.io/mixer/adapter/denier"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/template"
 )
 
 func closeHelper(c io.Closer) {
@@ -95,13 +96,15 @@ func TestDenierAdapter(t *testing.T) {
 	}()
 
 	var args = Args{
+		// Start Mixer server on a free port on loop back interface
+		MixerServerAddr:               `127.0.0.1:0`,
 		ConfigStoreURL:                `fs://` + configStore,
 		ConfigStore2URL:               `fs://` + configStore,
 		ConfigDefaultNamespace:        "istio-config-default",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 	}
 
-	env, err := NewTestEnv(&args, []handler.InfoFn{denier.GetInfo})
+	env, err := NewEnv(&args, template.SupportedTmplInfo, []handler.InfoFn{denier.GetInfo})
 	if err != nil {
 		t.Fatalf("fail to create testenv: %v", err)
 	}
