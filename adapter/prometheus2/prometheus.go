@@ -50,7 +50,7 @@ type (
 		metrics  map[string]*cinfo
 		registry *prometheus.Registry
 		srv      server
-		cnfg     *config.Params
+		cfg      *config.Params
 	}
 
 	handler struct {
@@ -98,11 +98,11 @@ func (b *builder) clearState() {
 }
 
 func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
-func (b *builder) SetAdapterConfig(cnfg adapter.Config)   { b.cnfg = cnfg.(*config.Params) }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)    { b.cfg = cfg.(*config.Params) }
 func (b *builder) Validate() *adapter.ConfigErrors        { return nil }
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
-	cfg := b.cnfg
+	cfg := b.cfg
 	var metricErr *multierror.Error
 
 	// newMetrics collects new metric configuration
