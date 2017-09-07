@@ -106,7 +106,7 @@ func (du *dedupUtil) reapDedup() {
 	du.recentDedup = t
 
 	if du.logger.VerbosityLevel(6) {
-		du.logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
+		du.logger.Infof("Running reaper to reclaim %d old deduplication entries", len(t))
 	}
 
 	// TODO: why isn't there a O(1) way to clear a map to the empty state?!
