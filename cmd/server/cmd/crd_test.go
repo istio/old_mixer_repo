@@ -30,8 +30,8 @@ import (
 var empty = ``
 
 var exampleAdapters = []adptr.InfoFn{
-	func() adptr.BuilderInfo { return adptr.BuilderInfo{Name: "foo-bar"} },
-	func() adptr.BuilderInfo { return adptr.BuilderInfo{Name: "abcd"} },
+	func() adptr.Info { return adptr.Info{Name: "foo-bar"} },
+	func() adptr.Info { return adptr.Info{Name: "abcd"} },
 }
 var exampleAdaptersCrd = `
 kind: CustomResourceDefinition

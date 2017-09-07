@@ -73,9 +73,9 @@ func (*handler) Close() error { return nil }
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the BuilderInfo associated with this adapter implementation.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "noop",
 		Impl:        "istio.io/mixer/adapter/noop",
 		Description: "Does nothing (useful for testing)",
