@@ -32,6 +32,7 @@ import (
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/template/logentry"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
 func TestBuild(t *testing.T) {
@@ -195,6 +196,18 @@ func TestHandleLogEntry(t *testing.T) {
 					Payload:   fmt.Sprintf("%d-%s-%v", 1, "foo", now),
 				},
 			}},
+		{"resource",
+			map[string]info{"resource": {tmpl: template.Must(template.New("").Parse("{{.a}}-{{.b}}-{{.c}}")), log: log}},
+			[]*logentry.Instance{{Name: "resource", Variables: map[string]interface{}{"a": 1, "b": "foo", "c": now}, MonitoredResourceType: "mr-type"}},
+			[]logging.Entry{
+				{
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{},
+					Payload:   fmt.Sprintf("%d-%s-%v", 1, "foo", now),
+					Resource:  &monitoredres.MonitoredResource{Type: "mr-type", Labels: map[string]string{}},
+				},
+			}},
 	}
 
 	for idx, tt := range tests {
@@ -222,11 +235,20 @@ func TestHandleLogEntry(t *testing.T) {
 				t.Errorf("Expected %d entries, got %d: %v", len(tt.expected), len(actuals), actuals)
 			}
 			for _, expected := range tt.expected {
+				// reflect.DeepEqual fails for pointer fields if the pointers are not identical (i.e. it doesn't recurse
+				// to verify the values behind the pointers), so we hide the ptr field and check ourselves.
+				emr := expected.Resource
+				expected.Resource = nil
+
 				found := false
 				for _, actual := range actuals {
-					found = found || reflect.DeepEqual(actual, expected)
+					amr := actual.Resource
+					actual.Resource = nil
+
+					found = found || (reflect.DeepEqual(actual, expected) && reflect.DeepEqual(emr, amr))
 				}
 				if !found {
+					expected.Resource = emr
 					t.Errorf("Expected entry %v, got: %v", expected, actuals)
 				}
 			}
