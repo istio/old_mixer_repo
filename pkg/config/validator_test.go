@@ -253,7 +253,7 @@ func TestFullConfigValidator(tt *testing.T) {
 			cok := ce == nil
 			ok := ctx.cerr == nil
 			if ok != cok {
-				t.Fatalf("%d got %t, want %t ", idx, cok, ok)
+				t.Fatalf("%d ok:= got %t, want %t ", idx, cok, ok)
 			}
 			if ce == nil {
 				return
@@ -366,7 +366,7 @@ const sSvcConfig1 = `
 subject: "namespace:ns"
 revision: "2022"
 rules:
-- match: service.name == “*”
+- selector: service.name == “*”
   aspects:
   - kind: metrics
     params:
@@ -381,7 +381,7 @@ const sSvcConfig2 = `
 subject: namespace:ns
 revision: "2022"
 rules:
-- match: service.name == “*”
+- selector: service.name == “*”
   aspects:
   - kind: lists
     inputs: {}
@@ -391,7 +391,7 @@ const sSvcConfig3 = `
 subject: namespace:ns
 revision: "2022"
 rules:
-- match: service.name == “*”
+- selector: service.name == “*”
   aspects:
   - kind: lists
     inputs: {}
@@ -402,7 +402,7 @@ const sSvcConfig = `
 subject: namespace:ns
 revision: "2022"
 rules:
-- match: %s
+- selector: %s
   aspects:
   - kind: metrics
     adapter: ""
@@ -1040,26 +1040,11 @@ action_rules:
   - instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedMissingHandler = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.ip == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: source.ip == "*"
-    actions:
-    - instances:
-      - RequestCountByService
-`
 	const sSvcConfigInvalidSelector = `
 subject: namespace:ns
 revision: "2022"
 action_rules:
-- selector: == * == invalid
+- match: == * == invalid
   actions:
   - handler: somehandler
     instances:
