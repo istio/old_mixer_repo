@@ -211,12 +211,11 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 		return nil, store.ErrNotFound
 	}
 	uns, _ := obj.(*unstructured.Unstructured)
-	return backEndResource(uns, key), nil
+	return backEndResource(uns), nil
 }
 
-func backEndResource(uns *unstructured.Unstructured, key store.Key) *store.BackEndResource {
+func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 	return &store.BackEndResource{
-		Key: key,
 		Metadata: store.ResourceMeta{
 			Name:        uns.GetName(),
 			Namespace:   uns.GetNamespace(),
@@ -236,7 +235,7 @@ func (s *Store) List() map[store.Key]*store.BackEndResource {
 		for _, obj := range c.List() {
 			uns := obj.(*unstructured.Unstructured)
 			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
-			result[key] = backEndResource(uns, key)
+			result[key] = backEndResource(uns)
 		}
 	}
 	s.cacheMutex.Unlock()
@@ -249,7 +248,7 @@ func toEvent(t store.ChangeType, obj interface{}) store.BackendEvent {
 	return store.BackendEvent{
 		Type:  t,
 		Key:   key,
-		Value: backEndResource(uns, key),
+		Value: backEndResource(uns),
 	}
 }
 

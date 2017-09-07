@@ -51,7 +51,6 @@ func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
 		return Event{}, err
 	}
 	return Event{Key: ev.Key, Type: ev.Type, Value: &Resource{
-		Key:      ev.Key,
 		Metadata: ev.Value.Metadata,
 		Spec:     pbSpec,
 	}}, nil

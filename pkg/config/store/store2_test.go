@@ -112,13 +112,11 @@ func TestStore2(t *testing.T) {
 		Key:  k,
 		Type: Update,
 		Value: &BackEndResource{
-			Key:  k,
 			Spec: map[string]interface{}{"name": "default", "adapter": "noop"},
 		},
 	}
 	wantEv := Event{Key: k, Type: Update,
 		Value: &Resource{
-			Key:  k,
 			Spec: want,
 		},
 	}

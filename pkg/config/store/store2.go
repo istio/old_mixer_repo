@@ -56,14 +56,12 @@ type ResourceMeta struct {
 
 // BackEndResource represents a resources with a raw spec
 type BackEndResource struct {
-	Key      Key
 	Metadata ResourceMeta
 	Spec     map[string]interface{}
 }
 
 // Resource represents a resources with converted spec.
 type Resource struct {
-	Key      Key
 	Metadata ResourceMeta
 	Spec     proto.Message
 }
@@ -191,7 +189,6 @@ func (s *store2) List() map[Key]*Resource {
 			continue
 		}
 		result[k] = &Resource{
-			Key:      k,
 			Metadata: d.Metadata,
 			Spec:     pbSpec,
 		}
