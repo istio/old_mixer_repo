@@ -105,7 +105,7 @@ func (du *dedupUtil) reapDedup() {
 	du.oldDedup = du.recentDedup
 	du.recentDedup = t
 
-	if du.logger.VerbosityLevel(6) {
+	if len(t) > 0 && du.logger.VerbosityLevel(6) {
 		du.logger.Infof("Running reaper to reclaim %d old deduplication entries", len(t))
 	}
 
