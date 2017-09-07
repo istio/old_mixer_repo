@@ -329,14 +329,17 @@ spec:
 				tt.Fatalf("Init failed: %v", err)
 			}
 			want := map[Key]*BackEndResource{k: {Spec: data}}
-
-			for k, v := range s.List() {
+			got := s.List()
+			if len(got) != len(want) {
+				tt.Fatalf("data length does not match, want %d, got %d", len(got), len(want))
+			}
+			for k, v := range got {
 				vwant := want[k]
 				if vwant == nil {
-					t.Fatalf("Did not get key for %s", k)
+					tt.Fatalf("Did not get key for %s", k)
 				}
 				if !reflect.DeepEqual(v.Spec, vwant.Spec) {
-					tt.Errorf("Got %+v, Want %+v", v, vwant)
+					tt.Fatalf("Got %+v, Want %+v", v, vwant)
 				}
 			}
 		})

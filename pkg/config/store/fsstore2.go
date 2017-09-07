@@ -162,7 +162,6 @@ func (s *fsStore2) checkAndUpdate() {
 	evs := make([]BackendEvent, 0, len(updated)+len(removed))
 	for _, key := range updated {
 		br := &BackEndResource{
-			Key:      key,
 			Metadata: s.data[key].Metadata,
 			Spec:     s.data[key].Spec,
 		}
@@ -229,7 +228,6 @@ func (s *fsStore2) Get(key Key) (*BackEndResource, error) {
 		return nil, ErrNotFound
 	}
 	return &BackEndResource{
-		Key:      key,
 		Metadata: r.Metadata,
 		Spec:     r.Spec,
 	}, nil
@@ -241,7 +239,6 @@ func (s *fsStore2) List() map[Key]*BackEndResource {
 	result := make(map[Key]*BackEndResource, len(s.data))
 	for k, r := range s.data {
 		result[k] = &BackEndResource{
-			Key:      k,
 			Metadata: r.Metadata,
 			Spec:     r.Spec,
 		}
