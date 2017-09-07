@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/mixer/pkg/adapter"
@@ -45,7 +44,7 @@ func TestControllerEmpty(t *testing.T) {
 		adapterInfo:            make(map[string]*adapter.BuilderInfo),
 		templateInfo:           make(map[string]template.Info),
 		eval:                   nil,
-		configState:            make(map[store.Key]proto.Message),
+		configState:            make(map[store.Key]*store.Resource),
 		dispatcher:             d,
 		resolver:               &resolver{}, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
@@ -131,8 +130,8 @@ func TestController_workflow(t *testing.T) {
 			Name: "metric",
 		},
 	}
-	configState := map[store.Key]proto.Message{
-		{RulesKind, DefaultConfigNamespace, "r1"}: &cpb.Rule{
+	configState := map[store.Key]*store.Resource{
+		{RulesKind, DefaultConfigNamespace, "r1"}: {Spec: &cpb.Rule{
 			Selector: "target.service == \"abc\"",
 			Actions: []*cpb.Action{
 				{
@@ -141,8 +140,9 @@ func TestController_workflow(t *testing.T) {
 				},
 			},
 		},
-		{"metric", DefaultConfigNamespace, "m1"}: &wrappers.StringValue{Value: "metric1_config"},
-		{"AA", DefaultConfigNamespace, "a1"}:     &wrappers.StringValue{Value: "AA_config"},
+		},
+		{"metric", DefaultConfigNamespace, "m1"}: {Spec: &wrappers.StringValue{Value: "metric1_config"}},
+		{"AA", DefaultConfigNamespace, "a1"}:     {Spec: &wrappers.StringValue{Value: "AA_config"}},
 	}
 
 	d := &fakedispatcher{}
@@ -191,11 +191,11 @@ func TestController_workflow(t *testing.T) {
 	events := []*store.Event{
 		{
 			Key:   store.Key{"metric", DefaultConfigNamespace, "m2"},
-			Value: &wrappers.StringValue{Value: "metric2_config"},
+			Value: &store.Resource{Spec: &wrappers.StringValue{Value: "metric2_config"}},
 		},
 		{
 			Key: store.Key{RulesKind, DefaultConfigNamespace, "r2"},
-			Value: &cpb.Rule{
+			Value: &store.Resource{Spec: &cpb.Rule{
 				Selector: "target.service == \"bcd\"",
 				Actions: []*cpb.Action{
 					{
@@ -207,6 +207,7 @@ func TestController_workflow(t *testing.T) {
 						Instances: []string{"m2.metric." + DefaultConfigNamespace},
 					},
 				},
+			},
 			},
 		},
 	}
@@ -364,22 +365,22 @@ func Test_WaitForChanges(t *testing.T) {
 func TestAttributeFinder_GetAttribute(t *testing.T) {
 	c := &Controller{}
 
-	c.configState = map[store.Key]proto.Message{
-		{AttributeManifestKind, DefaultConfigNamespace, "at1"}: &cpb.AttributeManifest{
+	c.configState = map[store.Key]*store.Resource{
+		{AttributeManifestKind, DefaultConfigNamespace, "at1"}: {Spec: &cpb.AttributeManifest{
 			Name: "k8s",
 			Attributes: map[string]*cpb.AttributeManifest_AttributeInfo{
 				"a": {},
 				"b": {},
 			},
-		},
-		{AttributeManifestKind, DefaultConfigNamespace, "at2"}: &cpb.AttributeManifest{
+		}},
+		{AttributeManifestKind, DefaultConfigNamespace, "at2"}: {Spec: &cpb.AttributeManifest{
 			Name: "k8s",
 			Attributes: map[string]*cpb.AttributeManifest_AttributeInfo{
 				"c": {},
 				"d": {},
 			},
-		},
-		{"unknownKind", DefaultConfigNamespace, "at2"}: &cpb.AttributeManifest{},
+		}},
+		{"unknownKind", DefaultConfigNamespace, "at2"}: {Spec: &cpb.AttributeManifest{}},
 	}
 
 	df := c.processAttributeManifests()
