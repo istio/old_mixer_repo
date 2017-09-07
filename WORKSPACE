@@ -109,7 +109,7 @@ go_x_tools_imports_repositories()
 
 go_googleapis_repositories()
 
-go_istio_api_repositories(True)
+go_istio_api_repositories(False)
 
 new_http_archive(
     name = "docker_ubuntu",
