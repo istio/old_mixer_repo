@@ -16,7 +16,7 @@ go_library(
         "//adapter/ipListChecker:go_default_library",
         "//adapter/kubernetes:go_default_library",
         "//adapter/memQuota:go_default_library",
-        "//adapter/noop:go_default_library",
+        "//adapter/noopLegacy:go_default_library",
         "//adapter/prometheus:go_default_library",
         "//adapter/redisquota:go_default_library",
         "//adapter/serviceControl:go_default_library",

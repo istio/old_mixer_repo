@@ -701,7 +701,7 @@ func TestValidateHandlers(t *testing.T) {
 		{
 			nil,
 			nil,
-			map[string]*adapter.Info{/*Empty lookup. Should cause error, Adapter not found*/ },
+			map[string]*adapter.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			nil, 1, "service.name == “*”", false, ConstGlobalConfig,
 		},
 		{
@@ -767,7 +767,7 @@ handlers:
 			nerrors: 0,
 		},
 		{
-			hbi:     map[string]*adapter.Info{/*Empty lookup. Should cause error, Adapter not found*/ },
+			hbi:     map[string]*adapter.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			cfg:     globalConfig,
 			nerrors: 1,
 		},
