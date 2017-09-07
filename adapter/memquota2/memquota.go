@@ -51,7 +51,7 @@ type handler struct {
 	limits map[string]config.Params_Quota
 }
 
-func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult2, error) {
 	q := h.limits[instance.Name]
 
 	if args.QuotaAmount > 0 {
@@ -63,7 +63,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 	return adapter.QuotaResult2{}, nil
 }
 
-func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
+func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
 	amount, exp, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
@@ -111,7 +111,7 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs,
 	}, err
 }
 
-func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
+func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
 	amount, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount

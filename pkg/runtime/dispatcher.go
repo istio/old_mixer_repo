@@ -248,7 +248,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 					func(ctx context.Context) *result {
 						resp, err := call.processor.ProcessQuota(ctx, inst.Name,
 							inst.Params.(proto.Message), requestBag, m.mapper, call.handler,
-							adapter.QuotaRequestArgs{
+							adapter.QuotaArgs{
 								DeduplicationID: qma.DeduplicationID,
 								QuotaAmount:     qma.Amount,
 								BestEffort:      qma.BestEffort,

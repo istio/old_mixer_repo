@@ -139,7 +139,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 		return status.WithInvalidArgument(msg), nil
 	}
 
-	qa := adapter.QuotaArgs{
+	qa := adapter.QuotaArgsLegacy{
 		Definition:      info.definition,
 		Labels:          labels,
 		QuotaAmount:     qma.Amount,

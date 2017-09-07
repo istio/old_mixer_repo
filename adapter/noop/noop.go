@@ -61,7 +61,7 @@ func (*handler) HandleMetric(context.Context, []*metric.Instance) error {
 	return nil
 }
 
-func (*handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (*handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult2, error) {
 	return adapter.QuotaResult2{
 			ValidDuration: 1000000000 * time.Second,
 			Amount:        args.QuotaAmount,

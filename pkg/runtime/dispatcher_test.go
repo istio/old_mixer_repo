@@ -367,7 +367,7 @@ func (f *fakeProc) ProcessCheck(_ context.Context, _ string, _ proto.Message, _ 
 }
 
 func (f *fakeProc) ProcessQuota(_ context.Context, _ string, _ proto.Message, _ attribute.Bag,
-	_ expr.Evaluator, _ adapter.Handler, _ adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+	_ expr.Evaluator, _ adapter.Handler, _ adapter.QuotaArgs) (adapter.QuotaResult2, error) {
 	f.called++
 	return f.quotaResult, f.err
 }

@@ -112,15 +112,15 @@ func (mq *memQuota) Close() error {
 	return nil
 }
 
-func (mq *memQuota) Alloc(args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (mq *memQuota) Alloc(args adapter.QuotaArgsLegacy) (adapter.QuotaResult, error) {
 	return mq.alloc(args, false)
 }
 
-func (mq *memQuota) AllocBestEffort(args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (mq *memQuota) AllocBestEffort(args adapter.QuotaArgsLegacy) (adapter.QuotaResult, error) {
 	return mq.alloc(args, true)
 }
 
-func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.QuotaResult, error) {
+func (mq *memQuota) alloc(args adapter.QuotaArgsLegacy, bestEffort bool) (adapter.QuotaResult, error) {
 	amount, exp, err := mq.common.CommonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
@@ -167,7 +167,7 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.Quot
 	}, err
 }
 
-func (mq *memQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
+func (mq *memQuota) ReleaseBestEffort(args adapter.QuotaArgsLegacy) (int64, error) {
 	amount, _, err := mq.common.CommonWrapper(args,
 		func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration) {
 			result := args.QuotaAmount

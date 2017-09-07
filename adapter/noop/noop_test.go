@@ -106,7 +106,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	quotaHandler := handler.(quota.Handler)
-	if result, err := quotaHandler.HandleQuota(context.TODO(), nil, adapter.QuotaRequestArgs{QuotaAmount: 100}); err != nil {
+	if result, err := quotaHandler.HandleQuota(context.TODO(), nil, adapter.QuotaArgs{QuotaAmount: 100}); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	} else {
 		if result.ValidDuration < 1000*time.Second {
