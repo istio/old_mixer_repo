@@ -34,11 +34,23 @@ spec:
         numFiniteBuckets: 8
         scale: 1
         growthFactor: 10
+  - name: tcp_connections
+    instance_name: tcpconnection.metric.istio-config-default
+    kind: COUNTER
+    label_names: [ source_service, source_version, destination_service, destination_version ]
+  - name: tcp_sent_bytes
+    instance_name: tcpsentbyte.metric.istio-config-default
+    kind: COUNTER
+    label_names: [ source_service, source_version, destination_service, destination_version ]
+  - name: tcp_received_bytes
+    instance_name: tcpreceivedbyte.metric.istio-config-default
+    kind: COUNTER
+    label_names: [ source_service, source_version, destination_service, destination_version ]
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: prommetrics
+  name: promhttp
   namespace: istio-config-default
 spec:
   actions:
@@ -48,4 +60,18 @@ spec:
     - requestduration.metric.istio-config-default
     - requestsize.metric.istio-config-default
     - responsesize.metric.istio-config-default
-
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcp
+  namespace: istio-config-default
+spec:
+  selector: context.protocol == "tcp"
+  actions:
+  - handler: handler.prometheus.istio-config-default
+    instances:
+    - tcpconnection.metric.istio-config-default
+    - tcpsentbyte.metric.istio-config-default
+    - tcpreceivedbyte.metric.istio-config-default
+---

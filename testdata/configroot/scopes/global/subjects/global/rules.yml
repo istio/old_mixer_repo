@@ -32,4 +32,3 @@ rules:
       - descriptorName: RequestCount
         maxAmount: 5000
         expiration: 1s
-
