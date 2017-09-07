@@ -40,7 +40,7 @@ type Rule struct {
 	// It is used here for informational purposes.
 	name string
 	// rtype is gathered from labels.
-	rtype RuleType
+	rtype ResourceType
 }
 
 // resolver is the runtime view of the configuration database.

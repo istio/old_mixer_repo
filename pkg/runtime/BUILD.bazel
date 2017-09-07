@@ -12,7 +12,7 @@ go_library(
         "logger.go",
         "monitor.go",
         "resolver.go",
-        "ruleType.go",
+        "resourceType.go",
     ],
     visibility = ["//visibility:public"],
     deps = [

@@ -330,10 +330,10 @@ const (
 	istioProtocol = "istio-protocol"
 )
 
-// ruleType map labels to rule types.
-func ruleType(labels map[string]string) RuleType {
+// resourceType maps labels to rule types.
+func resourceType(labels map[string]string) ResourceType {
 	ip := labels[istioProtocol]
-	rt := defaultRuletype()
+	rt := defaultResourcetype()
 	if ip == "tcp" {
 		rt.protocol = protocolTCP
 	}
@@ -360,7 +360,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 		rule := &Rule{
 			selector: rulec.Selector,
 			name:     k.Name,
-			rtype:    ruleType(obj.Metadata.Labels),
+			rtype:    resourceType(obj.Metadata.Labels),
 		}
 		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht)
 
