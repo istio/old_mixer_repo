@@ -120,8 +120,8 @@ func TestStore2(t *testing.T) {
 			Spec: want,
 		},
 	}
-	ev := <-ch
-	if !reflect.DeepEqual(ev, wantEv) {
+
+	if ev := <-ch; !reflect.DeepEqual(ev, wantEv) {
 		t.Errorf("Got %+v, Want %+v", ev, wantEv)
 	}
 }

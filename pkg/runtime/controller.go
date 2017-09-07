@@ -393,6 +393,26 @@ func isFQN(name string) bool {
 	return len(strings.Split(name, ".")) == 3
 }
 
+// canonicalizeHandlerNames ensures that all handler names are fully qualified.
+func canonicalizeHandlerNames(acts []*cpb.Action, namespace string) []*cpb.Action {
+	for _, ic := range acts {
+		if !isFQN(ic.Handler) {
+			ic.Handler = ic.Handler + "." + namespace
+		}
+	}
+	return acts
+}
+
+// canonicalizeInstanceNames ensures that all instance names are fully qualified.
+func canonicalizeInstanceNames(instances []string, namespace string) []string {
+	for i := range instances {
+		if !isFQN(instances[i]) {
+			instances[i] = instances[i] + "." + namespace
+		}
+	}
+	return instances
+}
+
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
@@ -400,11 +420,8 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 
 	actions := make(map[adptTmpl.TemplateVariety]map[string]*Action)
 
-	for _, ic := range acts {
+	for _, ic := range canonicalizeHandlerNames(acts, namespace) {
 		var hc *cpb.Handler
-		if !isFQN(ic.Handler) {
-			ic.Handler = ic.Handler + "." + namespace
-		}
 		if hc = handlerConfig[ic.Handler]; hc == nil {
 			if glog.V(3) {
 				glog.Warningf("ConfigWarning unknown handler: %s", ic.Handler)
@@ -412,10 +429,7 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 			continue
 		}
 
-		for _, instName := range ic.Instances {
-			if !isFQN(instName) {
-				instName = instName + "." + namespace
-			}
+		for _, instName := range canonicalizeInstanceNames(ic.Instances, namespace) {
 			inst := instanceConfig[instName]
 			if inst == nil {
 				if glog.V(3) {

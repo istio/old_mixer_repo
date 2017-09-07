@@ -17,6 +17,7 @@ package runtime
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"testing"
 	"time"
 
@@ -446,6 +447,79 @@ func TestController_Resolve2(t *testing.T) {
 				t.Fatalf("nrules got: %d, want %d", n, tc.numRules)
 			}
 
+		})
+	}
+}
+
+func TestController_ResourceType(t *testing.T) {
+	for _, tc := range []struct {
+		labels map[string]string
+		rt     ResourceType
+	}{
+		{labels: map[string]string{
+			istioProtocol: "tcp",
+		}, rt: ResourceType{protocolTCP, methodCheck | methodReport | methodPreprocess}},
+		{labels: map[string]string{
+			istioProtocol: "http",
+		}, rt: ResourceType{protocolHTTP, methodCheck | methodReport | methodPreprocess}},
+		{labels: nil, rt: ResourceType{protocolHTTP, methodCheck | methodReport | methodPreprocess}},
+	} {
+		t.Run(fmt.Sprintf("%v", tc.labels), func(t *testing.T) {
+			rt := resourceType(tc.labels)
+
+			if rt != tc.rt {
+				t.Fatalf("got %v, want %v", rt, tc.rt)
+			}
+		})
+	}
+
+}
+
+//unc canonicalizeInstanceNames(instances []string, namespace string) []string
+func TestController_canInstances(t *testing.T) {
+	ns := "default-ns"
+	for _, tc := range []struct {
+		desc  string
+		insts []string
+	}{
+		{"fdqnInstance", []string{
+			"n1.kind1." + ns,
+		}},
+		{"nonFqdnHandler", []string{
+			"n1.kind1",
+		}},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			insts := canonicalizeInstanceNames(tc.insts, ns)
+			for _, inst := range insts {
+				if !isFQN(inst) {
+					t.Fatalf("name was not canonicalized: %s", inst)
+				}
+			}
+		})
+	}
+}
+
+func TestController_canHandlers(t *testing.T) {
+	ns := "default-ns"
+	for _, tc := range []struct {
+		desc string
+		acts []*cpb.Action
+	}{
+		{"fdqnHandler", []*cpb.Action{
+			{Handler: "n1.kind1." + ns},
+		}},
+		{"nonFqdnHandler", []*cpb.Action{
+			{Handler: "n1.kind1"},
+		}},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			act := canonicalizeHandlerNames(tc.acts, ns)
+			for _, a := range act {
+				if !isFQN(a.Handler) {
+					t.Fatalf("name was not canonicalized: %s", a.Handler)
+				}
+			}
 		})
 	}
 }
