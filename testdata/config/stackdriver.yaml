@@ -88,6 +88,8 @@ spec:
     # project_id given above in stackdriver config.
     project_id: '"<your project ID>"'
 ---
+# Note, we're trying to keep the following metric definitions in line with metrics.yaml - we add extra here to handle
+# populating monitored resource values.
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
