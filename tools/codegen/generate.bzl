@@ -124,9 +124,10 @@ def _mixer_supported_template_gen(name, packages, out):
 
   native.genrule(
       name = name+"_gen",
+      srcs = descriptors,
       outs = [out],
       cmd = "$(location //tools/codegen/cmd/mixgenbootstrap) " + args + " -o $(location %s)" % (out),
-      tools = ["//tools/codegen/cmd/mixgenbootstrap"] + descriptors,
+      tools = ["//tools/codegen/cmd/mixgenbootstrap"],
   )
 
 DEPS_FOR_ALL_TMPLS = [
