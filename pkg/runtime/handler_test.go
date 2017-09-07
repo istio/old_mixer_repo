@@ -156,9 +156,7 @@ func TestBuild_Error(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			bldrInfoFinder := func(name string) (*adapter.BuilderInfo, bool) {
-				return &adapter.BuilderInfo{
-					NewBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder },
-				}, true
+				return &adapter.BuilderInfo{NewBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
 			}
 
 			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)
