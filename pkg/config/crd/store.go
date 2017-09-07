@@ -215,6 +215,7 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 }
 
 func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
+	spec, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
 	return &store.BackEndResource{
 		Metadata: store.ResourceMeta{
 			Name:        uns.GetName(),
@@ -223,7 +224,7 @@ func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 			Annotations: uns.GetAnnotations(),
 			Revision:    uns.GetResourceVersion(),
 		},
-		Spec: uns.UnstructuredContent()["spec"].(map[string]interface{}),
+		Spec: spec,
 	}
 }
 
