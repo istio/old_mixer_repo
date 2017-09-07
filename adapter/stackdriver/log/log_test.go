@@ -28,11 +28,11 @@ import (
 	"cloud.google.com/go/logging"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
 
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/template/logentry"
-	"google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
 func TestBuild(t *testing.T) {
