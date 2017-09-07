@@ -108,8 +108,8 @@ type (
 		Amount int64
 	}
 
-	// QuotaResult2 provides return values from quota allocation calls on the handler
-	QuotaResult2 struct {
+	// QuotaResult provides return values from quota allocation calls on the handler
+	QuotaResult struct {
 		// The outcome status of the operation.
 		Status rpc.Status
 
@@ -122,7 +122,7 @@ type (
 )
 
 // GetStatus gets status embedded in the result.
-func (r QuotaResult2) GetStatus() rpc.Status { return r.Status }
+func (r QuotaResult) GetStatus() rpc.Status { return r.Status }
 
 // SetStatus embeds status in result.
-func (r *QuotaResult2) SetStatus(s rpc.Status) { r.Status = s }
+func (r *QuotaResult) SetStatus(s rpc.Status) { r.Status = s }

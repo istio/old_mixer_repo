@@ -375,7 +375,7 @@ var (
 			},
 
 			ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
-				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult2, error) {
+				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 				castedInst := inst.(*istio_mixer_template_quota.InstanceParam)
 
 				Value, err := mapper.Eval(castedInst.Value, attrs)
@@ -383,7 +383,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
@@ -391,7 +391,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				Int64Primitive, err := mapper.Eval(castedInst.Int64Primitive, attrs)
@@ -399,7 +399,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Int64Primitive for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				BoolPrimitive, err := mapper.Eval(castedInst.BoolPrimitive, attrs)
@@ -407,7 +407,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval BoolPrimitive for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				DoublePrimitive, err := mapper.Eval(castedInst.DoublePrimitive, attrs)
@@ -415,7 +415,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval DoublePrimitive for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				StringPrimitive, err := mapper.Eval(castedInst.StringPrimitive, attrs)
@@ -423,7 +423,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval StringPrimitive for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				AnotherValueType, err := mapper.Eval(castedInst.AnotherValueType, attrs)
@@ -431,7 +431,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval AnotherValueType for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				DimensionsFixedInt64ValueDType, err := template.EvalAll(castedInst.DimensionsFixedInt64ValueDType, attrs, mapper)
@@ -439,7 +439,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval DimensionsFixedInt64ValueDType for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return adapter.QuotaResult2{}, errors.New(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
 				instance := &istio_mixer_template_quota.Instance{

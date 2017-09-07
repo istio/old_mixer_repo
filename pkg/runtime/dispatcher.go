@@ -56,7 +56,7 @@ type Dispatcher interface {
 
 	// Quota dispatches to the set of adapters associated with the Quota API method
 	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult2, error)
+		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
 }
 
 // Resolver represents the current snapshot of the configuration database
@@ -231,7 +231,7 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 // Quota calls are dispatched to at most one handler.
 // Dispatcher#Quota.
 func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult2, error) {
+	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	dispatched := false
 	qres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA,
 		func(call *Action) []dispatchFn {
@@ -260,7 +260,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 			return nil
 		},
 	)
-	res, _ := qres.(*adapter.QuotaResult2)
+	res, _ := qres.(*adapter.QuotaResult)
 	if glog.V(3) {
 		glog.Infof("Quota %v", res)
 	}

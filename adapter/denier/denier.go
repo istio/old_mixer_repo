@@ -52,8 +52,8 @@ func (h *handler) HandleListEntry(context.Context, *listentry.Instance) (adapter
 	}, nil
 }
 
-func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaArgs) (adapter.QuotaResult2, error) {
-	return adapter.QuotaResult2{}, nil
+func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	return adapter.QuotaResult{}, nil
 }
 
 func (*handler) Close() error { return nil }

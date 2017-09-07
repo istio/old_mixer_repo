@@ -93,13 +93,13 @@ func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config)            {}
 type fakeQuotaHandler struct {
 	adapter.Handler
 	retError      error
-	retResult     adapter.QuotaResult2
+	retResult     adapter.QuotaResult
 	cnfgCallInput interface{}
 	procCallInput interface{}
 }
 
 func (h *fakeQuotaHandler) Close() error { return nil }
-func (h *fakeQuotaHandler) HandleQuota(ctx context.Context, instance *sample_quota.Instance, qra adapter.QuotaArgs) (adapter.QuotaResult2, error) {
+func (h *fakeQuotaHandler) HandleQuota(ctx context.Context, instance *sample_quota.Instance, qra adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	h.procCallInput = instance
 	return h.retResult, h.retError
 }
@@ -868,7 +868,7 @@ func TestProcessQuota(t *testing.T) {
 		inst            proto.Message
 		hdlr            adapter.Handler
 		wantInstance    interface{}
-		wantQuotaResult adapter.QuotaResult2
+		wantQuotaResult adapter.QuotaResult
 		wantError       string
 	}{
 		{
@@ -879,10 +879,10 @@ func TestProcessQuota(t *testing.T) {
 				BoolMap:    map[string]string{"a": "true"},
 			},
 			hdlr: &fakeQuotaHandler{
-				retResult: adapter.QuotaResult2{Amount: 1},
+				retResult: adapter.QuotaResult{Amount: 1},
 			},
 			wantInstance:    &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"a": "str"}, BoolMap: map[string]bool{"a": true}},
-			wantQuotaResult: adapter.QuotaResult2{Amount: 1},
+			wantQuotaResult: adapter.QuotaResult{Amount: 1},
 		},
 		{
 			name:     "EvalError",

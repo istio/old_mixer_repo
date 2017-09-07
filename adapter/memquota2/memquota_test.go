@@ -157,7 +157,7 @@ func TestAllocAndRelease(t *testing.T) {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
-			var qr adapter.QuotaResult2
+			var qr adapter.QuotaResult
 			var err error
 
 			qr, err = h.HandleQuota(context.Background(), &instance, qa)
