@@ -26,6 +26,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -155,7 +156,8 @@ type (
 
 	// HandlerBuilderInfo stores validated HandlerBuilders..
 	HandlerBuilderInfo struct {
-		handlerBuilder     *adapter.HandlerBuilder
+		handlerBuilder2 *adapter.HandlerBuilder
+		//handlerBuilder     *adapter.HandlerBuilder
 		isBroken           bool
 		handlerCnfg        *pb.Handler
 		supportedTemplates []string
@@ -638,7 +640,12 @@ func (p *validator) buildHandler(builder *HandlerBuilderInfo, handler string) (c
 		}
 	}()
 
-	instance, err := (*builder.handlerBuilder).Build(builder.handlerCnfg.Params.(proto.Message), nil)
+	(*builder.handlerBuilder2).SetAdapterConfig(builder.handlerCnfg.Params.(proto.Message))
+	if re := (*builder.handlerBuilder2).Validate(); re != nil {
+		return ce.Appendf("handlerConfig: "+handler, "failed to validate a handler configuration").Extend(re)
+	}
+	// TODO pass correct context here.
+	instance, err := (*builder.handlerBuilder2).Build(context.Background(), nil)
 	// TODO Add validation to ensure handlerInstance support all the templates it claims to support.
 	if err != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to build a handler instance: %v", err)
@@ -738,8 +745,9 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 		}
 
 		hh.Params = hcfg
-		hb := bi.CreateHandlerBuilder()
-		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, handlerBuilder: &hb, supportedTemplates: bi.SupportedTemplates}
+		//hb := bi.CreateHandlerBuilder()
+		hb2 := bi.NewBuilder()
+		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, handlerBuilder2: &hb2, supportedTemplates: bi.SupportedTemplates}
 	}
 	return
 }
@@ -749,9 +757,9 @@ func convertHandlerParams(bi *adapter.BuilderInfo, name string, params interface
 	if err := decode(params, hc, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)
 	}
-	if ce := bi.ValidateConfig(hc); ce != nil {
-		return nil, ce.Extend(ce)
-	}
+	//if ce := bi.ValidateConfig(hc); ce != nil {
+	//	return nil, ce.Extend(ce)
+	//}
 	return hc, nil
 }
 
