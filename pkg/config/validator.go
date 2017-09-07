@@ -639,12 +639,12 @@ func (p *validator) buildHandler(builder *HandlerBuilderInfo, handler string) (c
 		}
 	}()
 
-	(builder.b).SetAdapterConfig(builder.handlerCnfg.Params.(proto.Message))
-	if re := (builder.b).Validate(); re != nil {
+	builder.b.SetAdapterConfig(builder.handlerCnfg.Params.(proto.Message))
+	if re := builder.b.Validate(); re != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to validate a handler configuration").Extend(re)
 	}
 	// TODO pass correct context here.
-	instance, err := (builder.b).Build(context.Background(), nil)
+	instance, err := builder.b.Build(context.Background(), nil)
 	// TODO Add validation to ensure handlerInstance support all the templates it claims to support.
 	if err != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to build a handler instance: %v", err)
