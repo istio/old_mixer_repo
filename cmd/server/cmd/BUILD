@@ -57,7 +57,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//adapter:go_default_library",
-        "//pkg/handler:go_default_library",
+        "//pkg/adapter:go_default_library",
         "//pkg/template:go_default_library",
         "//template:go_default_library",
     ],

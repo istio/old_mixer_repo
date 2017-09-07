@@ -21,9 +21,10 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/mixer/cmd/shared"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/crd"
 	"istio.io/mixer/pkg/config/store"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/runtime"
 	"istio.io/mixer/pkg/template"
 )
@@ -38,14 +39,9 @@ type validatorConfig struct {
 	certsDir         string
 }
 
-func validatorCmd(info map[string]template.Info, adapters []handler.InfoFn, fatalf shared.FormatFn) *cobra.Command {
-	handlers := make(map[string]*handler.Info, len(adapters))
-	for _, infoFn := range adapters {
-		ainfo := infoFn()
-		handlers[ainfo.Name] = &ainfo
-	}
+func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, fatalf shared.FormatFn) *cobra.Command {
 	vc := &validatorConfig{
-		resources: runtime.KindMap(handlers, info),
+		resources: runtime.KindMap(config.InventoryMap(adapters), info),
 	}
 	validatorCmd := &cobra.Command{
 		Use:   "validator",
