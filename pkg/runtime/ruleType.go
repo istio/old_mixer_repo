@@ -17,14 +17,14 @@ package runtime
 type protocol int
 
 const (
-	protocolHTTP protocol = iota << 1
+	protocolHTTP protocol = 1 << iota
 	protocolTCP
 )
 
 type method int
 
 const (
-	methodCheck method = iota << 1
+	methodCheck method = 1 << iota
 	methodReport
 	methodPreprocess
 )
