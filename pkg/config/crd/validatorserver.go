@@ -207,14 +207,15 @@ func (v *ValidatorServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	glog.V(7).Infof("received: %s", body)
 
+	var err error
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		glog.Errorf("contentType=%s, expect application/json", contentType)
-		return
+	if contentType == "application/json" {
+		err = v.validate(body)
+	} else {
+		err = fmt.Errorf("contentType=%s, expect application/json", contentType)
 	}
 
-	err := v.validate(body)
 	glog.V(7).Infof("response: %v", err)
 	ar := admissionV1alpha1.AdmissionReview{
 		Status: errorToAdmissionReviewStatus(err),

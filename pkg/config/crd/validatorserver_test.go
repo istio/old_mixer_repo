@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -46,27 +46,15 @@ func (v *fakeValidator) Validate(t store.ChangeType, key store.Key, spec map[str
 	return v.err
 }
 
-type mockWriter struct {
-	*bytes.Buffer
-}
-
-func (w *mockWriter) Header() http.Header {
-	return http.Header{}
-}
-
-func (w *mockWriter) WriteHeader(int) {
-}
-
-func sendRecv(h http.Handler, in []byte) []byte {
-	inBuf := bytes.NewBuffer(in)
-	outBuf := &mockWriter{bytes.NewBuffer(nil)}
-	req, err := http.NewRequest("GET", "/", inBuf)
-	req.Header.Add("Content-Type", "application/json")
-	if err != nil {
-		return nil
+func sendRecv(v *ValidatorServer, in []byte, ctype string) []byte {
+	req := httptest.NewRequest("", "/", bytes.NewBuffer(in))
+	if ctype == "" {
+		ctype = "application/json"
 	}
-	h.ServeHTTP(outBuf, req)
-	return outBuf.Bytes()
+	req.Header.Add("Content-Type", ctype)
+	resp := httptest.NewRecorder()
+	v.ServeHTTP(resp, req)
+	return resp.Body.Bytes()
 }
 
 const spec = `{"spec":{
@@ -94,6 +82,7 @@ func TestValidation(t *testing.T) {
 		validator store.BackendValidator
 		in        string
 		targetNS  []string
+		ctype     string
 		ok        bool
 	}{
 		{
@@ -101,6 +90,7 @@ func TestValidation(t *testing.T) {
 			&fakeValidator{},
 			fmt.Sprintf(spec, "CREATE", objectSpec),
 			nil,
+			"",
 			true,
 		},
 		{
@@ -108,6 +98,7 @@ func TestValidation(t *testing.T) {
 			&fakeValidator{errors.New("dummy")},
 			fmt.Sprintf(spec, "DELETE", objectSpec),
 			nil,
+			"",
 			false,
 		},
 		{
@@ -115,6 +106,7 @@ func TestValidation(t *testing.T) {
 			&fakeValidator{errors.New("dummy")},
 			fmt.Sprintf(spec, "CREATE", objectSpec),
 			[]string{"not-bar"},
+			"",
 			true,
 		},
 		{
@@ -122,6 +114,7 @@ func TestValidation(t *testing.T) {
 			&fakeValidator{},
 			`}`,
 			nil,
+			"",
 			false,
 		},
 		{
@@ -129,6 +122,7 @@ func TestValidation(t *testing.T) {
 			&fakeValidator{},
 			fmt.Sprintf(spec, "UNKNOWN", objectSpec),
 			nil,
+			"",
 			false,
 		},
 		{
@@ -136,12 +130,21 @@ func TestValidation(t *testing.T) {
 			&fakeValidator{},
 			fmt.Sprintf(spec, "CREATE", `{"spec":{"name":"foo","adapter":"foo"}}`),
 			nil,
+			"",
+			false,
+		},
+		{
+			"unexpected content type",
+			&fakeValidator{},
+			fmt.Sprintf(spec, "CREATE", objectSpec),
+			nil,
+			"text/plain",
 			false,
 		},
 	} {
 		t.Run(c.title, func(tt *testing.T) {
 			v := NewValidatorServer("", "ns", []string{"Handler"}, c.targetNS, nil, c.validator)
-			result := sendRecv(v, []byte(c.in))
+			result := sendRecv(v, []byte(c.in), c.ctype)
 			review := &admissionV1alpha1.AdmissionReview{}
 			if err := json.Unmarshal(result, review); err != nil {
 				tt.Fatalf("Failed to unmarshal response: %v (got %s)", err, result)
