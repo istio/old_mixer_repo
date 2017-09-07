@@ -34,15 +34,6 @@ spec:
         numFiniteBuckets: 8
         scale: 1
         growthFactor: 10
-  - name: tcp_bytes_sent
-    instance_name: bytessent.metric.istio-config-default
-    kind: DISTRIBUTION
-    label_names: [ source, target, service, method, version, response_code ]
-    buckets:
-      exponentialBuckets:
-        numFiniteBuckets: 8
-        scale: 1
-        growthFactor: 10
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -50,8 +41,9 @@ metadata:
   name: prommetrics
   namespace: istio-config-default
 spec:
+  selector: "true"
   actions:
-  - handler: handler.prometheus
+  - handler: handler.prometheus.istio-config-default
     instances:
     - requestcount.metric.istio-config-default
     - requestduration.metric.istio-config-default
