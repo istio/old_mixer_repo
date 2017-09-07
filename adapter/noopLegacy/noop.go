@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package noop is an empty adapter implementing every aspect.
+// Package noopLegacy is an empty adapter implementing every aspect.
 // WARNING: Not intended for actual use. This is a stand-in adapter used in benchmarking Mixer's adapter framework.
 package noopLegacy
 
