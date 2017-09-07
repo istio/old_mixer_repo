@@ -181,7 +181,7 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 			if act == nil { // do not evaluate selector if there is no variety specific action there.
 				continue
 			}
-			// default rule.type is CheckAndReport
+			// default rtype is HTTP + Check|Report|Preprocess
 			if tcp && !rule.rtype.IsTCP() {
 				if glog.V(4) {
 					glog.Infof("filterActions: rule %s removed ctxProtocol=%s, type %s", rule.name, ctxProtocol, rule.rtype)
