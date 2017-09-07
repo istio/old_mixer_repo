@@ -1,0 +1,78 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: authz
+  namespace: istio-config-default
+spec:
+  selector: "true"
+  actions:
+  - handler: authzOpaHandler.authzOpa.istio-config-default
+    instances:
+    - authzInstance.authz.istio-config-default
+
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: authz
+metadata:
+  name: authzInstance
+  namespace: istio-config-default
+spec:
+  principal:
+    user: source.user | ""
+    groups: source.groups | ""
+    serviceAccount: source.user | ""
+    sourceNamespace: source.namespace | "default"
+  resource:
+    namespace: target.namespace | "default"
+    service: target.service | ""
+    path: request.path | ""
+  verb: request.method | ""
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: authzOpa
+metadata:
+  name: authzOpaHandler
+  namespace: istio-config-default
+spec:
+  policy: |+
+    package mixerauthz
+    policy = [
+      {
+        "rule": {
+          "verbs": [
+            "storage.objects.create",
+            "storage.objects.update",
+            "storage.objects.delete"
+          ],
+          "users": [
+            "user@acmecorp.com",
+            "jaebong@google.com",
+            "domain:example.org",
+            "object-owners",
+            "object-viewers"
+          ]
+        }
+      },
+      {
+        "rule": {
+          "verbs": [
+            "storage.buckets.get"
+          ],
+          "users": [
+            "bucket-admins"
+          ]
+        }
+      }
+    ]
+
+    default allow = false
+
+    allow = true {
+      rule = policy[_].rule
+      input.user = rule.users[_]
+      input.verb = rule.verbs[_]
+    }
+  checkMethod: "data.mixerauthz.allow"
+  

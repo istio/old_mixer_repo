@@ -1,0 +1,34 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["authzOpa.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//adapter/authzOpa/config:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//template/authz:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
+        "@com_github_open_policy_agent_opa//ast:go_default_library",
+        "@com_github_open_policy_agent_opa//rego:go_default_library",
+        "@com_github_open_policy_agent_opa//storage:go_default_library",
+        "@com_github_open_policy_agent_opa//storage/inmem:go_default_library",
+        "@com_github_open_policy_agent_opa//util:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = ["authzOpa_test.go"],
+    library = ":go_default_library",
+    deps = [
+        "//pkg/adapter:go_default_library",
+        "//pkg/adapter/test:go_default_library",
+        "//template/authz:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
+    ],
+)
