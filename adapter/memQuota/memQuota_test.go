@@ -109,7 +109,7 @@ func TestAllocAndRelease(t *testing.T) {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
-			var qr adapter.QuotaResult
+			var qr adapter.QuotaResultLegacy
 			var err error
 
 			if c.allocBestEffort {

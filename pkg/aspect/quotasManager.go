@@ -146,7 +146,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 		DeduplicationID: qma.DeduplicationID,
 	}
 
-	var qr adapter.QuotaResult
+	var qr adapter.QuotaResultLegacy
 
 	if glog.V(2) {
 		glog.Infof("Invoking adapter %s for quota %s with amount %d, labels %v", w.adapter, qa.Definition.Name, qa.QuotaAmount, qa.Labels)

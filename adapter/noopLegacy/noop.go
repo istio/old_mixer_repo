@@ -84,10 +84,10 @@ func (aspect) Record([]adapter.Value) error { return nil }
 func (Builder) NewQuotasAspect(env adapter.Env, c adapter.Config, quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return &aspect{}, nil
 }
-func (aspect) Alloc(adapter.QuotaArgsLegacy) (adapter.QuotaResult, error) {
-	return adapter.QuotaResult{}, nil
+func (aspect) Alloc(adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error) {
+	return adapter.QuotaResultLegacy{}, nil
 }
-func (aspect) AllocBestEffort(adapter.QuotaArgsLegacy) (adapter.QuotaResult, error) {
-	return adapter.QuotaResult{}, nil
+func (aspect) AllocBestEffort(adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error) {
+	return adapter.QuotaResultLegacy{}, nil
 }
 func (aspect) ReleaseBestEffort(adapter.QuotaArgsLegacy) (int64, error) { return 0, nil }

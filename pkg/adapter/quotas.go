@@ -26,10 +26,10 @@ type (
 		Aspect
 
 		// Alloc allocates the specified amount or fails when not available.
-		Alloc(QuotaArgsLegacy) (QuotaResult, error)
+		Alloc(QuotaArgsLegacy) (QuotaResultLegacy, error)
 
 		// AllocBestEffort allocates from 0 to the specified amount, based on availability.
-		AllocBestEffort(QuotaArgsLegacy) (QuotaResult, error)
+		AllocBestEffort(QuotaArgsLegacy) (QuotaResultLegacy, error)
 
 		// ReleaseBestEffort releases from 0 to the specified amount, based on current usage.
 		ReleaseBestEffort(QuotaArgsLegacy) (int64, error)
@@ -99,8 +99,8 @@ type (
 		BestEffort bool
 	}
 
-	// QuotaResult provides return values from quota allocation calls
-	QuotaResult struct {
+	// QuotaResultLegacy provides return values from quota allocation calls
+	QuotaResultLegacy struct {
 		// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
 		Expiration time.Duration
 

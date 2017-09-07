@@ -119,15 +119,15 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) 
 	return rq, nil
 }
 
-func (rq *redisQuota) Alloc(args adapter.QuotaArgsLegacy) (adapter.QuotaResult, error) {
+func (rq *redisQuota) Alloc(args adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error) {
 	return rq.alloc(args, false)
 }
 
-func (rq *redisQuota) AllocBestEffort(args adapter.QuotaArgsLegacy) (adapter.QuotaResult, error) {
+func (rq *redisQuota) AllocBestEffort(args adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error) {
 	return rq.alloc(args, true)
 }
 
-func (rq *redisQuota) alloc(args adapter.QuotaArgsLegacy, bestEffort bool) (adapter.QuotaResult, error) {
+func (rq *redisQuota) alloc(args adapter.QuotaArgsLegacy, bestEffort bool) (adapter.QuotaResultLegacy, error) {
 	amount, exp, err := rq.common.CommonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
@@ -262,7 +262,7 @@ func (rq *redisQuota) alloc(args adapter.QuotaArgsLegacy, bestEffort bool) (adap
 		return result, currentTime.Add(d.Expiration), d.Expiration
 	})
 
-	return adapter.QuotaResult{
+	return adapter.QuotaResultLegacy{
 		Amount:     amount,
 		Expiration: exp,
 	}, err

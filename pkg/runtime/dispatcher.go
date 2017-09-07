@@ -323,7 +323,7 @@ type dispatchFn func(context.Context) *result
 type result struct {
 	// all results return an error
 	err error
-	// CheckResult or QuotaResult
+	// CheckResult or QuotaResultLegacy
 	res adapter.Result
 	// callinfo that resulted in "res". Used for informational purposes.
 	callinfo *Action
