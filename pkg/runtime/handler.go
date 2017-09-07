@@ -138,7 +138,7 @@ func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmp
 		typs = infrdTypesByTmpl[tmplName]
 		// ti should be there for a valid configuration.
 		ti, _ = h.tmplRepo.GetTemplateInfo(tmplName)
-		ti.SetType(typs, &hndlrBldr)
+		ti.SetType(typs, hndlrBldr)
 	}
 	hndlrBldr.SetAdapterConfig(adapterCnfg.(proto.Message))
 	// TODO call validate. hndlrBldr.Validate

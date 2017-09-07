@@ -148,9 +148,9 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).(istio_mixer_template_list.HandlerBuilder)
+				castedBuilder := builder.(istio_mixer_template_list.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_list.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
@@ -362,9 +362,9 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).(istio_mixer_template_quota.HandlerBuilder)
+				castedBuilder := builder.(istio_mixer_template_quota.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_quota.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
@@ -591,9 +591,9 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).(istio_mixer_template_log.HandlerBuilder)
+				castedBuilder := builder.(istio_mixer_template_log.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_log.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
@@ -820,9 +820,9 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).(istio_mixer_template_metric.HandlerBuilder)
+				castedBuilder := builder.(istio_mixer_template_metric.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_metric.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
