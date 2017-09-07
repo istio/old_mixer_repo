@@ -31,7 +31,6 @@ import (
 
 	"istio.io/mixer/adapter/prometheus2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
 
@@ -62,12 +61,12 @@ type (
 var (
 	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_", "-", "")
 
-	_ metric.HandlerBuilder = &obuilder{}
+	_ metric.HandlerBuilder = &builder{}
 	_ metric.Handler        = &handler{}
 )
 
 // GetInfo returns the BuilderInfo associated with this adapter.
-func GetInfo() pkgHndlr.Info {
+func GetInfo() adapter.BuilderInfo {
 	// prometheus uses a singleton http port, so we make the
 	// builder itself a singleton, when defaultAddr become configurable
 	// srv will be a map[string]server
@@ -75,20 +74,15 @@ func GetInfo() pkgHndlr.Info {
 		srv: newServer(defaultAddr),
 	}
 	singletonBuilder.clearState()
-	return pkgHndlr.Info{
+	return adapter.BuilderInfo{
 		Name:        "prometheus",
 		Impl:        "istio.io/mixer/adapter/prometheus",
 		Description: "Publishes prometheus metrics",
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		NewBuilder: func() adapter.Builder2 { return singletonBuilder },
-		// to be deleted
-		DefaultConfig:  &config.Params{},
-		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
-		CreateHandlerBuilder: func() adapter.HandlerBuilder {
-			return &obuilder{b: singletonBuilder}
-		},
+		NewBuilder:    func() adapter.HandlerBuilder { return singletonBuilder },
+		DefaultConfig: &config.Params{},
 	}
 }
 
@@ -345,19 +339,4 @@ func computeSha(m *config.Params_MetricInfo, log adapter.Logger) [sha1.Size]byte
 		log.Warningf("Unable to encode %v", err)
 	}
 	return sha1.Sum(ba)
-}
-
-type obuilder struct {
-	b *builder
-}
-
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// ConfigureMetricHandler is to be deleted
-func (o *obuilder) ConfigureMetricHandler(types map[string]*metric.Type) error {
-	o.b.SetMetricTypes(types)
-	return nil
 }

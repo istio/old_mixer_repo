@@ -26,6 +26,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -41,7 +42,6 @@ import (
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -74,8 +74,8 @@ type (
 	// the given builder.
 	AdapterToAspectMapper func(builder string) KindSet
 
-	// BuilderInfoFinder is used to find specific handlers Info for configuration.
-	BuilderInfoFinder func(name string) (*handler.Info, bool)
+	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
+	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
 
 	// SetupHandlerFn is used to configure handler implementation with Types associated with all the templates that
 	// it supports.
@@ -156,7 +156,7 @@ type (
 
 	// HandlerBuilderInfo stores validated HandlerBuilders..
 	HandlerBuilderInfo struct {
-		handlerBuilder     *adapter.HandlerBuilder
+		b                  adapter.HandlerBuilder
 		isBroken           bool
 		handlerCnfg        *pb.Handler
 		supportedTemplates []string
@@ -639,7 +639,12 @@ func (p *validator) buildHandler(builder *HandlerBuilderInfo, handler string) (c
 		}
 	}()
 
-	instance, err := (*builder.handlerBuilder).Build(builder.handlerCnfg.Params.(proto.Message), nil)
+	builder.b.SetAdapterConfig(builder.handlerCnfg.Params.(proto.Message))
+	if re := builder.b.Validate(); re != nil {
+		return ce.Appendf("handlerConfig: "+handler, "failed to validate a handler configuration").Extend(re)
+	}
+	// TODO pass correct context here.
+	instance, err := builder.b.Build(context.Background(), nil)
 	// TODO Add validation to ensure handlerInstance support all the templates it claims to support.
 	if err != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to build a handler instance: %v", err)
@@ -739,19 +744,16 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 		}
 
 		hh.Params = hcfg
-		hb := bi.CreateHandlerBuilder()
-		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, handlerBuilder: &hb, supportedTemplates: bi.SupportedTemplates}
+		hb := bi.NewBuilder()
+		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, b: hb, supportedTemplates: bi.SupportedTemplates}
 	}
 	return
 }
 
-func convertHandlerParams(bi *handler.Info, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
+func convertHandlerParams(bi *adapter.BuilderInfo, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
 	hc = bi.DefaultConfig
 	if err := decode(params, hc, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)
-	}
-	if ce := bi.ValidateConfig(hc); ce != nil {
-		return nil, ce.Extend(ce)
 	}
 	return hc, nil
 }

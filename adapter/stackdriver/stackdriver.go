@@ -17,13 +17,12 @@ package stackdriver
 import (
 	"context"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/adapter/stackdriver/log"
 	sdmetric "istio.io/mixer/adapter/stackdriver/metric"
 	"istio.io/mixer/pkg/adapter"
-	handlers "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/logentry"
 	"istio.io/mixer/template/metric"
 )
@@ -48,9 +47,9 @@ var (
 	_ logentry.Handler        = &handler{}
 )
 
-// GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() handlers.Info {
-	return handlers.Info{
+// GetInfo returns the BuilderInfo associated with this adapter implementation.
+func GetInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:        "stackdriver",
 		Impl:        "istio.io/mixer/adapte/stackdriver",
 		Description: "Publishes StackDriver metrics and logs.",
@@ -58,28 +57,41 @@ func GetInfo() handlers.Info {
 			metric.TemplateName,
 			logentry.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{m: sdmetric.NewBuilder(), l: log.NewBuilder()} },
-		DefaultConfig:        &config.Params{},
-		ValidateConfig:       func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+		DefaultConfig: &config.Params{},
+		NewBuilder:    func() adapter.HandlerBuilder { return &builder{m: sdmetric.NewBuilder(), l: log.NewBuilder()} },
 	}
 }
 
-func (b *builder) ConfigureMetricHandler(metrics map[string]*metric.Type) error {
-	return b.m.ConfigureMetricHandler(metrics)
+func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {
+	b.m.SetMetricTypes(metrics)
 }
 
-func (b *builder) ConfigureLogEntryHandler(entries map[string]*logentry.Type) error {
-	return b.l.ConfigureLogEntryHandler(entries)
+func (b *builder) SetLogEntryTypes(entries map[string]*logentry.Type) {
+	b.l.SetLogEntryTypes(entries)
+}
+func (b *builder) SetAdapterConfig(c adapter.Config) {
+	b.m.SetAdapterConfig(c)
+	b.l.SetAdapterConfig(c)
 }
 
-func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	m, err := b.m.Build(c, env)
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	mce := b.m.Validate()
+	lce := b.l.Validate()
+
+	ce = ce.Extend(mce)
+	ce = ce.Extend(lce)
+	return
+}
+
+// Build creates a stack driver handler object.
+func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	m, err := b.m.Build(ctx, env)
 	if err != nil {
 		return nil, err
 	}
 	mh, _ := m.(metric.Handler)
 
-	l, err := b.l.Build(c, env)
+	l, err := b.l.Build(ctx, env)
 	if err != nil {
 		return nil, err
 	}

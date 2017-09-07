@@ -33,7 +33,6 @@ import (
 
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
 )
@@ -162,9 +161,9 @@ func (h *handler) Close() error {
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+// GetInfo returns the BuilderInfo associated with this adapter implementation.
+func GetInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
 		Description: "Volatile memory-based quota tracking",
@@ -175,11 +174,7 @@ func GetInfo() pkgHndlr.Info {
 			MinDeduplicationDuration: 1 * time.Second,
 		},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -241,22 +236,4 @@ func (b *builder) buildWithDedup(_ context.Context, env adapter.Env, ticker *tim
 	})
 
 	return h, nil
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-// Build is to be deleted
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// ConfigureQuotaHandler is to be deleted
-func (o *obuilder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
-	o.b.SetQuotaTypes(types)
-	return nil
 }

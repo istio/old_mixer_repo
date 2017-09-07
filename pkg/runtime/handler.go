@@ -15,6 +15,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -25,13 +26,12 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
 type (
 	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
-	BuilderInfoFinder func(name string) (*handler.Info, bool)
+	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
 
 	// TemplateFinder finds a template by name.
 	TemplateFinder interface {
@@ -67,10 +67,10 @@ func (t *templateFinder) GetTemplateInfo(template string) (template.Info, bool) 
 }
 
 func newHandlerFactory(templateInfo map[string]template.Info, expr expr.TypeChecker,
-	df expr.AttributeDescriptorFinder, builderInfo map[string]*handler.Info) HandlerFactory {
+	df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.BuilderInfo) HandlerFactory {
 	return NewHandlerFactory(&templateFinder{
 		templateInfo: templateInfo,
-	}, expr, df, func(name string) (*handler.Info, bool) {
+	}, expr, df, func(name string) (*adapter.BuilderInfo, bool) {
 		i, found := builderInfo[name]
 		return i, found
 	})
@@ -99,7 +99,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	// HandlerBuilder should always be present for a valid configuration (reference integrity should already be checked).
 	hndlrBldrInfo, _ := h.builderInfoFinder(handler.Adapter)
 
-	hndlrBldr := hndlrBldrInfo.CreateHandlerBuilder()
+	hndlrBldr := hndlrBldrInfo.NewBuilder()
 	if hndlrBldr == nil {
 		msg := fmt.Sprintf("nil HandlerBuilder instantiated for adapter '%s' in handler config '%s'", handler.Adapter, handler.Name)
 		glog.Warning(msg)
@@ -138,12 +138,11 @@ func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmp
 		typs = infrdTypesByTmpl[tmplName]
 		// ti should be there for a valid configuration.
 		ti, _ = h.tmplRepo.GetTemplateInfo(tmplName)
-		if err := ti.ConfigureType(typs, &hndlrBldr); err != nil {
-			return nil, fmt.Errorf("cannot configure handler types %v for mesh function name '%s': %v", typs, tmplName, err)
-		}
+		ti.SetType(typs, hndlrBldr)
 	}
-
-	return hndlrBldr.Build(adapterCnfg.(proto.Message), env)
+	hndlrBldr.SetAdapterConfig(adapterCnfg.(proto.Message))
+	// TODO call validate. hndlrBldr.Validate
+	return hndlrBldr.Build(context.Background(), env)
 }
 
 func (h *handlerFactory) inferTypesGrpdByTmpl(instances []*pb.Instance) (map[string]typeMap, error) {
