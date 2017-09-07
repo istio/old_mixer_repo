@@ -33,6 +33,7 @@ import (
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/template/logentry"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
 func TestBuild(t *testing.T) {
@@ -235,11 +236,20 @@ func TestHandleLogEntry(t *testing.T) {
 				t.Errorf("Expected %d entries, got %d: %v", len(tt.expected), len(actuals), actuals)
 			}
 			for _, expected := range tt.expected {
+				// reflect.DeepEqual fails for pointer fields if the pointers are not identical (i.e. it doesn't recurse
+				// to verify the values behind the pointers), so we hide the ptr field and check ourselves.
+				emr := expected.Resource
+				expected.Resource = nil
+
 				found := false
 				for _, actual := range actuals {
-					found = found || reflect.DeepEqual(actual, expected)
+					amr := actual.Resource
+					actual.Resource = nil
+
+					found = found || (reflect.DeepEqual(actual, expected) && reflect.DeepEqual(emr, amr))
 				}
 				if !found {
+					expected.Resource = emr
 					t.Errorf("Expected entry %v, got: %v", expected, actuals)
 				}
 			}
