@@ -366,7 +366,7 @@ const sSvcConfig1 = `
 subject: "namespace:ns"
 revision: "2022"
 rules:
-- selector: service.name == “*”
+- match: service.name == “*”
   aspects:
   - kind: metrics
     params:
@@ -381,7 +381,7 @@ const sSvcConfig2 = `
 subject: namespace:ns
 revision: "2022"
 rules:
-- selector: service.name == “*”
+- match: service.name == “*”
   aspects:
   - kind: lists
     inputs: {}
@@ -391,7 +391,7 @@ const sSvcConfig3 = `
 subject: namespace:ns
 revision: "2022"
 rules:
-- selector: service.name == “*”
+- match: service.name == “*”
   aspects:
   - kind: lists
     inputs: {}
@@ -402,7 +402,7 @@ const sSvcConfig = `
 subject: namespace:ns
 revision: "2022"
 rules:
-- selector: %s
+- match: %s
   aspects:
   - kind: metrics
     adapter: ""
@@ -412,7 +412,7 @@ rules:
       blacklist: true
       unknown_field: true
   rules:
-  - selector: src.name == "abc"
+  - match: src.name == "abc"
     aspects:
     - kind: quotas
       adapter: ""
@@ -1089,16 +1089,6 @@ action_rules:
 			evaluator,
 		},
 		{
-			"Nested Rule",
-			sSvcConfigNestedValid,
-			0,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			nil,
-			2,
-			evaluator,
-		},
-		{
 			"HandlerNotFoundInstanceNotFound",
 			sSvcConfigValid,
 			2,
@@ -1116,16 +1106,6 @@ action_rules:
 			map[string]*HandlerBuilderInfo{"somehandler": {}},
 			[]string{"handler not specified or is invalid"},
 			0,
-			evaluator,
-		},
-		{
-			"MissingHandlerNestedCnfg",
-			sSvcConfigNestedMissingHandler,
-			1,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			[]string{"handler not specified or is invalid"},
-			1,
 			evaluator,
 		},
 		{
