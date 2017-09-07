@@ -42,17 +42,15 @@ func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValid
 			glog.Error(msg)
 			panic(msg)
 		} else {
-			if adptInfo.ValidateConfig == nil {
-				// panic if adapter has not provided the ValidateConfig func.
-				msg := fmt.Errorf("Adapter info %v from adapter %s does not contain value for ValidateConfig"+
-					" function field.", adptInfo, adptInfo.Name)
+			if adptInfo.NewBuilder == nil {
+				// panic if adapter has not provided the NewBuilder func.
+				msg := fmt.Errorf("Adapter info %v from adapter %s has nil NewBuilder", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
 			}
 			if adptInfo.DefaultConfig == nil {
 				// panic if adapter has not provided the DefaultConfig func.
-				msg := fmt.Errorf("Adapter info %v from adapter %s does not contain value for DefaultConfig "+
-					"field.", adptInfo, adptInfo.Name)
+				msg := fmt.Errorf("Adapter info %v from adapter %s has nil DefaultConfig", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
 			}
@@ -86,7 +84,7 @@ func (r *adapterInfoRegistry) FindAdapterInfo(name string) (b *adapter.BuilderIn
 }
 
 func doesBuilderSupportsTemplates(info adapter.BuilderInfo, hndlrBldrValidator handlerBuilderValidator) (bool, string) {
-	handlerBuilder := info.CreateHandlerBuilder()
+	handlerBuilder := info.NewBuilder()
 	resultMsgs := make([]string, 0)
 	for _, t := range info.SupportedTemplates {
 		if ok, errMsg := hndlrBldrValidator(handlerBuilder, t); !ok {

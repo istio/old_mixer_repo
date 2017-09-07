@@ -16,6 +16,7 @@ package adapterManager
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -39,19 +40,37 @@ import (
 var globalActualHandlerCallInfoToValidate map[string]interface{}
 
 type (
-	fakeHndlr     struct{}
-	fakeHndlrBldr struct{}
+	fakeHndlr        struct{}
+	fakeHndlrBldrOld struct{}
+	fakeHndlrBldr    struct{}
 )
 
-func (fakeHndlrBldr) Build(cnfg adapter.Config, _ adapter.Env) (adapter.Handler, error) {
-	globalActualHandlerCallInfoToValidate["Build"] = cnfg
+func (fakeHndlrBldrOld) Build(cnfg adapter.Config, _ adapter.Env) (adapter.Handler, error) {
+	globalActualHandlerCallInfoToValidate["SetAdapterConfig"] = cnfg
 	fakeHndlrObj := fakeHndlr{}
 	return fakeHndlrObj, nil
 }
-func (fakeHndlrBldr) SetSampleTypes(typeParams map[string]*sample_report.Type) error {
-	globalActualHandlerCallInfoToValidate["ConfigureSample"] = typeParams
+
+func (fakeHndlrBldrOld) SetSampleTypes(typeParams map[string]*sample_report.Type) error {
+	globalActualHandlerCallInfoToValidate["SetSampleTypes"] = typeParams
 	return nil
 }
+
+func (fakeHndlrBldr) Build(_ context.Context, _ adapter.Env) (adapter.Handler, error) {
+	fakeHndlrObj := fakeHndlr{}
+	return fakeHndlrObj, nil
+}
+func (fakeHndlrBldr) SetSampleTypes(typeParams map[string]*sample_report.Type) {
+	globalActualHandlerCallInfoToValidate["SetSampleTypes"] = typeParams
+}
+func (fakeHndlrBldr) SetAdapterConfig(config adapter.Config) {
+	globalActualHandlerCallInfoToValidate["SetAdapterConfig"] = config
+}
+
+func (fakeHndlrBldr) Validate() *adapter.ConfigErrors {
+	return nil
+}
+
 func (fakeHndlr) HandleSample(instances []*sample_report.Instance) error {
 	globalActualHandlerCallInfoToValidate["ReportSample"] = instances
 	return nil
@@ -62,14 +81,11 @@ func (fakeHndlr) Close() error {
 }
 func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:                 "fakeHandler",
-		Description:          "",
-		SupportedTemplates:   []string{sample_report.TemplateName},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
-		DefaultConfig:        &types.Empty{},
-		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors {
-			return nil
-		},
+		Name:               "fakeHandler",
+		Description:        "",
+		SupportedTemplates: []string{sample_report.TemplateName},
+		DefaultConfig:      &types.Empty{},
+		NewBuilder:         func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
 	}
 }
 
@@ -191,8 +207,8 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 		t.Errorf("got call count %d\nwant %d", len(globalActualHandlerCallInfoToValidate), 2)
 	}
 
-	if globalActualHandlerCallInfoToValidate["ConfigureSample"] == nil || globalActualHandlerCallInfoToValidate["Build"] == nil {
-		t.Errorf("got call info as : %v. \nwant calls %s and %s to have been called", globalActualHandlerCallInfoToValidate, "ConfigureSample", "Build")
+	if globalActualHandlerCallInfoToValidate["SetSampleTypes"] == nil || globalActualHandlerCallInfoToValidate["SetSampleTypes"] == nil {
+		t.Errorf("got call info as : %v. \nwant calls %s and %s to have been called", globalActualHandlerCallInfoToValidate, "SetSampleTypes", "SetSampleTypes")
 	}
 }
 
