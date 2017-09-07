@@ -45,13 +45,6 @@ func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo 
 	return createBuilderInfo(t.name)
 }
 
-type fakeHandlerBuilderOld struct{}
-
-func (fakeHandlerBuilderOld) SetSampleTypes(map[string]*sample_report.Type) error { return nil }
-func (fakeHandlerBuilderOld) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
-	return fakeHandler{}, nil
-}
-
 type fakeHandlerBuilder struct{}
 
 func (fakeHandlerBuilder) SetSampleTypes(map[string]*sample_report.Type) {}
@@ -146,10 +139,6 @@ type badHandlerBuilder struct{}
 func (badHandlerBuilder) DefaultConfig() adapter.Config                       { return nil }
 func (badHandlerBuilder) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return nil }
 
-// This misspelled function cause the Builder to not implement SampleProcessorBuilder
-func (fakeHandlerBuilderOld) MisspelledXXConfigureSample(map[string]*sample_report.Type) error {
-	return nil
-}
 func (badHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }

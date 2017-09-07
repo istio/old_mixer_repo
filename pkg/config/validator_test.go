@@ -875,7 +875,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder2: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
@@ -887,7 +887,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder2: &validationErrHndlr, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					handlerBuilder: &validationErrHndlr, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"Validation failed",
@@ -899,7 +899,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(errors.New("some error during configuration")),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder2: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"some error during configuration",
@@ -911,7 +911,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder2: &hbb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					handlerBuilder: &hbb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",
@@ -923,7 +923,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder2: &hpb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					handlerBuilder: &hpb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
@@ -935,10 +935,10 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder2: &hbgood2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					handlerBuilder: &hbgood2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 				handlerName2: {
-					handlerBuilder2: &hbb2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					handlerBuilder: &hbb2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",

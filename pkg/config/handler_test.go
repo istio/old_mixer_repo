@@ -97,14 +97,14 @@ func TestDispatchToHandlers(t *testing.T) {
 	}{
 		{
 			name:                      "simple",
-			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder2: nil}},
+			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
 			infrdTyps:                 map[string]proto.Message{"inst1": nil},
 			instancesByTemplate:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
 			wantTrackInstancesPerCall: [][]string{{"inst1"}},
 		},
 		{
 			name:                      "MultiHandlerAndInsts",
-			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder2: nil}, "hndlr2": {handlerBuilder2: nil}},
+			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}, "hndlr2": {handlerBuilder: nil}},
 			infrdTyps:                 map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil},
 			instancesByTemplate:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any1": {"inst1", "inst2"}, "any2": {"inst3"}}},
 			wantTrackInstancesPerCall: [][]string{{"inst1", "inst2"}, {"inst3"}},
@@ -151,9 +151,9 @@ func TestDispatchToHandlersPanicRecover(t *testing.T) {
 	goodHndlr2 := "goodHndlr2"
 
 	handlers := map[string]*HandlerBuilderInfo{
-		badHndlr:   {handlerBuilder2: nil},
-		goodHndlr1: {handlerBuilder2: nil},
-		goodHndlr2: {handlerBuilder2: nil},
+		badHndlr:   {handlerBuilder: nil},
+		goodHndlr1: {handlerBuilder: nil},
+		goodHndlr2: {handlerBuilder: nil},
 	}
 	infrdTypes := map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil}
 

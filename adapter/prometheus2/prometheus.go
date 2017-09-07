@@ -81,8 +81,7 @@ func GetInfo() adapter.BuilderInfo {
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		NewBuilder: func() adapter.HandlerBuilder { return singletonBuilder },
-		// to be deleted
+		NewBuilder:    func() adapter.HandlerBuilder { return singletonBuilder },
 		DefaultConfig: &config.Params{},
 	}
 }
