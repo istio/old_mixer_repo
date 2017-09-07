@@ -72,7 +72,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(checknothing.HandlerBuilder)
 				castedTypes := make(map[string]*checknothing.Type, len(types))
@@ -81,7 +81,7 @@ var (
 					v1 := v.(*checknothing.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.SetCheckNothingTypes(castedTypes)
+				castedBuilder.SetCheckNothingTypes(castedTypes)
 			},
 
 			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
@@ -130,7 +130,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(listentry.HandlerBuilder)
 				castedTypes := make(map[string]*listentry.Type, len(types))
@@ -139,7 +139,7 @@ var (
 					v1 := v.(*listentry.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.SetListEntryTypes(castedTypes)
+				castedBuilder.SetListEntryTypes(castedTypes)
 			},
 
 			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
@@ -232,7 +232,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(logentry.HandlerBuilder)
 				castedTypes := make(map[string]*logentry.Type, len(types))
@@ -241,7 +241,7 @@ var (
 					v1 := v.(*logentry.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.SetLogEntryTypes(castedTypes)
+				castedBuilder.SetLogEntryTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
@@ -366,7 +366,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(metric.HandlerBuilder)
 				castedTypes := make(map[string]*metric.Type, len(types))
@@ -375,7 +375,7 @@ var (
 					v1 := v.(*metric.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.SetMetricTypes(castedTypes)
+				castedBuilder.SetMetricTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
@@ -466,7 +466,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(quota.HandlerBuilder)
 				castedTypes := make(map[string]*quota.Type, len(types))
@@ -475,7 +475,7 @@ var (
 					v1 := v.(*quota.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.SetQuotaTypes(castedTypes)
+				castedBuilder.SetQuotaTypes(castedTypes)
 			},
 
 			ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
@@ -523,7 +523,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(reportnothing.HandlerBuilder)
 				castedTypes := make(map[string]*reportnothing.Type, len(types))
@@ -532,7 +532,7 @@ var (
 					v1 := v.(*reportnothing.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.SetReportNothingTypes(castedTypes)
+				castedBuilder.SetReportNothingTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
