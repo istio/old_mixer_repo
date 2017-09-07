@@ -29,43 +29,63 @@ const (
 	methodPreprocess
 )
 
-// RuleType codifies types of rules.
-// rules apply to certain protocols or methods.
-type RuleType struct {
+// ResourceType codifies types of resources.
+// resources apply to certain protocols or methods.
+type ResourceType struct {
 	protocol protocol
 	method   method
 }
 
 // String return string presentation of const.
-func (r RuleType) String() string {
+func (r ResourceType) String() string {
 	p := ""
-	if r.protocol&protocolHTTP != 0 {
+	if r.IsHTTP() {
 		p += "HTTP "
 	}
-	if r.protocol&protocolTCP != 0 {
+	if r.IsTCP() {
 		p += "TCP "
 	}
 	m := ""
-	if r.method&methodCheck != 0 {
+	if r.IsCheck() {
 		m += "Check "
 	}
-	if r.method&methodReport != 0 {
+	if r.IsReport() {
 		m += "Report "
 	}
-	if r.method&methodPreprocess != 0 {
+	if r.IsPreprocess() {
 		m += "Preprocess"
 	}
-	return "RuleType:{" + p + "/" + m + "}"
+	return "ResourceType:{" + p + "/" + m + "}"
 }
 
-// IsTCP returns true if rule is ok for TCP
-func (r RuleType) IsTCP() bool {
+// IsTCP returns true if resource is for TCP
+func (r ResourceType) IsTCP() bool {
 	return r.protocol&protocolTCP != 0
 }
 
-// defaultRuletype defines the rule type if nothing is specified.
-func defaultRuletype() RuleType {
-	return RuleType{
+// IsHTTP returns true if resource is for HTTP
+func (r ResourceType) IsHTTP() bool {
+	return r.protocol&protocolHTTP != 0
+}
+
+// IsCheck returns true if resource is for HTTP
+func (r ResourceType) IsCheck() bool {
+	return r.method&methodCheck != 0
+}
+
+// IsReport returns true if resource is for Report
+func (r ResourceType) IsReport() bool {
+	return r.method&methodReport != 0
+}
+
+// IsPreprocess returns true if resource is for Preprocess
+func (r ResourceType) IsPreprocess() bool {
+	return r.method&methodPreprocess != 0
+}
+
+// defaultResourcetype defines the resource type if nothing is specified.
+func defaultResourcetype() ResourceType {
+	return ResourceType{
 		protocol: protocolHTTP,
 		method:   methodCheck | methodReport | methodPreprocess,
 	}
