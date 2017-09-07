@@ -87,6 +87,7 @@ const DefaultConfigNamespace = "istio-default-config"
 // DefaultIdentityAttribute is attribute that defines config scopes.
 const DefaultIdentityAttribute = "target.service"
 
+// ContextProtocolAttributeName is the attribute that defines the protocol context.
 const ContextProtocolAttributeName = "context.protocol"
 
 // expectedResolvedActionsCount is used to preallocate slice for actions.
