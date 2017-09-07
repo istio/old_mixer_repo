@@ -28,6 +28,23 @@ manifests:
         valueType: STRING
       target.serviceAccount:
         valueType: STRING
+  - name: token
+    revision: "1"
+    attributes:
+      request.token.exists:
+        valueType: BOOL
+      request.token.encrypted:
+        valueType: BOOL
+      request.token.type:
+        valueType: STRING
+      request.token.valid:
+        valueType: BOOL
+      request.token.signed:
+        valueType: BOOL
+      request.token.signAlg:
+        valueType: STRING
+      request.token.claims:
+        valueType: STRING_MAP
   - name: istio-proxy
     revision: "1"
     attributes:
