@@ -98,7 +98,7 @@ func TestDispatchConfigureAndBuild(t *testing.T) {
 		t.Error("Expected m.calledAdptCfg to be called, wasn't.")
 	}
 
-	b.Validate()
+	_ = b.Validate()
 	if !l.calledValidate {
 		t.Error("Expected l.calledValidate to be called, wasn't.")
 	}
@@ -109,7 +109,7 @@ func TestDispatchConfigureAndBuild(t *testing.T) {
 	if l.calledBuild || m.calledBuild {
 		t.Fatalf("Build called on builders before calling b.Build")
 	}
-	if _, err := b.Build(nil, test.NewEnv(t)); err != nil {
+	if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
 		t.Errorf("Exepected err calling builder.Build: %v", err)
 	}
 	if !m.calledBuild {
@@ -127,7 +127,7 @@ func TestDispatchHandleAndClose(t *testing.T) {
 	mb := &fakeBuilder{instance: ma}
 	b := &builder{mb, lb}
 
-	superHandler, err := b.Build(nil, test.NewEnv(t))
+	superHandler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Unexpected error calling builder.Build: %v", err)
 	}

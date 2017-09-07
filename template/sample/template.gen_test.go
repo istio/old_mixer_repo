@@ -46,7 +46,7 @@ func (h fakeBadHandler) Close() error { return nil }
 func (h fakeBadHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h fakeBadHandler) Validate() *adapter.ConfigErrors {return nil}
+func (h fakeBadHandler) Validate() *adapter.ConfigErrors     { return nil }
 func (h fakeBadHandler) SetAdapterConfig(cfg adapter.Config) {}
 
 type fakeReportHandler struct {
@@ -67,7 +67,7 @@ func (h *fakeReportHandler) Build(context.Context, adapter.Env) (adapter.Handler
 func (h *fakeReportHandler) SetSampleTypes(t map[string]*sample_report.Type) {
 	h.cnfgCallInput = t
 }
-func (h *fakeReportHandler) Validate() *adapter.ConfigErrors {return nil}
+func (h *fakeReportHandler) Validate() *adapter.ConfigErrors     { return nil }
 func (h *fakeReportHandler) SetAdapterConfig(cfg adapter.Config) {}
 
 type fakeCheckHandler struct {
@@ -86,9 +86,9 @@ func (h *fakeCheckHandler) HandleSample(ctx context.Context, instance *sample_ch
 func (h *fakeCheckHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeCheckHandler) SetSampleTypes(t map[string]*sample_check.Type) {h.cnfgCallInput = t}
-func (h *fakeCheckHandler) Validate() *adapter.ConfigErrors {return nil}
-func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config) {}
+func (h *fakeCheckHandler) SetSampleTypes(t map[string]*sample_check.Type) { h.cnfgCallInput = t }
+func (h *fakeCheckHandler) Validate() *adapter.ConfigErrors                { return nil }
+func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config)            {}
 
 type fakeQuotaHandler struct {
 	adapter.Handler
@@ -109,7 +109,7 @@ func (h *fakeQuotaHandler) Build(context.Context, adapter.Env) (adapter.Handler,
 func (h *fakeQuotaHandler) SetQuotaTypes(t map[string]*sample_quota.Type) {
 	h.cnfgCallInput = t
 }
-func (h *fakeQuotaHandler) Validate() *adapter.ConfigErrors {return nil}
+func (h *fakeQuotaHandler) Validate() *adapter.ConfigErrors     { return nil }
 func (h *fakeQuotaHandler) SetAdapterConfig(cfg adapter.Config) {}
 
 type fakeBag struct{}
