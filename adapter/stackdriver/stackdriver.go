@@ -17,7 +17,7 @@ package stackdriver
 import (
 	"context"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/adapter/stackdriver/log"
