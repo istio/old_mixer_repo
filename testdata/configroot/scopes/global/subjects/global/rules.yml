@@ -26,6 +26,19 @@ rules:
         target.namespace: targetNamespace
         target.service: targetService
         target.serviceAccount: targetServiceAccountName
+  - kind: attributes
+    adapter: token
+    params:
+      input_expressions:
+        authorizationHeader: request.headers["authorization"] | ""
+      attribute_bindings:
+        request.token.exists: request.token.exists
+        request.token.encrypted: request.token.encrypted
+        request.token.type: request.token.type
+        request.token.valid: request.token.valid
+        request.token.signed: request.token.signed
+        request.token.signAlg: request.token.signAlg
+        request.token.claims: request.token.claims
   - kind: quotas
     params:
       quotas:
