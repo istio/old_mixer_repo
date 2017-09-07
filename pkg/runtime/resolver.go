@@ -183,7 +183,7 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 				continue
 			}
 			// default rtype is HTTP + Check|Report|Preprocess
-			if tcp && !rule.rtype.IsTCP() {
+			if tcp != rule.rtype.IsTCP() {
 				if glog.V(4) {
 					glog.Infof("filterActions: rule %s removed ctxProtocol=%s, type %s", rule.name, ctxProtocol, rule.rtype)
 				}
@@ -200,7 +200,7 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 				}
 			}
 			if glog.V(3) {
-				glog.Infof("filterActions: rule %s selected", rule.name)
+				glog.Infof("filterActions: rule %s selected %v", rule.name, rule.rtype)
 			}
 			nselected++
 			res = append(res, act...)
