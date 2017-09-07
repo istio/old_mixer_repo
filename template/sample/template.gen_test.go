@@ -585,7 +585,7 @@ func TestSetType(t *testing.T) {
 		},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
-			hb := &tst.hdlrBldr
+			hb := tst.hdlrBldr
 			SupportedTmplInfo[tst.tmpl].SetType(tst.types, hb)
 
 			var c interface{}

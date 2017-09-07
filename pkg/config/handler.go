@@ -101,7 +101,7 @@ func (h *handlerFactory) dispatchToHandler(hb *HandlerBuilderInfo, handler strin
 			typsToCnfgr[inst] = v
 		}
 
-		ti.SetType(typsToCnfgr, hb.handlerBuilder)
+		ti.SetType(typsToCnfgr, hb.b)
 	}
 	return nil
 }

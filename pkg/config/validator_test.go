@@ -854,12 +854,6 @@ func getSetupHandlerFn(err error) SetupHandlerFn {
 }
 
 func TestBuildHandlers(t *testing.T) {
-	var hbgood adapter.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbgood2 adapter.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbb adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hbb2 adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hpb adapter.HandlerBuilder = fakePanicHndlrBldr{}
-	var validationErrHndlr adapter.HandlerBuilder = fakeHndlrBldr{validationError: "Validation failed"}
 	const handlerName = "foo"
 	const handlerName2 = "bar"
 	tests := []struct {
@@ -875,7 +869,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
@@ -887,7 +881,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &validationErrHndlr, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeHndlrBldr{validationError: "Validation failed"}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"Validation failed",
@@ -899,7 +893,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(errors.New("some error during configuration")),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"some error during configuration",
@@ -911,7 +905,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeErrRetrningHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",
@@ -923,7 +917,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hpb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakePanicHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
@@ -935,10 +929,10 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 				handlerName2: {
-					handlerBuilder: &hbb2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeErrRetrningHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",

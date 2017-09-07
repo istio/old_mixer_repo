@@ -44,7 +44,7 @@ func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 		InferType: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
 			return t.typeResult, t.infrErr
 		},
-		SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) {
+		SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 			if t.cnfgrPanic != "" {
 				panic(t.cnfgrPanic)
 			}

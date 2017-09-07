@@ -156,7 +156,7 @@ type (
 
 	// HandlerBuilderInfo stores validated HandlerBuilders..
 	HandlerBuilderInfo struct {
-		handlerBuilder     *adapter.HandlerBuilder
+		b                  adapter.HandlerBuilder
 		isBroken           bool
 		handlerCnfg        *pb.Handler
 		supportedTemplates []string
@@ -639,12 +639,12 @@ func (p *validator) buildHandler(builder *HandlerBuilderInfo, handler string) (c
 		}
 	}()
 
-	(*builder.handlerBuilder).SetAdapterConfig(builder.handlerCnfg.Params.(proto.Message))
-	if re := (*builder.handlerBuilder).Validate(); re != nil {
+	(builder.b).SetAdapterConfig(builder.handlerCnfg.Params.(proto.Message))
+	if re := (builder.b).Validate(); re != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to validate a handler configuration").Extend(re)
 	}
 	// TODO pass correct context here.
-	instance, err := (*builder.handlerBuilder).Build(context.Background(), nil)
+	instance, err := (builder.b).Build(context.Background(), nil)
 	// TODO Add validation to ensure handlerInstance support all the templates it claims to support.
 	if err != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to build a handler instance: %v", err)
@@ -745,7 +745,7 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 
 		hh.Params = hcfg
 		hb := bi.NewBuilder()
-		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, handlerBuilder: &hb, supportedTemplates: bi.SupportedTemplates}
+		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, b: hb, supportedTemplates: bi.SupportedTemplates}
 	}
 	return
 }
