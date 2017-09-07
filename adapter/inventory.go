@@ -29,8 +29,8 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Inventory returns the inventory of all available adapters.
-func Inventory() []adapter.RegisterFn {
+// InventoryLegacy returns the inventory of all available adapters.
+func InventoryLegacy() []adapter.RegisterFn {
 	return []adapter.RegisterFn{
 		denyChecker.Register,
 		genericListChecker.Register,

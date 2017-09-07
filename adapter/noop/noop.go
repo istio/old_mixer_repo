@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package noop2 // import "istio.io/mixer/adapter/noop2"
+package noop // import "istio.io/mixer/adapter/noop"
 
 // NOTE: This adapter will eventually be auto-generated so that it automatically supports all templates
 //       known to Mixer. For now, it's manually curated.

@@ -208,7 +208,7 @@ func TestListCrdsInstances(t *testing.T) {
 
 func TestNameFormat(t *testing.T) {
 	validNamePattern := regexp.MustCompile(`^([a-z0-9]+-)*[a-z0-9]+$`)
-	for _, infoFn := range adapter.Inventory2() {
+	for _, infoFn := range adapter.Inventory() {
 		info := infoFn()
 		if !validNamePattern.MatchString(info.Name) {
 			t.Errorf("Name %s doesn't match the pattern %v", info.Name, validNamePattern)

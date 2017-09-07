@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package noop2
+package noop
 
 // NOTE: This test will eventually be auto-generated so that it automatically supports all templates
 //       known to Mixer. For now, it's manually curated.
