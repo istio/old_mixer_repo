@@ -19,7 +19,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 
 	"istio.io/mixer/pkg/adapter"
@@ -46,7 +45,7 @@ type Controller struct {
 
 	// configState is the current (potentially inconsistent) view of config.
 	// It receives updates from the underlying config store.
-	configState map[store.Key]proto.Message
+	configState map[store.Key]*store.Resource
 
 	// currently deployed resolver
 	resolver *resolver
@@ -241,7 +240,7 @@ func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 		instanceConfig[k.String()] = &cpb.Instance{
 			Name:     k.String(),
 			Template: k.Kind,
-			Params:   cfg,
+			Params:   cfg.Spec,
 		}
 	}
 	return instanceConfig
@@ -259,7 +258,7 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 		handlerConfig[k.String()] = &cpb.Handler{
 			Name:    k.String(),
 			Adapter: k.Kind,
-			Params:  cfg,
+			Params:  cfg.Spec,
 		}
 	}
 	if glog.V(3) {
@@ -275,10 +274,11 @@ func (c *Controller) processAttributeManifests() expr.AttributeDescriptorFinder 
 		return c.df
 	}
 	attrs := make(map[string]*cpb.AttributeManifest_AttributeInfo)
-	for k, cfg := range c.configState {
+	for k, obj := range c.configState {
 		if k.Kind != AttributeManifestKind {
 			continue
 		}
+		cfg := obj.Spec
 		for an, at := range cfg.(*cpb.AttributeManifest).Attributes {
 			attrs[an] = at
 		}
@@ -326,6 +326,20 @@ func convertToRuntimeRules(ruleConfig rulesMapByNamespace) (rulesListByNamespace
 	return rules, nrules
 }
 
+const (
+	istioProtocol = "istio-protocol"
+)
+
+// ruleType map labels to rule types.
+func ruleType(labels map[string]string) RuleType {
+	ip := labels[istioProtocol]
+	rt := defaultRuletype()
+	if ip == "tcp" {
+		rt.protocol = protocolTCP
+	}
+	return rt
+}
+
 // processRules builds the current consistent view of the rules keyed by Namespace and then Name.
 // ht (handlerTable) keeps track of handler-instance association.
 func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
@@ -336,14 +350,17 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 	// check rules and ensure only good handlers and instances are used.
 	// record handler - instance associations
-	for k, cfg := range c.configState {
+	for k, obj := range c.configState {
 		if k.Kind != RulesKind {
 			continue
 		}
+
+		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
 		rule := &Rule{
 			selector: rulec.Selector,
 			name:     k.Name,
+			rtype:    ruleType(obj.Metadata.Labels),
 		}
 		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht)
 
