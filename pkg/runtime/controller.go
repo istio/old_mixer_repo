@@ -16,6 +16,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -362,7 +363,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 			name:     k.Name,
 			rtype:    resourceType(obj.Metadata.Labels),
 		}
-		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht)
+		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
 
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
 		for vr, amap := range acts {
@@ -385,15 +386,25 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 var cleanupSleepTime = 500 * time.Millisecond
 
+// isFQN returns true if the name is fully qualified.
+// every resource name is defined by Key.String()
+// shortname.kind.namespace
+func isFQN(name string) bool {
+	return len(strings.Split(name, ".")) == 3
+}
+
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable) map[adptTmpl.TemplateVariety]map[string]*Action {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable, namespace string) map[adptTmpl.TemplateVariety]map[string]*Action {
 
 	actions := make(map[adptTmpl.TemplateVariety]map[string]*Action)
 
 	for _, ic := range acts {
 		var hc *cpb.Handler
+		if !isFQN(ic.Handler) {
+			ic.Handler = ic.Handler + "." + namespace
+		}
 		if hc = handlerConfig[ic.Handler]; hc == nil {
 			if glog.V(3) {
 				glog.Warningf("ConfigWarning unknown handler: %s", ic.Handler)
@@ -402,6 +413,9 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 		}
 
 		for _, instName := range ic.Instances {
+			if !isFQN(instName) {
+				instName = instName + "." + namespace
+			}
 			inst := instanceConfig[instName]
 			if inst == nil {
 				if glog.V(3) {

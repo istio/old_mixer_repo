@@ -27,6 +27,7 @@ const (
 	methodCheck method = 1 << iota
 	methodReport
 	methodPreprocess
+	methodQuota
 )
 
 // ResourceType codifies types of resources.
@@ -51,6 +52,9 @@ func (r ResourceType) String() string {
 	}
 	if r.IsReport() {
 		m += "Report "
+	}
+	if r.IsQuota() {
+		m += "Quota"
 	}
 	if r.IsPreprocess() {
 		m += "Preprocess"
@@ -81,6 +85,11 @@ func (r ResourceType) IsReport() bool {
 // IsPreprocess returns true if resource is for Preprocess
 func (r ResourceType) IsPreprocess() bool {
 	return r.method&methodPreprocess != 0
+}
+
+// IsQuota returns true if resource is for IsQuota
+func (r ResourceType) IsQuota() bool {
+	return r.method&methodQuota != 0
 }
 
 // defaultResourcetype defines the resource type if nothing is specified.
