@@ -47,6 +47,9 @@ func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
 	if err != nil {
 		return Event{}, err
 	}
+	if ev.Value == nil {
+		return Event{}, err
+	}
 	if err = convert(ev.Value.Spec, pbSpec); err != nil {
 		return Event{}, err
 	}

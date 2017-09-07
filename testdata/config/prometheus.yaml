@@ -34,6 +34,15 @@ spec:
         numFiniteBuckets: 8
         scale: 1
         growthFactor: 10
+  - name: tcp_bytes_sent
+    instance_name: bytessent.metric.istio-config-default
+    kind: DISTRIBUTION
+    label_names: [ source, target, service, method, version, response_code ]
+    buckets:
+      exponentialBuckets:
+        numFiniteBuckets: 8
+        scale: 1
+        growthFactor: 10
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
