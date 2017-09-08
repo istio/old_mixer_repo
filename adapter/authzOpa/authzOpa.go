@@ -22,11 +22,11 @@ import (
 	"errors"
 	"fmt"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
-
 	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
+
 	"istio.io/mixer/adapter/authzOpa/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/template/authz"
