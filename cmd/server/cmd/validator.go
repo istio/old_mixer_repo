@@ -73,7 +73,7 @@ func createK8sClient() (*kubernetes.Clientset, error) {
 	return client, nil
 }
 
-func createValidatorServer(vc *validatorConfig, client *kubernetes.Clientset) (*crd.ValidatorServer, error) {
+func createValidatorServer(vc *validatorConfig, client kubernetes.Interface) (*crd.ValidatorServer, error) {
 	// TODO: bind this with pkg/runtime for referential integrity.
 	v := store.NewValidator(nil, vc.resources)
 	resourceNames := make([]string, 0, len(vc.resources))
