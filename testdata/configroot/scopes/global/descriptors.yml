@@ -40,6 +40,8 @@ manifests:
         valueType: STRING
       destination.serviceAccount:
         valueType: STRING
+      destination.uid:
+        valueType: STRING
   - name: istio-proxy
     revision: "1"
     attributes:
