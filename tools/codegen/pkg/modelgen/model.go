@@ -101,6 +101,11 @@ type (
 	}
 )
 
+// Last segment of package name after the '.' must match the following regex
+const pkgLaskSeg = "^[a-zA-Z]+$"
+
+var pkgLaskSegRegex = regexp.MustCompile(pkgLaskSeg)
+
 // Create creates a Model object.
 func Create(parser *FileDescriptorSetParser) (*Model, error) {
 
@@ -250,11 +255,6 @@ func getLastSegment(pkg string) (string, error) {
 	}
 	return "", fmt.Errorf("The last segment of package name '%s' must match the reges '%s'", pkg, pkgLaskSeg)
 }
-
-// Last segment of package name after the '.' must match the following regex
-const pkgLaskSeg = "^[a-zA-Z]+$"
-
-var pkgLaskSegRegex = regexp.MustCompile(pkgLaskSeg)
 
 func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {
 	var cstrDesc *Descriptor
