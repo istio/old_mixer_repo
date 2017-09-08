@@ -29,10 +29,6 @@ spec:
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
-<<<<<<< HEAD
-
-=======
->>>>>>> Add TCP metrics and fix other stuff
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -49,10 +45,6 @@ spec:
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
-<<<<<<< HEAD
-
-=======
->>>>>>> Add TCP metrics and fix other stuff
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -68,22 +60,6 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
-  monitored_resource_type: '"UNSPECIFIED"'
-<<<<<<< HEAD
-=======
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: metric
-metadata:
-  name: tcpconnection
-  namespace: istio-config-default
-spec:
-  value: "1"
-  dimensions:
-    source_service: source.service | "unknown"
-    source_version: target.labels["version"] | "unknown"
-    destination_service: target.service | "unknown"
-    destination_version: target.labels["version"] | "unknown"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -113,4 +89,3 @@ spec:
     destination_service: target.service | "unknown"
     destination_version: target.labels["version"] | "unknown"
   monitored_resource_type: '"UNSPECIFIED"'
->>>>>>> Add TCP metrics and fix other stuff
