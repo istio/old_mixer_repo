@@ -41,7 +41,7 @@ metadata:
   name: prommetrics
   namespace: istio-config-default
 spec:
-  selector: "true"
+  #match: request.method == "/login"
   actions:
   - handler: handler.prometheus.istio-config-default
     instances:
