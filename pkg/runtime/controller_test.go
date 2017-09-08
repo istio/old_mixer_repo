@@ -197,7 +197,7 @@ func TestController_workflow(t *testing.T) {
 		{
 			Key: store.Key{RulesKind, DefaultConfigNamespace, "r2"},
 			Value: &store.Resource{Spec: &cpb.Rule{
-			Match: "target.service == \"bcd\"",
+				Match: "target.service == \"bcd\"",
 				Actions: []*cpb.Action{
 					{
 						Handler:   "a1.AA." + DefaultConfigNamespace,

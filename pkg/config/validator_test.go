@@ -1015,22 +1015,6 @@ action_rules:
     instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedValid = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.service == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: target.service == "*"
-    actions:
-    - handler: somehandler
-      instances:
-      - RequestCountByService
-`
 	const sSvcConfigMissingHandler = `
 subject: namespace:ns
 revision: "2022"
