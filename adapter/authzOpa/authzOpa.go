@@ -24,6 +24,7 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	"github.com/golang/glog"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 	"istio.io/mixer/adapter/authzOpa/config"
@@ -55,8 +56,30 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.adapterConfig = cfg.(*config.Params)
 }
 
-func (*builder) Validate() (ce *adapter.ConfigErrors) {
-	return
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	if len(b.adapterConfig.CheckMethod) == 0 {
+		ce = ce.Appendf(GetInfo().Name,
+			"CheckMethod was not configured")
+	}
+
+	parsed, err := ast.ParseModule("", string(b.adapterConfig.Policy))
+	glog.Infof("%v", parsed)
+	glog.Infof("%v", err)
+	if err != nil {
+		ce = ce.Appendf(GetInfo().Name,
+			"Failed to parse the OPA policy: %v", err)
+	}
+
+	compiler := ast.NewCompiler()
+	compiler.Compile(map[string]*ast.Module{"": parsed})
+	glog.Infof("%v", compiler.Failed())
+	glog.Infof("%v", compiler.Errors)
+	if compiler.Failed() {
+		ce = ce.Appendf(GetInfo().Name,
+			"Failed to compile the OPA policy: %v", compiler.Errors)
+	}
+
+	return nil
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
@@ -85,20 +108,18 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	return h, nil
 }
 
-func (*builder) ConfigureAuthzHandler(m map[string]*authz.Type) error {
-	return nil
-}
-
 ////////////////// Runtime Methods //////////////////////////
 
 func (h handler) HandleAuthz(context context.Context, instance *authz.Instance) (adapter.CheckResult, error) {
 	variables := make(map[string]interface{})
 
-	variables["verb"] = instance.Verb
-	for k, v := range instance.Principal {
+	for k, v := range instance.Subject {
 		variables[k] = v
 	}
 	for k, v := range instance.Resource {
+		variables[k] = v
+	}
+	for k, v := range instance.Verb {
 		variables[k] = v
 	}
 
@@ -145,9 +166,7 @@ func (h handler) HandleAuthz(context context.Context, instance *authz.Instance) 
 	}, nil
 }
 
-func (handler) Close() error { return nil }
-
-func validateConfig(cfg adapter.Config) *adapter.ConfigErrors {
+func (h handler) Close() error {
 	return nil
 }
 

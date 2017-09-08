@@ -18,7 +18,7 @@ metadata:
   name: authzInstance
   namespace: istio-config-default
 spec:
-  principal:
+  subject:
     user: source.user | ""
     groups: source.groups | ""
     serviceAccount: source.user | ""
@@ -27,7 +27,8 @@ spec:
     namespace: target.namespace | "default"
     service: target.service | ""
     path: request.path | ""
-  verb: request.method | ""
+  verb:
+    verb: request.method | ""
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -75,4 +76,4 @@ spec:
       input.verb = rule.verbs[_]
     }
   checkMethod: "data.mixerauthz.allow"
-  
+

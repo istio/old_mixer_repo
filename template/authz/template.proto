@@ -23,7 +23,7 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHEC
 option (istio.mixer.v1.config.template.template_name) = "Authz";
 
 message Template {
-  map<string, istio.mixer.v1.config.descriptor.ValueType> principal = 1;
+  map<string, istio.mixer.v1.config.descriptor.ValueType> subject = 1;
   map<string, istio.mixer.v1.config.descriptor.ValueType> resource = 2;
-  istio.mixer.v1.config.descriptor.ValueType verb = 3;
+  map<string, istio.mixer.v1.config.descriptor.ValueType> verb = 3;
 }

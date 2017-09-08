@@ -77,13 +77,15 @@ func TestAccepted(t *testing.T) {
 
 	authzHandler := handler.(authz.Handler)
 	instance := authz.Instance{
-		Principal: make(map[string]interface {
+		Subject: make(map[string]interface {
 		}),
 		Resource: make(map[string]interface {
 		}),
-		Verb: "storage.buckets.get",
+		Verb: make(map[string]interface {
+		}),
 	}
-	instance.Principal["user"] = "bucket-admins"
+	instance.Subject["user"] = "bucket-admins"
+	instance.Verb["verb"] = "storage.buckets.get"
 
 	result, err := authzHandler.HandleAuthz(context.Background(), &instance)
 	if err != nil {
@@ -115,13 +117,15 @@ func TestRejectedRequest(t *testing.T) {
 
 	authzHandler := handler.(authz.Handler)
 	instance := authz.Instance{
-		Principal: make(map[string]interface {
+		Subject: make(map[string]interface {
 		}),
 		Resource: make(map[string]interface {
 		}),
-		Verb: "storage.buckets.put",
+		Verb: make(map[string]interface {
+		}),
 	}
-	instance.Principal["user"] = "bucket-admins"
+	instance.Subject["user"] = "bucket-admins"
+	instance.Verb["verb"] = "storage.buckets.put"
 
 	result, err := authzHandler.HandleAuthz(context.Background(), &instance)
 	if err != nil {
