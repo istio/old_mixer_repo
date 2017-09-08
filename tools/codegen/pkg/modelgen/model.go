@@ -253,7 +253,7 @@ func getLastSegment(pkg string) (string, error) {
 	if pkgLaskSegRegex.MatchString(last) {
 		return last, nil
 	}
-	return "", fmt.Errorf("The last segment of package name '%s' must match the reges '%s'", pkg, pkgLaskSeg)
+	return "", fmt.Errorf("the last segment of package name '%s' must match the reges '%s'", pkg, pkgLaskSeg)
 }
 
 func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {
