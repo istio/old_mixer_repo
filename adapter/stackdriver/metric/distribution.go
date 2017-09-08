@@ -87,7 +87,7 @@ func makeBuckets(opts *distribution.Distribution_BucketOptions) []int64 {
 		// + 2, overflow and underflow
 		return make([]int64, t.ExponentialBuckets.NumFiniteBuckets+2)
 	case *distribution.Distribution_BucketOptions_ExplicitBuckets:
-		// + 2, overflow and underflow
+		// + 1, len(bounds) already includes an underflow, we need 1 more for overflow
 		return make([]int64, len(t.ExplicitBuckets.Bounds)+1)
 	default:
 		return []int64{}
