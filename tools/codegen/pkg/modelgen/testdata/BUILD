@@ -300,7 +300,6 @@ filegroup(
         "missing_both_required.descriptor_set",
         "missing_package_name.descriptor_set",
         "missing_template_message.descriptor_set",
-        "missing_template_name.descriptor_set",
         "missing_template_variety.descriptor_set",
         "proto2_bad_syntax.descriptor_set",
         "reserved_field_in_template.descriptor_set",
