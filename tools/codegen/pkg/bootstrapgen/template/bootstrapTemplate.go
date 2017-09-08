@@ -87,7 +87,7 @@ var (
 								}
 							}
 						{{else}}
-							if cpb.{{.GoName}} == "" {
+							if cpb.{{.GoName}} == "" || cpb.{{.GoName}} == "\"\"" {
 								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
 							}
 							if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
@@ -105,7 +105,7 @@ var (
 								}
 							}
 						{{else}}
-							if cpb.{{.GoName}} == "" {
+							if cpb.{{.GoName}} == "" || cpb.{{.GoName}} == "\"\"" {
 								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
 							}
 							if t, e := tEvalFn(cpb.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
