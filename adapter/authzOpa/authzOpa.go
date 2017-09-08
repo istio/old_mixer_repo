@@ -169,8 +169,8 @@ func (h handler) Close() error {
 
 // GetBuilderInfo returns the BuilderInfo associated with
 // this adapter implementation.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "authzOpa",
 		Impl:        "istio.io/mixer/adapter/authzOpa",
 		Description: "Istio Authorization with Open Policy Agent engine",
