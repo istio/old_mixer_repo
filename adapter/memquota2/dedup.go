@@ -58,7 +58,7 @@ const (
 )
 
 // handleDedup is a wrapper function that handles dedupping semantics.
-func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaRequestArgs, qf quotaFunc) (int64, time.Duration, error) {
+func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, error) {
 	key := makeKey(instance.Name, instance.Dimensions)
 
 	du.Lock()
@@ -105,7 +105,7 @@ func (du *dedupUtil) reapDedup() {
 	du.oldDedup = du.recentDedup
 	du.recentDedup = t
 
-	if du.logger.VerbosityLevel(4) {
+	if len(t) > 0 && du.logger.VerbosityLevel(4) {
 		du.logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
 	}
 

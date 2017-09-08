@@ -74,8 +74,8 @@ type (
 	// the given builder.
 	AdapterToAspectMapper func(builder string) KindSet
 
-	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
-	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
+	// BuilderInfoFinder is used to find specific handlers Info for configuration.
+	BuilderInfoFinder func(name string) (*adapter.Info, bool)
 
 	// SetupHandlerFn is used to configure handler implementation with Types associated with all the templates that
 	// it supports.
@@ -411,11 +411,11 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 
 func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.ConfigErrors) {
 	for _, rule := range rules {
-		if err := p.validateSelector(rule.GetSelector(), p.descriptorFinder); err != nil {
-			ce = ce.Append(path+":Selector "+rule.GetSelector(), err)
+		if err := p.validateSelector(rule.GetMatch(), p.descriptorFinder); err != nil {
+			ce = ce.Append(path+":Selector "+rule.GetMatch(), err)
 		}
 
-		path = path + "/" + rule.GetSelector()
+		path = path + "/" + rule.GetMatch()
 		for idx, aa := range rule.GetActions() {
 			hasError := false
 
@@ -448,13 +448,6 @@ func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.Co
 			if !hasError {
 				p.actions = append(p.actions, aa)
 			}
-		}
-		rs := rule.GetRules()
-		if len(rs) == 0 {
-			continue
-		}
-		if verr := p.validateRules(rs, path); verr != nil {
-			ce = ce.Extend(verr)
 		}
 	}
 	return ce
@@ -750,7 +743,7 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func convertHandlerParams(bi *adapter.BuilderInfo, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
+func convertHandlerParams(bi *adapter.Info, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
 	hc = bi.DefaultConfig
 	if err := decode(params, hc, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)

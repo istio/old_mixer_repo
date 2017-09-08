@@ -39,7 +39,7 @@ import (
 
 type fakeVFinder struct {
 	ada   map[string]adapter.ConfigValidator
-	hbi   map[string]*adapter.BuilderInfo
+	hbi   map[string]*adapter.Info
 	asp   map[Kind]AspectValidator
 	kinds KindSet
 }
@@ -49,7 +49,7 @@ func (f *fakeVFinder) FindAdapterValidator(name string) (adapter.ConfigValidator
 	return v, found
 }
 
-func (f *fakeVFinder) FindBuilderInfo(name string) (*adapter.BuilderInfo, bool) {
+func (f *fakeVFinder) FindBuilderInfo(name string) (*adapter.Info, bool) {
 	v, found := f.hbi[name]
 	return v, found
 }
@@ -92,7 +92,7 @@ func (a *ac) ValidateConfig(AspectParams, expr.TypeChecker, descriptor.Finder) *
 type configTable struct {
 	cerr     *adapter.ConfigErrors
 	ada      map[string]adapter.ConfigValidator
-	hbi      map[string]*adapter.BuilderInfo
+	hbi      map[string]*adapter.Info
 	asp      map[Kind]AspectValidator
 	nerrors  int
 	selector string
@@ -101,7 +101,7 @@ type configTable struct {
 }
 
 func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValidator,
-	hbi map[string]*adapter.BuilderInfo) *fakeVFinder {
+	hbi map[string]*adapter.Info) *fakeVFinder {
 	var kinds KindSet
 	for k := range asp {
 		kinds = kinds.Set(k)
@@ -253,7 +253,7 @@ func TestFullConfigValidator(tt *testing.T) {
 			cok := ce == nil
 			ok := ctx.cerr == nil
 			if ok != cok {
-				t.Fatalf("%d got %t, want %t ", idx, cok, ok)
+				t.Fatalf("%d ok:= got %t, want %t ", idx, cok, ok)
 			}
 			if ce == nil {
 				return
@@ -412,7 +412,7 @@ rules:
       blacklist: true
       unknown_field: true
   rules:
-  - selector: src.name == "abc"
+  - match: src.name == "abc"
     aspects:
     - kind: quotas
       adapter: ""
@@ -671,7 +671,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 	for _, tt := range tTable {
 		t.Run(tt.errorStr, func(t *testing.T) {
 			_, ce := convertHandlerParams(
-				&adapter.BuilderInfo{
+				&adapter.Info{
 					DefaultConfig: tt.defaultCnfg,
 					NewBuilder:    func() adapter.HandlerBuilder { return fakeGoodHndlrBldr{} },
 				}, "TestConvertHandlerParamsErrors", tt.params, true)
@@ -690,7 +690,7 @@ func TestValidateHandlers(t *testing.T) {
 		{
 			nil,
 			nil,
-			map[string]*adapter.BuilderInfo{
+			map[string]*adapter.Info{
 				"fooHandlerAdapter": {
 					DefaultConfig: &types.Empty{},
 					NewBuilder:    func() adapter.HandlerBuilder { return nil },
@@ -701,13 +701,13 @@ func TestValidateHandlers(t *testing.T) {
 		{
 			nil,
 			nil,
-			map[string]*adapter.BuilderInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			map[string]*adapter.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			nil, 1, "service.name == “*”", false, ConstGlobalConfig,
 		},
 		{
 			nil,
 			nil,
-			map[string]*adapter.BuilderInfo{
+			map[string]*adapter.Info{
 				"fooHandlerAdapter": {
 					DefaultConfig: &types.Empty{},
 					NewBuilder:    func() adapter.HandlerBuilder { return nil },
@@ -756,7 +756,7 @@ handlers:
 	const testSupportedTemplate = "testSupportedTemplate"
 	tests := []*configTable{
 		{
-			hbi: map[string]*adapter.BuilderInfo{
+			hbi: map[string]*adapter.Info{
 				"fooHandlerAdapter": {
 					DefaultConfig:      &types.Empty{},
 					NewBuilder:         func() adapter.HandlerBuilder { return nil },
@@ -767,7 +767,7 @@ handlers:
 			nerrors: 0,
 		},
 		{
-			hbi:     map[string]*adapter.BuilderInfo{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			hbi:     map[string]*adapter.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			cfg:     globalConfig,
 			nerrors: 1,
 		},
@@ -1015,22 +1015,6 @@ action_rules:
     instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedValid = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.service == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: target.service == "*"
-    actions:
-    - handler: somehandler
-      instances:
-      - RequestCountByService
-`
 	const sSvcConfigMissingHandler = `
 subject: namespace:ns
 revision: "2022"
@@ -1040,26 +1024,11 @@ action_rules:
   - instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedMissingHandler = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.ip == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: source.ip == "*"
-    actions:
-    - instances:
-      - RequestCountByService
-`
 	const sSvcConfigInvalidSelector = `
 subject: namespace:ns
 revision: "2022"
 action_rules:
-- selector: == * == invalid
+- match: == * == invalid
   actions:
   - handler: somehandler
     instances:
@@ -1089,16 +1058,6 @@ action_rules:
 			evaluator,
 		},
 		{
-			"Nested Rule",
-			sSvcConfigNestedValid,
-			0,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			nil,
-			2,
-			evaluator,
-		},
-		{
 			"HandlerNotFoundInstanceNotFound",
 			sSvcConfigValid,
 			2,
@@ -1116,16 +1075,6 @@ action_rules:
 			map[string]*HandlerBuilderInfo{"somehandler": {}},
 			[]string{"handler not specified or is invalid"},
 			0,
-			evaluator,
-		},
-		{
-			"MissingHandlerNestedCnfg",
-			sSvcConfigNestedMissingHandler,
-			1,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			[]string{"handler not specified or is invalid"},
-			1,
 			evaluator,
 		},
 		{

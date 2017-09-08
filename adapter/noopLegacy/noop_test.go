@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapter
+package noopLegacy
 
 import (
-	"istio.io/mixer/adapter/kubernetes"
-	"istio.io/mixer/adapter/memQuota"
-	"istio.io/mixer/adapter/noopLegacy"
+	"testing"
+
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapterManager"
+	"istio.io/mixer/pkg/config"
 )
 
-// InventoryLegacy returns the inventory of all available adapters.
-func InventoryLegacy() []adapter.RegisterFn {
-	return []adapter.RegisterFn{
-		memQuota.Register,
-		kubernetes.Register,
-		noopLegacy.Register,
+func TestRegisteredForAllAspects(t *testing.T) {
+	builders := adapterManager.BuilderMap([]adapter.RegisterFn{Register})
+
+	var i uint
+	for i = 0; i < uint(config.NumKinds); i++ {
+		if i == uint(config.Unspecified) {
+			continue
+		}
+		k := config.Kind(i)
+		found := false
+		for _, noop := range builders {
+			found = found || noop.Kinds.IsSet(k)
+		}
+		if !found {
+			t.Errorf("Noop is not registered for kind %s", k)
+		}
 	}
 }
