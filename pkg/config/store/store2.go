@@ -172,20 +172,19 @@ const (
 )
 
 // warnDeprecationAndFix warns users about deprecated fields.
-// It attempts to fix it too.
-func warnDeprecationAndFix(key Key, spec map[string]interface{}) {
+// It maps the field into new name.
+func warnDeprecationAndFix(key Key, spec map[string]interface{}) map[string]interface{} {
 	if key.Kind != ruleKind {
-		return
+		return spec
 	}
-
 	sel := spec[selectorField]
 	if sel == nil {
-		return
+		return spec
 	}
-
-	glog.Warningf("Deprecated field 'selector' used in %s. Use match.", key)
+	glog.Warningf("Deprecated field 'selector' used in %s. Use 'match' instead.", key)
 	spec[matchField] = sel
 	delete(spec, selectorField)
+	return spec
 }
 
 // Get returns a resource's spec to the key.
@@ -194,8 +193,8 @@ func (s *store2) Get(key Key, spec proto.Message) error {
 	if err != nil {
 		return err
 	}
-	warnDeprecationAndFix(key, obj.Spec)
-	return convert(obj.Spec, spec)
+
+	return convert(warnDeprecationAndFix(key, obj.Spec), spec)
 }
 
 // List returns the whole mapping from key to resource specs in the store.
@@ -208,8 +207,7 @@ func (s *store2) List() map[Key]*Resource {
 			glog.Errorf("Failed to clone %s spec: %v", k, err)
 			continue
 		}
-		warnDeprecationAndFix(k, d.Spec)
-		if err = convert(d.Spec, pbSpec); err != nil {
+		if err = convert(warnDeprecationAndFix(k, d.Spec), pbSpec); err != nil {
 			glog.Errorf("Failed to convert %s spec: %v", k, err)
 			continue
 		}
