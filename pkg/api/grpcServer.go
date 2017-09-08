@@ -16,6 +16,7 @@ package api
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -83,6 +84,38 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher 
 	}
 }
 
+type compatBag struct {
+	parent attribute.Bag
+}
+
+// if a destination.* att is missing check the corresponding
+// target.*
+func (c *compatBag) Get(name string) (v interface{}, found bool) {
+	defer func() {
+		glog.Warningf("Compat Get(%s) ==> %t, %v ", v, found)
+	}()
+
+	v, found = c.parent.Get(name)
+	if found {
+		return
+	}
+
+	if !strings.HasPrefix(name, "destination.") {
+		return
+	}
+	return c.parent.Get(strings.Replace(name, "destination.", "target.", 1))
+}
+
+// Names returns the names of all the attributes known to this bag.
+func (c *compatBag) Names() []string {
+	return c.parent.Names()
+}
+
+// Done indicates the bag can be reclaimed.
+func (c *compatBag) Done() {
+	c.parent.Done()
+}
+
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
 	// TODO: this code doesn't distinguish between RPC failures when communicating with adapters and
@@ -97,7 +130,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	glog.V(1).Info("Dispatching Preprocess Check")
 	preprocResponseBag := attribute.GetMutableBag(requestBag)
-	out := s.aspectDispatcher.Preprocess(legacyCtx, requestBag, preprocResponseBag)
+	out := s.aspectDispatcher.Preprocess(legacyCtx, &compatBag{requestBag}, preprocResponseBag)
 
 	if !status.IsOK(out) {
 		glog.Error("Preprocess Check returned with: ", status.String(out))
@@ -115,59 +148,39 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		}
 	}
 
+	preprocResp := &compatBag{preprocResponseBag}
+
 	resp := &mixerpb.CheckResponse{}
-	// TODO: these values need to initially come from config, and be modulated by the kind of attribute
-	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
-	//       30s TTL but a whitelist check has got a 120s TTL)
-	resp.Precondition.ValidDuration = 5 * time.Second
-	resp.Precondition.ValidUseCount = 10000
+	resp.Precondition.ValidDuration = defaultValidDuration
+	resp.Precondition.ValidUseCount = defaultValidUseCount
 
-	responseBag := attribute.GetMutableBag(nil)
-	out2 := status.OK
-
-	if s.dispatcher != nil {
-		// dispatch check2 and set success messages.
-		glog.V(1).Info("Dispatching Check2")
-		cr, err := s.dispatcher.Check(legacyCtx, preprocResponseBag)
-		if err != nil {
-			out2 = status.WithError(err)
-		}
-
-		if cr == nil {
-			// There were no checks performed for this request.
-			// return ok.
-			cr = checkOk
-		} else {
-			out2 = cr.Status
-		}
-
-		resp.Precondition.ValidDuration = cr.ValidDuration
-		resp.Precondition.ValidUseCount = cr.ValidUseCount
-
-		if status.IsOK(out2) {
-			glog.V(2).Info("Check2 returned with ok")
-		} else {
-			glog.Error("Check2 returned with error : ", status.String(out2))
-		}
+	//	if s.dispatcher != nil {
+	// dispatch check2 and set success messages.
+	glog.V(1).Info("Dispatching Check")
+	cr, err := s.dispatcher.Check(legacyCtx, preprocResp)
+	if err != nil {
+		out = status.WithError(err)
 	}
 
-	glog.V(1).Info("Dispatching Check")
-	out = s.aspectDispatcher.Check(legacyCtx, preprocResponseBag, responseBag)
+	if cr == nil {
+		// There were no checks performed for this request.
+		// return ok.
+		cr = checkOk
+	} else {
+		out = cr.Status
+	}
+
+	resp.Precondition.ValidDuration = cr.ValidDuration
+	resp.Precondition.ValidUseCount = cr.ValidUseCount
+
 	if status.IsOK(out) {
-		glog.V(1).Info("Check returned with ok : ", status.String(out))
+		glog.V(2).Info("Check returned with ok")
 	} else {
 		glog.Error("Check returned with error : ", status.String(out))
 	}
-
-	// if out2 fails, we want to see that error
-	// otherwise use out.
-	if !status.IsOK(out2) {
-		out = out2
-	}
+	//	}
 
 	resp.Precondition.Status = out
-	responseBag.ToProto(&resp.Precondition.Attributes, s.globalDict, globalWordCount)
-	responseBag.Done()
 	resp.Precondition.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 	requestBag.ClearReferencedAttributes()
 
@@ -188,7 +201,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			}
 			var err error
 
-			qr, err = quota(legacyCtx, s.dispatcher, preprocResponseBag, qma)
+			qr, err = quota(legacyCtx, s.dispatcher, preprocResp, qma)
 			// if quota check fails, set status for the entire request and stop processing.
 			if err != nil {
 				resp.Precondition.Status = status.WithError(err)
@@ -198,7 +211,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 			if qr == nil {
 				//TODO remove
-				qr = quotaOld(legacyCtx, s.aspectDispatcher, preprocResponseBag, qma)
+				qr = quotaOld(legacyCtx, s.aspectDispatcher, preprocResp, qma)
 			}
 
 			// If qma.Quota does not apply to this request give the client what it asked for.
@@ -291,7 +304,11 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 	protoBag := attribute.NewProtoBag(&req.Attributes[0], s.globalDict, s.globalWordList)
 	requestBag := attribute.GetMutableBag(protoBag)
+	// compatReqBag ensures that preprocessor input handles deprecated attributes gracefully.
+	compatReqBag := &compatBag{requestBag}
 	preprocResponseBag := attribute.GetMutableBag(requestBag)
+	// compatRespBag ensures that report input handles deprecated attributes gracefully.
+	compatRespBag := &compatBag{preprocResponseBag}
 
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
@@ -311,7 +328,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		}
 
 		glog.V(1).Info("Dispatching Preprocess")
-		out := s.aspectDispatcher.Preprocess(newctx, requestBag, preprocResponseBag)
+		out := s.aspectDispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag)
 		if !status.IsOK(out) {
 			glog.Error("Preprocess returned with: ", status.String(out))
 			err = makeGRPCError(out)
@@ -328,25 +345,15 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 				glog.Infof("  %s: %v", name, v)
 			}
 		}
-		out2 := status.OK
 
 		if s.dispatcher != nil {
-			// dispatch check2 and set success messages.
-			glog.V(1).Infof("Dispatching Report2 %d out of %d", i, len(req.Attributes))
-			err := s.dispatcher.Report(legacyCtx, preprocResponseBag)
+			// dispatch report and set success messages.
+			glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
+			err := s.dispatcher.Report(legacyCtx, compatRespBag)
 			if err != nil {
-				out2 = status.WithError(err)
-				glog.Warningf("Report2 returned %v", err)
+				out = status.WithError(err)
+				glog.Warningf("Report returned %v", err)
 			}
-		}
-
-		glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
-		out = s.aspectDispatcher.Report(legacyCtx, preprocResponseBag)
-
-		// if out2 fails, we want to see that error
-		// otherwise use out.
-		if !status.IsOK(out2) {
-			out = out2
 		}
 
 		if !status.IsOK(out) {
