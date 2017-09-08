@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
@@ -63,8 +62,6 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	}
 
 	parsed, err := ast.ParseModule("", string(b.adapterConfig.Policy))
-	glog.Infof("%v", parsed)
-	glog.Infof("%v", err)
 	if err != nil {
 		ce = ce.Appendf(GetInfo().Name,
 			"Failed to parse the OPA policy: %v", err)
@@ -72,8 +69,6 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 	compiler := ast.NewCompiler()
 	compiler.Compile(map[string]*ast.Module{"": parsed})
-	glog.Infof("%v", compiler.Failed())
-	glog.Infof("%v", compiler.Errors)
 	if compiler.Failed() {
 		ce = ce.Appendf(GetInfo().Name,
 			"Failed to compile the OPA policy: %v", compiler.Errors)
