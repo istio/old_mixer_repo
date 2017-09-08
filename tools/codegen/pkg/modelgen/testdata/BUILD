@@ -173,7 +173,7 @@ proto_compile(
 )
 
 proto_compile(
-    name = "wrong_case_tmpl_name",
+    name = "wrong_pkg_name",
     testonly = True,
     args = [
         "--include_imports",
@@ -187,7 +187,7 @@ proto_compile(
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
-        "WrongCaseTmplName.proto",
+        "WrongPkgName.proto",
     ],
     verbose = 0,
 )
@@ -309,6 +309,6 @@ filegroup(
         "unsupported_field_type_enum.descriptor_set",
         "unsupported_field_type_message.descriptor_set",
         "unsupported_field_type_primitive.descriptor_set",
-        "wrong_case_tmpl_name.descriptor_set",
+        "wrong_pkg_name.descriptor_set",
     ],
 )
