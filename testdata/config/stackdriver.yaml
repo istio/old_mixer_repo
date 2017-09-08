@@ -17,14 +17,14 @@ spec:
 
   # Describes how to map Istio metrics into Stackdriver.
   metricInfo:
-    stackdriver-requestcount.metric.istio-config-default:
+    stackdriverrequestcount.metric.istio-config-default:
       # Due to a bug in gogoproto deserialization, Enums in maps must be
       # specified by their integer value, not variant name. See
       # https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
       # MetricKind and ValueType for the values to provide.
       kind: 2 # DELTA
       value: 2 # INT64
-    stackdriver-requestduration.metric.istio-config-default:
+    stackdriverrequestduration.metric.istio-config-default:
       kind: 2 # DELTA
       # TODO: determine how we want to represent time: stackdriver does
       # not have a time primitive, but does support a notion of units
@@ -34,7 +34,7 @@ spec:
 
   # Describes how to map Istio logs into Stackdriver.
   logInfo:
-    stackdriver-global-mr.logentry.istio-config-default:
+    stackdriverglobalmr.logentry.istio-config-default:
       payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
       httpMapping:
         status: responseCode
@@ -54,16 +54,16 @@ spec:
   actions:
   - handler: stackdriver.stackdriver.istio-config-default
     instances:
-    - stackdriver-requestcount.metric.istio-config-default
-    - stackdriver-requestduration.metric.istio-config-default
-    - stackdriver-requestsize.metric.istio-config-default
-    - stackdriver-responsesize.metric.istio-config-default
-    - stackdriver-global-mr.logentry.istio-config-default
+    - stackdriverrequestcount.metric.istio-config-default
+    - stackdriverrequestduration.metric.istio-config-default
+    - stackdriverrequestsize.metric.istio-config-default
+    - stackdriverresponsesize.metric.istio-config-default
+    - stackdriverglobalmr.logentry.istio-config-default
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
-  name: stackdriver-global-mr
+  name: stackdriverglobalmr
   namespace: istio-config-default
 spec:
   severity: '"Default"'
@@ -93,7 +93,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
-  name: stackdriver-requestcount
+  name: stackdriverrequestcount
   namespace: istio-config-default
 spec:
   value: "1"
@@ -113,7 +113,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
-  name: stackdriver-requestduration
+  name: stackdriverrequestduration
   namespace: istio-config-default
 spec:
   value: response.latency | response.duration | "0ms"
@@ -133,7 +133,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
-  name: stackdriver-requestsize
+  name: stackdriverrequestsize
   namespace: istio-config-default
 spec:
   value: request.size | 0
@@ -153,7 +153,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
-  name: stackdriver-responsesize
+  name: stackdriverresponsesize
   namespace: istio-config-default
 spec:
   value: response.size | 0
