@@ -98,7 +98,12 @@ func (c *compatBag) Get(name string) (v interface{}, found bool) {
 	if !strings.HasPrefix(name, "destination.") {
 		return
 	}
-	return c.parent.Get(strings.Replace(name, "destination.", "target.", 1))
+	compatAttr := strings.Replace(name, "destination.", "target.", 1)
+	v, found = c.parent.Get(compatAttr)
+	if found {
+		glog.Warningf("Deprecated attribute %s found", compatAttr)
+	}
+	return
 }
 
 func (c *compatBag) Names() []string {
