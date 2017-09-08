@@ -62,30 +62,4 @@ spec:
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
-apiVersion: "config.istio.io/v1alpha2"
-kind: metric
-metadata:
-  name: tcpsentbyte
-  namespace: istio-config-default
-spec:
-  value: connection.sent.bytes | 0
-  dimensions:
-    source_service: source.service | "unknown"
-    source_version: target.labels["version"] | "unknown"
-    destination_service: target.service | "unknown"
-    destination_version: target.labels["version"] | "unknown"
-  monitored_resource_type: '"UNSPECIFIED"'
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: metric
-metadata:
-  name: tcpreceivedbyte
-  namespace: istio-config-default
-spec:
-  value: connection.received.bytes | 0
-  dimensions:
-    source_service: source.service | "unknown"
-    source_version: target.labels["version"] | "unknown"
-    destination_service: target.service | "unknown"
-    destination_version: target.labels["version"] | "unknown"
-  monitored_resource_type: '"UNSPECIFIED"'
+
