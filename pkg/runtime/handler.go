@@ -101,10 +101,24 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	hndlrBldrInfo, _ := h.builderInfoFinder(handler.Adapter)
 
 	hndlrBldr := hndlrBldrInfo.NewBuilder()
+
 	if hndlrBldr == nil {
 		msg := fmt.Sprintf("nil HandlerBuilder instantiated for adapter '%s' in handler config '%s'", handler.Adapter, handler.Name)
 		glog.Warning(msg)
 		return nil, errors.New(msg)
+	}
+
+	// validate if the builder supports all the necessary interfaces
+	for _, tmplName := range hndlrBldrInfo.SupportedTemplates {
+		// ti should be there for a valid configuration.
+		ti, _ := h.tmplRepo.GetTemplateInfo(tmplName)
+		if supports := ti.BuilderSupportsTemplate(hndlrBldr); !supports {
+			// adapter's builder is bad since it does not support the necessary interface
+			msg := fmt.Sprintf("adapter is invalid because it does not implement interface '%s'. "+
+				"Therefore, it cannot support template '%s'", ti.BldrInterfaceName, tmplName)
+			glog.Error(msg)
+			return nil, fmt.Errorf(msg)
+		}
 	}
 
 	var hndlr adapter.Handler
@@ -113,6 +127,18 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 		msg := fmt.Sprintf("cannot configure adapter '%s' in handler config '%s': %v", handler.Adapter, handler.Name, err)
 		glog.Warning(msg)
 		return nil, errors.New(msg)
+	}
+	// validate if the handler supports all the necessary interfaces
+	for _, tmplName := range hndlrBldrInfo.SupportedTemplates {
+		// ti should be there for a valid configuration.
+		ti, _ := h.tmplRepo.GetTemplateInfo(tmplName)
+		if supports := ti.HandlerSupportsTemplate(hndlr); !supports {
+			// adapter is bad since it does not support the necessary interface
+			msg := fmt.Sprintf("adapter is invalid because it does not implement interface '%s'. "+
+				"Therefore, it cannot support template '%s'", ti.HndlrInterfaceName, tmplName)
+			glog.Error(msg)
+			return nil, fmt.Errorf(msg)
+		}
 	}
 
 	return hndlr, err
