@@ -28,17 +28,6 @@ func Inventory() ManagerInventory {
 		Preprocess: []PreprocessManager{
 			newAttrGenMgr(),
 		},
-		Check: []CheckManager{
-			newDenialsManager(),
-			newListsManager(),
-		},
-
-		Report: []ReportManager{
-			newApplicationLogsManager(),
-			newAccessLogsManager(),
-			newMetricsManager(),
-		},
-
 		Quota: []QuotaManager{
 			newQuotasManager(),
 		},

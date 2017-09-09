@@ -17,7 +17,6 @@
 package noopLegacy
 
 import (
-
 	"istio.io/mixer/pkg/adapter"
 )
 

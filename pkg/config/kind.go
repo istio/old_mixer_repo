@@ -28,7 +28,6 @@ type KindSet uint
 
 // Supported kinds of aspects
 const (
-
 	Unspecified Kind = iota
 	// Please don't change the order, tests depend on the order.
 	AttributesKind
