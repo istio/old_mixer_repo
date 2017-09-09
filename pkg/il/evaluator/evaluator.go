@@ -52,6 +52,7 @@ var _ expr.Evaluator = &IL{}
 var _ config.ChangeListener = &IL{}
 
 const ipFnName = "ip"
+const ipEqualFnName = "ip_equal"
 
 var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, error) {
 	if ip := net.ParseIP(in); ip != nil {
@@ -60,8 +61,16 @@ var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, err
 	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
 })
 
+var ipEqualExternFn = interpreter.ExternFromFn(ipEqualFnName, func(a []byte, b []byte) bool {
+	// net.IP is an alias for []byte, so these are safe to convert
+	ip1 := net.IP(a)
+	ip2 := net.IP(b)
+	return ip1.Equal(ip2)
+})
+
 var externMap = map[string]interpreter.Extern{
-	ipFnName: ipExternFn,
+	ipFnName:      ipExternFn,
+	ipEqualFnName: ipEqualExternFn,
 }
 
 type cacheEntry struct {
