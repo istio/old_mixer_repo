@@ -179,9 +179,6 @@ func TestFromBuilder(t *testing.T) {
 		{"quota no args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
 			"quota builders must have configuration args",
 			[]interface{}{}},
-		{"quota wrong args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
-			"arg to quota builder must be a map[string]*adapter.QuotaDefinition",
-			[]interface{}{map[string]*adapter.MetricDefinition{}}},
 		{"quota", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
 			"",
 			[]interface{}{map[string]*adapter.QuotaDefinition{}}},
@@ -228,15 +225,8 @@ func TestFromBuilder_Errors(t *testing.T) {
 		kind    config.Kind
 		err     string
 	}{
-		{&fakeDeny{}, config.AccessLogsKind, "invalid builder"},
-		{&fakeDeny{}, config.ApplicationLogsKind, "invalid builder"},
 		{&fakeDeny{}, config.AttributesKind, "invalid builder"},
-		{&fakeDeny{}, config.ListsKind, "invalid builder"},
-		{&fakeDeny{}, config.MetricsKind, "invalid builder"},
 		{&fakeDeny{}, config.QuotasKind, "invalid builder"},
-		{&fakeAccess{}, config.DenialsKind, "invalid builder"},
-		{&fakeAccess{}, config.NumKinds, "invalid kind"},
-		{&fakeDeny{}, config.DenialsKind, ""},
 	}
 
 	for idx, tt := range tests {

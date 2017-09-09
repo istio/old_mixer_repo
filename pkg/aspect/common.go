@@ -77,21 +77,6 @@ func FromBuilder(builder adapter.Builder, kind cfg.Kind) (CreateAspectFunc, erro
 		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
 			return b.NewListsAspect(env, c)
 		}, nil
-	case cfg.MetricsKind:
-		b, ok := builder.(adapter.MetricsBuilder)
-		if !ok {
-			return nil, fmt.Errorf("invalid builder - kind MetricsKind expected builder implementing MetricsBuilder, got builder: %v", builder)
-		}
-		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
-			if len(cfg) != 1 {
-				return nil, fmt.Errorf("metric builders must have configuration args")
-			}
-			metrics, ok := cfg[0].(map[string]*adapter.MetricDefinition)
-			if !ok {
-				return nil, fmt.Errorf("arg to metrics builder must be a map[string]*adapter.MetricDefinition, got: %#v", cfg[0])
-			}
-			return b.NewMetricsAspect(env, c, metrics)
-		}, nil
 	case cfg.QuotasKind:
 		b, ok := builder.(adapter.QuotasBuilder)
 		if !ok {
