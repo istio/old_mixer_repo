@@ -28,14 +28,17 @@ type KindSet uint
 
 // Supported kinds of aspects
 const (
+
 	Unspecified Kind = iota
+	// Please don't change the order, tests depend on the order.
+	AttributesKind
+	QuotasKind
+
 	AccessLogsKind
 	ApplicationLogsKind
-	AttributesKind
 	DenialsKind
 	ListsKind
 	MetricsKind
-	QuotasKind
 
 	NumKinds
 )
