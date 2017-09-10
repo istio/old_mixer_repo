@@ -149,15 +149,6 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 	for _, m := range inventory.Preprocess {
 		mg.preprocessKindSet = mg.preprocessKindSet.Set(m.Kind())
 	}
-
-	for _, m := range inventory.Check {
-		mg.checkKindSet = mg.checkKindSet.Set(m.Kind())
-	}
-
-	for _, m := range inventory.Report {
-		mg.reportKindSet = mg.reportKindSet.Set(m.Kind())
-	}
-
 	for _, m := range inventory.Quota {
 		mg.quotaKindSet = mg.quotaKindSet.Set(m.Kind())
 	}
@@ -513,10 +504,6 @@ func (m *Manager) cacheGet(
 	switch m := mgr.(type) {
 	case aspect.PreprocessManager:
 		executor, err = m.NewPreprocessExecutor(cfg, createAspect, env, df)
-	case aspect.CheckManager:
-		executor, err = m.NewCheckExecutor(cfg, createAspect, env, df, "")
-	case aspect.ReportManager:
-		executor, err = m.NewReportExecutor(cfg, createAspect, env, df, "")
 	case aspect.QuotaManager:
 		executor, err = m.NewQuotaExecutor(cfg, createAspect, env, df, "")
 	}
@@ -571,14 +558,6 @@ func (m *Manager) getHandlers() map[string]*config.HandlerInfo {
 // Aspects returns a fully constructed manager table, indexed by config.Kind.
 func Aspects(inventory aspect.ManagerInventory) [config.NumKinds]aspect.Manager {
 	r := [config.NumKinds]aspect.Manager{}
-
-	for _, m := range inventory.Check {
-		r[m.Kind()] = m
-	}
-
-	for _, m := range inventory.Report {
-		r[m.Kind()] = m
-	}
 
 	for _, m := range inventory.Quota {
 		r[m.Kind()] = m

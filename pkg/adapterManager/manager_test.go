@@ -270,16 +270,12 @@ func getReg(found bool) *fakeBuilderReg {
 
 func newFakeMgrReg(pe *fakePreprocessExecutor, ce *fakeCheckExecutor, re *fakeReportExecutor, qe *fakeQuotaExecutor) [config.NumKinds]aspect.Manager {
 	var f0 aspect.PreprocessManager
-	var f1 aspect.CheckManager
-	var f2 aspect.ReportManager
 	var f3 aspect.QuotaManager
 
 	f0 = &fakePreprocessMgr{kind: config.AttributesKind, pe: pe}
-	f1 = &fakeCheckAspectMgr{kind: config.DenialsKind, ce: ce}
-	f2 = &fakeReportAspectMgr{kind: config.AccessLogsKind, re: re}
 	f3 = &fakeQuotaAspectMgr{kind: config.QuotasKind, qe: qe}
 
-	mgrs := []aspect.Manager{f0, f1, f2, f3}
+	mgrs := []aspect.Manager{f0, f3}
 
 	mreg := [config.NumKinds]aspect.Manager{}
 	for _, mgr := range mgrs {

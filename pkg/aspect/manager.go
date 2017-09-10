@@ -45,22 +45,6 @@ type (
 		Kind() config.Kind
 	}
 
-	// CheckManager take care of aspects used to implement the Check API method
-	CheckManager interface {
-		Manager
-
-		// NewCheckExecutor creates a new aspect executor given configuration.
-		NewCheckExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder, tmpl string) (CheckExecutor, error)
-	}
-
-	// ReportManager take care of aspects used to implement the Report API method
-	ReportManager interface {
-		Manager
-
-		// NewReportExecutor creates a new aspect executor given configuration.
-		NewReportExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder, tmpl string) (ReportExecutor, error)
-	}
-
 	// QuotaManager take care of aspects used to implement the Quota API method
 	QuotaManager interface {
 		Manager

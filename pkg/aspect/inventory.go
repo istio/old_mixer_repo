@@ -17,8 +17,6 @@ package aspect
 // ManagerInventory holds a set of aspect managers.
 type ManagerInventory struct {
 	Preprocess []PreprocessManager
-	Check      []CheckManager
-	Report     []ReportManager
 	Quota      []QuotaManager
 }
 
