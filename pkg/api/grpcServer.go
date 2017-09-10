@@ -218,6 +218,17 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 					GrantedAmount: qma.Amount,
 				}
 			}
+
+			if glog.V(2) {
+				src, _ := compatRespBag.Get("source.name")
+				dest, _ := compatRespBag.Get("destination.service")
+				msg := ""
+				if qr.GrantedAmount == 0 {
+					msg = "exhausted"
+				}
+				glog.Infof("AccessLog Quota %s %s %d/%d %s", dest, src, qr.GrantedAmount, qma.Amount, msg)
+			}
+
 			qr.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = *qr
 			requestBag.ClearReferencedAttributes()

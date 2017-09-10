@@ -48,11 +48,53 @@ type handler struct {
 	windows map[string]*rollingWindow
 
 	// the limits we know about
-	limits map[string]config.Params_Quota
+	limits map[string]*config.Params_Quota
+}
+
+// Limit is implemented by Quota and Override messages.
+type Limit interface {
+	GetMaxAmount() int64
+	GetValidDuration() time.Duration
+}
+
+// matchDimensions matches configured dimensions with dimensions of the instance.
+func matchDimensions(cfg map[string]string, inst map[string]interface{}) bool {
+	for k, val := range cfg {
+		rval := inst[k]
+		if rval == val { // this dimension matches, on to next comparison.
+			continue
+		}
+
+		// if rval has a string representation then compare it with val
+		// For example net.ip has a useful string representation.
+		switch v := rval.(type) {
+		case fmt.Stringer:
+			if v.String() == val {
+				continue
+			}
+		}
+		// rval does not match val.
+		return false
+	}
+	return true
+}
+
+// limit returns the limit associated with this particular request.
+// Check if the instance matches an override, else return the default limit.
+func limit(cfg *config.Params_Quota, instance *quota.Instance) Limit {
+	for idx := range cfg.Overrides {
+		o := cfg.Overrides[idx]
+		if matchDimensions(o.Dimensions, instance.Dimensions) {
+			// all dimensions matched, we found the override.
+			return &o
+		}
+	}
+	// no overrides, use default limit.
+	return cfg
 }
 
 func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	q := h.limits[instance.Name]
+	q := limit(h.limits[instance.Name], instance)
 
 	if args.QuotaAmount > 0 {
 		return h.alloc(instance, args, q)
@@ -63,22 +105,22 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 	return adapter.QuotaResult{}, nil
 }
 
-func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult, error) {
+func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
 	amount, exp, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
 		// we optimize storage for non-expiring quotas
-		if q.ValidDuration == 0 {
+		if q.GetValidDuration() == 0 {
 			inUse := h.cells[key]
 
-			if result > q.MaxAmount-inUse {
+			if result > q.GetMaxAmount()-inUse {
 				if !args.BestEffort {
 					return 0, time.Time{}, 0
 				}
 
 				// grab as much as we can
-				result = q.MaxAmount - inUse
+				result = q.GetMaxAmount() - inUse
 			}
 			h.cells[key] = inUse + result
 			return result, time.Time{}, 0
@@ -86,8 +128,8 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q conf
 
 		window, ok := h.windows[key]
 		if !ok {
-			seconds := int32((q.ValidDuration + time.Second - 1) / time.Second)
-			window = newRollingWindow(q.MaxAmount, int64(seconds)*ticksPerSecond)
+			seconds := int32((q.GetValidDuration() + time.Second - 1) / time.Second)
+			window = newRollingWindow(q.GetMaxAmount(), int64(seconds)*ticksPerSecond)
 			h.windows[key] = window
 		}
 
@@ -101,7 +143,7 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q conf
 			_ = window.alloc(result, currentTick)
 		}
 
-		return result, currentTime.Add(q.ValidDuration), q.ValidDuration
+		return result, currentTime.Add(q.GetValidDuration()), q.GetValidDuration()
 	})
 
 	return adapter.QuotaResult{
@@ -111,12 +153,12 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q conf
 	}, err
 }
 
-func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult, error) {
+func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
 	amount, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
-		if q.ValidDuration == 0 {
+		if q.GetValidDuration() == 0 {
 			inUse := h.cells[key]
 
 			if result >= inUse {
@@ -140,7 +182,7 @@ func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q confi
 
 		result = window.release(result, currentTick)
 
-		if window.available() == q.MaxAmount {
+		if window.available() == q.GetMaxAmount() {
 			// delete the cell since it contains no useful state
 			delete(h.windows, key)
 		}
@@ -203,9 +245,10 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 func (b *builder) buildWithDedup(_ context.Context, env adapter.Env, ticker *time.Ticker) (*handler, error) {
 	ac := b.adapterConfig
 
-	limits := make(map[string]config.Params_Quota, len(ac.Quotas))
-	for _, l := range ac.Quotas {
-		limits[l.Name] = l
+	limits := make(map[string]*config.Params_Quota, len(ac.Quotas))
+	for idx := range ac.Quotas {
+		l := ac.Quotas[idx]
+		limits[l.Name] = &l
 	}
 
 	for k := range b.quotaTypes {

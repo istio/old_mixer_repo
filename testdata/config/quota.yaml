@@ -8,6 +8,12 @@ spec:
   - name: requestcount.quota.istio-config-default
     max_amount: 5
     valid_duration: 1s
+    overrides:
+    - dimensions:
+        destination: abc.com.svc.cluster.local
+      max_amount: 6
+      valid_duration: 60s
+
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: quota
@@ -17,7 +23,7 @@ metadata:
 spec:
   dimensions:
     source: source.labels["app"] | "unknown"
-    target: target.service | "unknown"
+    destination: destination.service | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -30,4 +36,3 @@ spec:
   - handler: handler.memquota
     instances:
     - requestcount.quota
----
