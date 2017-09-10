@@ -68,22 +68,6 @@ type (
 		io.Closer
 	}
 
-	// CheckExecutor encapsulates a single CheckManager aspect and allows it to be invoked.
-	CheckExecutor interface {
-		Executor
-
-		// Execute dispatches to the aspect manager.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
-	}
-
-	// ReportExecutor encapsulates a single ReportManager aspect and allows it to be invoked.
-	ReportExecutor interface {
-		Executor
-
-		// Execute dispatches to the aspect manager.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
-	}
-
 	// QuotaExecutor encapsulates a single QuotaManager aspect and allows it to be invoked.
 	QuotaExecutor interface {
 		Executor

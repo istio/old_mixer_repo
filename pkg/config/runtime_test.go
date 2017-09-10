@@ -391,8 +391,8 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: map[adapterKey]*pb.Adapter{
-			{QuotasKind, "a1"}:      a1,
-			{QuotasKind, "a2"}:      a2,
+			{QuotasKind, "a1"}:     a1,
+			{QuotasKind, "a2"}:     a2,
 			{AttributesKind, "ag"}: ag,
 		},
 		rule: map[rulesKey]*pb.ServiceConfig{

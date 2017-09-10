@@ -48,20 +48,6 @@ type (
 		called int8
 	}
 
-	fakeCheckAspectMgr struct {
-		aspect.Manager
-		kind   config.Kind
-		ce     aspect.CheckExecutor
-		called int8
-	}
-
-	fakeReportAspectMgr struct {
-		aspect.Manager
-		kind   config.Kind
-		re     aspect.ReportExecutor
-		called int8
-	}
-
 	fakeQuotaAspectMgr struct {
 		aspect.Manager
 		kind   config.Kind
@@ -85,14 +71,6 @@ type (
 	}
 
 	fakePreprocessExecutor struct {
-		called int8
-	}
-
-	fakeCheckExecutor struct {
-		called int8
-	}
-
-	fakeReportExecutor struct {
 		called int8
 	}
 
@@ -121,12 +99,6 @@ func (f *fakeResolver) ResolveUnconditional(attribute.Bag, config.KindSet, bool)
 }
 
 func (f *fakeBuilder) Name() string { return f.name }
-func (fakeBuilder) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
-	return nil, nil
-}
-func (fakeBuilder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
-	return nil, nil
-}
 func (fakeBuilder) BuildAttributesGenerator(adapter.Env, adapter.Config) (adapter.AttributesGenerator, error) {
 	return nil, nil
 }
@@ -139,18 +111,6 @@ func (f *fakePreprocessExecutor) Execute(attribute.Bag, expr.Evaluator) (*aspect
 	return &aspect.PreprocessResult{}, status.OK
 }
 func (f *fakePreprocessExecutor) Close() error { return nil }
-
-func (f *fakeCheckExecutor) Execute(attribute.Bag, expr.Evaluator) (output rpc.Status) {
-	f.called++
-	return
-}
-func (f *fakeCheckExecutor) Close() error { return nil }
-
-func (f *fakeReportExecutor) Execute(attribute.Bag, expr.Evaluator) (output rpc.Status) {
-	f.called++
-	return
-}
-func (f *fakeReportExecutor) Close() error { return nil }
 
 func (f *fakeQuotaExecutor) Execute(attribute.Bag, expr.Evaluator, *aspect.QuotaMethodArgs) (output rpc.Status, qmr *aspect.QuotaMethodResp) {
 	f.called++
@@ -170,34 +130,6 @@ func (m *fakePreprocessMgr) NewPreprocessExecutor(
 	}
 
 	return m.pe, nil
-}
-
-func (m *fakeCheckAspectMgr) Kind() config.Kind {
-	return m.kind
-}
-
-func (m *fakeCheckAspectMgr) NewCheckExecutor(
-	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder, _ string) (aspect.CheckExecutor, error) {
-	m.called++
-	if m.ce == nil {
-		return nil, errors.New("unable to create aspect")
-	}
-
-	return m.ce, nil
-}
-
-func (m *fakeReportAspectMgr) Kind() config.Kind {
-	return m.kind
-}
-
-func (m *fakeReportAspectMgr) NewReportExecutor(
-	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder, _ string) (aspect.ReportExecutor, error) {
-	m.called++
-	if m.re == nil {
-		return nil, errors.New("unable to create aspect")
-	}
-
-	return m.re, nil
 }
 
 func (m *fakeQuotaAspectMgr) Kind() config.Kind {
@@ -225,17 +157,6 @@ func (testManager) ValidateConfig(config.AspectParams, expr.TypeChecker, descrip
 func (testManager) Kind() config.Kind   { return config.DenialsKind }
 func (m testManager) Name() string      { return m.name }
 func (testManager) Description() string { return "deny checker aspect manager for testing" }
-
-func (m testManager) NewCheckExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.CheckExecutor, error) {
-	if m.throw {
-		panic("NewCheckExecutor panic")
-	}
-	return m.instance, nil
-}
-
-func (m testManager) NewDenyChecker(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
-	return m.instance, nil
-}
 
 func (testAspect) Close() error { return nil }
 func (t testAspect) Execute(attribute.Bag, expr.Evaluator) rpc.Status {
@@ -268,7 +189,7 @@ func getReg(found bool) *fakeBuilderReg {
 	}
 }
 
-func newFakeMgrReg(pe *fakePreprocessExecutor, ce *fakeCheckExecutor, re *fakeReportExecutor, qe *fakeQuotaExecutor) [config.NumKinds]aspect.Manager {
+func newFakeMgrReg(pe *fakePreprocessExecutor, qe *fakeQuotaExecutor) [config.NumKinds]aspect.Manager {
 	var f0 aspect.PreprocessManager
 	var f3 aspect.QuotaManager
 
@@ -336,7 +257,7 @@ func TestManager(t *testing.T) {
 		r := getReg(tt.kindFound)
 		mgr := emptyMgrs
 		if tt.mgrFound {
-			mgr = newFakeMgrReg(nil, nil, nil, tt.quotaExecutor)
+			mgr = newFakeMgrReg(nil, tt.quotaExecutor)
 		}
 
 		gp := pool.NewGoroutinePool(1, true)
@@ -392,7 +313,7 @@ func TestManager_Preprocess(t *testing.T) {
 	agp := pool.NewGoroutinePool(1, true)
 	mapper := &fakeEvaluator{}
 	pe := &fakePreprocessExecutor{}
-	mgrs := newFakeMgrReg(pe, nil, nil, nil)
+	mgrs := newFakeMgrReg(pe, nil)
 
 	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
@@ -426,7 +347,7 @@ func TestQuota(t *testing.T) {
 	agp := pool.NewGoroutinePool(1, true)
 	mapper := &fakeEvaluator{}
 	qe := &fakeQuotaExecutor{result: aspect.QuotaMethodResp{Amount: 42}}
-	mgrs := newFakeMgrReg(nil, nil, nil, qe)
+	mgrs := newFakeMgrReg(nil, qe)
 
 	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
@@ -487,7 +408,7 @@ func TestManager_BulkExecute(t *testing.T) {
 	mapper := &fakeEvaluator{}
 	for idx, c := range cases {
 		r := getReg(true)
-		mgr := newFakeMgrReg(&fakePreprocessExecutor{}, &fakeCheckExecutor{}, &fakeReportExecutor{}, &fakeQuotaExecutor{})
+		mgr := newFakeMgrReg(&fakePreprocessExecutor{}, &fakeQuotaExecutor{})
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
@@ -660,7 +581,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	}}
 	m.resolver.Store(&fakeResolver{cfg, nil})
 
-	if out := m.Check(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil)); status.IsOK(out) {
+	if _, out := m.Quota(ctx, attribute.GetMutableBag(nil), &aspect.QuotaMethodArgs{}); status.IsOK(out) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)
