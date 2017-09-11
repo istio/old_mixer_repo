@@ -1,5 +1,3 @@
-// Copyright (c) 2017 IBM Corp. Licensed Materials - Property of IBM.
-
 package token
 
 import (
