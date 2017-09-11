@@ -119,37 +119,6 @@ func TestValidateLabels(t *testing.T) {
 	}
 }
 
-func TestValidateTemplateExpressions(t *testing.T) {
-	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"duration": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
-		"string":   &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
-		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
-	})
-
-	tests := []struct {
-		name  string
-		exprs map[string]string
-		err   string
-	}{
-		{"valid", map[string]string{"1": "duration", "2": "string", "3": "int64"}, ""},
-		{"missing attr", map[string]string{"not present": "timestamp"}, "failed to parse expression"},
-		{"invalid expr", map[string]string{"invalid": "string |"}, "failed to parse expression"},
-	}
-
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			if err := validateTemplateExpressions(tt.name, tt.exprs, eval, dfind); err != nil || tt.err != "" {
-				if tt.err == "" {
-					t.Fatalf("validateTemplateExpressions() = '%s', wanted no err", err.Error())
-				} else if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
-				}
-			}
-		})
-	}
-}
-
 type testhandler struct{ int }
 
 func (testhandler) Close() error { return nil }
@@ -210,12 +179,6 @@ func TestFromBuilder(t *testing.T) {
 type fakeDeny struct{ adapter.Builder }
 
 func (fakeDeny) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
-	return nil, nil
-}
-
-type fakeAccess struct{ adapter.Builder }
-
-func (fakeAccess) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
 	return nil, nil
 }
 
