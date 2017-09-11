@@ -118,7 +118,6 @@ func (h handler) HandleAuthz(context context.Context, instance *authz.Instance) 
 
 	// Run evaluation.
 	rs, err := rego.Eval(h.context)
-
 	if err != nil {
 		return adapter.CheckResult{
 			Status: status.WithPermissionDenied(fmt.Sprintf("authzOpa: request was rejected: %v", err)),
