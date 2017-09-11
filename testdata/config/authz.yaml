@@ -20,7 +20,6 @@ metadata:
 spec:
   subject:
     user: source.user | ""
-    groups: source.groups | ""
     serviceAccount: source.user | ""
     sourceNamespace: source.namespace | "default"
   resource:

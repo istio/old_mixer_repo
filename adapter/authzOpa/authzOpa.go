@@ -19,7 +19,6 @@ package authzOpa // import "istio.io/mixer/adapter/authzOpa"
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -28,6 +27,7 @@ import (
 
 	"istio.io/mixer/adapter/authzOpa/config"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/authz"
 )
 
@@ -74,7 +74,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 			"Failed to compile the OPA policy: %v", compiler.Errors)
 	}
 
-	return nil
+	return
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
@@ -84,18 +84,10 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		env:         env,
 	}
 
-	parsed, err := ast.ParseModule("", string(h.policy))
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf(GetInfo().Name,
-			"Failed to parse the OPA policy: %v", err))
-	}
+	parsed, _ := ast.ParseModule("", string(h.policy))
 
 	compiler := ast.NewCompiler()
 	compiler.Compile(map[string]*ast.Module{"": parsed})
-	if compiler.Failed() {
-		return nil, errors.New(fmt.Sprintf(GetInfo().Name,
-			"Failed to compile the OPA policy: %v", compiler.Errors))
-	}
 
 	h.compiler = compiler
 	h.context = context
@@ -129,30 +121,20 @@ func (h handler) HandleAuthz(context context.Context, instance *authz.Instance) 
 
 	if err != nil {
 		return adapter.CheckResult{
-			Status: rpc.Status{Code: int32(rpc.PERMISSION_DENIED),
-				Message: fmt.Sprintf("authzOpa: request was rejected: %v", err)},
+			Status: status.WithPermissionDenied(fmt.Sprintf("authzOpa: request was rejected: %v", err)),
 		}, nil
 	}
 
 	if len(rs) != 1 {
 		return adapter.CheckResult{
-			Status: rpc.Status{Code: int32(rpc.PERMISSION_DENIED),
-				Message: "authzOpa: request was rejected"},
+			Status: status.WithPermissionDenied("authzOpa: request was rejected"),
 		}, nil
 	}
 
 	result, ok := rs[0].Expressions[0].Value.(bool)
-	if !ok {
+	if !ok || result == false {
 		return adapter.CheckResult{
-			Status: rpc.Status{Code: int32(rpc.PERMISSION_DENIED),
-				Message: "authzOpa: request was rejected"},
-		}, nil
-	}
-
-	if result == false {
-		return adapter.CheckResult{
-			Status: rpc.Status{Code: int32(rpc.PERMISSION_DENIED),
-				Message: "authzOpa: request was rejected"},
+			Status: status.WithPermissionDenied("authzOpa: request was rejected"),
 		}, nil
 	}
 

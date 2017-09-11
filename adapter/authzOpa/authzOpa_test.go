@@ -28,8 +28,8 @@ import (
 	"istio.io/mixer/template/authz"
 )
 
-var (
-	policy = `package mixerauthz
+func TestAuthz(t *testing.T) {
+	policy := `package mixerauthz
 	    policy = [
 	      {
 	        "rule": {
@@ -50,14 +50,12 @@ var (
 	      input.user = rule.users[_]
 	      input.verb = rule.verbs[_]
 	    }`
-	checkMethod = "data.mixerauthz.allow"
-	cfg         = &config.Params{
+	checkMethod := "data.mixerauthz.allow"
+	cfg := &config.Params{
 		Policy:      policy,
 		CheckMethod: checkMethod,
 	}
-)
 
-func TestAccepted(t *testing.T) {
 	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, authz.TemplateName) {
@@ -67,73 +65,46 @@ func TestAccepted(t *testing.T) {
 	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(cfg)
 	if err := b.Validate(); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
+		t.Fatalf("Got error %v, expecting success", err)
 	}
 
 	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
-		t.Errorf("Got error %v, expecting success", err)
+		t.Fatalf("Got error %v, expecting success", err)
+	}
+
+	cases := []struct {
+		user      string
+		verb      string
+		exptected rpc.Code
+	}{
+		{"bucket-admins", "storage.buckets.get", rpc.OK},
+		{"bucket-admins", "storage.buckets.put", rpc.PERMISSION_DENIED},
+		{"bucket-users", "storage.buckets.get", rpc.PERMISSION_DENIED},
 	}
 
 	authzHandler := handler.(authz.Handler)
-	instance := authz.Instance{
-		Subject: make(map[string]interface {
-		}),
-		Resource: make(map[string]interface {
-		}),
-		Verb: make(map[string]interface {
-		}),
-	}
-	instance.Subject["user"] = "bucket-admins"
-	instance.Verb["verb"] = "storage.buckets.get"
 
-	result, err := authzHandler.HandleAuthz(context.Background(), &instance)
-	if err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
+	for _, c := range cases {
+		instance := authz.Instance{
+			Subject: make(map[string]interface {
+			}),
+			Resource: make(map[string]interface {
+			}),
+			Verb: make(map[string]interface {
+			}),
+		}
+		instance.Subject["user"] = c.user
+		instance.Verb["verb"] = c.verb
 
-	if result.Status.Code != int32(rpc.OK) {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-}
+		result, err := authzHandler.HandleAuthz(context.Background(), &instance)
+		if err != nil {
+			t.Errorf("Got error %v, expecting success", err)
+		}
 
-func TestRejectedRequest(t *testing.T) {
-	info := GetInfo()
-
-	if !contains(info.SupportedTemplates, authz.TemplateName) {
-		t.Error("Didn't find all expected supported templates")
-	}
-
-	b := info.NewBuilder().(*builder)
-	b.SetAdapterConfig(cfg)
-	if err := b.Validate(); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	handler, err := b.Build(context.Background(), test.NewEnv(t))
-	if err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	authzHandler := handler.(authz.Handler)
-	instance := authz.Instance{
-		Subject: make(map[string]interface {
-		}),
-		Resource: make(map[string]interface {
-		}),
-		Verb: make(map[string]interface {
-		}),
-	}
-	instance.Subject["user"] = "bucket-admins"
-	instance.Verb["verb"] = "storage.buckets.put"
-
-	result, err := authzHandler.HandleAuthz(context.Background(), &instance)
-	if err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	if result.Status.Code != int32(rpc.PERMISSION_DENIED) {
-		t.Errorf("Got error %v, expecting success", err)
+		if result.Status.Code != int32(c.exptected) {
+			t.Errorf("Got error %v, expecting success", err)
+		}
 	}
 }
 

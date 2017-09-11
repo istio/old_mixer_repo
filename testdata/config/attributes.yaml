@@ -82,10 +82,6 @@ metadata:
   namespace: istio-config-default
 spec:
    attributes:
-      source.user:
-        valueType: STRING
-      source.groups:
-        valueType: STRING
       source.ip:
         valueType: IP_ADDRESS
       source.labels:
@@ -122,4 +118,3 @@ spec:
         valueType: STRING
       destination.serviceAccount:
         valueType: STRING
-

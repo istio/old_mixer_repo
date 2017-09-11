@@ -9,6 +9,7 @@ go_library(
     deps = [
         "//adapter/authzOpa/config:go_default_library",
         "//pkg/adapter:go_default_library",
+        "//pkg/status:go_default_library",
         "//template/authz:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
@@ -28,6 +29,7 @@ go_test(
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
+        "//pkg/status:go_default_library",
         "//template/authz:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
