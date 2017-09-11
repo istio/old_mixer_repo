@@ -154,7 +154,7 @@ func (testManager) DefaultConfig() config.AspectParams { return nil }
 func (testManager) ValidateConfig(config.AspectParams, expr.TypeChecker, descriptor.Finder) *adapter.ConfigErrors {
 	return nil
 }
-func (testManager) Kind() config.Kind   { return config.DenialsKind }
+func (testManager) Kind() config.Kind   { return config.QuotasKind }
 func (m testManager) Name() string      { return m.name }
 func (testManager) Description() string { return "deny checker aspect manager for testing" }
 
