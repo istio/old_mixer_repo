@@ -10,6 +10,7 @@ import (
 
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
+
 	mixerapi "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter/denier"
 	"istio.io/mixer/pkg/adapter"
