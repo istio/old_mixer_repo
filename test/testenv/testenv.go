@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
@@ -30,7 +31,7 @@ type Args struct {
 	ConfigStoreURL                string
 	ConfigStore2URL               string
 	ConfigDefaultNamespace        string
-	ConfigIdentityAttribute string
+	ConfigIdentityAttribute       string
 	ConfigIdentityAttributeDomain string
 	UseAstEvaluator               bool
 }
