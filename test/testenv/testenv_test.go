@@ -62,9 +62,9 @@ func buildConfigStore(relativePaths []string) (string, error) {
 	return configPath, nil
 }
 
-func getAttrBag(attribs map[string]interface{}) mixerapi.Attributes {
+func getAttrBag(attribs map[string]interface{}, identityAttr, identityAttrDomain string) mixerapi.Attributes {
 	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set("target.service", "svc.cluster.local")
+	requestBag.Set(identityAttr, identityAttrDomain)
 	for k, v := range attribs {
 		requestBag.Set(k, v)
 	}
@@ -101,6 +101,7 @@ func TestDenierAdapter(t *testing.T) {
 		ConfigStoreURL:                `fs://` + configStore,
 		ConfigStore2URL:               `fs://` + configStore,
 		ConfigDefaultNamespace:        "istio-config-default",
+		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		UseAstEvaluator:               true,
 	}
@@ -119,7 +120,7 @@ func TestDenierAdapter(t *testing.T) {
 	defer closeHelper(conn)
 
 	attribs := map[string]interface{}{"request.headers": map[string]string{"clnt": "abc"}}
-	bag := getAttrBag(attribs)
+	bag := getAttrBag(attribs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
 	request := mixerapi.CheckRequest{Attributes: bag}
 	resq, err := client.Check(context.Background(), &request)
 	if err != nil {
