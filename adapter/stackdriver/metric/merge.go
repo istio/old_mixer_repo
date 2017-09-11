@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/genproto/googleapis/api/distribution"
+	"github.com/googleapis/gax-go"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
