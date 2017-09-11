@@ -176,7 +176,12 @@ func TestReport(t *testing.T) {
 		}
 		defer closeHelper(conn)
 
-		req := istio_mixer_v1.ReportRequest{Attributes: []istio_mixer_v1.Attributes{GetAttributes(tt.attribs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)}}
+		req := istio_mixer_v1.ReportRequest{
+			Attributes: []istio_mixer_v1.Attributes{
+				GetAttributes(tt.attribs,
+					args.ConfigIdentityAttribute,
+					args.ConfigIdentityAttributeDomain)},
+		}
 		_, err = client.Report(context.Background(), &req)
 
 		tt.validate(t, err, spyAdapters)
