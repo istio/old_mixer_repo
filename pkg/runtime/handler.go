@@ -15,6 +15,8 @@
 package runtime
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -25,13 +27,12 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
 type (
-	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
-	BuilderInfoFinder func(name string) (*handler.Info, bool)
+	// BuilderInfoFinder is used to find specific handlers Info for configuration.
+	BuilderInfoFinder func(name string) (*adapter.Info, bool)
 
 	// TemplateFinder finds a template by name.
 	TemplateFinder interface {
@@ -67,10 +68,10 @@ func (t *templateFinder) GetTemplateInfo(template string) (template.Info, bool) 
 }
 
 func newHandlerFactory(templateInfo map[string]template.Info, expr expr.TypeChecker,
-	df expr.AttributeDescriptorFinder, builderInfo map[string]*handler.Info) HandlerFactory {
+	df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory {
 	return NewHandlerFactory(&templateFinder{
 		templateInfo: templateInfo,
-	}, expr, df, func(name string) (*handler.Info, bool) {
+	}, expr, df, func(name string) (*adapter.Info, bool) {
 		i, found := builderInfo[name]
 		return i, found
 	})
@@ -97,49 +98,86 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	}
 
 	// HandlerBuilder should always be present for a valid configuration (reference integrity should already be checked).
-	hndlrBldrInfo, _ := h.builderInfoFinder(handler.Adapter)
+	info, _ := h.builderInfoFinder(handler.Adapter)
 
-	hndlrBldr := hndlrBldrInfo.CreateHandlerBuilder()
-	if hndlrBldr == nil {
+	bldr := info.NewBuilder()
+
+	if bldr == nil {
 		msg := fmt.Sprintf("nil HandlerBuilder instantiated for adapter '%s' in handler config '%s'", handler.Adapter, handler.Name)
 		glog.Warning(msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
+	}
+
+	// validate if the builder supports all the necessary interfaces
+	for _, tmplName := range info.SupportedTemplates {
+		// ti should be there for a valid configuration.
+		ti, _ := h.tmplRepo.GetTemplateInfo(tmplName)
+		if supports := ti.BuilderSupportsTemplate(bldr); !supports {
+			// adapter's builder is bad since it does not support the necessary interface
+			msg := fmt.Sprintf("adapter is invalid because it does not implement interface '%s'. "+
+				"Therefore, it cannot support template '%s'", ti.BldrInterfaceName, tmplName)
+			glog.Error(msg)
+			return nil, fmt.Errorf(msg)
+		}
 	}
 
 	var hndlr adapter.Handler
-	hndlr, err = h.build(hndlrBldr, infrdTypsByTmpl, handler.Params, env)
+	hndlr, err = h.build(bldr, infrdTypsByTmpl, handler.Params, env)
 	if err != nil {
 		msg := fmt.Sprintf("cannot configure adapter '%s' in handler config '%s': %v", handler.Adapter, handler.Name, err)
 		glog.Warning(msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
+	}
+	// validate if the handler supports all the necessary interfaces
+	for _, tmplName := range info.SupportedTemplates {
+		// ti should be there for a valid configuration.
+		ti, _ := h.tmplRepo.GetTemplateInfo(tmplName)
+		if supports := ti.HandlerSupportsTemplate(hndlr); !supports {
+			// adapter is bad since it does not support the necessary interface
+			msg := fmt.Sprintf("adapter is invalid because it does not implement interface '%s'. "+
+				"Therefore, it cannot support template '%s'", ti.HndlrInterfaceName, tmplName)
+			glog.Error(msg)
+			return nil, fmt.Errorf(msg)
+		}
 	}
 
 	return hndlr, err
 }
 
-func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmpl map[string]typeMap,
-	adapterCnfg interface{}, env adapter.Env) (handler adapter.Handler, err error) {
+func (h *handlerFactory) build(bldr adapter.HandlerBuilder, infrdTypesByTmpl map[string]typeMap,
+	adapterCnfg interface{}, env adapter.Env) (hndlr adapter.Handler, err error) {
+	var ti template.Info
+	var typs typeMap
+
 	// calls into handler can panic. If that happens, we will log and return error with nil handler
 	defer func() {
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("handler panicked with '%v' when trying to configure the associated adapter."+
-				" Please remove the handler or fix the configuration.", r)
-			glog.Warningf(msg)
-			handler = nil
-			err = fmt.Errorf(msg)
+				" Please remove the handler or fix the configuration. %v\nti=%v\ntype=%v", r, adapterCnfg, ti, typs)
+			glog.Error(msg)
+			hndlr = nil
+			err = errors.New(msg)
 			return
 		}
 	}()
 
-	for tmplName, typs := range infrdTypesByTmpl {
+	for tmplName := range infrdTypesByTmpl {
+		typs = infrdTypesByTmpl[tmplName]
 		// ti should be there for a valid configuration.
-		ti, _ := h.tmplRepo.GetTemplateInfo(tmplName)
-		if err := ti.ConfigureType(typs, &hndlrBldr); err != nil {
-			return nil, fmt.Errorf("cannot configure handler types %v for mesh function name '%s': %v", typs, tmplName, err)
-		}
+		ti, _ = h.tmplRepo.GetTemplateInfo(tmplName)
+		ti.SetType(typs, bldr)
+	}
+	bldr.SetAdapterConfig(adapterCnfg.(proto.Message))
+	// validate and only construct if the validation passes.
+	if ce := bldr.Validate(); ce != nil {
+		msg := fmt.Sprintf("handler validation failed: %s", ce.Error())
+		glog.Error(msg)
+		hndlr = nil
+		err = errors.New(msg)
+		return
 	}
 
-	return hndlrBldr.Build(adapterCnfg.(proto.Message), env)
+	return bldr.Build(context.Background(), env)
 }
 
 func (h *handlerFactory) inferTypesGrpdByTmpl(instances []*pb.Instance) (map[string]typeMap, error) {

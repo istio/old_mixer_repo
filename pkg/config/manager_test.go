@@ -25,7 +25,6 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config/descriptor"
 	"istio.io/mixer/pkg/config/store"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -42,7 +41,7 @@ type mtest struct {
 	scContent string
 	sc        string
 	ada       map[string]adapter.ConfigValidator
-	hbi       map[string]*handler.Info
+	hbi       map[string]*adapter.Info
 	asp       map[Kind]AspectValidator
 	errStr    string
 }
@@ -81,9 +80,7 @@ func TestConfigManager(t *testing.T) {
 			"metrics":     &lc{},
 			"listchecker": &lc{},
 		}, nil, map[Kind]AspectValidator{
-			DenialsKind: &ac{},
-			MetricsKind: &ac{},
-			ListsKind:   &ac{},
+			QuotasKind: &ac{},
 		}, ""},
 	}
 	for idx, mt := range mlist {

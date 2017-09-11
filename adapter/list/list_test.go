@@ -41,19 +41,15 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
 	cfg := info.DefaultConfig
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 
-	if err := info.ValidateConfig(cfg); err != nil {
+	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	listEntryBuilder := builder.(listentry.HandlerBuilder)
-	if err := listEntryBuilder.ConfigureListEntryHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	handler, err := builder.Build(cfg, test.NewEnv(t))
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -88,8 +84,6 @@ func TestIPList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -97,8 +91,11 @@ func TestIPList(t *testing.T) {
 		Overrides:       []string{"11.11.11.11"},
 		EntryType:       config.IP_ADDRESSES,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -179,8 +176,6 @@ func TestStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -188,8 +183,11 @@ func TestStringList(t *testing.T) {
 		Overrides:       []string{"OVERRIDE"},
 		EntryType:       config.STRINGS,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -236,8 +234,6 @@ func TestBlackStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -246,8 +242,11 @@ func TestBlackStringList(t *testing.T) {
 		EntryType:       config.STRINGS,
 		Blacklist:       true,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -294,8 +293,6 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -303,8 +300,11 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 		Overrides:       []string{"Override"},
 		EntryType:       config.CASE_INSENSITIVE_STRINGS,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -342,14 +342,15 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 }
 
 func TestNoUrlStringList(t *testing.T) {
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
-	cfg := config.Params{
+	cfg := &config.Params{
 		Overrides: []string{"OVERRIDE"},
 		EntryType: config.STRINGS,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -384,15 +385,16 @@ func TestNoUrlStringList(t *testing.T) {
 }
 
 func TestBadUrl(t *testing.T) {
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     "https://localhost:80",
 		RefreshInterval: 1 * time.Second,
 		Ttl:             2 * time.Second,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	handler, err := builder.Build(&cfg, test.NewEnv(t))
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -417,15 +419,16 @@ func TestIOErrors(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 10000 * time.Second,
 		Ttl:             20000 * time.Second,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -481,16 +484,17 @@ func TestRefreshAndPurge(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Millisecond,
 		Ttl:             2 * time.Millisecond,
 		EntryType:       config.STRINGS,
 	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -580,11 +584,13 @@ func TestValidateConfig(t *testing.T) {
 		},
 	}
 
-	info := GetInfo()
-
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			err := info.ValidateConfig(&c.cfg)
+			info := GetInfo()
+			b := info.NewBuilder().(*builder)
+			b.SetAdapterConfig(&c.cfg)
+
+			err := b.Validate()
 			if err == nil {
 				if c.field != "" {
 					t.Errorf("Got success, expecting error for field %s", c.field)

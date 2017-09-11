@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package svcctrl // import "istio.io/mixer/adapter/svcctrl"
 
 import (
 	"bytes"
@@ -24,35 +24,13 @@ import (
 
 	"istio.io/mixer/adapter/svcctrl/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHandler "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
-
-type builder struct {
-	createClientFn
-}
 
 type handler struct {
 	serviceControlClient *sc.Service
 	env                  adapter.Env
 	configParams         *config.Params
-}
-
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	client, err := b.createClientFn(env.Logger())
-	if err != nil {
-		return nil, err
-	}
-
-	return &handler{
-		serviceControlClient: client,
-		env:                  env,
-		configParams:         cfg.(*config.Params),
-	}, nil
-}
-
-func (b *builder) ConfigureMetricHandler(instanceTypes map[string]*metric.Type) error {
-	return nil
 }
 
 func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance) error {
@@ -107,23 +85,42 @@ func (h *handler) Close() error {
 	return nil
 }
 
-// GetBuilderInfo registers Adapter with Mixer.
-func GetBuilderInfo() pkgHandler.Info {
-	return pkgHandler.Info{
+////////////////// Config //////////////////////////
+
+// GetInfo registers Adapter with Mixer.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "svcctrl",
 		Impl:        "istio.io/mixer/adapter/svcctrl",
 		Description: "Interface to Google Service Control",
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder {
-			return &builder{
-				createClientFn: createClient,
-			}
-		},
 		DefaultConfig: &config.Params{
 			ServiceName: "library-example.sandbox.googleapis.com",
 		},
-		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
+}
+
+type builder struct {
+	adapterConfig *config.Params
+}
+
+func (*builder) SetMetricTypes(map[string]*metric.Type) {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)  { b.adapterConfig = cfg.(*config.Params) }
+func (*builder) Validate() (ce *adapter.ConfigErrors)   { return }
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	client, err := createClient(env.Logger())
+	if err != nil {
+		return nil, err
+	}
+
+	return &handler{
+		serviceControlClient: client,
+		env:                  env,
+		configParams:         b.adapterConfig,
+	}, nil
 }

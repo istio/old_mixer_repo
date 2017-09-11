@@ -62,7 +62,7 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource, ns string) c
 // NewStore creates a new Store instance.
 func NewStore(u *url.URL) (store.Store2Backend, error) {
 	kubeconfig := u.Path
-	namespaces := u.Query().Get("namespaces")
+	namespaces := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout
 	retryTimeoutParam := u.Query().Get("retry-timeout")
 	if retryTimeoutParam != "" {

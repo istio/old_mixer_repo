@@ -24,7 +24,7 @@
 // - Since the data is all memory-resident and there isn't any cross-node
 // synchronization, this adapter can't be used in an Istio mixer where
 // a single service can be handled by different mixer instances.
-package memquota
+package memquota // import "istio.io/mixer/adapter/memquota"
 
 import (
 	"context"
@@ -33,14 +33,9 @@ import (
 
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
 )
-
-type builder struct {
-	types map[string]*quota.Type
-}
 
 type handler struct {
 	// common info among different quota adapters
@@ -53,91 +48,87 @@ type handler struct {
 	windows map[string]*rollingWindow
 
 	// the limits we know about
-	limits map[string]config.Params_Quota
+	limits map[string]*config.Params_Quota
+
+	// logger provided by the framework
+	logger adapter.Logger
 }
 
-// ensure our types implement the requisite interfaces
-var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = &handler{}
-
-///////////////// Configuration Methods ///////////////
-
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	c := cfg.(*config.Params)
-	return b.buildWithDedup(c, env, time.NewTicker(c.MinDeduplicationDuration))
+// Limit is implemented by Quota and Override messages.
+type Limit interface {
+	GetMaxAmount() int64
+	GetValidDuration() time.Duration
 }
 
-func (b *builder) buildWithDedup(c *config.Params, env adapter.Env, ticker *time.Ticker) (*handler, error) {
-	limits := make(map[string]config.Params_Quota, len(c.Quotas))
-	for _, l := range c.Quotas {
-		limits[l.Name] = l
+// matchDimensions matches configured dimensions with dimensions of the instance.
+func matchDimensions(cfg map[string]string, inst map[string]interface{}) bool {
+	for k, val := range cfg {
+		rval := inst[k]
+		if rval == val { // this dimension matches, on to next comparison.
+			continue
+		}
+
+		// if rval has a string representation then compare it with val
+		// For example net.ip has a useful string representation.
+		switch v := rval.(type) {
+		case fmt.Stringer:
+			if v.String() == val {
+				continue
+			}
+		}
+		// rval does not match val.
+		return false
 	}
+	return true
+}
 
-	for k := range b.types {
-		if _, ok := limits[k]; !ok {
-			return nil, fmt.Errorf("did not find limit defined for quota %s", k)
+// limit returns the limit associated with this particular request.
+// Check if the instance matches an override, else return the default limit.
+func limit(cfg *config.Params_Quota, instance *quota.Instance, l adapter.Logger) Limit {
+	for idx := range cfg.Overrides {
+		o := cfg.Overrides[idx]
+		if matchDimensions(o.Dimensions, instance.Dimensions) {
+			if l.VerbosityLevel(4) {
+				l.Infof("quota override: %v selected for %v", o, *instance)
+			}
+			// all dimensions matched, we found the override.
+			return &o
 		}
 	}
-
-	h := &handler{
-		common: dedupUtil{
-			recentDedup: make(map[string]dedupState),
-			oldDedup:    make(map[string]dedupState),
-			ticker:      ticker,
-			getTime:     time.Now,
-			logger:      env.Logger(),
-		},
-		cells:   make(map[string]int64),
-		windows: make(map[string]*rollingWindow),
-		limits:  limits,
+	if l.VerbosityLevel(4) {
+		l.Infof("quota default: %v selected for %v", cfg.MaxAmount, *instance)
 	}
-
-	env.ScheduleDaemon(func() {
-		for range h.common.ticker.C {
-			h.common.Lock()
-			h.common.reapDedup()
-			h.common.Unlock()
-		}
-	})
-
-	return h, nil
+	// no overrides, use default limit.
+	return cfg
 }
 
-func (b *builder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
-	b.types = types
-	return nil
-}
-
-////////////////// Runtime Methods //////////////////////////
-
-func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
-	q := h.limits[instance.Name]
-
+func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	q := limit(h.limits[instance.Name], instance, h.logger)
 	if args.QuotaAmount > 0 {
 		return h.alloc(instance, args, q)
 	} else if args.QuotaAmount < 0 {
 		args.QuotaAmount = -args.QuotaAmount
 		return h.free(instance, args, q)
 	}
-	return adapter.QuotaResult2{}, nil
+	return adapter.QuotaResult{}, nil
 }
 
-func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
-	amount, exp, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
+	amount, exp, key, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
 		// we optimize storage for non-expiring quotas
-		if q.ValidDuration == 0 {
+		if q.GetValidDuration() == 0 {
 			inUse := h.cells[key]
 
-			if result > q.MaxAmount-inUse {
+			if result > q.GetMaxAmount()-inUse {
 				if !args.BestEffort {
 					return 0, time.Time{}, 0
 				}
 
 				// grab as much as we can
-				result = q.MaxAmount - inUse
+				result = q.GetMaxAmount() - inUse
 			}
 			h.cells[key] = inUse + result
 			return result, time.Time{}, 0
@@ -145,8 +136,8 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs,
 
 		window, ok := h.windows[key]
 		if !ok {
-			seconds := int32((q.ValidDuration + time.Second - 1) / time.Second)
-			window = newRollingWindow(q.MaxAmount, int64(seconds)*ticksPerSecond)
+			seconds := int32((q.GetValidDuration() + time.Second - 1) / time.Second)
+			window = newRollingWindow(q.GetMaxAmount(), int64(seconds)*ticksPerSecond)
 			h.windows[key] = window
 		}
 
@@ -160,22 +151,26 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs,
 			_ = window.alloc(result, currentTick)
 		}
 
-		return result, currentTime.Add(q.ValidDuration), q.ValidDuration
+		return result, currentTime.Add(q.GetValidDuration()), q.GetValidDuration()
 	})
 
-	return adapter.QuotaResult2{
+	if h.logger.VerbosityLevel(2) {
+		h.logger.Infof(" AccessLog %d/%d %s", amount, args.QuotaAmount, key)
+	}
+
+	return adapter.QuotaResult{
 		Status:        status.OK,
 		Amount:        amount,
 		ValidDuration: exp,
 	}, err
 }
 
-func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
-	amount, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
+	amount, _, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
-		if q.ValidDuration == 0 {
+		if q.GetValidDuration() == 0 {
 			inUse := h.cells[key]
 
 			if result >= inUse {
@@ -199,7 +194,7 @@ func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, 
 
 		result = window.release(result, currentTick)
 
-		if window.available() == q.MaxAmount {
+		if window.available() == q.GetMaxAmount() {
 			// delete the cell since it contains no useful state
 			delete(h.windows, key)
 		}
@@ -207,7 +202,7 @@ func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, 
 		return result, time.Time{}, 0
 	})
 
-	return adapter.QuotaResult2{
+	return adapter.QuotaResult{
 		Status: status.OK,
 		Amount: amount,
 	}, err
@@ -218,11 +213,11 @@ func (h *handler) Close() error {
 	return nil
 }
 
-////////////////// Bootstrap //////////////////////////
+////////////////// Config //////////////////////////
 
-// GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
 		Description: "Volatile memory-based quota tracking",
@@ -232,16 +227,69 @@ func GetBuilderInfo() pkgHndlr.Info {
 		DefaultConfig: &config.Params{
 			MinDeduplicationDuration: 1 * time.Second,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig:       validateConfig,
+
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
-func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
-	c := cfg.(*config.Params)
+type builder struct {
+	adapterConfig *config.Params
+	quotaTypes    map[string]*quota.Type
+}
 
-	if c.MinDeduplicationDuration <= 0 {
-		ce = ce.Appendf("minDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
+func (b *builder) SetQuotaTypes(types map[string]*quota.Type) { b.quotaTypes = types }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)        { b.adapterConfig = cfg.(*config.Params) }
+
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	ac := b.adapterConfig
+
+	if ac.MinDeduplicationDuration <= 0 {
+		ce = ce.Appendf("minDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", ac.MinDeduplicationDuration)
 	}
 	return
+}
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	ac := b.adapterConfig
+	return b.buildWithDedup(context, env, time.NewTicker(ac.MinDeduplicationDuration))
+}
+
+func (b *builder) buildWithDedup(_ context.Context, env adapter.Env, ticker *time.Ticker) (*handler, error) {
+	ac := b.adapterConfig
+
+	limits := make(map[string]*config.Params_Quota, len(ac.Quotas))
+	for idx := range ac.Quotas {
+		l := ac.Quotas[idx]
+		limits[l.Name] = &l
+	}
+
+	for k := range b.quotaTypes {
+		if _, ok := limits[k]; !ok {
+			return nil, fmt.Errorf("did not find limit defined for quota %s", k)
+		}
+	}
+
+	h := &handler{
+		common: dedupUtil{
+			recentDedup: make(map[string]dedupState),
+			oldDedup:    make(map[string]dedupState),
+			ticker:      ticker,
+			getTime:     time.Now,
+			logger:      env.Logger(),
+		},
+		cells:   make(map[string]int64),
+		windows: make(map[string]*rollingWindow),
+		limits:  limits,
+		logger:  env.Logger(),
+	}
+
+	env.ScheduleDaemon(func() {
+		for range h.common.ticker.C {
+			h.common.Lock()
+			h.common.reapDedup()
+			h.common.Unlock()
+		}
+	})
+
+	return h, nil
 }

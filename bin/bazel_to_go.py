@@ -141,6 +141,11 @@ def bazel_to_vendor(WKSPC):
     bysrc = {}
 
     for (target, linksrc) in links.items():
+        if linksrc.endswith("istio_mixer"):
+            # skip mixer as an external repo to avoid
+            # never ending loop
+            continue
+
         makelink(target, linksrc)
         #print "Vendored", linksrc, '-->', target
         bysrc[linksrc] = target
@@ -148,6 +153,11 @@ def bazel_to_vendor(WKSPC):
     # check other directories in external
     # and symlink ones that were not covered thru workspace
     for ext_target in get_external_links(external):
+        if ext_target.endswith("istio_mixer"):
+            # skip mixer as an external repo to avoid
+            # never ending loop
+            continue
+
         target = external + "/" + ext_target
         if target in links:
             continue
@@ -201,15 +211,18 @@ def template_protos(WKSPC):
         if file.endswith(".pb.go"):
             makelink(WKSPC + "/bazel-genfiles/pkg/adapter/template/" + file, WKSPC + "/pkg/adapter/template/" + file)
     for template in os.listdir(WKSPC + "/bazel-genfiles/template"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/template/" + template):
-            # check if there are files under /template/<some template dir>
-            if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
-                makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file, WKSPC + "/template/" +template + "/" + file)
-            if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
-                for file2 in os.listdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
-                    # check if there are files under /template/<some uber dir>/<some template dir>
-                    if file2.endswith("_tmpl.pb.go") or file2.endswith("handler.gen.go"):
-                        makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file + "/" + file2, WKSPC + "/template/" + template + "/" + file + "/" + file2)
+        if template.endswith(".gen.go"):
+            makelink(WKSPC + "/bazel-genfiles/template/" + template, WKSPC + "/template/" + template)
+        if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/template/" + template):
+                # check if there are files under /template/<some template dir>
+                if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go") or file.endswith("template.gen.go"):
+                    makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file, WKSPC + "/template/" +template + "/" + file)
+                if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
+                    for file2 in os.listdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
+                        # check if there are files under /template/<some uber dir>/<some template dir>
+                        if file2.endswith("_tmpl.pb.go") or file2.endswith("handler.gen.go"):
+                            makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file + "/" + file2, WKSPC + "/template/" + template + "/" + file + "/" + file2)
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):

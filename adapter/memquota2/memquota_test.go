@@ -16,6 +16,7 @@ package memquota
 
 import (
 	"context"
+	"net"
 	"strconv"
 	"testing"
 	"time"
@@ -27,25 +28,21 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	info := GetBuilderInfo()
+	info := GetInfo()
 
 	if !containsQuotaTemplate(info.SupportedTemplates) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
 	cfg := info.DefaultConfig
+	b := info.NewBuilder()
+	b.SetAdapterConfig(cfg)
 
-	if err := info.ValidateConfig(cfg); err != nil {
+	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	quotaBuilder := builder.(quota.HandlerBuilder)
-	if err := quotaBuilder.ConfigureQuotaHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	handler, err := builder.Build(cfg, test.NewEnv(t))
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -85,14 +82,15 @@ func TestAllocAndRelease(t *testing.T) {
 		},
 	}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
+	info := GetInfo()
+	b := info.NewBuilder()
+	b.SetAdapterConfig(&cfg)
 
-	hndlr, err := builder.Build(&cfg, test.NewEnv(t))
+	hndlr, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -145,7 +143,7 @@ func TestAllocAndRelease(t *testing.T) {
 	now := time.Now()
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			qa := adapter.QuotaRequestArgs{
+			qa := adapter.QuotaArgs{
 				DeduplicationID: "A" + c.dedup,
 				QuotaAmount:     c.allocAmount,
 				BestEffort:      c.allocBestEffort,
@@ -160,7 +158,7 @@ func TestAllocAndRelease(t *testing.T) {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
-			var qr adapter.QuotaResult2
+			var qr adapter.QuotaResult
 			var err error
 
 			qr, err = h.HandleQuota(context.Background(), &instance, qa)
@@ -177,7 +175,7 @@ func TestAllocAndRelease(t *testing.T) {
 				t.Errorf("Expecting %v, got %v", c.exp, qr.ValidDuration)
 			}
 
-			qa = adapter.QuotaRequestArgs{
+			qa = adapter.QuotaArgs{
 				DeduplicationID: "R" + c.dedup,
 				QuotaAmount:     -c.releaseAmount,
 			}
@@ -199,32 +197,30 @@ func TestAllocAndRelease(t *testing.T) {
 }
 
 func TestBadConfig(t *testing.T) {
-	info := GetBuilderInfo()
-	c := info.DefaultConfig.(*config.Params)
+	info := GetInfo()
+	cfg := info.DefaultConfig.(*config.Params)
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 
-	c.MinDeduplicationDuration = 0
-	if err := info.ValidateConfig(c); err == nil {
+	cfg.MinDeduplicationDuration = 0
+	if err := b.Validate; err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
-	c.MinDeduplicationDuration = -1
-	if err := info.ValidateConfig(c); err == nil {
+	cfg.MinDeduplicationDuration = -1
+	if err := b.Validate(); err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
-	c.MinDeduplicationDuration = 1 * time.Second
-
-	builder := info.CreateHandlerBuilder().(*builder)
+	cfg.MinDeduplicationDuration = 1 * time.Second
 
 	types := map[string]*quota.Type{
 		"Foo": {},
 	}
 
-	if err := builder.ConfigureQuotaHandler(types); err != nil {
-		t.Errorf("Expecting success, got %v", err)
-	}
+	b.SetQuotaTypes(types)
 
-	_, err := builder.Build(c, test.NewEnv(t))
+	_, err := b.Build(context.Background(), test.NewEnv(t))
 	if err == nil {
 		t.Error("Expecting failure, got success")
 	}
@@ -239,14 +235,15 @@ func TestReaper(t *testing.T) {
 		},
 	}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
+	info := GetInfo()
+	b := info.NewBuilder()
+	b.SetAdapterConfig(&cfg)
 
-	hndlr, err := builder.Build(&cfg, test.NewEnv(t))
+	hndlr, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Unable to create handler: %v", err)
 	}
@@ -258,7 +255,7 @@ func TestReaper(t *testing.T) {
 		return now
 	}
 
-	qa := adapter.QuotaRequestArgs{
+	qa := adapter.QuotaArgs{
 		QuotaAmount: 10,
 	}
 
@@ -318,17 +315,19 @@ func TestReaperTicker(t *testing.T) {
 	testChan := make(chan time.Time)
 	testTicker := &time.Ticker{C: testChan}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder().(*builder)
+	info := GetInfo()
 	cfg := info.DefaultConfig.(*config.Params)
 	cfg.Quotas = limits
 
-	h, err := builder.buildWithDedup(cfg, test.NewEnv(t), testTicker)
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
+
+	h, err := b.buildWithDedup(context.Background(), test.NewEnv(t), testTicker)
 	if err != nil {
 		t.Errorf("Unable to create handler: %v", err)
 	}
 
-	qa := adapter.QuotaRequestArgs{
+	qa := adapter.QuotaArgs{
 		QuotaAmount:     10,
 		DeduplicationID: "0",
 	}
@@ -366,5 +365,119 @@ func TestReaperTicker(t *testing.T) {
 
 	if err := h.Close(); err != nil {
 		t.Errorf("Unable to close handler: %v", err)
+	}
+}
+
+func TestHandler_Limit(t *testing.T) {
+	var limit1 int64 = 42
+	var limit2 int64 = 75
+
+	cfgDim1 := map[string]string{
+		"destination": "dest1",
+	}
+	cfgDimIP := map[string]string{
+		"source.ip": "192.10.1.118",
+	}
+	instIP := quota.Instance{
+		Dimensions: map[string]interface{}{
+			"source.ip": net.ParseIP("192.10.1.118"),
+		},
+	}
+
+	inst1 := quota.Instance{
+		Dimensions: map[string]interface{}{
+			"destination": "dest1",
+			"source":      "src1",
+		},
+	}
+
+	inst2 := quota.Instance{
+		Dimensions: map[string]interface{}{
+			"destination": "dest2",
+		},
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		cfg   config.Params_Quota
+		inst  quota.Instance
+		limit int64
+	}{
+		{
+			desc: "no override",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+			},
+			inst:  inst1,
+			limit: limit1,
+		},
+		{
+			desc: "override no match",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						Dimensions: cfgDim1,
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  inst2,
+			limit: limit1,
+		},
+		{
+			desc: "override match",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						Dimensions: cfgDim1,
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  inst1,
+			limit: limit2,
+		},
+		{
+			desc: "override match ip",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						Dimensions: cfgDimIP,
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  instIP,
+			limit: limit2,
+		},
+		{
+			desc: "override no dim",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  inst2,
+			limit: limit2,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			env := test.NewEnv(t)
+			l := limit(&tc.cfg, &tc.inst, env.Logger())
+
+			if l.GetMaxAmount() != tc.limit {
+				t.Fatalf("got %v, want %v\n", l.GetMaxAmount(), tc.limit)
+			}
+		})
 	}
 }

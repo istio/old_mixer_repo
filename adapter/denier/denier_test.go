@@ -40,29 +40,14 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
-	cfg := info.DefaultConfig
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(info.DefaultConfig)
 
-	if err := info.ValidateConfig(cfg); err != nil {
+	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	checkNothingBuilder := builder.(checknothing.HandlerBuilder)
-	if err := checkNothingBuilder.ConfigureCheckNothingHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	listEntryBuilder := builder.(listentry.HandlerBuilder)
-	if err := listEntryBuilder.ConfigureListEntryHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	quotaBuilder := builder.(quota.HandlerBuilder)
-	if err := quotaBuilder.ConfigureQuotaHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	handler, err := builder.Build(cfg, test.NewEnv(t))
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -104,7 +89,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	quotaHandler := handler.(quota.Handler)
-	qr, err := quotaHandler.HandleQuota(context.Background(), nil, adapter.QuotaRequestArgs{QuotaAmount: 100})
+	qr, err := quotaHandler.HandleQuota(context.Background(), nil, adapter.QuotaArgs{QuotaAmount: 100})
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}

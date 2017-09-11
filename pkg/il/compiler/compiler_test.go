@@ -379,7 +379,7 @@ end`,
 		code: `
 fn eval() string
   resolve_f "ar"
-  alookup "b"
+  anlookup "b"
   ret
 end
 `,
@@ -402,7 +402,7 @@ fn eval() bool
   ret
 L0:
   resolve_f "ar"
-  alookup "b"
+  anlookup "b"
   aeq_s "c"
   ret
 end`,
@@ -630,7 +630,7 @@ fn eval() string
   jnz L0
   resolve_f "br"
 L0:
-  alookup "foo"
+  anlookup "foo"
   ret
 end`,
 	},
@@ -748,7 +748,7 @@ end`,
 		code: `
 fn eval() string
   resolve_f "sm"
-  alookup "foo"
+  anlookup "foo"
   ret
 end`,
 	},
@@ -763,7 +763,7 @@ end`,
 fn eval() string
   resolve_f "sm"
   resolve_s "as"
-  lookup
+  nlookup
   ret
 end`,
 	},
@@ -987,6 +987,20 @@ end`,
   ret
 end`,
 	},
+	{
+		expr: `aip == bip`,
+		input: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		result: false,
+		code: `fn eval() bool
+  resolve_f "aip"
+  resolve_f "bip"
+  call ip_equal
+  ret
+end`,
+	},
 }
 
 var globalConfig = pb.GlobalConfig{
@@ -1086,8 +1100,16 @@ func TestCompile(t *testing.T) {
 				return []byte{}
 			})
 
+			ipEqualExtern := interpreter.ExternFromFn("ip_equal", func(a []byte, b []byte) bool {
+				// net.IP is an alias for []byte, so these are safe to convert
+				ip1 := net.IP(a)
+				ip2 := net.IP(b)
+				return ip1.Equal(ip2)
+			})
+
 			externMap := map[string]interpreter.Extern{
-				"ip": ipExtern,
+				"ip":       ipExtern,
+				"ip_equal": ipEqualExtern,
 			}
 
 			i := interpreter.New(result.Program, externMap)

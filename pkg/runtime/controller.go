@@ -16,10 +16,10 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 
 	"istio.io/mixer/pkg/adapter"
@@ -27,7 +27,6 @@ import (
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/template"
 )
@@ -39,7 +38,7 @@ import (
 // Controller must not panic on configuration problems, it should issues a warning and continue.
 type Controller struct {
 	// Static information
-	adapterInfo            map[string]*handler.Info // maps adapter shortName to Info.
+	adapterInfo            map[string]*adapter.Info // maps adapter shortName to Info.
 	templateInfo           map[string]template.Info // maps template name to Info.
 	eval                   expr.Evaluator           // Used to infer types. Used by resolver and dispatcher.
 	identityAttribute      string                   // used by resolver
@@ -47,7 +46,7 @@ type Controller struct {
 
 	// configState is the current (potentially inconsistent) view of config.
 	// It receives updates from the underlying config store.
-	configState map[store.Key]proto.Message
+	configState map[store.Key]*store.Resource
 
 	// currently deployed resolver
 	resolver *resolver
@@ -84,10 +83,10 @@ type Controller struct {
 }
 
 // RulesKind defines the config kind name of mixer rules.
-const RulesKind = "mixer-rule"
+const RulesKind = "rule"
 
 // AttributeManifestKind define the config kind name of attribute manifests.
-const AttributeManifestKind = "attribute-manifest"
+const AttributeManifestKind = "attributemanifest"
 
 // ResolverChangeListener is notified when a new resolver is created due to config change.
 type ResolverChangeListener interface {
@@ -101,7 +100,7 @@ type VocabularyChangeListener interface {
 
 // factoryCreatorFunc creates a handler factory. It is used for testing.
 type factoryCreatorFunc func(templateInfo map[string]template.Info, expr expr.TypeChecker,
-	df expr.AttributeDescriptorFinder, builderInfo map[string]*handler.Info) HandlerFactory
+	df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory
 
 // applyEventsFn is used for testing
 type applyEventsFn func(events []*store.Event)
@@ -238,10 +237,11 @@ func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 		if _, found := c.templateInfo[k.Kind]; !found {
 			continue
 		}
+		// instances use their fully qualified names.
 		instanceConfig[k.String()] = &cpb.Instance{
-			Name:     k.Name,
+			Name:     k.String(),
 			Template: k.Kind,
-			Params:   cfg,
+			Params:   cfg.Spec,
 		}
 	}
 	return instanceConfig
@@ -255,10 +255,11 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 		if _, found := c.adapterInfo[k.Kind]; !found {
 			continue
 		}
+		// handlers use their fully qualified names.
 		handlerConfig[k.String()] = &cpb.Handler{
-			Name:    k.Name,
+			Name:    k.String(),
 			Adapter: k.Kind,
-			Params:  cfg,
+			Params:  cfg.Spec,
 		}
 	}
 	if glog.V(3) {
@@ -274,10 +275,11 @@ func (c *Controller) processAttributeManifests() expr.AttributeDescriptorFinder 
 		return c.df
 	}
 	attrs := make(map[string]*cpb.AttributeManifest_AttributeInfo)
-	for k, cfg := range c.configState {
+	for k, obj := range c.configState {
 		if k.Kind != AttributeManifestKind {
 			continue
 		}
+		cfg := obj.Spec
 		for an, at := range cfg.(*cpb.AttributeManifest).Attributes {
 			attrs[an] = at
 		}
@@ -325,6 +327,20 @@ func convertToRuntimeRules(ruleConfig rulesMapByNamespace) (rulesListByNamespace
 	return rules, nrules
 }
 
+const (
+	istioProtocol = "istio-protocol"
+)
+
+// resourceType maps labels to rule types.
+func resourceType(labels map[string]string) ResourceType {
+	ip := labels[istioProtocol]
+	rt := defaultResourcetype()
+	if ip == "tcp" {
+		rt.protocol = protocolTCP
+	}
+	return rt
+}
+
 // processRules builds the current consistent view of the rules keyed by Namespace and then Name.
 // ht (handlerTable) keeps track of handler-instance association.
 func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
@@ -335,16 +351,19 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 	// check rules and ensure only good handlers and instances are used.
 	// record handler - instance associations
-	for k, cfg := range c.configState {
+	for k, obj := range c.configState {
 		if k.Kind != RulesKind {
 			continue
 		}
+
+		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
 		rule := &Rule{
-			selector: rulec.Selector,
+			selector: rulec.Match,
 			name:     k.Name,
+			rtype:    resourceType(obj.Metadata.Labels),
 		}
-		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht)
+		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
 
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
 		for vr, amap := range acts {
@@ -367,14 +386,41 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 var cleanupSleepTime = 500 * time.Millisecond
 
+// isFQN returns true if the name is fully qualified.
+// every resource name is defined by Key.String()
+// shortname.kind.namespace
+func isFQN(name string) bool {
+	return len(strings.Split(name, ".")) == 3
+}
+
+// canonicalizeHandlerNames ensures that all handler names are fully qualified.
+func canonicalizeHandlerNames(acts []*cpb.Action, namespace string) []*cpb.Action {
+	for _, ic := range acts {
+		if !isFQN(ic.Handler) {
+			ic.Handler = ic.Handler + "." + namespace
+		}
+	}
+	return acts
+}
+
+// canonicalizeInstanceNames ensures that all instance names are fully qualified.
+func canonicalizeInstanceNames(instances []string, namespace string) []string {
+	for i := range instances {
+		if !isFQN(instances[i]) {
+			instances[i] = instances[i] + "." + namespace
+		}
+	}
+	return instances
+}
+
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable) map[adptTmpl.TemplateVariety]map[string]*Action {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable, namespace string) map[adptTmpl.TemplateVariety]map[string]*Action {
 
 	actions := make(map[adptTmpl.TemplateVariety]map[string]*Action)
 
-	for _, ic := range acts {
+	for _, ic := range canonicalizeHandlerNames(acts, namespace) {
 		var hc *cpb.Handler
 		if hc = handlerConfig[ic.Handler]; hc == nil {
 			if glog.V(3) {
@@ -383,7 +429,7 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 			continue
 		}
 
-		for _, instName := range ic.Instances {
+		for _, instName := range canonicalizeInstanceNames(ic.Instances, namespace) {
 			inst := instanceConfig[instName]
 			if inst == nil {
 				if glog.V(3) {
