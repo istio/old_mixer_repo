@@ -24,7 +24,7 @@ import (
 
 func TestRegisteredForAllAspects(t *testing.T) {
 	builders := adapterManager.BuilderMap([]adapter.RegisterFn{Register})
-	supKindCnt := uint(2)
+	supKindCnt := uint(config.NumKinds)
 	var i uint
 	for i = 0; i < supKindCnt; i++ {
 		if i == uint(config.Unspecified) {
