@@ -15,6 +15,8 @@
 package runtime
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -26,17 +28,17 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/handler"
 	tmpl "istio.io/mixer/pkg/template"
 )
 
 type fakeTmplRepo struct {
 	infrErr    error
-	cnfgrErr   error
 	cnfgrPanic string
 	typeResult proto.Message
 
-	cnfgMtdCallInfo map[string]map[string]proto.Message // templateName - > map[instName]InferredType (proto.Message)
+	cnfgMtdCallInfo          map[string]map[string]proto.Message // templateName - > map[instName]InferredType (proto.Message)
+	bldrDoesNotImplTemplate  bool
+	hndlrDoesNotImplTemplate bool
 }
 
 func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
@@ -44,16 +46,18 @@ func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 		InferType: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
 			return t.typeResult, t.infrErr
 		},
-		ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+		SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 			if t.cnfgrPanic != "" {
 				panic(t.cnfgrPanic)
 			}
 			if t.cnfgMtdCallInfo != nil {
 				t.cnfgMtdCallInfo[template] = types
 			}
-
-			return t.cnfgrErr
 		},
+		BldrInterfaceName:       "mybuilder",
+		HndlrInterfaceName:      "myhandler",
+		BuilderSupportsTemplate: func(_ adapter.HandlerBuilder) bool { return !t.bldrDoesNotImplTemplate },
+		HandlerSupportsTemplate: func(_ adapter.Handler) bool { return !t.hndlrDoesNotImplTemplate },
 	}, true
 }
 
@@ -63,8 +67,10 @@ func (t fakeTmplRepo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, s st
 }
 
 type fakeHndlrBldr struct {
-	bldPanic string
-	bldErr   error
+	bldPanic    string
+	bldErr      error
+	cfg         adapter.Config
+	validateErr string
 }
 type fakeHndlr struct {
 	createdWithCnfg adapter.Config
@@ -74,12 +80,21 @@ func (f fakeHndlr) Close() error {
 	return nil
 }
 
-func (f fakeHndlrBldr) Build(cnfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+func (f *fakeHndlrBldr) Validate() (ce *adapter.ConfigErrors) {
+	if f.validateErr == "" {
+		return nil
+	}
+	return ce.Append("", errors.New(f.validateErr))
+}
+
+func (f *fakeHndlrBldr) SetAdapterConfig(cfg adapter.Config) { f.cfg = cfg }
+
+func (f *fakeHndlrBldr) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	if f.bldPanic != "" {
 		panic(f.bldPanic)
 	}
 
-	return fakeHndlr{createdWithCnfg: cnfg}, f.bldErr
+	return fakeHndlr{createdWithCnfg: f.cfg}, f.bldErr
 }
 
 func TestBuild_Error(t *testing.T) {
@@ -103,16 +118,6 @@ func TestBuild_Error(t *testing.T) {
 			hndlrCnfg: &pb.Handler{Name: "h1", Adapter: "a1"},
 		},
 		{
-			name:      "ErrorConfigureXXXX",
-			tmplRepo:  fakeTmplRepo{cnfgrErr: fmt.Errorf("FOOBAR ERROR")},
-			wantError: "for mesh function name 'tpml1': FOOBAR ERROR",
-
-			instsCnfg:    []*pb.Instance{{"inst1", "tpml1", &empty.Empty{}}},
-			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
-			hndlrBuilder: fakeHndlrBldr{},
-		},
-
-		{
 			name:     "PanicConfigureXXXX",
 			tmplRepo: fakeTmplRepo{cnfgrPanic: "FOOBAR PANIC"},
 			wantError: "handler panicked with 'FOOBAR PANIC' when trying to configure the " +
@@ -120,12 +125,12 @@ func TestBuild_Error(t *testing.T) {
 
 			instsCnfg:    []*pb.Instance{{"inst1", "tpml1", &empty.Empty{}}},
 			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1"},
-			hndlrBuilder: fakeHndlrBldr{},
+			hndlrBuilder: &fakeHndlrBldr{},
 		},
 
 		{
 			name:         "ErrorAdptBuildXXXX",
-			hndlrBuilder: fakeHndlrBldr{bldErr: fmt.Errorf("FOOBAR ERROR from HandlerBuidler build")},
+			hndlrBuilder: &fakeHndlrBldr{bldErr: fmt.Errorf("FOOBAR ERROR from HandlerBuidler build")},
 			wantError:    "cannot configure adapter 'a1' in handler config 'h1': FOOBAR ERROR from HandlerBuidler build",
 
 			tmplRepo:  fakeTmplRepo{},
@@ -135,29 +140,52 @@ func TestBuild_Error(t *testing.T) {
 
 		{
 			name:         "PanicAdptBuild",
-			hndlrBuilder: fakeHndlrBldr{bldPanic: "FOOBAR ERROR panic from HandlerBuidler build"},
+			hndlrBuilder: &fakeHndlrBldr{bldPanic: "FOOBAR ERROR panic from HandlerBuidler build"},
 			wantError: "handler panicked with 'FOOBAR ERROR panic from HandlerBuidler build' when trying to " +
 				"configure the associated adapter",
 
 			tmplRepo:  fakeTmplRepo{},
 			hndlrCnfg: &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
 		},
-
+		{
+			name:         "ErrorBuilderValidate",
+			tmplRepo:     fakeTmplRepo{},
+			wantError:    "Adapter's builder says I don't like the config",
+			hndlrBuilder: &fakeHndlrBldr{validateErr: "Adapter's builder says I don't like the config"},
+			instsCnfg:    []*pb.Instance{{"inst1", "tpml1", &empty.Empty{}}},
+			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
+		},
 		{
 			name:      "ErrorTypeInferError",
 			tmplRepo:  fakeTmplRepo{infrErr: fmt.Errorf("FOOBAR ERROR")},
 			wantError: "cannot infer type information from params in instance 'inst1': FOOBAR ERROR",
 
 			instsCnfg:    []*pb.Instance{{"inst1", "tpml1", &empty.Empty{}}},
-			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1"},
-			hndlrBuilder: fakeHndlrBldr{},
+			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
+			hndlrBuilder: &fakeHndlrBldr{},
+		},
+		{
+			name:         "BuilderNotImplInterface",
+			hndlrBuilder: &fakeHndlrBldr{},
+			wantError:    "cannot support template 'fakeTmpl'",
+
+			tmplRepo:  fakeTmplRepo{bldrDoesNotImplTemplate: true},
+			hndlrCnfg: &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
+		},
+		{
+			name:         "HandlerNotImplInterface",
+			hndlrBuilder: &fakeHndlrBldr{},
+			wantError:    "cannot support template 'fakeTmpl'",
+
+			tmplRepo:  fakeTmplRepo{hndlrDoesNotImplTemplate: true},
+			hndlrCnfg: &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			bldrInfoFinder := func(name string) (*handler.Info, bool) {
-				return &handler.Info{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
+			bldrInfoFinder := func(name string) (*adapter.Info, bool) {
+				return &adapter.Info{NewBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }, SupportedTemplates: []string{"fakeTmpl"}}, true
 			}
 
 			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)
@@ -165,7 +193,6 @@ func TestBuild_Error(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
 				t.Errorf("got error %v\nwant %v", err, tt.wantError)
 			}
-
 		})
 	}
 }
@@ -188,7 +215,7 @@ func TestBuild_Valid(t *testing.T) {
 			tmplRepo:     fakeTmplRepo{typeResult: &wrappers.Int32Value{Value: 1}, cnfgMtdCallInfo: make(map[string]map[string]proto.Message)},
 			instsCnfg:    []*pb.Instance{{"inst1", "tmpl1", &empty.Empty{}}},
 			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &wrappers.Int32Value{Value: 2}},
-			hndlrBuilder: fakeHndlrBldr{},
+			hndlrBuilder: &fakeHndlrBldr{},
 
 			wantCnfgMtdCallInfo: map[string]map[string]proto.Message{"tmpl1": {"inst1": &wrappers.Int32Value{Value: 1}}},
 			wantBldMtdCnfgParam: &wrappers.Int32Value{Value: 2},
@@ -198,7 +225,7 @@ func TestBuild_Valid(t *testing.T) {
 			tmplRepo:     fakeTmplRepo{cnfgMtdCallInfo: make(map[string]map[string]proto.Message)},
 			instsCnfg:    []*pb.Instance{},
 			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &wrappers.Int32Value{Value: 2}},
-			hndlrBuilder: fakeHndlrBldr{},
+			hndlrBuilder: &fakeHndlrBldr{},
 
 			wantCnfgMtdCallInfo: map[string]map[string]proto.Message{},
 			wantBldMtdCnfgParam: &wrappers.Int32Value{Value: 2},
@@ -211,7 +238,7 @@ func TestBuild_Valid(t *testing.T) {
 				{"inst2", "tmpl1", &empty.Empty{}},
 			},
 			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &wrappers.Int32Value{Value: 2}},
-			hndlrBuilder: fakeHndlrBldr{},
+			hndlrBuilder: &fakeHndlrBldr{},
 
 			wantCnfgMtdCallInfo: map[string]map[string]proto.Message{
 				"tmpl1": {
@@ -230,7 +257,7 @@ func TestBuild_Valid(t *testing.T) {
 				{"inst2", "tmpl1", &empty.Empty{}},
 			},
 			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &wrappers.Int32Value{Value: 2}},
-			hndlrBuilder: fakeHndlrBldr{},
+			hndlrBuilder: &fakeHndlrBldr{},
 
 			wantCnfgMtdCallInfo: map[string]map[string]proto.Message{
 				"tmpl1": {
@@ -253,7 +280,7 @@ func TestBuild_Valid(t *testing.T) {
 				{"inst6", "tmpl2", &empty.Empty{}},
 			},
 			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &wrappers.Int32Value{Value: 2}},
-			hndlrBuilder: fakeHndlrBldr{},
+			hndlrBuilder: &fakeHndlrBldr{},
 
 			wantCnfgMtdCallInfo: map[string]map[string]proto.Message{
 				"tmpl1": {
@@ -273,8 +300,8 @@ func TestBuild_Valid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			bldrInfoFinder := func(name string) (*handler.Info, bool) {
-				return &handler.Info{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
+			bldrInfoFinder := func(name string) (*adapter.Info, bool) {
+				return &adapter.Info{NewBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
 			}
 
 			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)

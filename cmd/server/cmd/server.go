@@ -40,13 +40,13 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter"
 	"istio.io/mixer/cmd/shared"
+	adptr "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/il/evaluator"
 	"istio.io/mixer/pkg/pool"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
@@ -89,7 +89,14 @@ type serverArgs struct {
 	globalConfigFile string
 }
 
-func serverCmd(info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+// ServerContext exports Mixer Grpc server and internal GoroutinePools.
+type ServerContext struct {
+	GP        *pool.GoroutinePool
+	AdapterGP *pool.GoroutinePool
+	Server    *grpc.Server
+}
+
+func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -146,13 +153,13 @@ func serverCmd(info map[string]template.Info, adapters []handler.InfoFn, printf,
 	serverCmd.PersistentFlags().StringVarP(&sa.configStore2URL, "configStore2URL", "", "",
 		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.configDefaultNamespace, "configDefaultNamespace", "", "istio-config-default",
+	serverCmd.PersistentFlags().StringVarP(&sa.configDefaultNamespace, "configDefaultNamespace", "", mixerRuntime.DefaultConfigNamespace,
 		"Namespace used to store mesh wide configuration.")
 
 	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
 	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
 	// Rules selection is based on scopes.
-	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
+	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "destination.service",
 		"Attribute that is used to identify applicable scopes.")
 	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
 		fatalf("unable to hide: %v", err)
@@ -196,9 +203,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) {
-	printf("Mixer started with args: %#v", sa)
-
+func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) *ServerContext {
 	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
@@ -206,11 +211,9 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 
 	gp := pool.NewGoroutinePool(apiPoolSize, sa.singleThreaded)
 	gp.AddWorkers(apiPoolSize)
-	defer gp.Close()
 
 	adapterGP := pool.NewGoroutinePool(adapterPoolSize, sa.singleThreaded)
 	adapterGP.AddWorkers(adapterPoolSize)
-	defer adapterGP.Close()
 
 	var ilEval *evaluator.IL
 	var eval expr.Evaluator
@@ -249,7 +252,7 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 
 	repo := template.NewRepository(info)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
-	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
+	adapterMgr := adapterManager.NewManager(adapter.InventoryLegacy(), aspect.Inventory(), eval, gp, adapterGP)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds,
 		repo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
@@ -257,7 +260,7 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 		sa.configIdentityAttributeDomain)
 
 	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
-		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapter.Inventory2(),
+		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds, store, repo)
 
 	var serverCert *tls.Certificate
@@ -280,12 +283,6 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
-	}
-
-	var listener net.Listener
-	// get the network stuff setup
-	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port)); err != nil {
-		fatalf("Unable to listen on socket: %v", err)
 	}
 
 	// construct the gRPC options
@@ -392,11 +389,25 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 	// FIXME construct a runtime.New as dispatcher param
 	s := api.NewGRPCServer(adapterMgr, dispatcher, gp)
 	mixerpb.RegisterMixerServer(gs, s)
+	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs}
+}
+
+func runServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) {
+	printf("Mixer started with args: %#v", sa)
+	context := setupServer(sa, info, adapters, printf, fatalf)
+	defer context.GP.Close()
+	defer context.AdapterGP.Close()
 
 	printf("Istio Mixer: %s", version.Info)
 	printf("Starting gRPC server on port %v", sa.port)
+	var err error
+	var listener net.Listener
+	// get the network stuff setup
+	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port)); err != nil {
+		fatalf("Unable to listen on socket: %v", err)
+	}
 
-	if err = gs.Serve(listener); err != nil {
+	if err = context.Server.Serve(listener); err != nil {
 		fatalf("Failed serving gRPC server: %v", err)
 	}
 }

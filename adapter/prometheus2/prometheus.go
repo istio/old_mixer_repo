@@ -31,7 +31,6 @@ import (
 
 	"istio.io/mixer/adapter/prometheus2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
 
@@ -50,6 +49,7 @@ type (
 		metrics  map[string]*cinfo
 		registry *prometheus.Registry
 		srv      server
+		cfg      *config.Params
 	}
 
 	handler struct {
@@ -65,8 +65,8 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
-// GetInfo returns the BuilderInfo associated with this adapter.
-func GetInfo() pkgHndlr.Info {
+// GetInfo returns the Info associated with this adapter.
+func GetInfo() adapter.Info {
 	// prometheus uses a singleton http port, so we make the
 	// builder itself a singleton, when defaultAddr become configurable
 	// srv will be a map[string]server
@@ -74,18 +74,15 @@ func GetInfo() pkgHndlr.Info {
 		srv: newServer(defaultAddr),
 	}
 	singletonBuilder.clearState()
-	return pkgHndlr.Info{
+	return adapter.Info{
 		Name:        "prometheus",
 		Impl:        "istio.io/mixer/adapter/prometheus",
 		Description: "Publishes prometheus metrics",
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder {
-			return singletonBuilder
-		},
-		DefaultConfig:  &config.Params{},
-		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder:    func() adapter.HandlerBuilder { return singletonBuilder },
+		DefaultConfig: &config.Params{},
 	}
 }
 
@@ -94,11 +91,12 @@ func (b *builder) clearState() {
 	b.metrics = make(map[string]*cinfo)
 }
 
-func (b *builder) ConfigureMetricHandler(map[string]*metric.Type) error { return nil }
+func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)    { b.cfg = cfg.(*config.Params) }
+func (b *builder) Validate() *adapter.ConfigErrors        { return nil }
+func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
-func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
-
-	cfg := c.(*config.Params)
+	cfg := b.cfg
 	var metricErr *multierror.Error
 
 	// newMetrics collects new metric configuration
@@ -144,6 +142,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 		ci := &cinfo{kind: m.Kind, sha: computeSha(m, env.Logger())}
 		switch m.Kind {
 		case config.GAUGE:
+			// TODO: make prometheus use the keys of metric.Type.Dimensions as the label names and remove from config.
 			ci.c, err = registerOrGet(b.registry, newGaugeVec(mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))

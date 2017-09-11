@@ -1,22 +1,13 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("//tools/codegen:generate.bzl", "mixer_supported_template_library")
 
-go_library(
+mixer_supported_template_library(
     name = "go_default_library",
-    srcs = [
-        "template.gen.go",
-    ],
-    visibility = ["//visibility:public"],
+    packages = {
+        "//test/e2e/template/report:go_default_library_proto.descriptor_set": "istio.io/mixer/test/e2e/template/report",
+    },
     deps = [
-        "//pkg/adapter:go_default_library",
-        "//pkg/adapter/template:go_default_library",
-        "//pkg/attribute:go_default_library",
-        "//pkg/expr:go_default_library",
-        "//pkg/template:go_default_library",
         "//test/e2e/template/report:go_default_library",
-        "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

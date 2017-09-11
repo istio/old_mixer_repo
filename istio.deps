@@ -1,0 +1,9 @@
+[
+	{
+		"name": "ISTIO_API_SHA",
+		"repoName": "api",
+		"prodBranch": "master",
+		"file": "istio_api.bzl",
+		"lastStableSHA": "0ab63a64b7ce7900de2a95160c13dcf781d04d07"
+	}
+]

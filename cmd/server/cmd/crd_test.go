@@ -22,16 +22,16 @@ import (
 	"testing"
 
 	"istio.io/mixer/adapter"
-	"istio.io/mixer/pkg/handler"
+	adptr "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
 	generatedTemplate "istio.io/mixer/template"
 )
 
 var empty = ``
 
-var exampleAdapters = []handler.InfoFn{
-	func() handler.Info { return handler.Info{Name: "foo-bar"} },
-	func() handler.Info { return handler.Info{Name: "abcd"} },
+var exampleAdapters = []adptr.InfoFn{
+	func() adptr.Info { return adptr.Info{Name: "foo-bar"} },
+	func() adptr.Info { return adptr.Info{Name: "abcd"} },
 }
 var exampleAdaptersCrd = `
 kind: CustomResourceDefinition
@@ -159,10 +159,10 @@ spec:
 func TestListCrdsAdapters(t *testing.T) {
 	tests := []struct {
 		name    string
-		args    []handler.InfoFn
+		args    []adptr.InfoFn
 		wantOut string
 	}{
-		{"empty", []handler.InfoFn{}, empty},
+		{"empty", []adptr.InfoFn{}, empty},
 		{"example", exampleAdapters, exampleAdaptersCrd},
 	}
 	for _, tt := range tests {
@@ -208,7 +208,7 @@ func TestListCrdsInstances(t *testing.T) {
 
 func TestNameFormat(t *testing.T) {
 	validNamePattern := regexp.MustCompile(`^([a-z0-9]+-)*[a-z0-9]+$`)
-	for _, infoFn := range adapter.Inventory2() {
+	for _, infoFn := range adapter.Inventory() {
 		info := infoFn()
 		if !validNamePattern.MatchString(info.Name) {
 			t.Errorf("Name %s doesn't match the pattern %v", info.Name, validNamePattern)

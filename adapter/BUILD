@@ -11,21 +11,10 @@ go_library(
     library = ":inventory_lib",  # keep
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/denyChecker:go_default_library",
-        "//adapter/genericListChecker:go_default_library",
-        "//adapter/ipListChecker:go_default_library",
         "//adapter/kubernetes:go_default_library",
         "//adapter/memQuota:go_default_library",
-        "//adapter/noop:go_default_library",
-        "//adapter/prometheus:go_default_library",
-        "//adapter/redisquota:go_default_library",
-        "//adapter/serviceControl:go_default_library",
-        "//adapter/statsd:go_default_library",
-        "//adapter/statsd2:go_default_library",
-        "//adapter/stdio:go_default_library",
-        "//adapter/stdioLogger:go_default_library",
+        "//adapter/noopLegacy:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/handler:go_default_library",
     ],
 )
 
@@ -34,7 +23,7 @@ inventory_library(
     packages = {
         "denier": "istio.io/mixer/adapter/denier",
         "list": "istio.io/mixer/adapter/list",
-        "noop2": "istio.io/mixer/adapter/noop2",
+        "noop": "istio.io/mixer/adapter/noop",
         "prometheus": "istio.io/mixer/adapter/prometheus2",
         "stackdriver": "istio.io/mixer/adapter/stackdriver",
         "statsd2": "istio.io/mixer/adapter/statsd2",
@@ -46,7 +35,7 @@ inventory_library(
         "//adapter/denier:go_default_library",
         "//adapter/list:go_default_library",
         "//adapter/memquota2:go_default_library",
-        "//adapter/noop2:go_default_library",
+        "//adapter/noop:go_default_library",
         "//adapter/prometheus2:go_default_library",
         "//adapter/stackdriver:go_default_library",
         "//adapter/statsd2:go_default_library",

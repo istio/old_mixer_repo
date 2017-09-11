@@ -33,7 +33,6 @@ import (
 
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
 )
@@ -52,7 +51,7 @@ type handler struct {
 	limits map[string]config.Params_Quota
 }
 
-func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	q := h.limits[instance.Name]
 
 	if args.QuotaAmount > 0 {
@@ -61,10 +60,10 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 		args.QuotaAmount = -args.QuotaAmount
 		return h.free(instance, args, q)
 	}
-	return adapter.QuotaResult2{}, nil
+	return adapter.QuotaResult{}, nil
 }
 
-func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
+func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult, error) {
 	amount, exp, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
@@ -105,14 +104,14 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs,
 		return result, currentTime.Add(q.ValidDuration), q.ValidDuration
 	})
 
-	return adapter.QuotaResult2{
+	return adapter.QuotaResult{
 		Status:        status.OK,
 		Amount:        amount,
 		ValidDuration: exp,
 	}, err
 }
 
-func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
+func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult, error) {
 	amount, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
@@ -149,7 +148,7 @@ func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, 
 		return result, time.Time{}, 0
 	})
 
-	return adapter.QuotaResult2{
+	return adapter.QuotaResult{
 		Status: status.OK,
 		Amount: amount,
 	}, err
@@ -163,8 +162,8 @@ func (h *handler) Close() error {
 ////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
 		Description: "Volatile memory-based quota tracking",
@@ -175,11 +174,7 @@ func GetInfo() pkgHndlr.Info {
 			MinDeduplicationDuration: 1 * time.Second,
 		},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -241,22 +236,4 @@ func (b *builder) buildWithDedup(_ context.Context, env adapter.Env, ticker *tim
 	})
 
 	return h, nil
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-// Build is to be deleted
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// ConfigureQuotaHandler is to be deleted
-func (o *obuilder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
-	o.b.SetQuotaTypes(types)
-	return nil
 }

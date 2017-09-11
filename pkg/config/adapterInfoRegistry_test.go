@@ -15,13 +15,13 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 	"istio.io/mixer/template/sample"
 	sample_report "istio.io/mixer/template/sample/report"
@@ -31,32 +31,33 @@ type TestBuilderInfoInventory struct {
 	name string
 }
 
-func createBuilderInfo(name string) handler.Info {
-	return handler.Info{
-		Name:                 name,
-		Description:          "mock adapter for testing",
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
-		SupportedTemplates:   []string{sample_report.TemplateName},
-		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
+func createBuilderInfo(name string) adapter.Info {
+	return adapter.Info{
+		Name:               name,
+		Description:        "mock adapter for testing",
+		SupportedTemplates: []string{sample_report.TemplateName},
+		DefaultConfig:      &types.Empty{},
+		NewBuilder:         func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
 	}
 }
 
-func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() handler.Info {
+func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.Info {
 	return createBuilderInfo(t.name)
 }
 
 type fakeHandlerBuilder struct{}
 
-func (fakeHandlerBuilder) ConfigureSampleHandler(map[string]*sample_report.Type) error { return nil }
-func (fakeHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (fakeHandlerBuilder) SetReportTypes(map[string]*sample_report.Type) {}
+func (fakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }
+func (fakeHandlerBuilder) SetAdapterConfig(config adapter.Config) {}
+func (fakeHandlerBuilder) Validate() *adapter.ConfigErrors        { return nil }
 
 type fakeHandler struct{}
 
 func (fakeHandler) Close() error { return nil }
-func (fakeHandler) HandleSample([]*sample_report.Instance) error {
+func (fakeHandler) HandleReport([]*sample_report.Instance) error {
 	return errors.New("not implemented")
 }
 
@@ -67,7 +68,7 @@ func fakeValidateSupportedTmpl(hndlrBuilder adapter.HandlerBuilder, t string) (b
 
 func TestRegisterSampleProcessor(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
-	reg := newRegistry2([]handler.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
+	reg := newRegistry2([]adapter.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
 		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 
 	builderInfo, ok := reg.FindAdapterInfo(testBuilderInfoInventory.name)
@@ -91,7 +92,7 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]handler.InfoFn{
+	_ = newRegistry2([]adapter.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
 	)
@@ -111,24 +112,7 @@ func TestMissingDefaultValue(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]handler.InfoFn{func() handler.Info { return builderInfo }}, fakeValidateSupportedTmpl)
-
-	t.Error("Should not reach this statement due to panic.")
-}
-
-func TestMissingValidateConfigFn(t *testing.T) {
-	builderCreatorInventory := TestBuilderInfoInventory{"foo"}
-	builderInfo := builderCreatorInventory.getNewGetBuilderInfoFn()
-	builderInfo.ValidateConfig = nil
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected to recover from panic due to missing ValidateConfig in Info, " +
-				"but recover was nil.")
-		}
-	}()
-
-	_ = newRegistry2([]handler.InfoFn{func() handler.Info { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]adapter.InfoFn{func() adapter.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -137,7 +121,7 @@ func TestHandlerMap(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
 	testBuilderInfoInventory2 := TestBuilderInfoInventory{"bar"}
 
-	mp := AdapterInfoMap([]handler.InfoFn{
+	mp := AdapterInfoMap([]adapter.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn,
 	}, fakeValidateSupportedTmpl)
@@ -155,33 +139,31 @@ type badHandlerBuilder struct{}
 func (badHandlerBuilder) DefaultConfig() adapter.Config                       { return nil }
 func (badHandlerBuilder) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return nil }
 
-// This misspelled function cause the Builder to not implement SampleProcessorBuilder
-func (fakeHandlerBuilder) MisspelledXXConfigureSample(map[string]*sample_report.Type) error {
-	return nil
-}
-func (badHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (badHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }
+func (badHandlerBuilder) Validate() *adapter.ConfigErrors {
+	return nil
+}
+func (badHandlerBuilder) SetAdapterConfig(_ adapter.Config) {}
 
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
-	badHandlerBuilderBuilderInfo1 := func() handler.Info {
-		return handler.Info{
-			Name:                 "badAdapter1",
-			Description:          "mock adapter for testing",
-			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:   []string{sample_report.TemplateName},
+	badHandlerBuilderBuilderInfo1 := func() adapter.Info {
+		return adapter.Info{
+			Name:               "badAdapter1",
+			Description:        "mock adapter for testing",
+			DefaultConfig:      &types.Empty{},
+			NewBuilder:         func() adapter.HandlerBuilder { return badHandlerBuilder{} },
+			SupportedTemplates: []string{sample_report.TemplateName},
 		}
 	}
-	badHandlerBuilderBuilderInfo2 := func() handler.Info {
-		return handler.Info{
-			Name:                 "badAdapter1",
-			Description:          "mock adapter for testing",
-			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:   []string{sample_report.TemplateName},
+	badHandlerBuilderBuilderInfo2 := func() adapter.Info {
+		return adapter.Info{
+			Name:               "badAdapter1",
+			Description:        "mock adapter for testing",
+			DefaultConfig:      &types.Empty{},
+			NewBuilder:         func() adapter.HandlerBuilder { return badHandlerBuilder{} },
+			SupportedTemplates: []string{sample_report.TemplateName},
 		}
 	}
 
@@ -192,7 +174,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]handler.InfoFn{
+	_ = newRegistry2([]adapter.InfoFn{
 		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate,
 	)
 

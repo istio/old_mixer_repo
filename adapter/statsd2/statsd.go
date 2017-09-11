@@ -26,7 +26,6 @@ import (
 
 	"istio.io/mixer/adapter/statsd2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/template/metric"
 )
@@ -110,8 +109,8 @@ func (h *handler) Close() error { return h.client.Close() }
 ////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "statsd",
 		Impl:        "istio.io/mixer/adapter/statsd",
 		Description: "Produces statsd metrics",
@@ -126,11 +125,7 @@ func GetInfo() pkgHndlr.Info {
 			SamplingRate:  1.0,
 		},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -194,21 +189,4 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		templates[metricName] = info{mtype: s.Type, tmpl: t}
 	}
 	return &handler{ac.SamplingRate, client, templates}, nil
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// ConfigureMetricHandler is to be deleted
-func (o *obuilder) ConfigureMetricHandler(types map[string]*metric.Type) error {
-	o.b.SetMetricTypes(types)
-	return nil
 }

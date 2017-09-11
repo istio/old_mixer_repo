@@ -5,8 +5,7 @@ package istio.mixer.template.quota;
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
 
-option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
-option (istio.mixer.v1.config.template.template_name) = "Quota";
+option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
 
 
 message Template {

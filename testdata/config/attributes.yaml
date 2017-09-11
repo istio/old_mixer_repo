@@ -1,5 +1,5 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: attribute-manifest
+kind: attributemanifest
 metadata:
   name: istio-proxy
   namespace: istio-config-default
@@ -47,14 +47,36 @@ spec:
         valueType: TIMESTAMP
       source.uid:
         valueType: STRING
+      source.user:
+        valueType: STRING
       target.uid:
         valueType: STRING
+      destination.uid:
+        valueType: STRING
+      connection.id:
+        valueType: STRING
+      connection.received.bytes:
+        valueType: INT64
+      connection.received.bytes_total:
+        valueType: INT64
+      connection.sent.bytes:
+        valueType: INT64
+      connection.sent.bytes_total:
+        valueType: INT64
+      connection.duration:
+        valueType: DURATION
+      context.protocol:
+        valueType: STRING
+      context.timestamp:
+        valueType: TIMESTAMP
+      context.time:
+        valueType: TIMESTAMP
       # DEPRECATED, to be removed. Use request.useragent instead.
       request.user-agent:
         valueType: STRING
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: attribute-manifest
+kind: attributemanifest
 metadata:
   name: kubernetes
   namespace: istio-config-default
@@ -83,5 +105,17 @@ spec:
       target.service:
         valueType: STRING
       target.serviceAccount:
+        valueType: STRING
+      destination.ip:
+        valueType: IP_ADDRESS
+      destination.labels:
+        valueType: STRING_MAP
+      destination.name:
+        valueType: STRING
+      destination.namespace:
+        valueType: STRING
+      destination.service:
+        valueType: STRING
+      destination.serviceAccount:
         valueType: STRING
 

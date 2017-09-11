@@ -15,6 +15,7 @@
 package config
 
 import (
+	"context"
 	"crypto/sha1"
 	"errors"
 	"fmt"
@@ -33,13 +34,12 @@ import (
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	tmpl "istio.io/mixer/pkg/template"
 )
 
 type fakeVFinder struct {
 	ada   map[string]adapter.ConfigValidator
-	hbi   map[string]*handler.Info
+	hbi   map[string]*adapter.Info
 	asp   map[Kind]AspectValidator
 	kinds KindSet
 }
@@ -49,7 +49,7 @@ func (f *fakeVFinder) FindAdapterValidator(name string) (adapter.ConfigValidator
 	return v, found
 }
 
-func (f *fakeVFinder) FindBuilderInfo(name string) (*handler.Info, bool) {
+func (f *fakeVFinder) FindBuilderInfo(name string) (*adapter.Info, bool) {
 	v, found := f.hbi[name]
 	return v, found
 }
@@ -92,7 +92,7 @@ func (a *ac) ValidateConfig(AspectParams, expr.TypeChecker, descriptor.Finder) *
 type configTable struct {
 	cerr     *adapter.ConfigErrors
 	ada      map[string]adapter.ConfigValidator
-	hbi      map[string]*handler.Info
+	hbi      map[string]*adapter.Info
 	asp      map[Kind]AspectValidator
 	nerrors  int
 	selector string
@@ -101,7 +101,7 @@ type configTable struct {
 }
 
 func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValidator,
-	hbi map[string]*handler.Info) *fakeVFinder {
+	hbi map[string]*adapter.Info) *fakeVFinder {
 	var kinds KindSet
 	for k := range asp {
 		kinds = kinds.Set(k)
@@ -134,14 +134,12 @@ func TestConfigValidatorError(t *testing.T) {
 			nil, 1, "service.name == “*”", false, ConstGlobalConfig},
 		{nil, nil, nil,
 			map[Kind]AspectValidator{
-				MetricsKind: &ac{},
-				QuotasKind:  &ac{},
+				QuotasKind: &ac{},
 			},
 			0, "service.name == “*”", false, sSvcConfig},
 		{nil, nil, nil,
 			map[Kind]AspectValidator{
-				MetricsKind: &ac{},
-				QuotasKind:  &ac{},
+				QuotasKind: &ac{},
 			},
 			1, "service.name == “*”", true, sSvcConfig},
 		{cerr, nil, nil,
@@ -200,9 +198,8 @@ func TestFullConfigValidator(tt *testing.T) {
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"service.name == “*”", false, sSvcConfig2, nil},
 		{nil,
@@ -212,21 +209,19 @@ func TestFullConfigValidator(tt *testing.T) {
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"", false, sSvcConfig2, nil},
-		{&adapter.ConfigError{Field: "namedAdapter", Underlying: errors.New("lists//denychecker.2 not available")},
+		{&adapter.ConfigError{Field: "namedAdapter", Underlying: errors.New("quotas//denychecker.2 not available")},
 			map[string]adapter.ConfigValidator{
 				"denyChecker": &lc{},
 				"metrics":     &lc{},
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"", false, sSvcConfig3, nil},
 		{&adapter.ConfigError{Field: ":Selector service.name == “*”", Underlying: errors.New("invalid expression")},
@@ -236,9 +231,8 @@ func TestFullConfigValidator(tt *testing.T) {
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"service.name == “*”", false, sSvcConfig1, errors.New("invalid expression")},
 	}
@@ -253,7 +247,7 @@ func TestFullConfigValidator(tt *testing.T) {
 			cok := ce == nil
 			ok := ctx.cerr == nil
 			if ok != cok {
-				t.Fatalf("%d got %t, want %t ", idx, cok, ok)
+				t.Fatalf("%d ok:= got %t, want %t ", idx, cok, ok)
 			}
 			if ce == nil {
 				return
@@ -383,7 +377,7 @@ revision: "2022"
 rules:
 - selector: service.name == “*”
   aspects:
-  - kind: lists
+  - kind: quotas
     inputs: {}
     params:
 `
@@ -393,7 +387,7 @@ revision: "2022"
 rules:
 - selector: service.name == “*”
   aspects:
-  - kind: lists
+  - kind: quotas
     inputs: {}
     params:
     adapter: denychecker.2
@@ -404,7 +398,7 @@ revision: "2022"
 rules:
 - selector: %s
   aspects:
-  - kind: metrics
+  - kind: quotas
     adapter: ""
     inputs: {}
     params:
@@ -412,7 +406,7 @@ rules:
       blacklist: true
       unknown_field: true
   rules:
-  - selector: src.name == "abc"
+  - match: src.name == "abc"
     aspects:
     - kind: quotas
       adapter: ""
@@ -470,7 +464,7 @@ func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, dpb.ValueT
 
 func TestValidated_Clone(t *testing.T) {
 	aa := map[adapterKey]*pb.Adapter{
-		{AccessLogsKind, "n1"}: {},
+		{QuotasKind, "n1"}: {},
 	}
 
 	hh := map[string]*HandlerInfo{
@@ -645,19 +639,17 @@ quotas:
 
 func TestConvertHandlerParamsErrors(t *testing.T) {
 	tTable := []struct {
-		params            interface{}
-		defaultCnfg       proto.Message
-		hndlrValidateCnfg handler.ValidateConfigFn
-		errorStr          string
+		params      interface{}
+		defaultCnfg proto.Message
+		errorStr    string
 	}{
 		{
 			params: map[string]interface{}{
 				"check_expression": "src.ip",
 				"blacklist":        "true (this should be bool)",
 			},
-			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			errorStr:          "failed to decode",
+			defaultCnfg: &listcheckerpb.ListsParams{},
+			errorStr:    "failed to decode",
 		},
 		{
 			params: map[string]interface{}{
@@ -665,33 +657,21 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"blacklist":        true,
 				"wrongextrafield":  true,
 			},
-			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			errorStr:          "failed to unmarshal",
-		},
-		{
-			params: map[string]interface{}{
-				"check_expression": "src.ip",
-				"blacklist":        true,
-			},
 			defaultCnfg: &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c adapter.Config) (ce *adapter.ConfigErrors) {
-				return ce.Appendf("foo", "handler config validation failed")
-			},
-			errorStr: "handler config validation failed",
+			errorStr:    "failed to unmarshal",
 		},
 	}
 
 	for _, tt := range tTable {
 		t.Run(tt.errorStr, func(t *testing.T) {
 			_, ce := convertHandlerParams(
-				&handler.Info{
-					DefaultConfig:  tt.defaultCnfg,
-					ValidateConfig: tt.hndlrValidateCnfg,
+				&adapter.Info{
+					DefaultConfig: tt.defaultCnfg,
+					NewBuilder:    func() adapter.HandlerBuilder { return fakeGoodHndlrBldr{} },
 				}, "TestConvertHandlerParamsErrors", tt.params, true)
 
 			if !strings.Contains(ce.Error(), tt.errorStr) {
-				t.Errorf("got %s, want %s\n", ce.Error(), tt.errorStr)
+				t.Errorf("got '%s', want '%s'\n", ce.Error(), tt.errorStr)
 			}
 		})
 	}
@@ -704,11 +684,10 @@ func TestValidateHandlers(t *testing.T) {
 		{
 			nil,
 			nil,
-			map[string]*handler.Info{
+			map[string]*adapter.Info{
 				"fooHandlerAdapter": {
-					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig: &types.Empty{},
+					NewBuilder:    func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 0, "service.name == “*”", false, ConstGlobalConfig,
@@ -716,17 +695,16 @@ func TestValidateHandlers(t *testing.T) {
 		{
 			nil,
 			nil,
-			map[string]*handler.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			map[string]*adapter.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			nil, 1, "service.name == “*”", false, ConstGlobalConfig,
 		},
 		{
 			nil,
 			nil,
-			map[string]*handler.Info{
+			map[string]*adapter.Info{
 				"fooHandlerAdapter": {
-					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig: &types.Empty{},
+					NewBuilder:    func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 1, "service.name == “*”", false, duplicateCnstrs,
@@ -772,19 +750,18 @@ handlers:
 	const testSupportedTemplate = "testSupportedTemplate"
 	tests := []*configTable{
 		{
-			hbi: map[string]*handler.Info{
+			hbi: map[string]*adapter.Info{
 				"fooHandlerAdapter": {
-					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
-					SupportedTemplates:   []string{testSupportedTemplate},
+					DefaultConfig:      &types.Empty{},
+					NewBuilder:         func() adapter.HandlerBuilder { return nil },
+					SupportedTemplates: []string{testSupportedTemplate},
 				},
 			},
 			cfg:     globalConfig,
 			nerrors: 0,
 		},
 		{
-			hbi:     map[string]*handler.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
+			hbi:     map[string]*adapter.Info{ /*Empty lookup. Should cause error, Adapter not found*/ },
 			cfg:     globalConfig,
 			nerrors: 1,
 		},
@@ -824,21 +801,44 @@ func (f *fakeGoodHndlr) Close() error {
 	return nil
 }
 
-func (f fakeGoodHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (f fakeGoodHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return &fakeGoodHndlr{}, nil
 }
+func (f fakeGoodHndlrBldr) Validate() *adapter.ConfigErrors   { return nil }
+func (f fakeGoodHndlrBldr) SetAdapterConfig(_ adapter.Config) {}
 
 type fakeErrRetrningHndlrBldr struct{}
 
-func (f fakeErrRetrningHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (f fakeErrRetrningHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, errors.New("build failed")
 }
+func (f fakeErrRetrningHndlrBldr) Validate() *adapter.ConfigErrors {
+	return nil
+}
+func (f fakeErrRetrningHndlrBldr) SetAdapterConfig(config adapter.Config) {}
 
 type fakePanicHndlrBldr struct{}
 
-func (f fakePanicHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (f fakePanicHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	panic("panic from handler Build method")
 }
+func (f fakePanicHndlrBldr) Validate() *adapter.ConfigErrors   { return nil }
+func (f fakePanicHndlrBldr) SetAdapterConfig(_ adapter.Config) {}
+
+type fakeHndlrBldr struct {
+	validationError string
+}
+
+func (f fakeHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
+	return &fakeGoodHndlr{}, nil
+}
+func (f fakeHndlrBldr) Validate() (ce *adapter.ConfigErrors) {
+	if f.validationError == "" {
+		return nil
+	}
+	return ce.Append("foo", errors.New(f.validationError))
+}
+func (f fakeHndlrBldr) SetAdapterConfig(_ adapter.Config) {}
 
 func getSetupHandlerFn(err error) SetupHandlerFn {
 	return func(actions []*pb.Action, instances map[string]*pb.Instance,
@@ -848,11 +848,6 @@ func getSetupHandlerFn(err error) SetupHandlerFn {
 }
 
 func TestBuildHandlers(t *testing.T) {
-	var hbgood adapter.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbgood2 adapter.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbb adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hbb2 adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hpb adapter.HandlerBuilder = fakePanicHndlrBldr{}
 	const handlerName = "foo"
 	const handlerName2 = "bar"
 	tests := []struct {
@@ -868,10 +863,22 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
+			false,
+			false,
+		},
+		{
+			"ErrorFromValidateMtd",
+			getSetupHandlerFn(nil),
+			map[string]*HandlerBuilderInfo{
+				handlerName: {
+					b: fakeHndlrBldr{validationError: "Validation failed"}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+				},
+			},
+			"Validation failed",
 			false,
 			false,
 		},
@@ -880,7 +887,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(errors.New("some error during configuration")),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"some error during configuration",
@@ -892,7 +899,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeErrRetrningHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",
@@ -904,7 +911,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hpb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakePanicHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
@@ -916,10 +923,10 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 				handlerName2: {
-					handlerBuilder: &hbb2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeErrRetrningHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",
@@ -1002,22 +1009,6 @@ action_rules:
     instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedValid = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.service == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: target.service == "*"
-    actions:
-    - handler: somehandler
-      instances:
-      - RequestCountByService
-`
 	const sSvcConfigMissingHandler = `
 subject: namespace:ns
 revision: "2022"
@@ -1027,26 +1018,11 @@ action_rules:
   - instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedMissingHandler = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.ip == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: source.ip == "*"
-    actions:
-    - instances:
-      - RequestCountByService
-`
 	const sSvcConfigInvalidSelector = `
 subject: namespace:ns
 revision: "2022"
 action_rules:
-- selector: == * == invalid
+- match: == * == invalid
   actions:
   - handler: somehandler
     instances:
@@ -1076,16 +1052,6 @@ action_rules:
 			evaluator,
 		},
 		{
-			"Nested Rule",
-			sSvcConfigNestedValid,
-			0,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			nil,
-			2,
-			evaluator,
-		},
-		{
 			"HandlerNotFoundInstanceNotFound",
 			sSvcConfigValid,
 			2,
@@ -1103,16 +1069,6 @@ action_rules:
 			map[string]*HandlerBuilderInfo{"somehandler": {}},
 			[]string{"handler not specified or is invalid"},
 			0,
-			evaluator,
-		},
-		{
-			"MissingHandlerNestedCnfg",
-			sSvcConfigNestedMissingHandler,
-			1,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			[]string{"handler not specified or is invalid"},
-			1,
 			evaluator,
 		},
 		{

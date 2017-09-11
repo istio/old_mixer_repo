@@ -17,10 +17,10 @@ package runtime
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/mixer/pkg/adapter"
@@ -28,7 +28,6 @@ import (
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -43,16 +42,16 @@ func (f *fakedispatcher) ChangeResolver(rt Resolver) {
 func TestControllerEmpty(t *testing.T) {
 	d := &fakedispatcher{}
 	c := &Controller{
-		adapterInfo:            make(map[string]*handler.Info),
+		adapterInfo:            make(map[string]*adapter.Info),
 		templateInfo:           make(map[string]template.Info),
 		eval:                   nil,
-		configState:            make(map[store.Key]proto.Message),
+		configState:            make(map[store.Key]*store.Resource),
 		dispatcher:             d,
 		resolver:               &resolver{}, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
 		createHandlerFactory: func(templateInfo map[string]template.Info, expr expr.TypeChecker,
-			df expr.AttributeDescriptorFinder, builderInfo map[string]*handler.Info) HandlerFactory {
+			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory {
 			return &fhbuilder{}
 		},
 	}
@@ -122,7 +121,7 @@ func TestController_workflow(t *testing.T) {
 	mcd := maxCleanupDuration
 	defer func() { maxCleanupDuration = mcd }()
 
-	adapterInfo := map[string]*handler.Info{
+	adapterInfo := map[string]*adapter.Info{
 		"AA": {
 			Name: "AA",
 		},
@@ -132,9 +131,9 @@ func TestController_workflow(t *testing.T) {
 			Name: "metric",
 		},
 	}
-	configState := map[store.Key]proto.Message{
-		{RulesKind, DefaultConfigNamespace, "r1"}: &cpb.Rule{
-			Selector: "target.service == \"abc\"",
+	configState := map[store.Key]*store.Resource{
+		{RulesKind, DefaultConfigNamespace, "r1"}: {Spec: &cpb.Rule{
+			Match: "target.service == \"abc\"",
 			Actions: []*cpb.Action{
 				{
 					Handler:   "a1.AA." + DefaultConfigNamespace,
@@ -142,8 +141,9 @@ func TestController_workflow(t *testing.T) {
 				},
 			},
 		},
-		{"metric", DefaultConfigNamespace, "m1"}: &wrappers.StringValue{Value: "metric1_config"},
-		{"AA", DefaultConfigNamespace, "a1"}:     &wrappers.StringValue{Value: "AA_config"},
+		},
+		{"metric", DefaultConfigNamespace, "m1"}: {Spec: &wrappers.StringValue{Value: "metric1_config"}},
+		{"AA", DefaultConfigNamespace, "a1"}:     {Spec: &wrappers.StringValue{Value: "AA_config"}},
 	}
 
 	d := &fakedispatcher{}
@@ -160,7 +160,7 @@ func TestController_workflow(t *testing.T) {
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
 		createHandlerFactory: func(templateInfo map[string]template.Info, expr expr.TypeChecker,
-			df expr.AttributeDescriptorFinder, builderInfo map[string]*handler.Info) HandlerFactory {
+			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory {
 			return fb
 		},
 	}
@@ -175,7 +175,7 @@ func TestController_workflow(t *testing.T) {
 	if fb.called != 1 {
 		t.Fatalf("handler called: %d, want 1", fb.called)
 	}
-	hname := "a1.AA.istio-default-config"
+	hname := "a1.AA.istio-config-default"
 	if fb.h.Name != hname {
 		t.Fatalf("got %s, want %s handler", fb.h.Name, hname)
 	}
@@ -192,12 +192,12 @@ func TestController_workflow(t *testing.T) {
 	events := []*store.Event{
 		{
 			Key:   store.Key{"metric", DefaultConfigNamespace, "m2"},
-			Value: &wrappers.StringValue{Value: "metric2_config"},
+			Value: &store.Resource{Spec: &wrappers.StringValue{Value: "metric2_config"}},
 		},
 		{
 			Key: store.Key{RulesKind, DefaultConfigNamespace, "r2"},
-			Value: &cpb.Rule{
-				Selector: "target.service == \"bcd\"",
+			Value: &store.Resource{Spec: &cpb.Rule{
+				Match: "target.service == \"bcd\"",
 				Actions: []*cpb.Action{
 					{
 						Handler:   "a1.AA." + DefaultConfigNamespace,
@@ -209,6 +209,7 @@ func TestController_workflow(t *testing.T) {
 					},
 				},
 			},
+			},
 		},
 	}
 	c.applyEvents(events)
@@ -217,7 +218,7 @@ func TestController_workflow(t *testing.T) {
 	if fb.called != 2 {
 		t.Fatalf("handler create called: %d, want 1", fb.called)
 	}
-	hname = "a1.AA.istio-default-config"
+	hname = "a1.AA.istio-config-default"
 	if fb.h.Name != hname {
 		t.Fatalf("got %s, want %s handler", fb.h.Name, hname)
 	}
@@ -237,7 +238,7 @@ func TestController_workflow(t *testing.T) {
 	if fb.called != 2 {
 		t.Fatalf("handler create called: %d, want 1", fb.called)
 	}
-	hname = "a1.AA.istio-default-config"
+	hname = "a1.AA.istio-config-default"
 	if fb.h.Name != hname {
 		t.Fatalf("got %s, want %s handler", fb.h.Name, hname)
 	}
@@ -365,22 +366,22 @@ func Test_WaitForChanges(t *testing.T) {
 func TestAttributeFinder_GetAttribute(t *testing.T) {
 	c := &Controller{}
 
-	c.configState = map[store.Key]proto.Message{
-		{AttributeManifestKind, DefaultConfigNamespace, "at1"}: &cpb.AttributeManifest{
+	c.configState = map[store.Key]*store.Resource{
+		{AttributeManifestKind, DefaultConfigNamespace, "at1"}: {Spec: &cpb.AttributeManifest{
 			Name: "k8s",
 			Attributes: map[string]*cpb.AttributeManifest_AttributeInfo{
 				"a": {},
 				"b": {},
 			},
-		},
-		{AttributeManifestKind, DefaultConfigNamespace, "at2"}: &cpb.AttributeManifest{
+		}},
+		{AttributeManifestKind, DefaultConfigNamespace, "at2"}: {Spec: &cpb.AttributeManifest{
 			Name: "k8s",
 			Attributes: map[string]*cpb.AttributeManifest_AttributeInfo{
 				"c": {},
 				"d": {},
 			},
-		},
-		{"unknownKind", DefaultConfigNamespace, "at2"}: &cpb.AttributeManifest{},
+		}},
+		{"unknownKind", DefaultConfigNamespace, "at2"}: {Spec: &cpb.AttributeManifest{}},
 	}
 
 	df := c.processAttributeManifests()
@@ -446,6 +447,79 @@ func TestController_Resolve2(t *testing.T) {
 				t.Fatalf("nrules got: %d, want %d", n, tc.numRules)
 			}
 
+		})
+	}
+}
+
+func TestController_ResourceType(t *testing.T) {
+	for _, tc := range []struct {
+		labels map[string]string
+		rt     ResourceType
+	}{
+		{labels: map[string]string{
+			istioProtocol: "tcp",
+		}, rt: ResourceType{protocolTCP, methodCheck | methodReport | methodPreprocess}},
+		{labels: map[string]string{
+			istioProtocol: "http",
+		}, rt: ResourceType{protocolHTTP, methodCheck | methodReport | methodPreprocess}},
+		{labels: nil, rt: ResourceType{protocolHTTP, methodCheck | methodReport | methodPreprocess}},
+	} {
+		t.Run(fmt.Sprintf("%v", tc.labels), func(t *testing.T) {
+			rt := resourceType(tc.labels)
+
+			if rt != tc.rt {
+				t.Fatalf("got %v, want %v", rt, tc.rt)
+			}
+		})
+	}
+
+}
+
+//unc canonicalizeInstanceNames(instances []string, namespace string) []string
+func TestController_canInstances(t *testing.T) {
+	ns := "default-ns"
+	for _, tc := range []struct {
+		desc  string
+		insts []string
+	}{
+		{"fdqnInstance", []string{
+			"n1.kind1." + ns,
+		}},
+		{"nonFqdnHandler", []string{
+			"n1.kind1",
+		}},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			insts := canonicalizeInstanceNames(tc.insts, ns)
+			for _, inst := range insts {
+				if !isFQN(inst) {
+					t.Fatalf("name was not canonicalized: %s", inst)
+				}
+			}
+		})
+	}
+}
+
+func TestController_canHandlers(t *testing.T) {
+	ns := "default-ns"
+	for _, tc := range []struct {
+		desc string
+		acts []*cpb.Action
+	}{
+		{"fdqnHandler", []*cpb.Action{
+			{Handler: "n1.kind1." + ns},
+		}},
+		{"nonFqdnHandler", []*cpb.Action{
+			{Handler: "n1.kind1"},
+		}},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			act := canonicalizeHandlerNames(tc.acts, ns)
+			for _, a := range act {
+				if !isFQN(a.Handler) {
+					t.Fatalf("name was not canonicalized: %s", a.Handler)
+				}
+			}
 		})
 	}
 }

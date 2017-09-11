@@ -26,7 +26,6 @@ import (
 
 	"istio.io/mixer/adapter/stdio/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/logentry"
 	"istio.io/mixer/template/metric"
 )
@@ -111,8 +110,8 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 ////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "stdio",
 		Impl:        "istio.io/mixer/adapter/stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",
@@ -126,11 +125,7 @@ func GetInfo() pkgHndlr.Info {
 			OutputAsJson: false,
 		},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -236,28 +231,4 @@ func newZapLogger(outputPath string, encoding string) (*zap.Logger, error) {
 	zapConfig.Encoding = encoding
 
 	return zapConfig.Build()
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-// Build is to be deleted
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// ConfigureLogEntryHandler is to be deleted
-func (o *obuilder) ConfigureLogEntryHandler(types map[string]*logentry.Type) error {
-	o.b.SetLogEntryTypes(types)
-	return nil
-}
-
-// ConfigureMetricHandler is to be deleted
-func (o *obuilder) ConfigureMetricHandler(types map[string]*metric.Type) error {
-	o.b.SetMetricTypes(types)
-	return nil
 }

@@ -24,13 +24,13 @@ import (
 	"google.golang.org/grpc"
 
 	adp "istio.io/mixer/adapter"
+	pkgAdp "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/il/evaluator"
 	"istio.io/mixer/pkg/pool"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
@@ -52,7 +52,7 @@ type TestState struct {
 }
 
 // InitMixer creates an in memory mixer, and returns TestState associated with it.
-func InitMixer(t *testing.T, configStore2URL string, adptInfos []handler.InfoFn, tmplInfos map[string]template.Info) *TestState {
+func InitMixer(t *testing.T, configStore2URL string, adptInfos []pkgAdp.InfoFn, tmplInfos map[string]template.Info) *TestState {
 	// TODO replace
 	useIL := false
 	apiPoolSize := 1024
@@ -89,7 +89,7 @@ func InitMixer(t *testing.T, configStore2URL string, adptInfos []handler.InfoFn,
 	if err != nil {
 		t.Fatalf("Failed to create runtime dispatcher. %v", err)
 	}
-	adapterMgr := adapterManager.NewManager(adp.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
+	adapterMgr := adapterManager.NewManager(adp.InventoryLegacy(), aspect.Inventory(), eval, gp, adapterGP)
 
 	repo := template.NewRepository(tmplInfos)
 

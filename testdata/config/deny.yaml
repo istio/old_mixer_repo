@@ -17,12 +17,13 @@ spec:
  
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: mixer-rule
+kind: rule
 metadata:
   name: mixerdenysome
   namespace: istio-config-default
 spec:
-  selector: request.headers["clnt"] == "abc"
+  match: request.headers["clnt"] == "abc"
   actions:
-  - handler: denyall.denier.istio-config-default
-    instances: [ denyrequest.checknothing.istio-config-default ]
+  # handler and instance names default to the rule's namespace.
+  - handler: denyall.denier
+    instances: [ denyrequest.checknothing ]

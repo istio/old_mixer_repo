@@ -1,20 +1,4 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: prometheus
-metadata:
-  name: handler
-  namespace: istio-config-default
-spec:
-  metrics:
-  - name: request_count
-    instance_name: requestcount.metric.istio-config-default
-    kind: COUNTER
-    label_names: [ source, target, service, method, version,  response_code ]
-  - name: request_duration
-    instance_name: requestduration.metric.istio-config-default
-    kind: COUNTER
-    label_names: [ source, target, service, method, version,  response_code ]
----
-apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestcount
@@ -28,6 +12,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -43,16 +28,38 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: mixer-rule
+kind: metric
 metadata:
-  name: prommetrics
+  name: requestsize
   namespace: istio-config-default
 spec:
-  selector: "true"
-  actions:
-  - handler: handler.prometheus.istio-config-default
-    instances:
-    - requestcount.metric.istio-config-default
-    - requestduration.metric.istio-config-default
+  value: request.size | 0
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+    service: target.labels["app"] | "unknown"
+    method: request.path | "unknown"
+    version: target.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: responsesize
+  namespace: istio-config-default
+spec:
+  value: response.size | 0
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+    service: target.labels["app"] | "unknown"
+    method: request.path | "unknown"
+    version: target.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+

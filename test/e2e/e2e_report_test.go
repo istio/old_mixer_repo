@@ -24,6 +24,7 @@ import (
 	"istio.io/mixer/pkg/template"
 	e2eTmpl "istio.io/mixer/test/e2e/template"
 	reportTmpl "istio.io/mixer/test/e2e/template/report"
+	spyAdapter "istio.io/mixer/test/e2e/spyAdapter"
 )
 
 const (
@@ -74,7 +75,7 @@ spec:
 ---
 
 apiVersion: "config.istio.io/v1alpha2"
-kind: mixer-rule
+kind: rule
 metadata:
   name: rule1
   namespace: istio-config-default
@@ -91,10 +92,10 @@ spec:
 type testData struct {
 	name          string
 	oprtrCnfg     string
-	adptBehaviors []adptBehavior
+	adptBehaviors []spyAdapter.AdptBhvr
 	templates     map[string]template.Info
 	attribs       map[string]interface{}
-	validate      func(t *testing.T, err error, sypAdpts []*SpyAdapter)
+	validate      func(t *testing.T, err error, sypAdpts []*spyAdapter.Adptr)
 }
 
 func TestReport(t *testing.T) {
@@ -102,14 +103,14 @@ func TestReport(t *testing.T) {
 		{
 			name:          "Report",
 			oprtrCnfg:     reportTestCnfg,
-			adptBehaviors: []adptBehavior{{name: "fakeHandler"}},
+			adptBehaviors: []spyAdapter.AdptBhvr{{Name: "fakeHandler"}},
 			templates:     e2eTmpl.SupportedTmplInfo,
 			attribs:       map[string]interface{}{"target.name": "somesrvcname"},
-			validate: func(t *testing.T, err error, spyAdpts []*SpyAdapter) {
+			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter.Adptr) {
 
 				adptr := spyAdpts[0]
 
-				CmpMapAndErr("ConfigureSampleReportHandler input", t, adptr.bldrCallData.ConfigureSampleReportHandler_Types,
+				CmpMapAndErr("SetSampleReportTypes input", t, adptr.BldrCallData.SetSampleReportTypes_Types,
 					map[string]interface{}{
 						"reportInstance.report.istio-config-default": &reportTmpl.Type{
 							Value:      pb.INT64,
@@ -118,7 +119,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				CmpSliceAndErr("HandleSampleReport input", t, adptr.hndlrCallData.HandleSampleReport_Instances,
+				CmpSliceAndErr("HandleSampleReport input", t, adptr.HndlrCallData.HandleSampleReport_Instances,
 					[]*reportTmpl.Instance{
 						{
 							Name:       "reportInstance.report.istio-config-default",

@@ -209,8 +209,12 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	case "ip":
 		g.generate(f.Args[0], depth+1, nmNone, "")
 		g.builder.Call("ip")
+	case "match":
+		g.generate(f.Args[0], depth+1, nmNone, "")
+		g.generate(f.Args[1], depth+1, nmNone, "")
+		g.builder.Call("match")
 	default:
-		// TODO: generalize "ip" case to iterate over Args and append Call
+		// TODO: generalize "ip" and "match" case to iterate over Args and append Call
 		g.internalError("function not yet implemented: %s", f.Name)
 	}
 }
@@ -301,10 +305,10 @@ func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, val
 
 		if f.Args[1].Const != nil {
 			str := f.Args[1].Const.Value.(string)
-			g.builder.ALookup(str)
+			g.builder.ANLookup(str)
 		} else {
 			g.generate(f.Args[1], depth+1, nmNone, "")
-			g.builder.Lookup()
+			g.builder.NLookup()
 		}
 
 	case nmJmpOnValue:
