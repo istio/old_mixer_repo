@@ -37,8 +37,8 @@ const (
 
 // Name of all supported aspect kinds.
 const (
-	AttributesKindName      = "attributes"
-	QuotasKindName          = "quotas"
+	AttributesKindName = "attributes"
+	QuotasKindName     = "quotas"
 )
 
 // kindToString maps from kinds to their names.
