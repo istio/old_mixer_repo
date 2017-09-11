@@ -57,14 +57,14 @@ type fakeReportHandler struct {
 }
 
 func (h *fakeReportHandler) Close() error { return nil }
-func (h *fakeReportHandler) HandleSample(ctx context.Context, instances []*sample_report.Instance) error {
+func (h *fakeReportHandler) HandleReport(ctx context.Context, instances []*sample_report.Instance) error {
 	h.procCallInput = instances
 	return h.retError
 }
 func (h *fakeReportHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeReportHandler) SetSampleTypes(t map[string]*sample_report.Type) {
+func (h *fakeReportHandler) SetReportTypes(t map[string]*sample_report.Type) {
 	h.cnfgCallInput = t
 }
 func (h *fakeReportHandler) Validate() *adapter.ConfigErrors     { return nil }
@@ -79,16 +79,16 @@ type fakeCheckHandler struct {
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) HandleSample(ctx context.Context, instance *sample_check.Instance) (adapter.CheckResult, error) {
+func (h *fakeCheckHandler) HandleCheck(ctx context.Context, instance *sample_check.Instance) (adapter.CheckResult, error) {
 	h.procCallInput = instance
 	return h.retResult, h.retError
 }
 func (h *fakeCheckHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeCheckHandler) SetSampleTypes(t map[string]*sample_check.Type) { h.cnfgCallInput = t }
-func (h *fakeCheckHandler) Validate() *adapter.ConfigErrors                { return nil }
-func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config)            {}
+func (h *fakeCheckHandler) SetCheckTypes(t map[string]*sample_check.Type) { h.cnfgCallInput = t }
+func (h *fakeCheckHandler) Validate() *adapter.ConfigErrors               { return nil }
+func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config)           {}
 
 type fakeQuotaHandler struct {
 	adapter.Handler
@@ -338,12 +338,10 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-			wantErr:            "expression for field Int64Primitive cannot be empty",
-			willPanic:          false,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field Int64Primitive cannot be empty",
+			willPanic:     false,
 		},
 		{
 			name: "InferredTypeNotMatchStaticTypeFromTemplate",
@@ -359,12 +357,29 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-			wantErr:            "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
-			willPanic:          false,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
+			willPanic:     false,
+		},
+		{
+			name: "EmptyString",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: '""'
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+  source: source.string
+  target: source.string
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field StringPrimitive cannot be empty",
+			willPanic:     false,
 		},
 		{
 			name:      "NotValidInstanceParam",
