@@ -49,6 +49,9 @@ type handler struct {
 
 	// the limits we know about
 	limits map[string]*config.Params_Quota
+
+	// logger provided by the framework
+	logger adapter.Logger
 }
 
 // Limit is implemented by Quota and Override messages.
@@ -81,21 +84,26 @@ func matchDimensions(cfg map[string]string, inst map[string]interface{}) bool {
 
 // limit returns the limit associated with this particular request.
 // Check if the instance matches an override, else return the default limit.
-func limit(cfg *config.Params_Quota, instance *quota.Instance) Limit {
+func limit(cfg *config.Params_Quota, instance *quota.Instance, l adapter.Logger) Limit {
 	for idx := range cfg.Overrides {
 		o := cfg.Overrides[idx]
 		if matchDimensions(o.Dimensions, instance.Dimensions) {
+			if l.VerbosityLevel(4) {
+				l.Infof("quota override: %v selected for %v", o, *instance)
+			}
 			// all dimensions matched, we found the override.
 			return &o
 		}
+	}
+	if l.VerbosityLevel(4) {
+		l.Infof("quota default: %v selected for %v", cfg.MaxAmount, *instance)
 	}
 	// no overrides, use default limit.
 	return cfg
 }
 
 func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	q := limit(h.limits[instance.Name], instance)
-
+	q := limit(h.limits[instance.Name], instance, h.logger)
 	if args.QuotaAmount > 0 {
 		return h.alloc(instance, args, q)
 	} else if args.QuotaAmount < 0 {
@@ -106,7 +114,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 }
 
 func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
-	amount, exp, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+	amount, exp, key, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
@@ -146,6 +154,10 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limi
 		return result, currentTime.Add(q.GetValidDuration()), q.GetValidDuration()
 	})
 
+	if h.logger.VerbosityLevel(2) {
+		h.logger.Infof(" AccessLog %d/%d %s", amount, args.QuotaAmount, key)
+	}
+
 	return adapter.QuotaResult{
 		Status:        status.OK,
 		Amount:        amount,
@@ -154,7 +166,7 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limi
 }
 
 func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
-	amount, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+	amount, _, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
@@ -268,6 +280,7 @@ func (b *builder) buildWithDedup(_ context.Context, env adapter.Env, ticker *tim
 		cells:   make(map[string]int64),
 		windows: make(map[string]*rollingWindow),
 		limits:  limits,
+		logger:  env.Logger(),
 	}
 
 	env.ScheduleDaemon(func() {

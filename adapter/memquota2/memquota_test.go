@@ -387,6 +387,7 @@ func TestHandler_Limit(t *testing.T) {
 	inst1 := quota.Instance{
 		Dimensions: map[string]interface{}{
 			"destination": "dest1",
+			"source":      "src1",
 		},
 	}
 
@@ -471,7 +472,8 @@ func TestHandler_Limit(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			l := limit(&tc.cfg, &tc.inst)
+			env := test.NewEnv(t)
+			l := limit(&tc.cfg, &tc.inst, env.Logger())
 
 			if l.GetMaxAmount() != tc.limit {
 				t.Fatalf("got %v, want %v\n", l.GetMaxAmount(), tc.limit)
