@@ -30,6 +30,7 @@ type Args struct {
 	ConfigStoreURL                string
 	ConfigStore2URL               string
 	ConfigDefaultNamespace        string
+	ConfigIdentityAttribute string
 	ConfigIdentityAttributeDomain string
 	UseAstEvaluator               bool
 }
@@ -42,7 +43,7 @@ func NewEnv(args *Args, info map[string]template.Info, adapters []adapter.InfoFn
 	}
 
 	context := cmd.SetupTestServer(info, adapters, args.ConfigStoreURL, args.ConfigStore2URL,
-		args.ConfigDefaultNamespace, args.ConfigIdentityAttributeDomain, args.UseAstEvaluator)
+		args.ConfigDefaultNamespace, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, args.UseAstEvaluator)
 	shutdown := make(chan struct{})
 
 	go func() {
