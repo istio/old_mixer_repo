@@ -58,10 +58,10 @@ type (
 
 		SetAdapterConfig_Panic bool
 
-		Validate_Err *adapter.ConfigErrors
+		Validate_Err   *adapter.ConfigErrors
 		Validate_Panic bool
 
-		Build_Err error
+		Build_Err   error
 		Build_Panic bool
 	}
 
@@ -70,7 +70,7 @@ type (
 		bldrbehavior  BldrBhvr
 		hndlrbehavior HndlrBhvr
 
-		bldrCallData *bldrCallData
+		bldrCallData  *bldrCallData
 		hndlrCallData *hndlrCallData
 	}
 
@@ -83,7 +83,7 @@ type (
 	// nolint
 	hndlrCallData struct {
 		HandleSampleReport_Instances []*reportTmpl.Instance
-		HandleSampleReport_Cnt int
+		HandleSampleReport_Cnt       int
 
 		Close_Cnt int
 	}
@@ -96,7 +96,7 @@ type (
 		SetSampleReportTypes_Types map[string]*reportTmpl.Type
 
 		SetAdapterConfig_AdptCnfg adapter.Config
-		SetAdapterConfig_Cnt int
+		SetAdapterConfig_Cnt      int
 
 		Validate_Cnt int
 
@@ -185,7 +185,7 @@ func (s *Adptr) GetAdptInfoFn() adapter.InfoFn {
 				}
 			},
 			DefaultConfig: &types.Empty{},
-			Impl: "ThisIsASpyAdapter",
+			Impl:          "ThisIsASpyAdapter",
 		}
 	}
 }

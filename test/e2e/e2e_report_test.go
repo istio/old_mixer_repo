@@ -16,6 +16,8 @@ package e2e
 
 import (
 	"context"
+	"io"
+	"log"
 	"os"
 	"testing"
 
@@ -26,8 +28,6 @@ import (
 	reportTmpl "istio.io/mixer/test/e2e/template/report"
 	spyAdapter "istio.io/mixer/test/spyAdapter"
 	testEnv "istio.io/mixer/test/testenv"
-	"io"
-	"log"
 )
 
 const (
@@ -101,7 +101,6 @@ type testData struct {
 	validate      func(t *testing.T, err error, sypAdpts []*spyAdapter.Adptr)
 }
 
-
 func closeHelper(c io.Closer) {
 	err := c.Close()
 	if err != nil {
@@ -152,7 +151,6 @@ func TestReport(t *testing.T) {
 			}
 		}() // nolint: gas
 
-
 		var args = testEnv.Args{
 			// Start Mixer server on a free port on loop back interface
 			MixerServerAddr:               `127.0.0.1:0`,
@@ -163,7 +161,7 @@ func TestReport(t *testing.T) {
 			ConfigIdentityAttributeDomain: "svc.cluster.local",
 			UseAstEvaluator:               true,
 		}
-		
+
 		adapterInfos, spyAdapters := CnstrAdapterInfos(tt.adptBehaviors)
 		env, err := testEnv.NewEnv(&args, e2eTmpl.SupportedTmplInfo, adapterInfos)
 		if err != nil {
