@@ -115,9 +115,7 @@ func (f bldr) Build(ctx context.Context, env adapter.Env) (adapter.Handler, erro
 	f.bldrCallData.Build_Ctx = ctx
 	f.bldrCallData.Build_Env = env
 
-	hndlr := hndlr{hndlrbehavior: f.hndlrbehavior, hndlrCallData: f.hndlrCallData}
-
-	return hndlr, f.bldrbehavior.Build_Err
+	return hndlr{hndlrbehavior: f.hndlrbehavior, hndlrCallData: f.hndlrCallData}, f.bldrbehavior.Build_Err
 }
 
 func (f bldr) SetSampleReportTypes(typeParams map[string]*reportTmpl.Type) {
@@ -166,10 +164,12 @@ func (f hndlr) Close() error {
 	return f.hndlrbehavior.Close_Error
 }
 
+// NewSpyAdapter returns a new instance of Adapter with the given behavior
 func NewSpyAdapter(b AdptBhvr) *Adptr {
 	return &Adptr{AdptBhvr: b, BldrCallData: &bldrCallData{}, HndlrCallData: &hndlrCallData{}}
 }
 
+// GetAdptInfoFn returns the infoFn for the Adapter.
 func (s *Adptr) GetAdptInfoFn() adapter.InfoFn {
 	return func() adapter.Info {
 		return adapter.Info{
