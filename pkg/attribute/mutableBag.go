@@ -393,11 +393,13 @@ func lookup(index int32, err error, globalWordList []string, messageWordList []s
 	return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
 }
 
-func (b *MutableBag) DebugString() string {
+// DebugString prints out the attributes from the parent bag, then
+// walks through the local changes and prints them as well.
+func (mb *MutableBag) DebugString() string {
 	var buf bytes.Buffer
-	buf.WriteString(b.parent.DebugString())
+	buf.WriteString(mb.parent.DebugString())
 	buf.WriteString("\n")
-	for k, v := range b.values {
+	for k, v := range mb.values {
 		buf.WriteString(fmt.Sprintf("%-20s: %v\n", k, v))
 	}
 	return buf.String()

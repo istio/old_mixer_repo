@@ -307,6 +307,8 @@ func (pb *ProtoBag) Done() {
 	// NOP
 }
 
+// DebugString runs through the named attributes, looks up their values,
+// and prints them to a string.
 func (pb *ProtoBag) DebugString() string {
 	var buf bytes.Buffer
 	for _, name := range pb.Names() {
