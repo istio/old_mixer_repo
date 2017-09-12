@@ -10,6 +10,7 @@ import (
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -83,4 +84,16 @@ func (env *testEnv) Close() error {
 	close(env.shutdown)
 	env.mixerContext = nil
 	return nil
+}
+
+func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) mixerpb.Attributes {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(identityAttr, identityAttrDomain)
+	for k, v := range attrs {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto mixerpb.Attributes
+	requestBag.ToProto(&attrProto, nil, 0)
+	return attrProto
 }

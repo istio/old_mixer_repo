@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	globalCnfg = `
+	globalCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -55,7 +55,7 @@ spec:
         value_type: INT64
 ---
 `
-	reportTestCnfg = `
+	reportTestCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
@@ -93,12 +93,12 @@ spec:
 )
 
 type testData struct {
-	name          string
-	oprtrCnfg     string
-	adptBehaviors []spyAdapter.AdptBehavior
-	templates     map[string]template.Info
-	attribs       map[string]interface{}
-	validate      func(t *testing.T, err error, sypAdpts []*spyAdapter.Adptr)
+	name      string
+	cfg       string
+	behaviors []spyAdapter.AdapterBehavior
+	templates map[string]template.Info
+	attrs     map[string]interface{}
+	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
 }
 
 func closeHelper(c io.Closer) {
@@ -111,16 +111,16 @@ func closeHelper(c io.Closer) {
 func TestReport(t *testing.T) {
 	tests := []testData{
 		{
-			name:          "Report",
-			oprtrCnfg:     reportTestCnfg,
-			adptBehaviors: []spyAdapter.AdptBehavior{{Name: "fakeHandler"}},
-			templates:     e2eTmpl.SupportedTmplInfo,
-			attribs:       map[string]interface{}{"target.name": "somesrvcname"},
-			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter.Adptr) {
+			name:      "Report",
+			cfg:       reportTestCfg,
+			behaviors: []spyAdapter.AdapterBehavior{{Name: "fakeHandler"}},
+			templates: e2eTmpl.SupportedTmplInfo,
+			attrs:     map[string]interface{}{"target.name": "somesrvcname"},
+			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter.Adapter) {
 
 				adptr := spyAdpts[0]
 
-				CmpMapAndErr("SetSampleReportTypes input", t, adptr.BldrCallData.SetSampleReportTypes_Types,
+				CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypes_Types,
 					map[string]interface{}{
 						"reportInstance.samplereport.istio-config-default": &reportTmpl.Type{
 							Value:      pb.INT64,
@@ -129,7 +129,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				CmpSliceAndErr("HandleSampleReport input", t, adptr.HandlerCallData.HandleSampleReport_Instances,
+				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReport_Instances,
 					[]*reportTmpl.Instance{
 						{
 							Name:       "reportInstance.samplereport.istio-config-default",
@@ -142,7 +142,7 @@ func TestReport(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		configDir := GetCnfgs(tt.oprtrCnfg, globalCnfg)
+		configDir := GetCnfgs(tt.cfg, globalCfg)
 		defer func() {
 			if !t.Failed() {
 				_ = os.RemoveAll(configDir)
@@ -162,7 +162,7 @@ func TestReport(t *testing.T) {
 			UseAstEvaluator:               true,
 		}
 
-		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.adptBehaviors)
+		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
 		env, err := testEnv.NewEnv(&args, e2eTmpl.SupportedTmplInfo, adapterInfos)
 		if err != nil {
 			t.Fatalf("fail to create testenv: %v", err)
@@ -178,7 +178,7 @@ func TestReport(t *testing.T) {
 
 		req := istio_mixer_v1.ReportRequest{
 			Attributes: []istio_mixer_v1.Attributes{
-				GetAttributes(tt.attribs,
+				testEnv.GetAttrBag(tt.attrs,
 					args.ConfigIdentityAttribute,
 					args.ConfigIdentityAttributeDomain)},
 		}
