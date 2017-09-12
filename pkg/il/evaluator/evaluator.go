@@ -157,9 +157,6 @@ func (e *IL) updateAttrContext(finder expr.AttributeDescriptorFinder) {
 		panic(fmt.Sprintf("Unexpected error from lru.New: %v", err))
 	}
 
-	if finder == nil {
-
-	}
 	context := &attrContext{
 		cache:  cache,
 		finder: finder,
