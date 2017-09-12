@@ -27,20 +27,20 @@ import (
 
 type (
 
-	// Adptr is a fake Adapter. It is used for controlling the Adapter's behavior as well as
+	// Adapter is a fake Adapter. It is used for controlling the Adapter's behavior as well as
 	// inspect the input values that adapter receives from Mixer
 	// nolint
-	Adptr struct {
-		AdptBehavior    AdptBehavior
-		BldrCallData    *builderCallData
-		HandlerCallData *handlerCallData
+	Adapter struct {
+		Behavior    AdapterBehavior
+		BuilderData *builderData
+		HandlerData *handlerData
 	}
 
 	// nolint
-	AdptBehavior struct {
-		Name            string
-		BuilderBehavior BuilderBehavior
-		HandlerBhavior  HandlerBehavior
+	AdapterBehavior struct {
+		Name    string
+		Builder BuilderBehavior
+		Handler HandlerBehavior
 	}
 
 	// nolint
@@ -66,122 +66,121 @@ type (
 	}
 
 	// nolint
-	bldr struct {
-		builderBehavior BuilderBehavior
+	builder struct {
+		behavior        BuilderBehavior
 		handlerBehavior HandlerBehavior
-
-		builderCallData *builderCallData
-		handlerCallData *handlerCallData
+		data            *builderData
+		handlerData     *handlerData
 	}
 
 	// nolint
-	hndlr struct {
-		hndlrbehavior HandlerBehavior
-		hndlrCallData *handlerCallData
+	handler struct {
+		behavior HandlerBehavior
+		data     *handlerData
 	}
 
 	// nolint
-	handlerCallData struct {
+	handlerData struct {
 		HandleSampleReport_Instances []*reportTmpl.Instance
-		HandleSampleReport_Ctr       int
+		HandleSampleReport_Count     int
 
-		Close_Ctr int
+		Close_Count int
 	}
 
 	// nolint
-	builderCallData struct {
+	builderData struct {
 		// no of time called
-		SetSampleReportTypes_Ctr int
+		SetSampleReportTypes_Count int
 		// input to the method
 		SetSampleReportTypes_Types map[string]*reportTmpl.Type
 
 		SetAdapterConfig_AdptCfg adapter.Config
-		SetAdapterConfig_Ctr     int
+		SetAdapterConfig_Count   int
 
-		Validate_Ctr int
+		Validate_Count int
 
-		Build_Ctr int
-		Build_Ctx context.Context
-		Build_Env adapter.Env
+		Build_Count int
+		Build_Ctx   context.Context
+		Build_Env   adapter.Env
 	}
 )
 
-func (f bldr) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
-	f.builderCallData.Build_Ctr++
-	if f.builderBehavior.Build_Panic {
+func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	b.data.Build_Count++
+	if b.behavior.Build_Panic {
 		panic("Build")
 	}
 
-	f.builderCallData.Build_Ctx = ctx
-	f.builderCallData.Build_Env = env
+	b.data.Build_Ctx = ctx
+	b.data.Build_Env = env
 
-	return hndlr{hndlrbehavior: f.handlerBehavior, hndlrCallData: f.handlerCallData}, f.builderBehavior.Build_Err
+	return handler{behavior: b.handlerBehavior, data: b.handlerData}, b.behavior.Build_Err
 }
 
-func (f bldr) SetSampleReportTypes(typeParams map[string]*reportTmpl.Type) {
-	f.builderCallData.SetSampleReportTypes_Ctr++
-	f.builderCallData.SetSampleReportTypes_Types = typeParams
+func (b builder) SetSampleReportTypes(typeParams map[string]*reportTmpl.Type) {
+	b.data.SetSampleReportTypes_Count++
+	b.data.SetSampleReportTypes_Types = typeParams
 
-	if f.builderBehavior.SetSampleReportTypes_Panic {
+	if b.behavior.SetSampleReportTypes_Panic {
 		panic("SetSampleReportTypes")
 	}
 }
 
-func (f bldr) SetAdapterConfig(cfg adapter.Config) {
-	f.builderCallData.SetAdapterConfig_Ctr++
-	f.builderCallData.SetAdapterConfig_AdptCfg = cfg
+func (b builder) SetAdapterConfig(cfg adapter.Config) {
+	b.data.SetAdapterConfig_Count++
+	b.data.SetAdapterConfig_AdptCfg = cfg
 
-	if f.builderBehavior.SetAdapterConfig_Panic {
+	if b.behavior.SetAdapterConfig_Panic {
 		panic("SetAdapterConfig")
 	}
 }
 
-func (f bldr) Validate() *adapter.ConfigErrors {
-	f.builderCallData.Validate_Ctr++
-	if f.builderBehavior.Validate_Panic {
+func (b builder) Validate() *adapter.ConfigErrors {
+	b.data.Validate_Count++
+	if b.behavior.Validate_Panic {
 		panic("Validate")
 	}
 
-	return f.builderBehavior.Validate_Err
+	return b.behavior.Validate_Err
 }
 
-func (f hndlr) HandleSampleReport(ctx context.Context, instances []*reportTmpl.Instance) error {
-	f.hndlrCallData.HandleSampleReport_Ctr++
-	if f.hndlrbehavior.HandleSampleReport_Panic {
+func (h handler) HandleSampleReport(ctx context.Context, instances []*reportTmpl.Instance) error {
+	h.data.HandleSampleReport_Count++
+	if h.behavior.HandleSampleReport_Panic {
 		panic("HandleSampleReport")
 	}
 
-	f.hndlrCallData.HandleSampleReport_Instances = instances
-	return f.hndlrbehavior.HandleSampleReport_Error
+	h.data.HandleSampleReport_Instances = instances
+	return h.behavior.HandleSampleReport_Error
 }
 
-func (f hndlr) Close() error {
-	f.hndlrCallData.Close_Ctr++
-	if f.hndlrbehavior.Close_Panic {
+func (h handler) Close() error {
+	h.data.Close_Count++
+	if h.behavior.Close_Panic {
 		panic("Close")
 	}
 
-	return f.hndlrbehavior.Close_Error
+	return h.behavior.Close_Error
 }
 
 // NewSpyAdapter returns a new instance of Adapter with the given behavior
-func NewSpyAdapter(b AdptBehavior) *Adptr {
-	return &Adptr{AdptBehavior: b, BldrCallData: &builderCallData{}, HandlerCallData: &handlerCallData{}}
+func NewSpyAdapter(b AdapterBehavior) *Adapter {
+	return &Adapter{Behavior: b, BuilderData: &builderData{}, HandlerData: &handlerData{}}
 }
 
 // GetAdptInfoFn returns the infoFn for the Adapter.
-func (s *Adptr) GetAdptInfoFn() adapter.InfoFn {
+func (s *Adapter) GetAdptInfoFn() adapter.InfoFn {
 	return func() adapter.Info {
 		return adapter.Info{
-			Name:               s.AdptBehavior.Name,
+			Name:               s.Behavior.Name,
 			Description:        "",
 			SupportedTemplates: []string{reportTmpl.TemplateName},
 			NewBuilder: func() adapter.HandlerBuilder {
-				return bldr{
-					builderBehavior: s.AdptBehavior.BuilderBehavior,
-					builderCallData: s.BldrCallData,
-					handlerBehavior: s.AdptBehavior.HandlerBhavior,
-					handlerCallData: s.HandlerCallData,
+				return builder{
+					behavior:        s.Behavior.Builder,
+					data:            s.BuilderData,
+					handlerBehavior: s.Behavior.Handler,
+					handlerData:     s.HandlerData,
 				}
 			},
 			DefaultConfig: &types.Empty{},
