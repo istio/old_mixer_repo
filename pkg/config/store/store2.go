@@ -86,12 +86,12 @@ type Event struct {
 // BackendValidator defines the interface between Store2Backend and Store for validation
 // requests.
 type BackendValidator interface {
-	Validate(t ChangeType, key Key, spec map[string]interface{}) error
+	Validate(t ChangeType, key Key, br *BackEndResource) error
 }
 
 // Validator defines the interface to validate a new change.
 type Validator interface {
-	Validate(t ChangeType, key Key, spec proto.Message) error
+	Validate(t ChangeType, key Key, res *Resource) error
 }
 
 // Store2Backend defines the typeless storage backend for mixer.

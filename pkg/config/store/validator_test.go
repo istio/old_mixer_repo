@@ -28,7 +28,7 @@ type fakeValidator struct {
 	err error
 }
 
-func (v *fakeValidator) Validate(t ChangeType, key Key, spec proto.Message) error {
+func (v *fakeValidator) Validate(t ChangeType, key Key, res *Resource) error {
 	return v.err
 }
 
@@ -91,13 +91,22 @@ func TestValidate(t *testing.T) {
 			nil,
 			errors.New("external validator failure"),
 		},
+		{
+			"deprecated field",
+			map[string]proto.Message{ruleKind: &cfg.Rule{}},
+			nil,
+			Update,
+			Key{Kind: ruleKind, Namespace: "ns", Name: "foo"},
+			map[string]interface{}{"selector": "selector"},
+			errors.New("field 'selector' is deprecated"),
+		},
 	} {
 		t.Run(c.title, func(tt *testing.T) {
-			v := &validator{
-				externalValidator: &fakeValidator{c.externalError},
-				kinds:             c.kinds,
-			}
-			err := v.Validate(c.typ, c.key, c.in)
+			v := NewValidator(&fakeValidator{c.externalError}, c.kinds)
+			err := v.Validate(c.typ, c.key, &BackEndResource{
+				Metadata: ResourceMeta{Name: c.key.Name, Namespace: c.key.Namespace},
+				Spec:     c.in,
+			})
 			if c.want == nil && err != nil {
 				tt.Errorf("Got %v, Want nil", err)
 			} else if c.want != nil && !strings.Contains(err.Error(), c.want.Error()) {

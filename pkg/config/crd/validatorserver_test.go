@@ -42,7 +42,7 @@ type fakeValidator struct {
 	err error
 }
 
-func (v *fakeValidator) Validate(t store.ChangeType, key store.Key, spec map[string]interface{}) error {
+func (v *fakeValidator) Validate(t store.ChangeType, key store.Key, br *store.BackEndResource) error {
 	return v.err
 }
 

@@ -194,8 +194,7 @@ func (v *ValidatorServer) validate(data []byte) error {
 		Name:      ar.Spec.Name,
 		Namespace: ar.Spec.Namespace,
 	}
-	spec, _ := uns.Object["spec"].(map[string]interface{})
-	return v.validator.Validate(ct, key, spec)
+	return v.validator.Validate(ct, key, backEndResource(uns))
 }
 
 func (v *ValidatorServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -15,42 +15,80 @@
 package store
 
 import (
+	"errors"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 )
+
+type perKindValidateFunc func(br *BackEndResource) error
+
+type perKindValidator struct {
+	pbSpec   proto.Message
+	validate perKindValidateFunc
+}
+
+func (pv *perKindValidator) validateAndConvert(br *BackEndResource, res *Resource) error {
+	if pv.validate != nil {
+		if err := pv.validate(br); err != nil {
+			return err
+		}
+	}
+	res.Spec = proto.Clone(pv.pbSpec)
+	return convert(br.Spec, res.Spec)
+}
+
+func validateRule(br *BackEndResource) error {
+	_, matchExists := br.Spec[matchField]
+	_, selectorExists := br.Spec[selectorField]
+	if !matchExists && selectorExists {
+		return errors.New("field 'selector' is deprecated, use 'match' instead")
+	}
+	if selectorExists {
+		glog.Warningf("Deprecated field 'selector' used in %s. Use 'match' instead.", br.Metadata.Name)
+	}
+	return nil
+}
 
 // validator provides the default structural validation with delegating
 // an external validator for the referential integrity.
 type validator struct {
 	externalValidator Validator
-	kinds             map[string]proto.Message
+	perKindValidators map[string]*perKindValidator
 }
 
 // NewValidator creates a default validator which validates the structure through registered
 // kinds and referential integrity through ev.
 func NewValidator(ev Validator, kinds map[string]proto.Message) BackendValidator {
+	vs := make(map[string]*perKindValidator, len(kinds))
+	for k, pb := range kinds {
+		var validateFunc perKindValidateFunc
+		if k == ruleKind {
+			validateFunc = validateRule
+		}
+		vs[k] = &perKindValidator{pb, validateFunc}
+	}
 	return &validator{
 		externalValidator: ev,
-		kinds:             kinds,
+		perKindValidators: vs,
 	}
 }
 
-func (v *validator) Validate(t ChangeType, key Key, spec map[string]interface{}) error {
-	pbSpecTmpl, ok := v.kinds[key.Kind]
+func (v *validator) Validate(t ChangeType, key Key, br *BackEndResource) error {
+	pkv, ok := v.perKindValidators[key.Kind]
 	if !ok {
 		// Pass unrecognized kinds -- they should be validated by somewhere else.
 		glog.V(3).Infof("unrecognized kind %s is requested to validate", key.Kind)
 		return nil
 	}
-	var pbSpec proto.Message
+	res := &Resource{Metadata: br.Metadata}
 	if t == Update {
-		pbSpec = proto.Clone(pbSpecTmpl)
-		if err := convert(spec, pbSpec); err != nil {
+		if err := pkv.validateAndConvert(br, res); err != nil {
 			return err
 		}
 	}
 	if v.externalValidator == nil {
 		return nil
 	}
-	return v.externalValidator.Validate(t, key, pbSpec)
+	return v.externalValidator.Validate(t, key, res)
 }
