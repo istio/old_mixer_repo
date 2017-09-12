@@ -380,9 +380,6 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	configManager.Register(adapterMgr)
-	if !sa.useAst {
-		configManager.Register(ilEval)
-	}
 	configManager.Start()
 
 	printf("Starting Config API server on port %v", sa.configAPIPort)

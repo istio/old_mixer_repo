@@ -10,8 +10,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/attribute:go_default_library",
-        "//pkg/config:go_default_library",
-        "//pkg/config/descriptor:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/il/compiler:go_default_library",
         "//pkg/il/interpreter:go_default_library",
