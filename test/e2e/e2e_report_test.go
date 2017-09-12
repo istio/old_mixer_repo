@@ -95,7 +95,7 @@ spec:
 type testData struct {
 	name          string
 	oprtrCnfg     string
-	adptBehaviors []spyAdapter.AdptBhvr
+	adptBehaviors []spyAdapter.AdptBehavior
 	templates     map[string]template.Info
 	attribs       map[string]interface{}
 	validate      func(t *testing.T, err error, sypAdpts []*spyAdapter.Adptr)
@@ -113,7 +113,7 @@ func TestReport(t *testing.T) {
 		{
 			name:          "Report",
 			oprtrCnfg:     reportTestCnfg,
-			adptBehaviors: []spyAdapter.AdptBhvr{{Name: "fakeHandler"}},
+			adptBehaviors: []spyAdapter.AdptBehavior{{Name: "fakeHandler"}},
 			templates:     e2eTmpl.SupportedTmplInfo,
 			attribs:       map[string]interface{}{"target.name": "somesrvcname"},
 			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter.Adptr) {
@@ -129,7 +129,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				CmpSliceAndErr("HandleSampleReport input", t, adptr.HndlrCallData.HandleSampleReport_Instances,
+				CmpSliceAndErr("HandleSampleReport input", t, adptr.HandlerCallData.HandleSampleReport_Instances,
 					[]*reportTmpl.Instance{
 						{
 							Name:       "reportInstance.samplereport.istio-config-default",
