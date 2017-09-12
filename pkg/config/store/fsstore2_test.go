@@ -258,15 +258,6 @@ spec:
 }
 
 func TestFsStore2_ParseChunk(t *testing.T) {
-	const good = `
-kind: Foo
-apiVersion: testing
-metadata:
-  namespace: ns
-  name: foo
-spec:
-`
-	const bad = "abc"
 	for _, c := range []struct {
 		title string
 		isNil bool
