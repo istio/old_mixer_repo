@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -86,27 +87,35 @@ func parseFile(path string, data []byte) []*resource {
 	chunks := bytes.Split(data, []byte("\n---\n"))
 	resources := make([]*resource, 0, len(chunks))
 	for i, chunk := range chunks {
-		r := &resource{}
-		if err := yaml.Unmarshal(chunk, r); err != nil {
-			glog.Errorf("Failed to parse %d-th part in file %s: %v", i, path, err)
+		r, err := parseChunk(chunk)
+		if err != nil {
+			glog.Errorf("Error processing %s[%d]: %v", path, i, err)
 			continue
 		}
-
-		if empty(r) {
-			// can be empty because
-			// There is just white space
-			// There are just comments
+		if r == nil {
 			continue
 		}
-
-		if r.Kind == "" || r.Metadata.Namespace == "" || r.Metadata.Name == "" {
-			glog.Errorf("Key elements are empty. Extracted as %s", r.Key())
-			continue
-		}
-		r.sha = sha1.Sum(chunk)
 		resources = append(resources, r)
 	}
 	return resources
+}
+
+func parseChunk(chunk []byte) (*resource, error) {
+	r := &resource{}
+	if err := yaml.Unmarshal(chunk, r); err != nil {
+		return nil, err
+	}
+	if empty(r) {
+		// can be empty because
+		// There is just white space
+		// There are just comments
+		return nil, nil
+	}
+	if r.Kind == "" || r.Metadata.Namespace == "" || r.Metadata.Name == "" {
+		return nil, fmt.Errorf("key elements are empty. Extracted as %s from\n <<%s>>", r.Key(), string(chunk))
+	}
+	r.sha = sha1.Sum(chunk)
+	return r, nil
 }
 
 var emptyResource = &resource{}
