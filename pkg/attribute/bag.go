@@ -24,4 +24,8 @@ type Bag interface {
 
 	// Done indicates the bag can be reclaimed.
 	Done()
+
+	// String provides fmt.Stringer interface implementation that does not affect
+	// calculation of referenced attributes.
+	String() string
 }

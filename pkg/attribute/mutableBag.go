@@ -392,3 +392,13 @@ func lookup(index int32, err error, globalWordList []string, messageWordList []s
 
 	return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
 }
+
+func (b *MutableBag) String() string {
+	var buf bytes.Buffer
+	buf.WriteString(b.parent.String())
+	buf.WriteString("\n")
+	for k, v := range b.values {
+		buf.WriteString(fmt.Sprintf("%-20s: %v\n", k, v))
+	}
+	return buf.String()
+}

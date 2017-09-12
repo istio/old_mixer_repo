@@ -89,6 +89,10 @@ type compatBag struct {
 	parent attribute.Bag
 }
 
+func (c *compatBag) String() string {
+	return c.parent.String()
+}
+
 // if a destination.* attribute is missing, check the corresponding target.* attribute.
 func (c *compatBag) Get(name string) (v interface{}, found bool) {
 	v, found = c.parent.Get(name)
@@ -145,10 +149,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	if glog.V(2) {
 		glog.Info("Dispatching to main adapters after running processors")
-		for _, name := range preprocResponseBag.Names() {
-			v, _ := preprocResponseBag.Get(name)
-			glog.Infof("  %s: %v", name, v)
-		}
+		glog.Infof("Attribute Bag: \n%s", preprocResponseBag)
 	}
 	dest, _ := compatRespBag.Get("destination.service")
 

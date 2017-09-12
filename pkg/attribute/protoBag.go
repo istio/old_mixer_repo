@@ -15,6 +15,7 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -304,4 +305,21 @@ func (pb *ProtoBag) Names() []string {
 // Done indicates the bag can be reclaimed.
 func (pb *ProtoBag) Done() {
 	// NOP
+}
+
+func (pb *ProtoBag) String() string {
+	var buf bytes.Buffer
+	for _, name := range pb.Names() {
+		// find the dictionary index for the given string
+		index, ok := pb.getIndex(name)
+		if !ok {
+			glog.Warningf("Attribute '%s' not in either global or message dictionaries", name)
+			continue
+		}
+
+		if result, ok := pb.internalGet(name, index); ok {
+			buf.WriteString(fmt.Sprintf("%-20s: %v\n", name, result))
+		}
+	}
+	return buf.String()
 }
