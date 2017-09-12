@@ -49,6 +49,10 @@ echo "=== Code Check ==="
 export LAST_GOOD_GITSHA="${PULL_BASE_SHA}"
 ./bin/linters.sh
 
+echo "=== go build ./... ==="
+bin/bazel_to_go.pysdf
+go build ./...
+
 echo "=== Code Coverage ==="
 ./bin/codecov.sh | tee codecov.report
 if [ "${CI:-}" == "bootstrap" ]; then
