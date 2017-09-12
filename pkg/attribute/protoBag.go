@@ -307,7 +307,7 @@ func (pb *ProtoBag) Done() {
 	// NOP
 }
 
-func (pb *ProtoBag) String() string {
+func (pb *ProtoBag) DebugString() string {
 	var buf bytes.Buffer
 	for _, name := range pb.Names() {
 		// find the dictionary index for the given string
