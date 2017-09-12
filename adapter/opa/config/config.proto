@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package adapter.authzOpa.config;
+package adapter.opa.config;
 
 import "gogoproto/gogo.proto";
 

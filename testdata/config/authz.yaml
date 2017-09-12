@@ -6,7 +6,7 @@ metadata:
 spec:
   selector: "true"
   actions:
-  - handler: authzOpaHandler.authzOpa.istio-config-default
+  - handler: opaHandler.opa.istio-config-default
     instances:
     - authzInstance.authz.istio-config-default
 
@@ -31,9 +31,9 @@ spec:
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: authzOpa
+kind: opa
 metadata:
-  name: authzOpaHandler
+  name: opaHandler
   namespace: istio-config-default
 spec:
   policy: |+

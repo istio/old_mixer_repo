@@ -4,10 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["authzOpa.go"],
+    srcs = ["opa.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/authzOpa/config:go_default_library",
+        "//adapter/opa/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/status:go_default_library",
         "//template/authz:go_default_library",
@@ -24,7 +24,7 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["authzOpa_test.go"],
+    srcs = ["opa_test.go"],
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",
@@ -32,5 +32,6 @@ go_test(
         "//pkg/status:go_default_library",
         "//template/authz:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",
     ],
 )

@@ -21,7 +21,7 @@ go_library(
 inventory_library(
     name = "inventory_lib",
     packages = {
-        "authzOpa": "istio.io/mixer/adapter/authzOpa",
+        "opa": "istio.io/mixer/adapter/opa",
         "denier": "istio.io/mixer/adapter/denier",
         "list": "istio.io/mixer/adapter/list",
         "noop": "istio.io/mixer/adapter/noop",
@@ -33,11 +33,11 @@ inventory_library(
         "memquota": "istio.io/mixer/adapter/memquota2",
     },
     deps = [
-        "//adapter/authzOpa:go_default_library",
         "//adapter/denier:go_default_library",
         "//adapter/list:go_default_library",
         "//adapter/memquota2:go_default_library",
         "//adapter/noop:go_default_library",
+        "//adapter/opa:go_default_library",
         "//adapter/prometheus:go_default_library",
         "//adapter/stackdriver:go_default_library",
         "//adapter/statsd:go_default_library",

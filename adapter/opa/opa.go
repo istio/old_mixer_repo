@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authzOpa // import "istio.io/mixer/adapter/authzOpa"
+package opa // import "istio.io/mixer/adapter/opa"
 
 // NOTE: This adapter will eventually be auto-generated so that it automatically supports all CHECK and QUOTA
 //       templates known to Mixer. For now, it's manually curated.
@@ -25,7 +25,7 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 
-	"istio.io/mixer/adapter/authzOpa/config"
+	"istio.io/mixer/adapter/opa/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/authz"
@@ -33,6 +33,7 @@ import (
 
 type (
 	builder struct {
+		types         map[string]*authz.Type
 		adapterConfig *config.Params
 	}
 
@@ -40,7 +41,6 @@ type (
 		policy      string
 		checkMethod string
 
-		context  context.Context
 		compiler *ast.Compiler
 
 		env adapter.Env
@@ -49,55 +49,78 @@ type (
 
 ///////////////// Configuration Methods ///////////////
 
-func (b *builder) SetAuthzTypes(map[string]*authz.Type) {}
+func (b *builder) SetAuthzTypes(types map[string]*authz.Type) {
+	b.types = types
+}
 
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.adapterConfig = cfg.(*config.Params)
 }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	name := GetInfo().Name
+
+	dedup := map[string]bool{}
+	for _, config := range b.types {
+		for key := range config.Subject {
+			if _, ok := dedup[key]; ok != false {
+				ce = ce.Appendf(name, fmt.Sprintf("%s in subject is duplicated", key))
+			} else {
+				dedup[key] = true
+			}
+		}
+		for key := range config.Resource {
+			if _, ok := dedup[key]; ok != false {
+				ce = ce.Appendf(name, fmt.Sprintf("%s in resource is duplicated", key))
+			} else {
+				dedup[key] = true
+			}
+		}
+		for key := range config.Verb {
+			if _, ok := dedup[key]; ok != false {
+				ce = ce.Appendf(name, fmt.Sprintf("%s in verb is duplicated", key))
+			} else {
+				dedup[key] = true
+			}
+		}
+	}
+
 	if len(b.adapterConfig.CheckMethod) == 0 {
-		ce = ce.Appendf(GetInfo().Name,
-			"CheckMethod was not configured")
+		ce = ce.Appendf(name, "CheckMethod was not configured")
 	}
 
 	parsed, err := ast.ParseModule("", string(b.adapterConfig.Policy))
 	if err != nil {
-		ce = ce.Appendf(GetInfo().Name,
-			"Failed to parse the OPA policy: %v", err)
+		ce = ce.Appendf(name, "Failed to parse the OPA policy: %v", err)
+		return
 	}
 
 	compiler := ast.NewCompiler()
 	compiler.Compile(map[string]*ast.Module{"": parsed})
 	if compiler.Failed() {
-		ce = ce.Appendf(GetInfo().Name,
-			"Failed to compile the OPA policy: %v", compiler.Errors)
+		ce = ce.Appendf(name, "Failed to compile the OPA policy: %v", compiler.Errors)
 	}
 
 	return
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	h := handler{
-		policy:      b.adapterConfig.Policy,
-		checkMethod: b.adapterConfig.CheckMethod,
-		env:         env,
-	}
-
-	parsed, _ := ast.ParseModule("", string(h.policy))
+	parsed, _ := ast.ParseModule("", string(b.adapterConfig.Policy))
 
 	compiler := ast.NewCompiler()
 	compiler.Compile(map[string]*ast.Module{"": parsed})
 
-	h.compiler = compiler
-	h.context = context
-
-	return h, nil
+	return &handler{
+		policy:      b.adapterConfig.Policy,
+		checkMethod: b.adapterConfig.CheckMethod,
+		env:         env,
+		compiler:    compiler,
+	}, nil
 }
 
 ////////////////// Runtime Methods //////////////////////////
 
-func (h handler) HandleAuthz(context context.Context, instance *authz.Instance) (adapter.CheckResult, error) {
+func (h *handler) HandleAuthz(context context.Context, instance *authz.Instance) (adapter.CheckResult, error) {
 	variables := make(map[string]interface{})
 
 	for k, v := range instance.Subject {
@@ -116,24 +139,23 @@ func (h handler) HandleAuthz(context context.Context, instance *authz.Instance) 
 		rego.Input(variables),
 	)
 
-	// Run evaluation.
-	rs, err := rego.Eval(h.context)
+	rs, err := rego.Eval(context)
 	if err != nil {
 		return adapter.CheckResult{
-			Status: status.WithPermissionDenied(fmt.Sprintf("authzOpa: request was rejected: %v", err)),
+			Status: status.WithPermissionDenied(fmt.Sprintf("opa: request was rejected: %v", err)),
 		}, nil
 	}
 
 	if len(rs) != 1 {
 		return adapter.CheckResult{
-			Status: status.WithPermissionDenied("authzOpa: request was rejected"),
+			Status: status.WithPermissionDenied("opa: request was rejected"),
 		}, nil
 	}
 
 	result, ok := rs[0].Expressions[0].Value.(bool)
 	if !ok || result == false {
 		return adapter.CheckResult{
-			Status: status.WithPermissionDenied("authzOpa: request was rejected"),
+			Status: status.WithPermissionDenied("opa: request was rejected"),
 		}, nil
 	}
 
@@ -142,7 +164,7 @@ func (h handler) HandleAuthz(context context.Context, instance *authz.Instance) 
 	}, nil
 }
 
-func (h handler) Close() error {
+func (h *handler) Close() error {
 	return nil
 }
 
@@ -152,8 +174,8 @@ func (h handler) Close() error {
 // this adapter implementation.
 func GetInfo() adapter.Info {
 	return adapter.Info{
-		Name:        "authzOpa",
-		Impl:        "istio.io/mixer/adapter/authzOpa",
+		Name:        "opa",
+		Impl:        "istio.io/mixer/adapter/opa",
 		Description: "Istio Authorization with Open Policy Agent engine",
 		SupportedTemplates: []string{
 			authz.TemplateName,
