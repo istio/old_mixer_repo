@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -90,6 +91,14 @@ func parseFile(path string, data []byte) []*resource {
 			glog.Errorf("Failed to parse %d-th part in file %s: %v", i, path, err)
 			continue
 		}
+
+		if empty(r) {
+			// can be empty because
+			// There is just white space
+			// There are just comments
+			continue
+		}
+
 		if r.Kind == "" || r.Metadata.Namespace == "" || r.Metadata.Name == "" {
 			glog.Errorf("Key elements are empty. Extracted as %s", r.Key())
 			continue
@@ -98,6 +107,13 @@ func parseFile(path string, data []byte) []*resource {
 		resources = append(resources, r)
 	}
 	return resources
+}
+
+var emptyResource = &resource{}
+
+// Check if the parsed resource is empty
+func empty(r *resource) bool {
+	return reflect.DeepEqual(*r, *emptyResource)
 }
 
 func (s *fsStore2) readFiles() map[Key]*resource {
