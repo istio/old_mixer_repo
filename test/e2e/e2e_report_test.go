@@ -162,7 +162,7 @@ func TestReport(t *testing.T) {
 			UseAstEvaluator:               true,
 		}
 
-		adapterInfos, spyAdapters := CnstrAdapterInfos(tt.adptBehaviors)
+		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.adptBehaviors)
 		env, err := testEnv.NewEnv(&args, e2eTmpl.SupportedTmplInfo, adapterInfos)
 		if err != nil {
 			t.Fatalf("fail to create testenv: %v", err)
