@@ -120,7 +120,7 @@ func TestReport(t *testing.T) {
 
 				adptr := spyAdpts[0]
 
-				CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypes_Types,
+				CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypesTypes,
 					map[string]interface{}{
 						"reportInstance.samplereport.istio-config-default": &reportTmpl.Type{
 							Value:      pb.INT64,
@@ -129,7 +129,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReport_Instances,
+				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReportInstances,
 					[]*reportTmpl.Instance{
 						{
 							Name:       "reportInstance.samplereport.istio-config-default",
