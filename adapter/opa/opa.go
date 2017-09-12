@@ -63,21 +63,21 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	dedup := map[string]bool{}
 	for _, config := range b.types {
 		for key := range config.Subject {
-			if _, ok := dedup[key]; ok != false {
+			if _, ok := dedup[key]; ok {
 				ce = ce.Appendf(name, fmt.Sprintf("%s in subject is duplicated", key))
 			} else {
 				dedup[key] = true
 			}
 		}
 		for key := range config.Resource {
-			if _, ok := dedup[key]; ok != false {
+			if _, ok := dedup[key]; ok {
 				ce = ce.Appendf(name, fmt.Sprintf("%s in resource is duplicated", key))
 			} else {
 				dedup[key] = true
 			}
 		}
 		for key := range config.Verb {
-			if _, ok := dedup[key]; ok != false {
+			if _, ok := dedup[key]; ok {
 				ce = ce.Appendf(name, fmt.Sprintf("%s in verb is duplicated", key))
 			} else {
 				dedup[key] = true
@@ -89,7 +89,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		ce = ce.Appendf(name, "CheckMethod was not configured")
 	}
 
-	parsed, err := ast.ParseModule("", string(b.adapterConfig.Policy))
+	parsed, err := ast.ParseModule("", b.adapterConfig.Policy)
 	if err != nil {
 		ce = ce.Appendf(name, "Failed to parse the OPA policy: %v", err)
 		return
@@ -105,7 +105,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	parsed, _ := ast.ParseModule("", string(b.adapterConfig.Policy))
+	parsed, _ := ast.ParseModule("", b.adapterConfig.Policy)
 
 	compiler := ast.NewCompiler()
 	compiler.Compile(map[string]*ast.Module{"": parsed})
@@ -170,8 +170,7 @@ func (h *handler) Close() error {
 
 ////////////////// Bootstrap //////////////////////////
 
-// GetBuilderInfo returns the BuilderInfo associated with
-// this adapter implementation.
+// GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "opa",
