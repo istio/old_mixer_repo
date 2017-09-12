@@ -42,16 +42,17 @@ fi
 echo "=== Bazel Build ==="
 bazel build //...
 
-echo "=== Bazel Tests ==="
+echo "=== Bazel Tests and race check ==="
 bazel test --features=race //...
 
-echo "=== Code Check ==="
-export LAST_GOOD_GITSHA="${PULL_BASE_SHA}"
-./bin/linters.sh
 
 echo "=== go build ./... ==="
-bin/bazel_to_go.pysdf
+bin/bazel_to_go.py
 go build ./...
+
+echo "=== Code Linters ==="
+export LAST_GOOD_GITSHA="${PULL_BASE_SHA}"
+./bin/linters.sh
 
 echo "=== Code Coverage ==="
 ./bin/codecov.sh | tee codecov.report
