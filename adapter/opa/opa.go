@@ -153,7 +153,7 @@ func (h *handler) HandleAuthz(context context.Context, instance *authz.Instance)
 	}
 
 	result, ok := rs[0].Expressions[0].Value.(bool)
-	if !ok || result == false {
+	if !ok || !result {
 		return adapter.CheckResult{
 			Status: status.WithPermissionDenied("opa: request was rejected"),
 		}, nil
