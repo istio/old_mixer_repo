@@ -86,6 +86,7 @@ func (env *testEnv) Close() error {
 	return nil
 }
 
+// GetAttrBag creates Attributes proto.
 func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) mixerpb.Attributes {
 	requestBag := attribute.GetMutableBag(nil)
 	requestBag.Set(identityAttr, identityAttrDomain)
