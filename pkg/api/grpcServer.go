@@ -314,10 +314,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		if glog.V(2) {
 			glog.Info("Dispatching to main adapters after running processors")
-			for _, name := range preprocResponseBag.Names() {
-				v, _ := preprocResponseBag.Get(name)
-				glog.Infof("  %s: %v", name, v)
-			}
+			glog.Infof("Attribute Bag: \n%s", preprocResponseBag)
 		}
 
 		glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
