@@ -27,8 +27,8 @@ import (
 	"istio.io/mixer/test/spyAdapter"
 )
 
-// GetCnfgs takes the operator configuration as strings and creates directory with config files from it.
-func GetCnfgs(srvcCnfg, attrCnfg string) (dir string) {
+// GetCfgs takes the operator configuration as strings and creates directory with config files from it.
+func GetCfgs(srvcCnfg, attrCnfg string) (dir string) {
 	tmpDir := path.Join(os.TempDir(), "e2eStoreDir")
 	_ = os.MkdirAll(tmpDir, os.ModePerm)
 

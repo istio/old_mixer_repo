@@ -142,7 +142,7 @@ func TestReport(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		configDir := GetCnfgs(tt.cfg, globalCfg)
+		configDir := GetCfgs(tt.cfg, globalCfg)
 		defer func() {
 			if !t.Failed() {
 				_ = os.RemoveAll(configDir)

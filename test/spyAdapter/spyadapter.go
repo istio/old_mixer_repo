@@ -35,12 +35,16 @@ type (
 		HandlerData *handlerData
 	}
 
+	// AdapterBehavior defines the behavior of the Adapter
+	// nolint: aligncheck
 	AdapterBehavior struct {
 		Name    string
 		Builder BuilderBehavior
 		Handler HandlerBehavior
 	}
 
+	// HandlerBehavior defines the behavior of the Handler
+	// nolint: aligncheck
 	HandlerBehavior struct {
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
@@ -49,6 +53,8 @@ type (
 		ClosePanic bool
 	}
 
+	// BuilderBehavior defines the behavior of the Builder
+	// nolint: aligncheck
 	BuilderBehavior struct {
 		SetSampleReportTypesPanic bool
 
@@ -61,6 +67,7 @@ type (
 		BuildPanic bool
 	}
 
+	// nolint: aligncheck
 	builder struct {
 		behavior        BuilderBehavior
 		handlerBehavior HandlerBehavior
