@@ -16,6 +16,8 @@ package evaluator
 
 import (
 	"fmt"
+	"math/rand"
+	"sync"
 	"testing"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
@@ -86,6 +88,54 @@ func TestEvalString_DifferentType(t *testing.T) {
 	if r != "23" {
 		t.Fatalf("Unexpected result: r: %v, expected: %v", r, "23")
 	}
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+// This test adds concurrent expression evaluation across
+// many go routines.
+func TestConcurrent(t *testing.T) {
+	bags := []attribute.Bag{}
+	maxNum := 64
+
+	for i := 0; i < maxNum; i++ {
+		v := randString(6)
+		bags = append(bags, &iltesting.FakeBag{
+			Attrs: map[string]interface{}{
+				"attr": v,
+			},
+		})
+	}
+
+	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
+
+	e := initEvaluator(t, configString)
+	wg := sync.WaitGroup{}
+	for j := 0; j < 10; j++ {
+		wg.Add(1)
+		go func() {
+			for _, b := range bags {
+				ok, err := e.EvalPredicate(expression, b)
+				if err != nil {
+					t.Fatalf("Error: %v", err)
+				}
+				if ok {
+					t.Fatalf("Unexpected ok")
+				}
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }
 
 func TestEvalPredicate(t *testing.T) {
