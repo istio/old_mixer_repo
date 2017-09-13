@@ -42,13 +42,8 @@ fi
 echo "=== Bazel Build ==="
 bazel build //...
 
-echo "=== Bazel Tests ==="
-bazel test //...
-
-
 echo "=== go build ./... ==="
 bin/bazel_to_go.py
-go build ./...
 
 echo "=== Code Coverage ==="
 ./bin/codecov.sh | tee codecov.report
