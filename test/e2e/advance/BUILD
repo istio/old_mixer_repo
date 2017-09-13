@@ -3,15 +3,21 @@ package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
-go_library(
-    name = "go_default_library",
+go_test(
+    name = "go_default_test_e2e",
+    size = "small",
     srcs = [
-        "util.go",
+        "e2e_report_test.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/template:go_default_library",
+        "//test/e2e:go_default_library",
+        "//test/e2e/advance/spyAdapter:go_default_library",
+        "//test/e2e/advance/template:go_default_library",
+        "//test/e2e/advance/template/report:go_default_library",
+        "//test/testenv:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

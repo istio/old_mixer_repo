@@ -23,10 +23,12 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
-	spyAdapter "istio.io/mixer/test/e2e/spyAdapter"
-	e2eTmpl "istio.io/mixer/test/e2e/template"
-	reportTmpl "istio.io/mixer/test/e2e/template/report"
+	"istio.io/mixer/test/e2e"
+	spyAdapter "istio.io/mixer/test/e2e/advance/spyAdapter"
+	e2eTmpl "istio.io/mixer/test/e2e/advance/template"
+	reportTmpl "istio.io/mixer/test/e2e/advance/template/report"
 	testEnv "istio.io/mixer/test/testenv"
 )
 
@@ -122,7 +124,7 @@ func TestReport(t *testing.T) {
 
 				adptr := spyAdpts[0]
 
-				CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypesTypes,
+				e2e.CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypesTypes,
 					map[string]interface{}{
 						"reportInstance.samplereport.istio-config-default": &reportTmpl.Type{
 							Value:      pb.INT64,
@@ -131,7 +133,7 @@ func TestReport(t *testing.T) {
 					},
 				)
 
-				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReportInstances,
+				e2e.CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReportInstances,
 					[]*reportTmpl.Instance{
 						{
 							Name:            "reportInstance.samplereport.istio-config-default",
@@ -146,7 +148,7 @@ func TestReport(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		configDir := GetCfgs(tt.cfg, globalCfg)
+		configDir := e2e.GetCfgs(tt.cfg, globalCfg)
 		defer func() {
 			if !t.Failed() {
 				_ = os.RemoveAll(configDir)
@@ -190,4 +192,17 @@ func TestReport(t *testing.T) {
 
 		tt.validate(t, err, spyAdapters)
 	}
+}
+
+// ConstructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
+// the constructed spyAdapters along with the adapters Info functions.
+func ConstructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
+	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
+	spyAdapters := make([]*spyAdapter.Adapter, 0)
+	for _, b := range adptBehaviors {
+		sa := spyAdapter.NewSpyAdapter(b)
+		spyAdapters = append(spyAdapters, sa)
+		adapterInfos = append(adapterInfos, sa.GetAdptInfoFn())
+	}
+	return adapterInfos, spyAdapters
 }

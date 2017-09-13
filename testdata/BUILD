@@ -18,5 +18,5 @@ pkg_tar(
 filegroup(
     name = "testdata",
     srcs = glob(["**/*.yml"]) + glob(["**/*.yaml"]),
-    visibility = ["//test/testenv:__subpackages__"],
+    visibility = ["//test:__subpackages__"],
 )
