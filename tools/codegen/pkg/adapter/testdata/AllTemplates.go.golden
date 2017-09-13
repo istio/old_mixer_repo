@@ -52,6 +52,7 @@ type (
 	// nolint: aligncheck
 	AdapterBehavior struct {
 		Name    string
+		Tmpls   []string
 		Builder BuilderBehavior
 		Handler HandlerBehavior
 	}
@@ -251,16 +252,9 @@ func (h handler) HandleLog(ctx context.Context, instances []*istio_mixer_templat
 func (s *Adapter) GetAdptInfoFn() adapter.InfoFn {
 	return func() adapter.Info {
 		return adapter.Info{
-			Name:        s.Behavior.Name,
-			Description: "",
-			SupportedTemplates: []string{
-
-				istio_mixer_template_list.TemplateName,
-
-				istio_mixer_template_quota.TemplateName,
-
-				istio_mixer_template_log.TemplateName,
-			},
+			Name:               s.Behavior.Name,
+			Description:        "",
+			SupportedTemplates: s.Behavior.Tmpls,
 			NewBuilder: func() adapter.HandlerBuilder {
 				return builder{
 					behavior:        s.Behavior.Builder,

@@ -115,7 +115,7 @@ func TestReport(t *testing.T) {
 		{
 			name:      "Report",
 			cfg:       reportTestCfg,
-			behaviors: []spyAdapter.AdapterBehavior{{Name: "fakeHandler"}},
+			behaviors: []spyAdapter.AdapterBehavior{{Name: "fakeHandler", Tmpls: []string{reportTmpl.TemplateName}}},
 			templates: e2eTmpl.SupportedTmplInfo,
 			attrs:     map[string]interface{}{"target.name": "somesrvcname"},
 			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter.Adapter) {

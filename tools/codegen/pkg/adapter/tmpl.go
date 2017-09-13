@@ -59,6 +59,7 @@ type (
 	// nolint: aligncheck
 	AdapterBehavior struct {
 		Name    string
+		Tmpls   []string
 		Builder BuilderBehavior
 		Handler HandlerBehavior
 	}
@@ -242,11 +243,7 @@ func (s *Adapter) GetAdptInfoFn() adapter.InfoFn {
 		return adapter.Info{
 			Name:               s.Behavior.Name,
 			Description:        "",
-			SupportedTemplates: []string{
-        	{{range .TemplateModels}}
-				{{.GoPackageName}}.TemplateName,
-        	{{end}}
-			},
+			SupportedTemplates: s.Behavior.Tmpls,
 			NewBuilder: func() adapter.HandlerBuilder {
 				return builder{
 					behavior:        s.Behavior.Builder,
