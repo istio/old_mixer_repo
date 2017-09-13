@@ -224,18 +224,20 @@ def template_protos(WKSPC):
                         if file2.endswith("_tmpl.pb.go") or file2.endswith("handler.gen.go"):
                             makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file + "/" + file2, WKSPC + "/template/" + template + "/" + file + "/" + file2)
 
-    for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/spyAdapter"):
-        if file.endswith(".gen.go"):
-            makelink(WKSPC + "/bazel-genfiles/test/e2e/spyAdapter/" + file, WKSPC + "/test/e2e/spyAdapter/" + file)
+    for d in os.listdir(WKSPC + "/bazel-genfiles/test/e2e"):
+        if os.path.isdir(WKSPC + "/bazel-genfiles/test/e2e/" + d):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/" + d + "/spyAdapter"):
+                if file.endswith(".gen.go"):
+                    makelink(WKSPC + "/bazel-genfiles/test/e2e/" + d + "/spyAdapter/" + file, WKSPC + "/test/e2e/" + d + "/spyAdapter/" + file)
 
-    for template in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/template"):
+    for template in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/advance/template"):
         if template.endswith(".gen.go"):
-            makelink(WKSPC + "/bazel-genfiles/test/e2e/template/" + template, WKSPC + "/test/e2e/template/" + template)
-        if os.path.isdir(WKSPC + "/bazel-genfiles/test/e2e/template/" + template):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/template/" + template):
+            makelink(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template, WKSPC + "/test/e2e/advance/template/" + template)
+        if os.path.isdir(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template):
                 # check if there are files under /template/<some template dir>
                 if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
-                    makelink(WKSPC + "/bazel-genfiles/test/e2e/template/" + template + "/" + file, WKSPC + "/test/e2e/template/" +template + "/" + file)
+                    makelink(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template + "/" + file, WKSPC + "/test/e2e/advance/template/" +template + "/" + file)
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):

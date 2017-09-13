@@ -22,9 +22,6 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/test/e2e/spyAdapter"
 )
 
 // GetCfgs takes the operator configuration as strings and creates directory with config files from it.
@@ -42,19 +39,6 @@ func GetCfgs(srvcCnfg, attrCnfg string) (dir string) {
 	_ = srvcCnfgFile.Close()
 
 	return tmpDir
-}
-
-// ConstructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
-// the constructed spyAdapters along with the adapters Info functions.
-func ConstructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
-	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
-	spyAdapters := make([]*spyAdapter.Adapter, 0)
-	for _, b := range adptBehaviors {
-		sa := spyAdapter.NewSpyAdapter(b)
-		spyAdapters = append(spyAdapters, sa)
-		adapterInfos = append(adapterInfos, sa.GetAdptInfoFn())
-	}
-	return adapterInfos, spyAdapters
 }
 
 // CmpSliceAndErr compares two slices
