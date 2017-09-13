@@ -26,6 +26,8 @@ import (
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/il/compiler"
 	"istio.io/mixer/pkg/il/interpreter"
@@ -48,6 +50,7 @@ type attrContext struct {
 }
 
 var _ expr.Evaluator = &IL{}
+var _ config.ChangeListener = &IL{}
 
 const ipFnName = "ip"
 const ipEqualFnName = "ip_equal"
@@ -147,6 +150,11 @@ func (e *IL) AssertType(expr string, finder expr.AttributeDescriptorFinder, expe
 // ChangeVocabulary handles changing of the attribute vocabulary.
 func (e *IL) ChangeVocabulary(finder expr.AttributeDescriptorFinder) {
 	e.updateAttrContext(finder)
+}
+
+// ConfigChange handles changing of configuration.
+func (e *IL) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
+	e.updateAttrContext(df)
 }
 
 // updateAttrContext creates a new attrContext based on the supplied finder and a new cache, and replaces
