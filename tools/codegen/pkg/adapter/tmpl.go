@@ -223,7 +223,8 @@ func (h handler) Handle{{.InterfaceName}}(ctx context.Context, instance *{{.GoPa
 
 {{end}}
 {{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
-func (h handler) Handle{{.InterfaceName}}(ctx context.Context, instance *{{.GoPackageName}}.Instance, quotaArgs adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (h handler) Handle{{.InterfaceName}}(ctx context.Context, instance *{{.GoPackageName}}.Instance,
+                                               quotaArgs adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	h.data.Handle{{.InterfaceName}}Count++
 	if h.behavior.Handle{{.InterfaceName}}Panic {
 		panic("Handle{{.InterfaceName}}")
