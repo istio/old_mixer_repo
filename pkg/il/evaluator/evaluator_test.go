@@ -15,6 +15,7 @@
 package evaluator
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -116,26 +117,33 @@ func TestConcurrent(t *testing.T) {
 	}
 
 	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
+	maxThreads := 10
 
 	e := initEvaluator(t, configString)
+	errChan := make(chan error, len(bags)*maxThreads)
+
 	wg := sync.WaitGroup{}
-	for j := 0; j < 10; j++ {
+	for j := 0; j < maxThreads; j++ {
 		wg.Add(1)
 		go func() {
 			for _, b := range bags {
 				ok, err := e.EvalPredicate(expression, b)
 				if err != nil {
-					t.Fatalf("Error: %v", err)
+					errChan <- err
+					continue
 				}
 				if ok {
-					t.Fatalf("Unexpected ok")
+					errChan <- errors.New("unexpected ok")
 				}
 			}
 			wg.Done()
 		}()
 	}
-
 	wg.Wait()
+
+	if len(errChan) > 0 {
+		t.Fatalf("Failed with %d errors: %v", len(errChan), <-errChan)
+	}
 }
 
 func TestEvalPredicate(t *testing.T) {
