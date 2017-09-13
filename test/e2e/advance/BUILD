@@ -7,7 +7,8 @@ go_test(
     name = "go_default_test_e2e",
     size = "small",
     srcs = [
-        "e2e_report_test.go",
+        "common.go",
+        "report_test.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
