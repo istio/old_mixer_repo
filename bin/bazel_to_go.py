@@ -223,14 +223,19 @@ def template_protos(WKSPC):
                         # check if there are files under /template/<some uber dir>/<some template dir>
                         if file2.endswith("_tmpl.pb.go") or file2.endswith("handler.gen.go"):
                             makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file + "/" + file2, WKSPC + "/template/" + template + "/" + file + "/" + file2)
-    for template in os.listdir(WKSPC + "/bazel-genfiles/test/template"):
+
+    for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/spyAdapter"):
+        if file.endswith(".gen.go"):
+            makelink(WKSPC + "/bazel-genfiles/test/e2e/spyAdapter/" + file, WKSPC + "/test/e2e/spyAdapter/" + file)
+
+    for template in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/template"):
         if template.endswith(".gen.go"):
-            makelink(WKSPC + "/bazel-genfiles/test/template/" + template, WKSPC + "/test/template/" + template)
-        if os.path.isdir(WKSPC + "/bazel-genfiles/test/template/" + template):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/test/template/" + template):
+            makelink(WKSPC + "/bazel-genfiles/test/e2e/template/" + template, WKSPC + "/test/e2e/template/" + template)
+        if os.path.isdir(WKSPC + "/bazel-genfiles/test/e2e/template/" + template):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/template/" + template):
                 # check if there are files under /template/<some template dir>
                 if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
-                    makelink(WKSPC + "/bazel-genfiles/test/template/" + template + "/" + file, WKSPC + "/test/template/" +template + "/" + file)
+                    makelink(WKSPC + "/bazel-genfiles/test/e2e/template/" + template + "/" + file, WKSPC + "/test/e2e/template/" +template + "/" + file)
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):
@@ -253,6 +258,12 @@ def tools_generated_files(WKSPC):
         for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata"):
             if file.endswith("_proto.descriptor_set"):
                 makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata/" + file, WKSPC + "/tools/codegen/pkg/bootstrapgen/testdata/" + file)
+
+    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/adapter/testdata"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/adapter/testdata"):
+            if file.endswith("_proto.descriptor_set"):
+                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/adapter/testdata/" + file, WKSPC + "/tools/codegen/pkg/adapter/testdata/" + file)
+
     if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
             for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
                 if file.endswith(".descriptor_set"):

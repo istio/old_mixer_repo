@@ -24,9 +24,9 @@ import (
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/template"
-	spyAdapter "istio.io/mixer/test/spyAdapter"
-	e2eTmpl "istio.io/mixer/test/template"
-	reportTmpl "istio.io/mixer/test/template/report"
+	spyAdapter "istio.io/mixer/test/e2e/spyAdapter"
+	e2eTmpl "istio.io/mixer/test/e2e/template"
+	reportTmpl "istio.io/mixer/test/e2e/template/report"
 	testEnv "istio.io/mixer/test/testenv"
 )
 
@@ -74,6 +74,8 @@ spec:
   dimensions:
     source: source.name | "mysrc"
     target_ip: target.name | "mytarget"
+  primitive_int64: "2"
+  primitive_string: '"mystr"'
 
 ---
 
@@ -132,9 +134,11 @@ func TestReport(t *testing.T) {
 				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReportInstances,
 					[]*reportTmpl.Instance{
 						{
-							Name:       "reportInstance.samplereport.istio-config-default",
-							Value:      int64(2),
-							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
+							Name:            "reportInstance.samplereport.istio-config-default",
+							Value:           int64(2),
+							PrimitiveInt64:  int64(2),
+							PrimitiveString: "mystr",
+							Dimensions:      map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
 						},
 					},
 				)
