@@ -218,7 +218,8 @@ func (b builder) SetQuotaTypes(typeParams map[string]*istio_mixer_template_quota
 	}
 }
 
-func (h handler) HandleQuota(ctx context.Context, instance *istio_mixer_template_quota.Instance, quotaArgs adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (h handler) HandleQuota(ctx context.Context, instance *istio_mixer_template_quota.Instance,
+	quotaArgs adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	h.data.HandleQuotaCount++
 	if h.behavior.HandleQuotaPanic {
 		panic("HandleQuota")

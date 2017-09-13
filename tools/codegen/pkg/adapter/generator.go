@@ -37,7 +37,8 @@ type Generator struct {
 	OutFilePath string
 }
 
-type AdapterModel struct {
+// Model represents the object model for spy adapter code generator.
+type Model struct {
 	PkgName        string
 	TemplateModels []*modelgen.Model
 }
@@ -45,7 +46,7 @@ type AdapterModel struct {
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
 func (g *Generator) Generate(fdsFiles map[string]string) error {
-	tmpl, err := template.New("AdapterModel").Parse(spyAdapterTemplate)
+	tmpl, err := template.New("Model").Parse(spyAdapterTemplate)
 
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
@@ -82,7 +83,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	pkgName := getParentDirName(g.OutFilePath)
 
 	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, AdapterModel{pkgName, models})
+	err = tmpl.Execute(buf, Model{pkgName, models})
 	if err != nil {
 		return fmt.Errorf("cannot execute the template with the given data: %v", err)
 	}
