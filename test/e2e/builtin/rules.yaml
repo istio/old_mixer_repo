@@ -1,0 +1,21 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyAdapter1
+metadata:
+  name: handler1
+  namespace: istio-config-default
+spec:
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rule1
+  namespace: istio-config-default
+spec:
+  match: "true"
+  actions:
+  # handler and instance names default to the rule's namespace.
+  - handler: handler1.spyAdapter1.istio-config-default
+    instances:
+    - requestcount.metric.istio-config-default
+
