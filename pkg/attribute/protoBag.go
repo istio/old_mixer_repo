@@ -17,6 +17,7 @@ package attribute
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/golang/glog"
@@ -311,7 +312,11 @@ func (pb *ProtoBag) Done() {
 // and prints them to a string.
 func (pb *ProtoBag) DebugString() string {
 	var buf bytes.Buffer
-	for _, name := range pb.Names() {
+
+	names := pb.Names()
+	sort.Strings(names)
+
+	for _, name := range names {
 		// find the dictionary index for the given string
 		index, ok := pb.getIndex(name)
 		if !ok {
@@ -320,7 +325,7 @@ func (pb *ProtoBag) DebugString() string {
 		}
 
 		if result, ok := pb.internalGet(name, index); ok {
-			buf.WriteString(fmt.Sprintf("%-20s: %v\n", name, result))
+			buf.WriteString(fmt.Sprintf("%-30s: %v\n", name, result))
 		}
 	}
 	return buf.String()
