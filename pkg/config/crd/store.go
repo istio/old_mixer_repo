@@ -50,8 +50,8 @@ const (
 	crdRetryTimeout = time.Second * 30
 )
 
-// The number of logging "retrying" message for retry
-const maxRetryCountForLogging = 20
+// Logging for the retry of fetching CRDs should happen only once in this count.
+const logRetryCount = 100
 
 // The interval to wait between the attempt to initialize caches. This is not const
 // to allow changing the value for unittests.
@@ -140,7 +140,7 @@ func (s *Store) checkAndCreateCaches(
 			break
 		}
 		if retryCount > 0 {
-			if retryCount%100 == 1 {
+			if retryCount%logRetryCount == 1 {
 				glog.V(logLevel).Infof("Retrying to fetch config. Remaining resources: %+v", mapKeys(kindsSet))
 			}
 			time.Sleep(retryInterval)
