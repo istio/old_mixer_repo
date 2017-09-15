@@ -165,7 +165,7 @@ func encode(w io.Writer, v interface{}) {
 		b = []byte(fmt.Sprintf("%+v", v))
 	}
 
-	if _, err := w.Write(b); err != nil {
+	if _, err = w.Write(b); err != nil {
 		glog.Warningf("Failed to write %s to a buffer: %v", string(b), err)
 	}
 }
