@@ -40,7 +40,7 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			testTmpDir := path.Join(os.TempDir(), "bootstrapTemplateTest")
+			testTmpDir := path.Join(os.TempDir(), "spyadapter")
 			_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
 			outFile, err := os.Create(path.Join(testTmpDir, path.Base(v.want)))
 			if err != nil {
