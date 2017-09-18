@@ -28,14 +28,14 @@ type perKindValidator struct {
 	validate perKindValidateFunc
 }
 
-func (pv *perKindValidator) validateAndConvert(br *BackEndResource, res *Resource) error {
+func (pv *perKindValidator) validateAndConvert(key Key, br *BackEndResource, res *Resource) error {
 	if pv.validate != nil {
 		if err := pv.validate(br); err != nil {
 			return err
 		}
 	}
 	res.Spec = proto.Clone(pv.pbSpec)
-	return convert(br.Spec, res.Spec)
+	return convert(key, br.Spec, res.Spec)
 }
 
 func validateRule(br *BackEndResource) error {
@@ -83,7 +83,7 @@ func (v *validator) Validate(t ChangeType, key Key, br *BackEndResource) error {
 	}
 	res := &Resource{Metadata: br.Metadata}
 	if t == Update {
-		if err := pkv.validateAndConvert(br, res); err != nil {
+		if err := pkv.validateAndConvert(key, br, res); err != nil {
 			return err
 		}
 	}
