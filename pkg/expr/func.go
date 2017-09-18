@@ -126,7 +126,7 @@ func (f *eqFunc) call(args0 interface{}, args1 interface{}) bool {
 		}
 		return matchWithWildcards(s0, s1)
 	case []byte:
-		fmt.Printf("IP len %d, v4 %d, v6 %d\n", len(args0.([]byte)) , net.IPv4len, net.IPv6len)
+		fmt.Printf("IP len %d, v4 %d, v6 %d\n", len(args0.([]byte)), net.IPv4len, net.IPv6len)
 		if len(args0.([]byte)) == net.IPv4len || len(args0.([]byte)) == net.IPv6len {
 			// TODO: have the types be net.IP earlier, so this hack isn't necessary
 			ip1 := net.IP(args0.([]byte))
