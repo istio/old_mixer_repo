@@ -78,7 +78,7 @@ func createValidatorServer(vc *validatorConfig, client kubernetes.Interface) (*c
 	v := store.NewValidator(nil, vc.resources)
 	resourceNames := make([]string, 0, len(vc.resources))
 	for name := range vc.resources {
-		resourceNames = append(resourceNames, name)
+		resourceNames = append(resourceNames, pluralize(name))
 	}
 	return crd.NewValidatorServer(vc.name, vc.namespace, resourceNames, vc.targetNamespaces, client, v), nil
 }
