@@ -15,7 +15,10 @@
 package evaluator
 
 import (
+	"errors"
 	"fmt"
+	"math/rand"
+	"sync"
 	"testing"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
@@ -85,6 +88,61 @@ func TestEvalString_DifferentType(t *testing.T) {
 	}
 	if r != "23" {
 		t.Fatalf("Unexpected result: r: %v, expected: %v", r, "23")
+	}
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+// This test adds concurrent expression evaluation across
+// many go routines.
+func TestConcurrent(t *testing.T) {
+	bags := []attribute.Bag{}
+	maxNum := 64
+
+	for i := 0; i < maxNum; i++ {
+		v := randString(6)
+		bags = append(bags, &iltesting.FakeBag{
+			Attrs: map[string]interface{}{
+				"attr": v,
+			},
+		})
+	}
+
+	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
+	maxThreads := 10
+
+	e := initEvaluator(t, configString)
+	errChan := make(chan error, len(bags)*maxThreads)
+
+	wg := sync.WaitGroup{}
+	for j := 0; j < maxThreads; j++ {
+		wg.Add(1)
+		go func() {
+			for _, b := range bags {
+				ok, err := e.EvalPredicate(expression, b)
+				if err != nil {
+					errChan <- err
+					continue
+				}
+				if ok {
+					errChan <- errors.New("unexpected ok")
+				}
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	if len(errChan) > 0 {
+		t.Fatalf("Failed with %d errors: %v", len(errChan), <-errChan)
 	}
 }
 
@@ -201,7 +259,7 @@ func TestConfigChange(t *testing.T) {
 	}
 
 	f := descriptor.NewFinder(&configBool)
-	e.ConfigChange(nil, f, nil)
+	e.ChangeVocabulary(f)
 	if e.getAttrContext().finder != f {
 		t.Fatal("Finder is not set correctly")
 	}
@@ -226,7 +284,7 @@ func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
 		t.Fatalf("error: %s", err)
 	}
 	finder := descriptor.NewFinder(&config)
-	e.ConfigChange(nil, finder, nil)
+	e.ChangeVocabulary(finder)
 	return e
 }
 
