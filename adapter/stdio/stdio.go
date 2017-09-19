@@ -64,8 +64,9 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 					b := value.([]byte)
 					if len(b) == net.IPv4len || len(b) == net.IPv6len {
 						fields = append(fields, zap.Any(varName, net.IP(b)))
+						continue
 					}
-					continue
+					fields = append(fields, zap.Any(varName, value))
 				default:
 					fields = append(fields, zap.Any(varName, value))
 				}
@@ -95,7 +96,18 @@ func (h *handler) HandleMetric(_ context.Context, instances []*metric.Instance) 
 		fields = append(fields, zap.Any("value", instance.Value))
 		for _, varName := range h.metricDims[instance.Name] {
 			value := instance.Dimensions[varName]
-			fields = append(fields, zap.Any(varName, value))
+			// TODO: remove when IP_ADDRESS is properly handled by Mixer
+			switch value.(type) {
+			case []byte:
+				b := value.([]byte)
+				if len(b) == net.IPv4len || len(b) == net.IPv6len {
+					fields = append(fields, zap.Any(varName, net.IP(b)))
+					continue
+				}
+				fields = append(fields, zap.Any(varName, value))
+			default:
+				fields = append(fields, zap.Any(varName, value))
+			}
 		}
 
 		if err := h.logger.Core().Write(entry, fields); err != nil {
