@@ -416,18 +416,17 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 		fatalf("Unable to listen on socket: %v", err)
 	}
 
-	sm := http.NewServeMux()
 	// NOTE: this is a temporary solution for provide bare-bones debug functionality
 	// for mixer. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how mixer reports its own metrics.
-	sm.Handle(metricsPath, promhttp.Handler())
-	sm.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
+	http.Handle(metricsPath, promhttp.Handler())
+	http.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, verErr := out.Write([]byte(version.Info.String())); verErr != nil {
 			printf("error printing version info: %v", verErr)
 		}
 	})
-	sm.HandleFunc(configPath, func(out http.ResponseWriter, req *http.Request) {
+	http.HandleFunc(configPath, func(out http.ResponseWriter, req *http.Request) {
 		path := req.URL.Path[len(configPath):len(req.URL.Path)]
 		cfg := configGetter.ConfigGet(path)
 		if cfg == nil {
@@ -448,7 +447,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 			printf("error printing version info: %v", verr)
 		}
 	})
-	monitoring := &http.Server{Addr: fmt.Sprintf(":%d", sa.monitoringPort), Handler: sm}
+	monitoring := &http.Server{Addr: fmt.Sprintf(":%d", sa.monitoringPort)}
 	printf("Starting self-monitoring on port %d", sa.monitoringPort)
 	go func() {
 		if monErr := monitoring.Serve(monitoringListener.(*net.TCPListener)); monErr != nil {
