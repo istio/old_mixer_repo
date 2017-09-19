@@ -17,6 +17,7 @@ package stdio // import "istio.io/mixer/adapter/stdio"
 import (
 	"context"
 	"fmt"
+	"net"
 	"sort"
 	"time"
 
@@ -57,7 +58,17 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				fields = append(fields, zap.Any(varName, value))
+				// TODO: remove when IP_ADDRESS is properly handled by Mixer
+				switch value.(type) {
+				case []byte:
+					b := value.([]byte)
+					if len(b) == net.IPv4len || len(b) == net.IPv6len {
+						fields = append(fields, zap.Any(varName, net.IP(b)))
+					}
+					continue
+				default:
+					fields = append(fields, zap.Any(varName, value))
+				}
 			}
 		}
 
