@@ -98,7 +98,7 @@ type benchmarkEnv interface {
 	create(key store.Key, spec map[string]interface{}) error
 	update(key store.Key, spec map[string]interface{}) error
 	newStore() *Store
-	cleanup()
+	cleanup(b *testing.B)
 }
 
 // dummyBenchmarkEnv is the environment with dummy instance.
@@ -158,7 +158,7 @@ func (e *dummyBenchmarkEnv) newStore() *Store {
 	}
 }
 
-func (e *dummyBenchmarkEnv) cleanup() {
+func (e *dummyBenchmarkEnv) cleanup(*testing.B) {
 }
 
 // k8sBenchmarkEnv is the environment which connects with an actual k8s cluster.
@@ -288,17 +288,21 @@ func (e *k8sBenchmarkEnv) newStore() *Store {
 	return s.(*Store)
 }
 
-func (e *k8sBenchmarkEnv) cleanup() {
+func (e *k8sBenchmarkEnv) cleanup(b *testing.B) {
 	for _, ns := range e.createdNS {
-		e.client.CoreV1().Namespaces().Delete(ns, &metav1.DeleteOptions{})
+		if err := e.client.CoreV1().Namespaces().Delete(ns, &metav1.DeleteOptions{}); err != nil {
+			b.Error(err)
+		}
 	}
 	for _, crd := range e.createdCRDs {
-		e.crdClient.Delete(crd, &metav1.DeleteOptions{})
+		if err := e.crdClient.Delete(crd, &metav1.DeleteOptions{}); err != nil {
+			b.Error(err)
+		}
 	}
 }
 
 func runBenchmarks(b *testing.B, env benchmarkEnv) {
-	defer env.cleanup()
+	defer env.cleanup(b)
 	rand.Seed(time.Now().Unix())
 	kinds, err := createDummyStrings(dummyCRDs)
 	if err != nil {
