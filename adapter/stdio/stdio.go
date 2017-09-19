@@ -64,8 +64,9 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 					b := value.([]byte)
 					if len(b) == net.IPv4len || len(b) == net.IPv6len {
 						fields = append(fields, zap.Any(varName, net.IP(b)))
+						continue
 					}
-					continue
+					fields = append(fields, zap.Any(varName, value))
 				default:
 					fields = append(fields, zap.Any(varName, value))
 				}
