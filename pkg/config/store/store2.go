@@ -67,6 +67,7 @@ type Resource struct {
 	Status   Status        `json:"status"`
 }
 
+// Code is textual status code in Status.
 type Code string
 
 const (
