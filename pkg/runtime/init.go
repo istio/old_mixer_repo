@@ -37,13 +37,13 @@ import (
 func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 	identityAttribute string, defaultConfigNamespace string,
 	s store.Store2, adapterInfo map[string]*adapter.Info,
-	templateInfo map[string]template.Info) (Dispatcher, error) {
+	templateInfo map[string]template.Info) (Dispatcher, *Controller, error) {
 	// controller will set Resolver before the dispatcher is used.
 	d := newDispatcher(eval, nil, gp)
-	err := startController(s, adapterInfo, templateInfo, eval, d,
+	c, err := startController(s, adapterInfo, templateInfo, eval, d,
 		identityAttribute, defaultConfigNamespace, handlerPool)
 
-	return d, err
+	return d, c, err
 }
 
 // startWatch registers with store, initiates a watch, and returns the current config state.
@@ -88,11 +88,11 @@ func kindMap(adapterInfo map[string]*adapter.Info,
 func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info, eval expr.Evaluator,
 	dispatcher ResolverChangeListener,
-	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
+	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) (*Controller, error) {
 
 	data, watchChan, err := startWatch(s, adapterInfo, templateInfo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	c := &Controller{
@@ -106,11 +106,13 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 		defaultConfigNamespace: defaultConfigNamespace,
 		handlerGoRoutinePool:   handlerPool,
 		table:                  make(map[string]*HandlerEntry),
+		configStatus:           make(StatusMap),
 		createHandlerFactory:   newHandlerFactory,
 	}
 
-	c.publishSnapShot()
+	sm := c.publishSnapShot()
+	c.configStatus = sm
 	glog.Infof("Config controller has started with %d config elements", len(c.configState))
 	go watchChanges(watchChan, c.applyEvents)
-	return nil
+	return c, nil
 }

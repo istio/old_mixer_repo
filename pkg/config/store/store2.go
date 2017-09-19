@@ -47,11 +47,11 @@ type BackendEvent struct {
 
 // ResourceMeta is the standard metadata associated with a resource.
 type ResourceMeta struct {
-	Name        string
-	Namespace   string
-	Labels      map[string]string
-	Annotations map[string]string
-	Revision    string
+	Name        string            `json:"name"`
+	Namespace   string            `json:"namespace"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Revision    string            `json:"revision"`
 }
 
 // BackEndResource represents a resources with a raw spec
@@ -62,8 +62,30 @@ type BackEndResource struct {
 
 // Resource represents a resources with converted spec.
 type Resource struct {
-	Metadata ResourceMeta
-	Spec     proto.Message
+	Metadata ResourceMeta  `json:"metadata"`
+	Spec     proto.Message `json:"spec"`
+	Status   Status        `json:"status"`
+}
+
+type Code string
+
+const (
+	// Active - the resource is active.
+	Active Code = "active"
+	// PendingUpdate - the resource is pending updation.
+	PendingUpdate Code = "pendingUpdate"
+	// PendingDelete - the resource is pending deletion.
+	PendingDelete Code = "pendingDelete"
+	// InError - the resource is in error.
+	InError Code = "error"
+)
+
+// Status is the current status of a resource.
+type Status struct {
+	// Code for this status.
+	Code Code `json:"code"`
+	// Errors
+	Errors []string `json:"errors,omitempty"`
 }
 
 // String is the Istio compatible string representation of the resource.

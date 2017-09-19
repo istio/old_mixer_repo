@@ -17,6 +17,7 @@ package runtime
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -44,9 +45,16 @@ type Controller struct {
 	identityAttribute      string                   // used by resolver
 	defaultConfigNamespace string                   // used by resolver
 
+	// configLock protects configState and configStatus
+	configLock sync.RWMutex
+
 	// configState is the current (potentially inconsistent) view of config.
 	// It receives updates from the underlying config store.
 	configState map[store.Key]*store.Resource
+
+	// configStatus contains the status of resources
+	// keyed by dot separated resource name.
+	configStatus StatusMap
 
 	// currently deployed resolver
 	resolver *resolver
@@ -82,6 +90,9 @@ type Controller struct {
 	nrules int
 }
 
+// StatusMap maps dot separated resource names to status.
+type StatusMap map[string]*store.Status
+
 // RulesKind defines the config kind name of mixer rules.
 const RulesKind = "rule"
 
@@ -109,7 +120,7 @@ type applyEventsFn func(events []*store.Event)
 // The config may be in an inconsistent state, however it *must* be converted into a consistent resolver.
 // The previous handler table enables handler cleanup and reuse.
 // This code is single threaded, it only runs on a config change control loop.
-func (c *Controller) publishSnapShot() {
+func (c *Controller) publishSnapShot() StatusMap {
 	// current view of attributes
 	// attribute manifests are used by type inference during handler creation.
 	attributes := c.processAttributeManifests()
@@ -137,9 +148,11 @@ func (c *Controller) publishSnapShot() {
 		},
 	)
 
+	sm := make(StatusMap)
+
 	// current consistent view of the rules keyed by Namespace and then Name.
 	// ht (handlerTable) keeps track of handler-instance association.
-	ruleConfig := c.processRules(handlerConfig, instanceConfig, ht)
+	ruleConfig := c.processRules(handlerConfig, instanceConfig, ht, sm)
 
 	// Initialize handlers that are used in the configuration.
 	// Some handlers may not initialize due to errors.
@@ -147,7 +160,7 @@ func (c *Controller) publishSnapShot() {
 
 	// Combine rules with the handler table.
 	// Actions referring to handlers in error are logged and purged.
-	resolvedRules, nrules := generateResolvedRules(ruleConfig, ht.table)
+	resolvedRules, nrules := generateResolvedRules(ruleConfig, ht.table, sm)
 
 	// Create new resolver and cleanup the old resolver.
 	c.nextResolverID++
@@ -171,6 +184,7 @@ func (c *Controller) publishSnapShot() {
 	if err != nil {
 		glog.Warningf("Unable to perform cleanup: %v", err)
 	}
+	return sm
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
@@ -211,20 +225,104 @@ func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn) {
 	}
 }
 
+// getKey returns a key from path
+// or dot separated resource names.
+func getKey(path string) *store.Key {
+	comps := strings.Split(path, "/")
+	if len(comps) == 3 {
+		return &store.Key{
+			Namespace: comps[0],
+			Kind:      comps[1],
+			Name:      comps[2],
+		}
+	}
+
+	comps = strings.Split(path, ".")
+	if len(comps) == 3 {
+		return &store.Key{
+			Namespace: comps[2],
+			Kind:      comps[1],
+			Name:      comps[0],
+		}
+	}
+
+	return nil
+}
+
+// ConfigGet returns config data at the specified path
+func (c *Controller) ConfigGet(path string) *store.Resource {
+
+	key := getKey(path)
+	if key == nil {
+		return nil
+	}
+
+	c.configLock.RLock()
+	defer c.configLock.RUnlock()
+
+	st := c.configStatus[key.String()]
+	res := c.configState[*key]
+
+	if st != nil { // there is some status.
+		if res == nil { // resource can be nil if pending deletion.
+			res = &store.Resource{
+				Metadata: store.ResourceMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+			}
+		}
+		return shallowCopyWithStatus(res, st)
+	}
+
+	if res == nil { // resource is not present.
+		return nil
+	}
+
+	// 	Found resource and no status available, everything is good.
+	return shallowCopyWithStatus(res, &store.Status{
+		Code: store.Active,
+	})
+}
+
+func shallowCopyWithStatus(r *store.Resource, s *store.Status) *store.Resource {
+	return &store.Resource{
+		Metadata: r.Metadata,
+		Spec:     r.Spec,
+		Status:   *s,
+	}
+}
+
 // applyEvents applies given events to config state and then publishes a snapshot.
 func (c *Controller) applyEvents(events []*store.Event) {
 	ck := make(map[string]bool)
+	c.configLock.Lock()
 	for _, ev := range events {
 		ck[ev.Kind] = true
+		code := store.PendingUpdate
 		switch ev.Type {
 		case store.Update:
 			c.configState[ev.Key] = ev.Value
 		case store.Delete:
+			code = store.PendingDelete
 			delete(c.configState, ev.Key)
+		}
+		c.configStatus[ev.Key.String()] = &store.Status{
+			Code: code,
 		}
 	}
 	c.changedKinds = ck
-	c.publishSnapShot()
+	c.configLock.Unlock()
+
+	// publishSnapshot is a time consuming process that does not modify the configState.
+	// It returns a status map of errors encountered during processing.
+	// The status map is used by ConfigGetter endpoint to show resource status.
+	sm := c.publishSnapShot()
+
+	// Update config status
+	c.configLock.Lock()
+	c.configStatus = sm
+	c.configLock.Unlock()
 }
 
 // validInstanceConfigs returns instanceConfigs from the configState that
@@ -255,15 +353,16 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 		if _, found := c.adapterInfo[k.Kind]; !found {
 			continue
 		}
-		// handlers use their fully qualified names.
-		handlerConfig[k.String()] = &cpb.Handler{
+		h := cpb.Handler{
 			Name:    k.String(),
 			Adapter: k.Kind,
 			Params:  cfg.Spec,
 		}
-	}
-	if glog.V(3) {
-		glog.Infof("handler = %v", handlerConfig)
+		// handlers use their fully qualified names.
+		handlerConfig[k.String()] = &h
+		if glog.V(3) {
+			glog.Infof("handler %s: %v", h.Name, h.Params)
+		}
 	}
 	return handlerConfig
 }
@@ -344,7 +443,7 @@ func resourceType(labels map[string]string) ResourceType {
 // processRules builds the current consistent view of the rules keyed by Namespace and then Name.
 // ht (handlerTable) keeps track of handler-instance association.
 func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable) rulesMapByNamespace {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable, sm StatusMap) rulesMapByNamespace {
 	// current consistent view of the rules
 	// keyed by Namespace and then Name.
 	ruleConfig := make(rulesMapByNamespace)
@@ -360,11 +459,11 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 		rulec := cfg.(*cpb.Rule)
 		rule := &Rule{
 			selector: rulec.Match,
-			name:     k.Name,
+			name:     k.String(),
 			rtype:    resourceType(obj.Metadata.Labels),
 		}
-		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
 
+		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace, sm)
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
 		for vr, amap := range acts {
 			for _, cf := range amap {
@@ -416,15 +515,20 @@ func canonicalizeInstanceNames(instances []string, namespace string) []string {
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable, namespace string) map[adptTmpl.TemplateVariety]map[string]*Action {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable, namespace string, sm StatusMap) map[adptTmpl.TemplateVariety]map[string]*Action {
 
 	actions := make(map[adptTmpl.TemplateVariety]map[string]*Action)
 
 	for _, ic := range canonicalizeHandlerNames(acts, namespace) {
 		var hc *cpb.Handler
 		if hc = handlerConfig[ic.Handler]; hc == nil {
+			msg := fmt.Sprintf("ConfigWarning unknown handler: %s", ic.Handler)
 			if glog.V(3) {
-				glog.Warningf("ConfigWarning unknown handler: %s", ic.Handler)
+				glog.Warning(msg)
+			}
+			sm[ic.Handler] = &store.Status{
+				Code:   store.InError,
+				Errors: []string{msg},
 			}
 			continue
 		}
@@ -432,8 +536,13 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 		for _, instName := range canonicalizeInstanceNames(ic.Instances, namespace) {
 			inst := instanceConfig[instName]
 			if inst == nil {
+				msg := fmt.Sprintf("ConfigWarning unknown instance: %s", instName)
 				if glog.V(3) {
-					glog.Warningf("ConfigWarning unknown instance: %s", instName)
+					glog.Warning(msg)
+				}
+				sm[instName] = &store.Status{
+					Code:   store.InError,
+					Errors: []string{msg},
 				}
 				continue
 			}
@@ -468,22 +577,27 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 
 // generateResolvedRules sets handler references in rulesConfig.
 // It reject actions from rulesConfig whose handler could not be initialized.
-func generateResolvedRules(ruleConfig rulesMapByNamespace, handlerTable map[string]*HandlerEntry) (rulesListByNamespace, int) {
+func generateResolvedRules(ruleConfig rulesMapByNamespace, handlerTable map[string]*HandlerEntry, sm StatusMap) (rulesListByNamespace, int) {
 	// map by namespace
 	for ns, nsmap := range ruleConfig {
 		// map by rule name
 		for rn, rule := range nsmap {
+			errs := make([]string, 0)
 			// map by template variety
 			for vr, vact := range rule.actions {
 				newvact := vact[:0]
 				for _, act := range vact {
 					he := handlerTable[act.handlerName]
 					if he == nil {
-						glog.Warningf("Internal error: Handler %s could not be found", act.handlerName)
+						msg := fmt.Sprintf("Internal error: Handler %s could not be found", act.handlerName)
+						glog.Warning(msg)
+						errs = append(errs, msg)
 						continue
 					}
 					if he.Handler == nil {
-						glog.Warningf("Filtering action from rule %s/%s. Handler %s could not be initialized due to %s.", ns, rn, act.handlerName, he.HandlerCreateError)
+						msg := fmt.Sprintf("Filtering action from rule %s/%s. Handler %s could not be initialized due to %s.", ns, rn, act.handlerName, he.HandlerCreateError)
+						glog.Warning(msg)
+						errs = append(errs, msg)
 						continue
 					}
 					act.handler = he.Handler
@@ -496,8 +610,16 @@ func generateResolvedRules(ruleConfig rulesMapByNamespace, handlerTable map[stri
 				}
 			}
 			if len(rule.actions) == 0 {
-				glog.Warningf("Purging rule %v with no actions", rn)
+				msg := fmt.Sprintf("Purging rule %v with no actions", rn)
+				glog.Warning(msg)
+				errs = append(errs, msg)
 				delete(nsmap, rn)
+			}
+			if len(errs) > 0 {
+				sm[rule.name] = &store.Status{
+					Code:   store.InError,
+					Errors: errs,
+				}
 			}
 		}
 	}
