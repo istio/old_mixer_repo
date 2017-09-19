@@ -52,6 +52,7 @@ func TestNewEQ(t *testing.T) {
 		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
 		{net.ParseIP("10.3.25.1"), net.ParseIP("10.3.25.1"), true},
 		{net.ParseIP("10.3.25.1"), net.ParseIP("103.4.15.3"), false},
+		{net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334"), net.ParseIP("2001:0db8:85a3:0000"), false},
 		{[]byte{'a', 'b', 'e'}, []byte{'a', 'b', 'e'}, true},
 		{[]byte{'a', 'b', 'e'}, []byte{'a', 'b', 'e', 'z', 'z', 'z'}, false},
 	}
