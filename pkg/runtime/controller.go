@@ -331,15 +331,31 @@ const (
 	istioProtocol = "istio-protocol"
 )
 
-func buildRule(labels map[string]string, r *cpb.Rule) {
+// buildRule builds runtime representation of rule based on match condition
+func buildRule(k store.Key, r *cpb.Rule, rt ResourceType) (*Rule, error) {
+	if r.Match != "" {
+		m, err := expr.ExtractEQMatches(r.Match)
+		if err != nil {
+			return nil, err
+		}
+		if v := m[ContextProtocolAttributeName]; v == ContextProtocolTCP {
+			rt.protocol = protocolTCP
+		}
+		// TODO process destination.service and destination.name
+	}
 
+	return &Rule{
+		match: r.Match,
+		name:  k.String(),
+		rtype: rt,
+	}, nil
 }
 
 // resourceType maps labels to rule types.
-func resourceType(labels map[string]string, match string) ResourceType {
+func resourceType(labels map[string]string) ResourceType {
 	ip := labels[istioProtocol]
 	rt := defaultResourcetype()
-	if ip == "tcp" {
+	if ip == ContextProtocolTCP {
 		rt.protocol = protocolTCP
 	}
 	return rt
@@ -362,17 +378,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
-		if rulec.Match != "" {
-			m, err := expr.ExtractEQMatches(rulec.Match)
-			if err != nil {
 
-			}
-		}
-		rule := &Rule{
-			selector: rulec.Match,
-			name:     k.Name,
-			rtype:    resourceType(obj.Metadata.Labels, rulec.Match),
-		}
 		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
 
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
@@ -381,7 +387,13 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 				ruleActions[vr] = append(ruleActions[vr], cf)
 			}
 		}
-
+		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
+		rt := resourceType(obj.Metadata.Labels)
+		rule, err := buildRule(k, rulec, rt)
+		if err != nil {
+			glog.Warningf("Unable to process match condition: %v", err)
+			continue
+		}
 		rule.actions = ruleActions
 		rn := ruleConfig[k.Namespace]
 		if rn == nil {
