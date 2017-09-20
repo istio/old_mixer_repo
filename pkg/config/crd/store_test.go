@@ -61,13 +61,13 @@ func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 type dummyListerWatcherBuilder struct {
 	mu       sync.RWMutex
 	data     map[store.Key]*unstructured.Unstructured
-	watchers map[string]*watch.RaceFreeFakeWatcher
+	watchers map[cacheKey]*watch.RaceFreeFakeWatcher
 }
 
-func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
+func (d *dummyListerWatcherBuilder) build(res metav1.APIResource, ns string) cache.ListerWatcher {
 	w := watch.NewRaceFreeFake()
 	d.mu.Lock()
-	d.watchers[res.Kind] = w
+	d.watchers[cacheKey{res.Kind, ns}] = w
 	d.mu.Unlock()
 
 	return &cache.ListWatch{
@@ -75,7 +75,7 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 			list := &unstructured.UnstructuredList{}
 			d.mu.RLock()
 			for k, v := range d.data {
-				if k.Kind == res.Kind {
+				if k.Kind == res.Kind && (ns == "" || ns == k.Namespace) {
 					list.Items = append(list.Items, *v)
 				}
 			}
@@ -100,9 +100,12 @@ func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface
 	defer d.mu.Unlock()
 	_, existed := d.data[key]
 	d.data[key] = res
-	w, ok := d.watchers[key.Kind]
+	w, ok := d.watchers[cacheKey{key.Kind, key.Namespace}]
 	if !ok {
-		return nil
+		w, ok = d.watchers[cacheKey{key.Kind, ""}]
+		if !ok {
+			return nil
+		}
 	}
 	if existed {
 		w.Modify(res)
@@ -120,9 +123,12 @@ func (d *dummyListerWatcherBuilder) delete(key store.Key) {
 		return
 	}
 	delete(d.data, key)
-	w, ok := d.watchers[key.Kind]
+	w, ok := d.watchers[cacheKey{key.Kind, key.Namespace}]
 	if !ok {
-		return
+		w, ok = d.watchers[cacheKey{key.Kind, ""}]
+		if !ok {
+			return
+		}
 	}
 	w.Delete(value)
 }
@@ -132,7 +138,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	ns := "istio-mixer-testing"
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
-		watchers: map[string]*watch.RaceFreeFakeWatcher{},
+		watchers: map[cacheKey]*watch.RaceFreeFakeWatcher{},
 	}
 	client := &Store{
 		conf:             &rest.Config{},
@@ -218,7 +224,7 @@ func TestStoreWrongKind(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if err := s.Init(ctx, []string{"Action"}); err != nil {
-		t.Fatal(err.Error())
+		t.Fatal(err)
 	}
 
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
@@ -226,7 +232,6 @@ func TestStoreWrongKind(t *testing.T) {
 	if err := lw.put(k, h); err != nil {
 		t.Error("Got nil, Want error")
 	}
-
 	if _, err := s.Get(k); err == nil {
 		t.Errorf("Got nil, Want error")
 	}
@@ -235,7 +240,7 @@ func TestStoreWrongKind(t *testing.T) {
 func TestStoreNamespaces(t *testing.T) {
 	s, ns, lw := getTempClient()
 	otherNS := "other-namespace"
-	s.ns = map[string]bool{ns: true, otherNS: true}
+	s.ns = []string{ns, otherNS}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if err := s.Init(ctx, []string{"Action", "Handler"}); err != nil {

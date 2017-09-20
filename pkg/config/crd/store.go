@@ -55,10 +55,10 @@ const (
 var retryInterval = time.Second / 2
 
 type listerWatcherBuilderInterface interface {
-	build(res metav1.APIResource) cache.ListerWatcher
+	build(res metav1.APIResource, ns string) cache.ListerWatcher
 }
 
-func waitForSynced(ctx context.Context, informers map[string]cache.SharedInformer) <-chan struct{} {
+func waitForSynced(ctx context.Context, informers map[cacheKey]cache.SharedInformer) <-chan struct{} {
 	out := make(chan struct{})
 	go func() {
 		tick := time.NewTicker(initWaiterInterval)
@@ -81,14 +81,19 @@ func waitForSynced(ctx context.Context, informers map[string]cache.SharedInforme
 	return out
 }
 
+type cacheKey struct {
+	kind string
+	ns   string
+}
+
 // Store offers store.Store2Backend interface through kubernetes custom resource definitions.
 type Store struct {
 	conf         *rest.Config
-	ns           map[string]bool
+	ns           []string
 	retryTimeout time.Duration
 
 	cacheMutex sync.Mutex
-	caches     map[string]cache.Store
+	caches     map[cacheKey]cache.Store
 
 	watchMutex sync.RWMutex
 	watchCtx   context.Context
@@ -110,12 +115,12 @@ func (s *Store) checkAndCreateCaches(
 	timeout time.Duration,
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
-	kinds []string) (informers map[string]cache.SharedInformer, remaining []string) {
+	kinds []string) (informers map[cacheKey]cache.SharedInformer, remaining []string) {
 	kindsSet := map[string]bool{}
 	for _, k := range kinds {
 		kindsSet[k] = true
 	}
-	informers = map[string]cache.SharedInformer{}
+	informers = map[cacheKey]cache.SharedInformer{}
 	retry := false
 	retryCtx := ctx
 	if timeout > 0 {
@@ -123,7 +128,11 @@ func (s *Store) checkAndCreateCaches(
 		retryCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
-	for added := 0; added < len(kinds); {
+	namespaces := s.ns
+	if len(namespaces) == 0 {
+		namespaces = []string{""}
+	}
+	for added := 0; added < len(kinds)*len(namespaces); {
 		if retryCtx.Err() != nil {
 			break
 		}
@@ -138,14 +147,18 @@ func (s *Store) checkAndCreateCaches(
 		}
 		s.cacheMutex.Lock()
 		for _, res := range resources.APIResources {
-			if _, ok := s.caches[res.Kind]; ok {
+			if _, ok := kindsSet[res.Kind]; !ok {
 				continue
 			}
-			if _, ok := kindsSet[res.Kind]; ok {
-				cl := lwBuilder.build(res)
+			for _, ns := range namespaces {
+				ck := cacheKey{res.Kind, ns}
+				if _, ok := s.caches[ck]; ok {
+					continue
+				}
+				cl := lwBuilder.build(res, ns)
 				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
-				s.caches[res.Kind] = informer.GetStore()
-				informers[res.Kind] = informer
+				s.caches[ck] = informer.GetStore()
+				informers[ck] = informer
 				delete(kindsSet, res.Kind)
 				informer.AddEventHandler(s)
 				go informer.Run(ctx.Done())
@@ -172,7 +185,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	if err != nil {
 		return err
 	}
-	s.caches = make(map[string]cache.Store, len(kinds))
+	s.caches = make(map[cacheKey]cache.Store, len(kinds))
 	informers, remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
@@ -194,11 +207,12 @@ func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
 
 // Get implements store.Store2Backend interface.
 func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
-	if s.ns != nil && !s.ns[key.Namespace] {
-		return nil, store.ErrNotFound
+	ck := cacheKey{key.Kind, key.Namespace}
+	if len(s.ns) == 0 {
+		ck.ns = ""
 	}
 	s.cacheMutex.Lock()
-	c, ok := s.caches[key.Kind]
+	c, ok := s.caches[ck]
 	s.cacheMutex.Unlock()
 	if !ok {
 		return nil, store.ErrNotFound
@@ -235,13 +249,10 @@ func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 func (s *Store) List() map[store.Key]*store.BackEndResource {
 	result := make(map[store.Key]*store.BackEndResource)
 	s.cacheMutex.Lock()
-	for kind, c := range s.caches {
+	for ck, c := range s.caches {
 		for _, obj := range c.List() {
 			uns := obj.(*unstructured.Unstructured)
-			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
-			if s.ns != nil && !s.ns[key.Namespace] {
-				continue
-			}
+			key := store.Key{Kind: ck.kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
 			result[key] = backEndResource(uns)
 		}
 	}
@@ -273,25 +284,17 @@ func (s *Store) dispatch(ev store.BackendEvent) {
 
 // OnAdd implements cache.ResourceEventHandler interface.
 func (s *Store) OnAdd(obj interface{}) {
-	ev := toEvent(store.Update, obj)
-	if s.ns == nil || s.ns[ev.Key.Namespace] {
-		s.dispatch(ev)
-	}
+	s.dispatch(toEvent(store.Update, obj))
 }
 
 // OnUpdate implements cache.ResourceEventHandler interface.
 func (s *Store) OnUpdate(oldObj, newObj interface{}) {
-	ev := toEvent(store.Update, newObj)
-	if s.ns == nil || s.ns[ev.Key.Namespace] {
-		s.dispatch(ev)
-	}
+	s.dispatch(toEvent(store.Update, newObj))
 }
 
 // OnDelete implements cache.ResourceEventHandler interface.
 func (s *Store) OnDelete(obj interface{}) {
 	ev := toEvent(store.Delete, obj)
 	ev.Value = nil
-	if s.ns == nil || s.ns[ev.Key.Namespace] {
-		s.dispatch(ev)
-	}
+	s.dispatch(ev)
 }
