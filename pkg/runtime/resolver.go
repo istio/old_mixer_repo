@@ -39,6 +39,9 @@ type Rule struct {
 	// Rule is a top level config object and it has a unique name.
 	// It is used here for informational purposes.
 	name string
+	// destination shortname of this service.
+	// destination.namespace.domain is the FQDN of the service.
+	destination string
 	// rtype is gathered from labels.
 	rtype ResourceType
 }

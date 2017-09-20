@@ -331,8 +331,12 @@ const (
 	istioProtocol = "istio-protocol"
 )
 
+func buildRule(labels map[string]string, r *cpb.Rule) {
+
+}
+
 // resourceType maps labels to rule types.
-func resourceType(labels map[string]string) ResourceType {
+func resourceType(labels map[string]string, match string) ResourceType {
 	ip := labels[istioProtocol]
 	rt := defaultResourcetype()
 	if ip == "tcp" {
@@ -358,10 +362,16 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
+		if rulec.Match != "" {
+			m, err := expr.ExtractEQMatches(rulec.Match)
+			if err != nil {
+
+			}
+		}
 		rule := &Rule{
 			selector: rulec.Match,
 			name:     k.Name,
-			rtype:    resourceType(obj.Metadata.Labels),
+			rtype:    resourceType(obj.Metadata.Labels, rulec.Match),
 		}
 		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
 
