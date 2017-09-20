@@ -105,11 +105,22 @@ load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
 load("//:googleapis.bzl", "go_googleapis_repositories")
 load("//:istio_api.bzl", "go_istio_api_repositories")
 
+local_repository(
+   name = "com_github_guptasu_report",
+   path = "/Users/guptasu/go/src/github.com/guptasu/report",
+)
+
+local_repository(
+   name = "com_github_guptasu_remote_adapter",
+   path = "/Users/guptasu/go/src/github.com/guptasu/foo/mixer-noop-reporter",
+)
+
+
 go_x_tools_imports_repositories()
 
 go_googleapis_repositories()
 
-go_istio_api_repositories(False)
+go_istio_api_repositories(True)
 
 new_http_archive(
     name = "docker_ubuntu",
