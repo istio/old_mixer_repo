@@ -58,18 +58,7 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				// TODO: remove when IP_ADDRESS is properly handled by Mixer
-				switch value.(type) {
-				case []byte:
-					b := value.([]byte)
-					if len(b) == net.IPv4len || len(b) == net.IPv6len {
-						fields = append(fields, zap.Any(varName, net.IP(b)))
-						continue
-					}
-					fields = append(fields, zap.Any(varName, value))
-				default:
-					fields = append(fields, zap.Any(varName, value))
-				}
+				fields = append(fields, field(varName, value))
 			}
 		}
 
