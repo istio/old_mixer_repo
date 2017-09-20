@@ -15,7 +15,7 @@ spec:
   severity: '"Default"'
   timestamp: request.time
   variables:
-    originIp: origin.ip | ip("0.0.0.0")
+    sourceIp: source.ip | ip("0.0.0.0")
     destinationIp: destination.ip | ip("0.0.0.0")
     sourceUser: source.user | ""
     method: request.method | ""
@@ -35,6 +35,6 @@ metadata:
 spec:
   match: "true" # If omitted match is true.
   actions:
-  - handler: handler.stdio.istio-config-default
+  - handler: handler.stdio
     instances:
     - accesslog.logentry

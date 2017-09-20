@@ -58,18 +58,7 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				// TODO: remove when IP_ADDRESS is properly handled by Mixer
-				switch value.(type) {
-				case []byte:
-					b := value.([]byte)
-					if len(b) == net.IPv4len || len(b) == net.IPv6len {
-						fields = append(fields, zap.Any(varName, net.IP(b)))
-						continue
-					}
-					fields = append(fields, zap.Any(varName, value))
-				default:
-					fields = append(fields, zap.Any(varName, value))
-				}
+				fields = append(fields, field(varName, value))
 			}
 		}
 
@@ -96,18 +85,7 @@ func (h *handler) HandleMetric(_ context.Context, instances []*metric.Instance) 
 		fields = append(fields, zap.Any("value", instance.Value))
 		for _, varName := range h.metricDims[instance.Name] {
 			value := instance.Dimensions[varName]
-			// TODO: remove when IP_ADDRESS is properly handled by Mixer
-			switch value.(type) {
-			case []byte:
-				b := value.([]byte)
-				if len(b) == net.IPv4len || len(b) == net.IPv6len {
-					fields = append(fields, zap.Any(varName, net.IP(b)))
-					continue
-				}
-				fields = append(fields, zap.Any(varName, value))
-			default:
-				fields = append(fields, zap.Any(varName, value))
-			}
+			fields = append(fields, field(varName, value))
 		}
 
 		if err := h.logger.Core().Write(entry, fields); err != nil {
@@ -117,6 +95,20 @@ func (h *handler) HandleMetric(_ context.Context, instances []*metric.Instance) 
 	}
 
 	return errors.ErrorOrNil()
+}
+
+func field(varName string, value interface{}) zapcore.Field {
+	// TODO: remove when IP_ADDRESS is properly handled by Mixer
+	switch value.(type) {
+	case []byte:
+		b := value.([]byte)
+		if len(b) == net.IPv4len || len(b) == net.IPv6len {
+			return zap.Any(varName, net.IP(b))
+		}
+		return zap.Any(varName, value)
+	default:
+		return zap.Any(varName, value)
+	}
 }
 
 func (h *handler) Close() error { return nil }
