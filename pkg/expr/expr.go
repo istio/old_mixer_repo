@@ -390,6 +390,43 @@ func Parse(src string) (ex *Expression, err error) {
 	return ex, nil
 }
 
+// ExtractEQMatches returns a list of attribute <names, values>
+// in literal equality comparisons. The invariant is that if
+// **any* of these comparisons is False, the expression will evaluate to false.
+// For example `destination.service` == "abc"
+// context.protocol == "TCP"
+// can be preprocessed for static equality matches.
+func ExtractEQMatches(src string) (map[string]interface{}, error) {
+	ex, err := Parse(src)
+	if err != nil {
+		return nil, err
+	}
+	eqMap := make(map[string]interface{})
+	extractEQMatches(ex, eqMap)
+	return eqMap, nil
+}
+
+func recordEQ(fn *Function, eqMap map[string]interface{}) {
+	if fn.Name == "EQ" && fn.Args[0].Var != nil && fn.Args[1].Const != nil {
+		eqMap[fn.Args[0].Var.Name] = fn.Args[1].Const.Value
+	}
+}
+
+// parseEQMatches traverse down "LANDS" and record EQs of variable and constants.
+func extractEQMatches(ex *Expression, eqMap map[string]interface{}) {
+	if ex.Fn == nil {
+		return
+	}
+	// only care about AND and EQ functions.
+	if ex.Fn.Name != "LAND" && ex.Fn.Name != "EQ" {
+		return
+	}
+	recordEQ(ex.Fn, eqMap)
+	for _, arg := range ex.Fn.Args {
+		extractEQMatches(arg, eqMap)
+	}
+}
+
 // DefaultCacheSize is the default size for the expression cache.
 const DefaultCacheSize = 1024
 
