@@ -67,36 +67,43 @@ func TestGoodParse(t *testing.T) {
 
 func TestExtractMatches(t *testing.T) {
 	for _, tc := range []struct {
-		src string
-		m   map[string]interface{}
+		desc string
+		src  string
+		m    map[string]interface{}
 	}{
 		{
-			src: `a || b || "c" || ( a && b )`,
-			m:   map[string]interface{}{},
+			desc: "no ANDS",
+			src:  `a || b || "c" || ( a && b )`,
+			m:    map[string]interface{}{},
 		},
 		{
-			src: `substring(a, 5) == "abc"`,
-			m:   map[string]interface{}{},
+			desc: "EQ check with function",
+			src:  `substring(a, 5) == "abc"`,
+			m:    map[string]interface{}{},
 		},
 		{
-			src: `origin.host == "9.0.10.1"`,
+			desc: "single EQ check",
+			src:  `origin.host == "9.0.10.1"`,
 			m: map[string]interface{}{
 				"origin.host": "9.0.10.1",
 			},
 		},
 		{
-			src: `a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
-			m:   map[string]interface{}{},
+			desc: "top level OR --> cannot extract equality subexpressions",
+			src:  `a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
+			m:    map[string]interface{}{},
 		},
 		{
-			src: `a.b == 3.14 && c == "d" && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
+			desc: "only top level ANDS",
+			src:  `a.b == 3.14 && c == "d" && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
 			m: map[string]interface{}{
 				"a.b": 3.14,
 				"c":   "d",
 			},
 		},
 		{
-			src: `a.b == 3.14 && c == d && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
+			desc: "only top level ANDS, attribute to attribute comparison excluded",
+			src:  `a.b == 3.14 && c == d && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
 			m: map[string]interface{}{
 				"a.b": 3.14,
 			},
@@ -121,7 +128,7 @@ func TestExtractMatches(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(tc.src, func(t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
 			m, err := ExtractEQMatches(tc.src)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)

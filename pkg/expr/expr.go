@@ -390,12 +390,14 @@ func Parse(src string) (ex *Expression, err error) {
 	return ex, nil
 }
 
-// ExtractEQMatches returns a list of attribute <names, values>
-// in literal equality comparisons. The invariant is that if
-// **any* of these comparisons is False, the expression will evaluate to false.
-// For example `destination.service` == "abc"
-// context.protocol == "TCP"
-// can be preprocessed for static equality matches.
+// ExtractEQMatches extracts equality sub expressions from the match expression.
+// It only extracts `attribute == literal` type equality matches.
+// It returns a list of  <attribute name, value> such that
+// if **any** of these comparisons is false, the expression will evaluate to false.
+// These sub expressions can be hoisted out of the match clause and evaluated separately.
+// For example
+// destination.service == "abc"  -- Used to index rules by destination service.
+// context.protocol == "tcp"  -- Used to filter rules by context
 func ExtractEQMatches(src string) (map[string]interface{}, error) {
 	ex, err := Parse(src)
 	if err != nil {
