@@ -421,6 +421,7 @@ func extractEQMatches(ex *Expression, eqMap map[string]interface{}) {
 	if ex.Fn.Name != "LAND" && ex.Fn.Name != "EQ" {
 		return
 	}
+	//TODO remove collected equality expression from AST
 	recordEQ(ex.Fn, eqMap)
 	for _, arg := range ex.Fn.Args {
 		extractEQMatches(arg, eqMap)
