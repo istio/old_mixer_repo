@@ -190,6 +190,18 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_Azure_go_autorest",
+    commit = "10cfe58defab0c9a33be1f7b3ee656857670b509",  # Aug 16, 2017 (HEAD)
+    importpath = "github.com/Azure/go-autorest",
+)
+
+go_repository(
+    name = "com_github_dgrijalva_jwt_go",
+    commit = "a539ee1a749a2b895533f979515ac7e6e0f5b650",  # Jun 7, 2017 (HEAD)
+    importpath = "github.com/dgrijalva/jwt-go",
+)
+
+go_repository(
     name = "io_k8s_api",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
@@ -526,6 +538,12 @@ go_repository(
     name = "com_github_openzipkin_zipkin_go_opentracing",
     commit = "90d57f421daae5e385ce2429580f0d695c41823b",  # Jul 5, 2017 (has releases but we need a newer commit)
     importpath = "github.com/openzipkin/zipkin-go-opentracing",
+)
+
+go_repository(
+    name = "org_golang_x_sync",
+    commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
+    importpath = "golang.org/x/sync",
 )
 
 ##

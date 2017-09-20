@@ -56,7 +56,7 @@ func waitFor(wch <-chan BackendEvent, ct ChangeType, key Key) {
 
 func write(fsroot string, k Key, data map[string]interface{}) error {
 	path := filepath.Join(fsroot, k.Kind, k.Namespace, k.Name+".yaml")
-	bytes, err := yaml.Marshal(&resource{Kind: k.Kind, Metadata: resourceMeta{Namespace: k.Namespace, Name: k.Name}, Spec: data})
+	bytes, err := yaml.Marshal(&resource{Kind: k.Kind, Metadata: ResourceMeta{Namespace: k.Namespace, Name: k.Name}, Spec: data})
 	if err != nil {
 		return err
 	}
@@ -93,10 +93,10 @@ func TestFSStore2(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if !reflect.DeepEqual(h, h2) {
-		t.Errorf("Got %+v, Want %+v", h2, h)
+	if !reflect.DeepEqual(h, h2.Spec) {
+		t.Errorf("Got %+v, Want %+v", h2.Spec, h)
 	}
-	want := map[Key]map[string]interface{}{k: h2}
+	want := map[Key]*BackEndResource{k: h2}
 	if lst := s.List(); !reflect.DeepEqual(lst, want) {
 		t.Errorf("Got %+v, Want %+v", lst, want)
 	}
@@ -108,8 +108,8 @@ func TestFSStore2(t *testing.T) {
 	if h2, err = s.Get(k); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if !reflect.DeepEqual(h, h2) {
-		t.Errorf("Got %+v, Want %+v", h2, h)
+	if !reflect.DeepEqual(h, h2.Spec) {
+		t.Errorf("Got %+v, Want %+v", h2.Spec, h)
 	}
 	if err = os.Remove(filepath.Join(fsroot, k.Kind, k.Namespace, k.Name+".yaml")); err != nil {
 		t.Errorf("Got %v, Want nil", err)
@@ -158,7 +158,9 @@ spec:
 			if err != nil {
 				tt.Fatal(err)
 			}
-			if err := s.Init(context.Background(), []string{"Kind"}); err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if err := s.Init(ctx, []string{"Kind"}); err != nil {
 				tt.Fatal(err.Error())
 			}
 			if lst := s.List(); len(lst) != 1 {
@@ -240,6 +242,11 @@ spec:
 			0,
 			bad + "\n---\n" + bad,
 		},
+		{
+			"trailing white space",
+			1,
+			good + "\n---\n\n    \n",
+		},
 	} {
 		t.Run(c.title, func(tt *testing.T) {
 			resources := parseFile(c.title, []byte(c.data))
@@ -250,12 +257,44 @@ spec:
 	}
 }
 
+func TestFsStore2_ParseChunk(t *testing.T) {
+	for _, c := range []struct {
+		title string
+		isNil bool
+		data  string
+	}{
+		{
+			"whitespace only",
+			true,
+			"      \n",
+		},
+		{
+			"whitespace with comments",
+			true,
+			"   \n#This is a comments\n",
+		},
+	} {
+		t.Run(c.title, func(t *testing.T) {
+			r, err := parseChunk([]byte(c.data))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if (r == nil) != c.isNil {
+				t.Fatalf("want Got %v, Want %t", r, c.isNil)
+			}
+		})
+	}
+}
+
 func TestFSStore2MissingRoot(t *testing.T) {
 	s, fsroot := getTempFSStore2()
 	if err := os.RemoveAll(fsroot); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Init(context.Background(), []string{"Kind"}); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := s.Init(ctx, []string{"Kind"}); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	if lst := s.List(); len(lst) != 0 {
@@ -319,12 +358,24 @@ spec:
 			if err := c.prepare(fsroot); err != nil {
 				tt.Fatalf("Failed to prepare precondition: %v", err)
 			}
-			if err := s.Init(context.Background(), []string{"Handler"}); err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if err := s.Init(ctx, []string{"Handler"}); err != nil {
 				tt.Fatalf("Init failed: %v", err)
 			}
-			want := map[Key]map[string]interface{}{k: data}
-			if lst := s.List(); len(lst) != 1 || !reflect.DeepEqual(lst, want) {
-				tt.Errorf("Got %+v, Want %+v", lst, want)
+			want := map[Key]*BackEndResource{k: {Spec: data}}
+			got := s.List()
+			if len(got) != len(want) {
+				tt.Fatalf("data length does not match, want %d, got %d", len(got), len(want))
+			}
+			for k, v := range got {
+				vwant := want[k]
+				if vwant == nil {
+					tt.Fatalf("Did not get key for %s", k)
+				}
+				if !reflect.DeepEqual(v.Spec, vwant.Spec) {
+					tt.Fatalf("Got %+v, Want %+v", v, vwant)
+				}
 			}
 		})
 	}

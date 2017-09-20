@@ -206,7 +206,15 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 		g.generateIndex(f, depth, mode, valueJmpLabel)
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
+	case "ip":
+		g.generate(f.Args[0], depth+1, nmNone, "")
+		g.builder.Call("ip")
+	case "match":
+		g.generate(f.Args[0], depth+1, nmNone, "")
+		g.generate(f.Args[1], depth+1, nmNone, "")
+		g.builder.Call("match")
 	default:
+		// TODO: generalize "ip" and "match" case to iterate over Args and append Call
 		g.internalError("function not yet implemented: %s", f.Name)
 	}
 }
@@ -249,6 +257,15 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 			g.builder.AEQDouble(constArg1.(float64))
 		} else {
 			g.builder.EQDouble()
+		}
+
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, expr.FuncMap())
+		switch dvt {
+		case dpb.IP_ADDRESS:
+			g.builder.Call("ip_equal")
+		default:
+			g.internalError("equality for type not yet implemented: %v", exprType)
 		}
 
 	default:
@@ -297,10 +314,10 @@ func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, val
 
 		if f.Args[1].Const != nil {
 			str := f.Args[1].Const.Value.(string)
-			g.builder.ALookup(str)
+			g.builder.ANLookup(str)
 		} else {
 			g.generate(f.Args[1], depth+1, nmNone, "")
-			g.builder.Lookup()
+			g.builder.NLookup()
 		}
 
 	case nmJmpOnValue:

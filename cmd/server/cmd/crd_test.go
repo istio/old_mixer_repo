@@ -17,19 +17,21 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
-	pkgadapter "istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/adapter"
+	adptr "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
+	generatedTemplate "istio.io/mixer/template"
 )
 
 var empty = ``
 
-var exampleAdapters = []pkgadapter.InfoFn{
-	func() adapter.BuilderInfo { return adapter.BuilderInfo{Name: "foo-bar"} },
-	func() adapter.BuilderInfo { return adapter.BuilderInfo{Name: "abcd"} },
+var exampleAdapters = []adptr.InfoFn{
+	func() adptr.Info { return adptr.Info{Name: "foo-bar"} },
+	func() adptr.Info { return adptr.Info{Name: "abcd"} },
 }
 var exampleAdaptersCrd = `
 kind: CustomResourceDefinition
@@ -66,8 +68,11 @@ spec:
 ---`
 
 var exampleTmplInfos = map[string]template.Info{
-	"abcd-foo": {Name: "abcd-foo", Impl: "implPathShouldBeDNSCompat"},
-	"abcdBar":  {Name: "abcdBar", Impl: "implPathShouldBeDNSCompat2"},
+	"abcd-foo":   {Name: "abcd-foo", Impl: "implPathShouldBeDNSCompat"},
+	"abcdBar":    {Name: "abcdBar", Impl: "implPathShouldBeDNSCompat2"},
+	"entry":      {Name: "entry", Impl: "implPathShouldBeDNSCompat2"},      // unusual plural
+	"prometheus": {Name: "prometheus", Impl: "implPathShouldBeDNSCompat2"}, // unusual plural
+	"box":        {Name: "box", Impl: "implPathShouldBeDNSCompat2"},        // unusual plural
 }
 var exampleInstanceCrd = `kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -101,15 +106,63 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: boxes.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat2
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: box
+    plural: boxes
+    singular: box
+  scope: Namespaced
+  version: v1alpha2
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: entries.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat2
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: entry
+    plural: entries
+    singular: entry
+  scope: Namespaced
+  version: v1alpha2
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: prometheuses.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat2
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: prometheus
+    plural: prometheuses
+    singular: prometheus
+  scope: Namespaced
+  version: v1alpha2
+---
 `
 
 func TestListCrdsAdapters(t *testing.T) {
 	tests := []struct {
 		name    string
-		args    []pkgadapter.InfoFn
+		args    []adptr.InfoFn
 		wantOut string
 	}{
-		{"empty", []pkgadapter.InfoFn{}, empty},
+		{"empty", []adptr.InfoFn{}, empty},
 		{"example", exampleAdapters, exampleAdaptersCrd},
 	}
 	for _, tt := range tests {
@@ -150,5 +203,21 @@ func TestListCrdsInstances(t *testing.T) {
 				t.Errorf("listCrdsInstances() = %v, want %v", gotOut, tt.wantOut)
 			}
 		})
+	}
+}
+
+func TestNameFormat(t *testing.T) {
+	validNamePattern := regexp.MustCompile(`^([a-z0-9]+-)*[a-z0-9]+$`)
+	for _, infoFn := range adapter.Inventory() {
+		info := infoFn()
+		if !validNamePattern.MatchString(info.Name) {
+			t.Errorf("Name %s doesn't match the pattern %v", info.Name, validNamePattern)
+		}
+	}
+
+	for _, info := range generatedTemplate.SupportedTmplInfo {
+		if !validNamePattern.MatchString(info.Name) {
+			t.Errorf("Name %s doesn't match the pattern %v", info.Name, validNamePattern)
+		}
 	}
 }

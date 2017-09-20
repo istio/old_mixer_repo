@@ -20,7 +20,7 @@ import (
 	adapter "istio.io/mixer/adapter"
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
-	pkgAdapter "istio.io/mixer/pkg/adapter"
+	adptr "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
 	generatedTmplRepo "istio.io/mixer/template"
 )
@@ -29,8 +29,8 @@ func supportedTemplates() map[string]template.Info {
 	return generatedTmplRepo.SupportedTmplInfo
 }
 
-func supportedAdapters() []pkgAdapter.InfoFn {
-	return adapter.Inventory2()
+func supportedAdapters() []adptr.InfoFn {
+	return adapter.Inventory()
 }
 
 func main() {

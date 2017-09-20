@@ -30,38 +30,8 @@ import (
 	"istio.io/mixer/template/quota"
 )
 
-type (
-	builder struct{}
-
-	handler struct {
-		status rpc.Status
-	}
-)
-
-// ensure our types implement the requisite interfaces
-var _ checknothing.HandlerBuilder = &builder{}
-var _ checknothing.Handler = &handler{}
-var _ listentry.HandlerBuilder = &builder{}
-var _ listentry.Handler = &handler{}
-var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = &handler{}
-
-///////////////// Configuration Methods ///////////////
-
-func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return &handler{status: cfg.(*config.Params).Status}, nil
-}
-
-func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
-	return nil
+type handler struct {
+	status rpc.Status
 }
 
 ////////////////// Runtime Methods //////////////////////////
@@ -82,17 +52,17 @@ func (h *handler) HandleListEntry(context.Context, *listentry.Instance) (adapter
 	}, nil
 }
 
-func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
-	return adapter.QuotaResult2{}, nil
+func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	return adapter.QuotaResult{}, nil
 }
 
 func (*handler) Close() error { return nil }
 
 ////////////////// Bootstrap //////////////////////////
 
-// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
-func GetBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "denier",
 		Impl:        "istio.io/mixer/adapter/denier",
 		Description: "Rejects any check and quota request with a configurable error",
@@ -104,7 +74,21 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		DefaultConfig: &config.Params{
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig:       func(adapter.Config) *adapter.ConfigErrors { return nil },
+
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
+}
+
+type builder struct {
+	adapterConfig *config.Params
+}
+
+func (*builder) SetCheckNothingTypes(map[string]*checknothing.Type) {}
+func (*builder) SetListEntryTypes(map[string]*listentry.Type)       {}
+func (*builder) SetQuotaTypes(map[string]*quota.Type)               {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)              { b.adapterConfig = cfg.(*config.Params) }
+func (*builder) Validate() (ce *adapter.ConfigErrors)               { return }
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	return &handler{status: b.adapterConfig.Status}, nil
 }

@@ -96,6 +96,17 @@ func TestResolver_Resolve(t *testing.T) {
 			nactions: 5,
 		},
 		{
+			desc: "success no namespace config tcp",
+			bag: map[string]interface{}{
+				ia: "myservice.myns",
+				ContextProtocolAttributeName: "tcp",
+			},
+			rules: []fakeRuleCfg{
+				{ns, 5},
+			},
+			nactions: 0,
+		},
+		{
 			desc: "success no config rules",
 			bag: map[string]interface{}{
 				ia: "myservice.myns",
@@ -188,6 +199,7 @@ func assertResolverError(t *testing.T, got error, want string) {
 
 func newFakeRule(vr adptTmpl.TemplateVariety, length int) *Rule {
 	return &Rule{
+		selector: "request.size=2000",
 		actions: map[adptTmpl.TemplateVariety][]*Action{
 			vr: make([]*Action, length),
 		},

@@ -15,6 +15,7 @@
 package prometheus
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -26,13 +27,14 @@ import (
 	"istio.io/mixer/adapter/prometheus/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
+	"istio.io/mixer/template/metric"
 )
 
 type testServer struct {
-	server
-
 	errOnStart bool
 }
+
+var _ server = &testServer{}
 
 func (t testServer) Start(adapter.Env, http.Handler) error {
 	if t.errOnStart {
@@ -41,208 +43,210 @@ func (t testServer) Start(adapter.Env, http.Handler) error {
 	return nil
 }
 
-var (
-	gaugeNoLabels = &adapter.MetricDefinition{
-		Name:        "/funky::gauge",
-		Description: "funky all the time",
-		Kind:        adapter.Gauge,
-		Labels:      map[string]adapter.LabelType{},
+func (testServer) Close() error { return nil }
+
+func newBuilder(s server) *builder {
+	return &builder{
+		srv:      s,
+		registry: prometheus.NewPedanticRegistry(),
+		metrics:  make(map[string]*cinfo),
 	}
-
-	histogramNoLabels = &adapter.MetricDefinition{
-		Name:        "happy_histogram",
-		Description: "fun with buckets",
-		Kind:        adapter.Distribution,
-		Labels:      map[string]adapter.LabelType{},
-		Buckets:     &adapter.ExplicitBuckets{Bounds: []float64{0.5434}},
-	}
-
-	counterNoLabels = &adapter.MetricDefinition{
-		Name:        "the.counter",
-		Description: "count all the tests",
-		Kind:        adapter.Counter,
-		Labels:      map[string]adapter.LabelType{},
-	}
-
-	gaugeNoLabelsNoDesc = &adapter.MetricDefinition{
-		Name:   "/funky::gauge.nodesc",
-		Kind:   adapter.Gauge,
-		Labels: map[string]adapter.LabelType{},
-	}
-
-	counterNoLabelsNoDesc = &adapter.MetricDefinition{
-		Name:   "the.counter.nodesc",
-		Kind:   adapter.Counter,
-		Labels: map[string]adapter.LabelType{},
-	}
-
-	histogramNoLabelsNoDesc = &adapter.MetricDefinition{
-		Name:    "happy_histogram_the_elder",
-		Kind:    adapter.Distribution,
-		Labels:  map[string]adapter.LabelType{},
-		Buckets: &adapter.LinearBuckets{Count: 5, Offset: 45, Width: 12},
-	}
-
-	counter = &adapter.MetricDefinition{
-		Name:        "special_counter",
-		Description: "count all the special tests",
-		Kind:        adapter.Counter,
-		Labels: map[string]adapter.LabelType{
-			"bool":   adapter.Bool,
-			"string": adapter.String,
-			"email":  adapter.EmailAddress,
-		},
-	}
-
-	histogram = &adapter.MetricDefinition{
-		Name:        "happy_histogram_the_younger",
-		Description: "fun with buckets",
-		Kind:        adapter.Distribution,
-		Buckets:     &adapter.ExponentialBuckets{Scale: .14, GrowthFactor: 2, Count: 198},
-		Labels: map[string]adapter.LabelType{
-			"bool":   adapter.Bool,
-			"string": adapter.String,
-			"email":  adapter.EmailAddress,
-		},
-	}
-
-	unknown = &adapter.MetricDefinition{
-		Name:        "unknown",
-		Description: "unknown",
-		Kind:        adapter.Gauge - 2,
-		Labels:      map[string]adapter.LabelType{},
-	}
-
-	counterVal = adapter.Value{
-		Definition: counter,
-		Labels: map[string]interface{}{
-			"bool":   true,
-			"string": "testing",
-			"email":  "test@istio.io",
-		},
-		MetricValue: float64(45),
-	}
-
-	histogramVal = adapter.Value{
-		Definition: histogram,
-		Labels: map[string]interface{}{
-			"bool":   true,
-			"string": "testing",
-			"email":  "test@istio.io",
-		},
-		MetricValue: float64(234.23),
-	}
-
-	gaugeVal = newGaugeVal(int64(993))
-)
-
-func TestInvariants(t *testing.T) {
-	test.AdapterInvariants(Register, t)
 }
 
+var (
+	gaugeNoLabels = &config.Params_MetricInfo{
+		InstanceName: "/funky::gauge",
+		Description:  "funky all the time",
+		Kind:         config.GAUGE,
+		LabelNames:   []string{},
+	}
+
+	histogramNoLabels = &config.Params_MetricInfo{
+		InstanceName: "happy_histogram",
+		Description:  "fun with buckets",
+		Kind:         config.DISTRIBUTION,
+		LabelNames:   []string{},
+		Buckets: &config.Params_MetricInfo_BucketsDefinition{
+			&config.Params_MetricInfo_BucketsDefinition_ExplicitBuckets{
+				&config.Params_MetricInfo_BucketsDefinition_Explicit{Bounds: []float64{0.5434}}}},
+	}
+
+	counterNoLabels = &config.Params_MetricInfo{
+		InstanceName: "the.counter",
+		Description:  "count all the tests",
+		Kind:         config.COUNTER,
+		LabelNames:   []string{},
+	}
+
+	gaugeNoLabelsNoDesc = &config.Params_MetricInfo{
+		InstanceName: "/funky::gauge.nodesc",
+		Kind:         config.GAUGE,
+		LabelNames:   []string{},
+	}
+
+	counterNoLabelsNoDesc = &config.Params_MetricInfo{
+		InstanceName: "the.counter.nodesc",
+		Kind:         config.COUNTER,
+		LabelNames:   []string{},
+	}
+
+	histogramNoLabelsNoDesc = &config.Params_MetricInfo{
+		InstanceName: "happy_histogram_the_elder",
+		Kind:         config.DISTRIBUTION,
+		LabelNames:   []string{},
+		Buckets: &config.Params_MetricInfo_BucketsDefinition{
+			&config.Params_MetricInfo_BucketsDefinition_LinearBuckets{
+				&config.Params_MetricInfo_BucketsDefinition_Linear{NumFiniteBuckets: 5, Offset: 45, Width: 12}}},
+	}
+
+	counter = &config.Params_MetricInfo{
+		InstanceName: "special_counter",
+		Description:  "count all the special tests",
+		Kind:         config.COUNTER,
+		LabelNames:   []string{"bool", "string", "email"},
+	}
+
+	histogram = &config.Params_MetricInfo{
+		InstanceName: "happy_histogram_the_younger",
+		Description:  "fun with buckets",
+		Kind:         config.DISTRIBUTION,
+		Buckets: &config.Params_MetricInfo_BucketsDefinition{
+			&config.Params_MetricInfo_BucketsDefinition_ExponentialBuckets{
+				&config.Params_MetricInfo_BucketsDefinition_Exponential{Scale: .14, GrowthFactor: 2, NumFiniteBuckets: 198}},
+		},
+		LabelNames: []string{"bool", "string", "email"},
+	}
+
+	unknown = &config.Params_MetricInfo{
+		InstanceName: "unknown",
+		Description:  "unknown",
+		Kind:         config.UNSPECIFIED,
+		LabelNames:   []string{},
+	}
+
+	counterVal = &metric.Instance{
+		Name: counter.InstanceName,
+		Dimensions: map[string]interface{}{
+			"bool":   true,
+			"string": "testing",
+			"email":  "test@istio.io",
+		},
+		Value: float64(45),
+	}
+
+	histogramVal = &metric.Instance{
+		Name: histogram.InstanceName,
+		Dimensions: map[string]interface{}{
+			"bool":   true,
+			"string": "testing",
+			"email":  "test@istio.io",
+		},
+		Value: float64(234.23),
+	}
+
+	gaugeVal = newGaugeVal(gaugeNoLabels.InstanceName, int64(993))
+)
+
 func TestFactory_NewMetricsAspect(t *testing.T) {
-	f := newFactory(&testServer{})
+	f := newBuilder(&testServer{})
 
 	tests := []struct {
 		name    string
-		metrics []*adapter.MetricDefinition
+		metrics []*config.Params_MetricInfo
 	}{
-		{"No Metrics", []*adapter.MetricDefinition{}},
-		{"One Gauge", []*adapter.MetricDefinition{gaugeNoLabels}},
-		{"One Counter", []*adapter.MetricDefinition{counterNoLabels}},
-		{"Distribution", []*adapter.MetricDefinition{histogramNoLabels}},
-		{"Multiple Metrics", []*adapter.MetricDefinition{counterNoLabels, gaugeNoLabels, histogramNoLabels}},
-		{"With Labels", []*adapter.MetricDefinition{counter, histogram}},
-		{"No Descriptions", []*adapter.MetricDefinition{counterNoLabelsNoDesc, gaugeNoLabelsNoDesc, histogramNoLabelsNoDesc}},
+		{"No Metrics", []*config.Params_MetricInfo{}},
+		{"One Gauge", []*config.Params_MetricInfo{gaugeNoLabels}},
+		{"One Counter", []*config.Params_MetricInfo{counterNoLabels}},
+		{"Distribution", []*config.Params_MetricInfo{histogramNoLabels}},
+		{"Multiple Metrics", []*config.Params_MetricInfo{counterNoLabels, gaugeNoLabels, histogramNoLabels}},
+		{"With Labels", []*config.Params_MetricInfo{counter, histogram}},
+		{"No Descriptions", []*config.Params_MetricInfo{counterNoLabelsNoDesc, gaugeNoLabelsNoDesc, histogramNoLabelsNoDesc}},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...)); err != nil {
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			if _, err := f.Build(context.Background(), test.NewEnv(t)); err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestFactory_NewMetricsAspectServerFail(t *testing.T) {
-	f := newFactory(&testServer{errOnStart: true})
-	if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap()); err == nil {
+func TestFactory_BuildServerFail(t *testing.T) {
+	f := newBuilder(&testServer{errOnStart: true})
+	f.SetAdapterConfig(makeConfig())
+	if _, err := f.Build(context.Background(), test.NewEnv(t)); err == nil {
 		t.Error("NewMetricsAspect() => expected error on server startup")
 	}
 }
 
-func TestNewMetricsAspect_MetricDefinitionErrors(t *testing.T) {
-	f := newFactory(&testServer{})
+func TestBuild_MetricDefinitionErrors(t *testing.T) {
+	f := newBuilder(&testServer{})
 	tests := []struct {
 		name    string
-		metrics []*adapter.MetricDefinition
+		metrics []*config.Params_MetricInfo
 	}{
-		{"Unknown MetricKind", []*adapter.MetricDefinition{unknown}},
+		{"Unknown MetricKind", []*config.Params_MetricInfo{unknown}},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...)); err == nil {
-				t.Errorf("Expected error for NewMetricsAspect(%#v)", v.metrics)
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			if _, err := f.Build(context.Background(), test.NewEnv(t)); err == nil {
+				t.Errorf("Expected error for Build(%#v)", v.metrics)
 			}
 		})
 	}
 }
 
-func TestFactory_NewMetricsAspect_MetricDefinitionConflicts(t *testing.T) {
-	f := newFactory(&testServer{})
+func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
+	f := newBuilder(&testServer{})
 
-	gaugeWithLabels := &adapter.MetricDefinition{
-		Name:        "/funky::gauge",
-		Description: "funky all the time",
-		Kind:        adapter.Gauge,
-		Labels: map[string]adapter.LabelType{
-			"test": adapter.String,
-		},
+	gaugeWithLabels := &config.Params_MetricInfo{
+		InstanceName: "/funky::gauge",
+		Description:  "funky all the time",
+		Kind:         config.GAUGE,
+		LabelNames:   []string{"test"},
 	}
 
-	altCounter := &adapter.MetricDefinition{
-		Name:        "special_counter",
-		Description: "count all the special tests",
-		Kind:        adapter.Counter,
-		Labels: map[string]adapter.LabelType{
-			"email": adapter.EmailAddress,
-		},
+	altCounter := &config.Params_MetricInfo{
+		InstanceName: "special_counter",
+		Description:  "count all the special tests",
+		Kind:         config.COUNTER,
+		LabelNames:   []string{"email"},
 	}
 
-	altHistogram := &adapter.MetricDefinition{
-		Name:        "happy_histogram",
-		Description: "fun with buckets",
-		Kind:        adapter.Distribution,
-		Labels: map[string]adapter.LabelType{
-			"test": adapter.String,
-		},
+	altHistogram := &config.Params_MetricInfo{
+		InstanceName: "happy_histogram",
+		Description:  "fun with buckets",
+		Kind:         config.DISTRIBUTION,
+		LabelNames:   []string{"test"},
 	}
 
 	tests := []struct {
 		name    string
-		metrics []*adapter.MetricDefinition
+		metrics []*config.Params_MetricInfo
 	}{
-		{"Gauge Definition Conflicts", []*adapter.MetricDefinition{gaugeNoLabels, gaugeWithLabels}},
-		{"Counter Definition Conflicts", []*adapter.MetricDefinition{counter, altCounter}},
-		{"Histogram Definition Conflicts", []*adapter.MetricDefinition{histogramNoLabels, altHistogram}},
+		{"Gauge Definition Conflicts", []*config.Params_MetricInfo{gaugeNoLabels, gaugeWithLabels}},
+		{"Counter Definition Conflicts", []*config.Params_MetricInfo{counter, altCounter}},
+		{"Histogram Definition Conflicts", []*config.Params_MetricInfo{histogramNoLabels, altHistogram}},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			for i, met := range v.metrics {
-				_, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(met))
-				if i > 0 && err == nil {
-					t.Error("NewMetricsAspect() => expected error during metrics registration")
-				}
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			_, err := f.Build(context.Background(), test.NewEnv(t))
+			if err == nil {
+				t.Error("Build() => expected error during metrics registration")
 			}
 		})
 	}
 }
 
 func TestProm_Close(t *testing.T) {
-	f := newFactory(&testServer{})
-	prom, _ := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap())
+	f := newBuilder(&testServer{})
+	f.SetAdapterConfig(&config.Params{})
+	prom, _ := f.Build(context.Background(), test.NewEnv(t))
 	if err := prom.Close(); err != nil {
 		t.Errorf("Close() should not have returned an error: %v", err)
 	}
@@ -251,66 +255,71 @@ func TestProm_Close(t *testing.T) {
 func TestProm_Record(t *testing.T) {
 	duration, _ := time.ParseDuration("386ms")
 
-	f := newFactory(&testServer{})
+	f := newBuilder(&testServer{})
 	tests := []struct {
 		name    string
-		metrics []*adapter.MetricDefinition
-		values  []adapter.Value
+		metrics []*config.Params_MetricInfo
+		values  []*metric.Instance
 	}{
-		{"Increment Counter", []*adapter.MetricDefinition{counter}, []adapter.Value{counterVal}},
-		{"Histogram Observation", []*adapter.MetricDefinition{histogram}, []adapter.Value{histogramVal}},
-		{"Change Gauge", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{gaugeVal}},
-		{"Counter and Gauge", []*adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}, []adapter.Value{gaugeVal, newCounterVal(float64(16))}},
-		{"Int64", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int64(8))}},
-		{"Duration", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(duration)}},
-		{"String", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal("8.243543")}},
+		/*	{"Increment Counter", []*config.Params_MetricInfo{counter}, []*metric.Instance{counterVal}},
+			{"Histogram Observation", []*config.Params_MetricInfo{histogram}, []*metric.Instance{histogramVal}},
+			{"Change Gauge", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{gaugeVal}},*/
+		{"Counter and Gauge",
+			[]*config.Params_MetricInfo{counterNoLabels, gaugeNoLabels},
+			[]*metric.Instance{gaugeVal, newCounterVal(counterNoLabels.InstanceName, float64(16))}},
+		{"Int64", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, int64(8))}},
+		{"Duration", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, duration)}},
+		{"String", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, "8.243543")}},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...))
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			a, err := f.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
-				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
+				t.Errorf("Build() => unexpected error: %v", err)
 			}
-			err = aspect.Record(v.values)
+			aspect := a.(metric.Handler)
+
+			err = aspect.HandleMetric(context.Background(), v.values)
 			if err != nil {
 				t.Errorf("Record() => unexpected error: %v", err)
 			}
 			// Check tautological recording of entries.
-			pr := aspect.(*prom)
+			pr := aspect.(*handler)
 			for _, adapterVal := range v.values {
-				c, ok := pr.metrics[adapterVal.Definition.Name]
+				ci, ok := pr.metrics[adapterVal.Name]
 				if !ok {
-					t.Errorf("Record() could not find metric with name %s:", adapterVal.Definition.Name)
+					t.Errorf("Record() could not find metric with name %s:", adapterVal.Name)
 					continue
 				}
-
+				c := ci.c
 				m := new(dto.Metric)
 				switch c.(type) {
 				case *prometheus.CounterVec:
-					if err := c.(*prometheus.CounterVec).With(promLabels(adapterVal.Labels)).Write(m); err != nil {
+					if err := c.(*prometheus.CounterVec).With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}
 				case *prometheus.GaugeVec:
-					if err := c.(*prometheus.GaugeVec).With(promLabels(adapterVal.Labels)).Write(m); err != nil {
+					if err := c.(*prometheus.GaugeVec).With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}
 				case *prometheus.HistogramVec:
-					if err := c.(*prometheus.HistogramVec).With(promLabels(adapterVal.Labels)).Write(m); err != nil {
+					if err := c.(*prometheus.HistogramVec).With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}
 				}
 
 				got := metricValue(m)
-				want, err := promValue(adapterVal)
+				want, err := promValue(adapterVal.Value)
 				if err != nil {
-					t.Errorf("Record(%s) could not get desired value: %v", adapterVal.Definition.Name, err)
+					t.Errorf("Record(%s) could not get desired value: %v", adapterVal.Name, err)
 				}
 				if got != want {
-					t.Errorf("Record(%s) => %f, want %f", adapterVal.Definition.Name, got, want)
+					t.Errorf("Record(%s) => %f, want %f", adapterVal.Name, got, want)
 				}
 			}
 		})
@@ -318,26 +327,28 @@ func TestProm_Record(t *testing.T) {
 }
 
 func TestProm_RecordFailures(t *testing.T) {
-	f := newFactory(&testServer{})
+	f := newBuilder(&testServer{})
 	tests := []struct {
 		name    string
-		metrics []*adapter.MetricDefinition
-		values  []adapter.Value
+		metrics []*config.Params_MetricInfo
+		values  []*metric.Instance
 	}{
-		{"Not Found", []*adapter.MetricDefinition{counterNoLabels}, []adapter.Value{newGaugeVal(true)}},
-		{"Bool", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(true)}},
-		{"Text String (Gauge)", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal("not a value")}},
-		{"Text String (Counter)", []*adapter.MetricDefinition{counterNoLabels}, []adapter.Value{newCounterVal("not a value")}},
-		{"Text String (Histogram)", []*adapter.MetricDefinition{histogramNoLabels}, []adapter.Value{newHistogramVal("not a value")}},
+		{"Not Found", []*config.Params_MetricInfo{counterNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
+		{"Bool", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
+		{"Text String (Gauge)", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, "not a value")}},
+		{"Text String (Counter)", []*config.Params_MetricInfo{counterNoLabels}, []*metric.Instance{newCounterVal(counterVal.Name, "not a value")}},
+		{"Text String (Histogram)", []*config.Params_MetricInfo{histogramNoLabels}, []*metric.Instance{newHistogramVal(histogramVal.Name, "not a value")}},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...))
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			a, err := f.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
-				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
+				t.Errorf("Build() => unexpected error: %v", err)
 			}
-			err = aspect.Record(v.values)
+			aspect := a.(metric.Handler)
+			err = aspect.HandleMetric(context.Background(), v.values)
 			if err == nil {
 				t.Error("Record() - expected error, got none")
 			}
@@ -361,35 +372,30 @@ func metricValue(m *dto.Metric) float64 {
 	return -1
 }
 
-func newGaugeVal(val interface{}) adapter.Value {
-	return adapter.Value{
-		Definition:  gaugeNoLabels,
-		Labels:      map[string]interface{}{},
-		MetricValue: val,
+func newGaugeVal(name string, val interface{}) *metric.Instance {
+	return &metric.Instance{
+		Name:       name,
+		Value:      val,
+		Dimensions: map[string]interface{}{},
 	}
 }
 
-func newCounterVal(val interface{}) adapter.Value {
-	return adapter.Value{
-		Definition:  counterNoLabels,
-		Labels:      map[string]interface{}{},
-		MetricValue: val,
+func newCounterVal(name string, val interface{}) *metric.Instance {
+	return &metric.Instance{
+		Name:       name,
+		Value:      val,
+		Dimensions: map[string]interface{}{},
 	}
 }
 
-func newHistogramVal(val interface{}) adapter.Value {
-	return adapter.Value{
-		Definition:  histogramNoLabels,
-		Labels:      map[string]interface{}{},
-		MetricValue: val,
+func newHistogramVal(name string, val interface{}) *metric.Instance {
+	return &metric.Instance{
+		Name:       name,
+		Value:      val,
+		Dimensions: map[string]interface{}{},
 	}
 }
 
-func makeMetricMap(metrics ...*adapter.MetricDefinition) map[string]*adapter.MetricDefinition {
-	m := make(map[string]*adapter.MetricDefinition, len(metrics))
-	for _, metric := range metrics {
-		m[metric.Name] = metric
-	}
-
-	return m
+func makeConfig(metrics ...*config.Params_MetricInfo) *config.Params {
+	return &config.Params{Metrics: metrics}
 }

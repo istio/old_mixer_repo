@@ -26,6 +26,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -73,8 +74,8 @@ type (
 	// the given builder.
 	AdapterToAspectMapper func(builder string) KindSet
 
-	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
-	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
+	// BuilderInfoFinder is used to find specific handlers Info for configuration.
+	BuilderInfoFinder func(name string) (*adapter.Info, bool)
 
 	// SetupHandlerFn is used to configure handler implementation with Types associated with all the templates that
 	// it supports.
@@ -155,7 +156,7 @@ type (
 
 	// HandlerBuilderInfo stores validated HandlerBuilders..
 	HandlerBuilderInfo struct {
-		handlerBuilder     *adapter.HandlerBuilder
+		b                  adapter.HandlerBuilder
 		isBroken           bool
 		handlerCnfg        *pb.Handler
 		supportedTemplates []string
@@ -410,11 +411,11 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 
 func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.ConfigErrors) {
 	for _, rule := range rules {
-		if err := p.validateSelector(rule.GetSelector(), p.descriptorFinder); err != nil {
-			ce = ce.Append(path+":Selector "+rule.GetSelector(), err)
+		if err := p.validateSelector(rule.GetMatch(), p.descriptorFinder); err != nil {
+			ce = ce.Append(path+":Selector "+rule.GetMatch(), err)
 		}
 
-		path = path + "/" + rule.GetSelector()
+		path = path + "/" + rule.GetMatch()
 		for idx, aa := range rule.GetActions() {
 			hasError := false
 
@@ -447,13 +448,6 @@ func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.Co
 			if !hasError {
 				p.actions = append(p.actions, aa)
 			}
-		}
-		rs := rule.GetRules()
-		if len(rs) == 0 {
-			continue
-		}
-		if verr := p.validateRules(rs, path); verr != nil {
-			ce = ce.Extend(verr)
 		}
 	}
 	return ce
@@ -638,7 +632,12 @@ func (p *validator) buildHandler(builder *HandlerBuilderInfo, handler string) (c
 		}
 	}()
 
-	instance, err := (*builder.handlerBuilder).Build(builder.handlerCnfg.Params.(proto.Message), nil)
+	builder.b.SetAdapterConfig(builder.handlerCnfg.Params.(proto.Message))
+	if re := builder.b.Validate(); re != nil {
+		return ce.Appendf("handlerConfig: "+handler, "failed to validate a handler configuration").Extend(re)
+	}
+	// TODO pass correct context here.
+	instance, err := builder.b.Build(context.Background(), nil)
 	// TODO Add validation to ensure handlerInstance support all the templates it claims to support.
 	if err != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to build a handler instance: %v", err)
@@ -738,19 +737,16 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 		}
 
 		hh.Params = hcfg
-		hb := bi.CreateHandlerBuilder()
-		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, handlerBuilder: &hb, supportedTemplates: bi.SupportedTemplates}
+		hb := bi.NewBuilder()
+		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, b: hb, supportedTemplates: bi.SupportedTemplates}
 	}
 	return
 }
 
-func convertHandlerParams(bi *adapter.BuilderInfo, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
+func convertHandlerParams(bi *adapter.Info, name string, params interface{}, strict bool) (hc proto.Message, ce *adapter.ConfigErrors) {
 	hc = bi.DefaultConfig
 	if err := decode(params, hc, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)
-	}
-	if ce := bi.ValidateConfig(hc); ce != nil {
-		return nil, ce.Extend(ce)
 	}
 	return hc, nil
 }

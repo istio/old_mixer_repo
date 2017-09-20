@@ -70,7 +70,7 @@ func TestStore2(t *testing.T) {
 	if err = s.Get(k, h1); err != ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
-	m.Put(k, map[string]interface{}{"name": "default", "adapter": "noop"})
+	m.Put(k, &BackEndResource{Spec: map[string]interface{}{"name": "default", "adapter": "noop"}})
 	if err = s.Get(k, h1); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
@@ -79,8 +79,15 @@ func TestStore2(t *testing.T) {
 		t.Errorf("Got %v, Want %v", h1, want)
 	}
 	wantList := map[Key]proto.Message{k: want}
-	if lst := s.List(); !reflect.DeepEqual(lst, wantList) {
-		t.Errorf("Got %+v, Want %+v", lst, wantList)
+
+	for k, v := range s.List() {
+		vwant := wantList[k]
+		if vwant == nil {
+			t.Fatalf("Did not get key for %s", k)
+		}
+		if !reflect.DeepEqual(v.Spec, vwant) {
+			t.Errorf("Got %+v, Want %+v", v, vwant)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -89,10 +96,19 @@ func TestStore2(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	m.Put(k, map[string]interface{}{"name": "default", "adapter": "noop"})
-	wantEv := Event{Key: k, Type: Update, Value: want}
+	m.Put(k, &BackEndResource{Spec: map[string]interface{}{"name": "default", "adapter": "noop"}})
+	wantEv := Event{Key: k, Type: Update,
+		Value: &Resource{
+			Metadata: ResourceMeta{
+				Name:      k.Name,
+				Namespace: k.Namespace,
+			},
+			Spec: want,
+		},
+	}
+
 	if ev := <-ch; !reflect.DeepEqual(ev, wantEv) {
-		t.Errorf("Got %+v, Want %+v", ev, wantEv)
+		t.Errorf("Got %+v, Want %+v", ev.Value, wantEv.Value)
 	}
 }
 
@@ -143,12 +159,12 @@ func TestStore2Fail(t *testing.T) {
 		t.Errorf("Got %v, Want watch error", err)
 	}
 
-	ts.Put(Key{Kind: "Handler", Name: "name", Namespace: "ns"}, map[string]interface{}{
+	ts.Put(Key{Kind: "Handler", Name: "name", Namespace: "ns"}, &BackEndResource{Spec: map[string]interface{}{
 		"foo": 1,
-	})
-	ts.Put(Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}, map[string]interface{}{
+	}})
+	ts.Put(Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}, &BackEndResource{Spec: map[string]interface{}{
 		"unknown": "unknown",
-	})
+	}})
 	if lst := s.List(); len(lst) != 0 {
 		t.Errorf("Got %v, Want empty", lst)
 	}

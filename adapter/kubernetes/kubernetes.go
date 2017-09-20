@@ -30,6 +30,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -68,10 +69,13 @@ const (
 
 	// input/output naming
 	sourceUID         = "sourceUID"
-	targetUID         = "targetUID"
+	destinationUID    = "destinationUID"
 	originUID         = "originUID"
+	sourceIP          = "sourceIP"
+	destinationIP     = "destinationIP"
+	originIP          = "originIP"
 	sourcePrefix      = "source"
-	targetPrefix      = "target"
+	destinationPrefix = "destination"
 	originPrefix      = "origin"
 	labelsVal         = "Labels"
 	podNameVal        = "PodName"
@@ -93,24 +97,27 @@ const (
 
 var (
 	conf = &config.Params{
-		KubeconfigPath:          "",
-		CacheRefreshDuration:    defaultRefreshPeriod,
-		SourceUidInputName:      sourceUID,
-		TargetUidInputName:      targetUID,
-		OriginUidInputName:      originUID,
-		ClusterDomainName:       clusterDomain,
-		PodLabelForService:      podServiceLabel,
-		PodLabelForIstioService: istioPodServiceLabel,
-		SourcePrefix:            sourcePrefix,
-		TargetPrefix:            targetPrefix,
-		OriginPrefix:            originPrefix,
-		LabelsValueName:         labelsVal,
-		PodNameValueName:        podNameVal,
-		PodIpValueName:          podIPVal,
-		HostIpValueName:         hostIPVal,
-		NamespaceValueName:      namespaceVal,
-		ServiceAccountValueName: serviceAccountVal,
-		ServiceValueName:        serviceVal,
+		KubeconfigPath:                   "",
+		CacheRefreshDuration:             defaultRefreshPeriod,
+		SourceUidInputName:               sourceUID,
+		DestinationUidInputName:          destinationUID,
+		OriginUidInputName:               originUID,
+		SourceIpInputName:                sourceIP,
+		DestinationIpInputName:           destinationIP,
+		OriginIpInputName:                originIP,
+		ClusterDomainName:                clusterDomain,
+		PodLabelForService:               podServiceLabel,
+		PodLabelForIstioComponentService: istioPodServiceLabel,
+		SourcePrefix:                     sourcePrefix,
+		DestinationPrefix:                destinationPrefix,
+		OriginPrefix:                     originPrefix,
+		LabelsValueName:                  labelsVal,
+		PodNameValueName:                 podNameVal,
+		PodIpValueName:                   podIPVal,
+		HostIpValueName:                  hostIPVal,
+		NamespaceValueName:               namespaceVal,
+		ServiceAccountValueName:          serviceAccountVal,
+		ServiceValueName:                 serviceVal,
 	}
 )
 
@@ -141,17 +148,26 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.SourceUidInputName) == 0 {
 		ce = ce.Appendf("sourceUidInputName", "field must be populated")
 	}
-	if len(params.TargetUidInputName) == 0 {
-		ce = ce.Appendf("targetUidInputName", "field must be populated")
+	if len(params.DestinationUidInputName) == 0 {
+		ce = ce.Appendf("destinationUidInputName", "field must be populated")
 	}
 	if len(params.OriginUidInputName) == 0 {
 		ce = ce.Appendf("originUidInputName", "field must be populated")
 	}
+	if len(params.SourceIpInputName) == 0 {
+		ce = ce.Appendf("sourceIpInputName", "field must be populated")
+	}
+	if len(params.DestinationIpInputName) == 0 {
+		ce = ce.Appendf("destinationIpInputName", "field must be populated")
+	}
+	if len(params.OriginIpInputName) == 0 {
+		ce = ce.Appendf("originIpInputName", "field must be populated")
+	}
 	if len(params.SourcePrefix) == 0 {
 		ce = ce.Appendf("sourcePrefix", "field must be populated")
 	}
-	if len(params.TargetPrefix) == 0 {
-		ce = ce.Appendf("targetPrefix", "field must be populated")
+	if len(params.DestinationPrefix) == 0 {
+		ce = ce.Appendf("destinationPrefix", "field must be populated")
 	}
 	if len(params.OriginPrefix) == 0 {
 		ce = ce.Appendf("originPrefix", "field must be populated")
@@ -180,8 +196,8 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.PodLabelForService) == 0 {
 		ce = ce.Appendf("podLabelForService", "field must be populated")
 	}
-	if len(params.PodLabelForIstioService) == 0 {
-		ce = ce.Appendf("podLabelForIstioService", "field must be populated")
+	if len(params.PodLabelForIstioComponentService) == 0 {
+		ce = ce.Appendf("podLabelForIstioComponentService", "field must be populated")
 	}
 	if len(params.ClusterDomainName) == 0 {
 		ce = ce.Appendf("clusterDomainName", "field must be populated")
@@ -248,51 +264,43 @@ func (k *kubegen) Close() error { return nil }
 
 func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
-	if uid, found := inputs[k.params.SourceUidInputName]; found {
-		uidstr, ok := uid.(string)
-		if ok && len(uidstr) > 0 {
-			k.addValues(values, uidstr, k.params.SourcePrefix)
-		}
+	if id, found := serviceIdentifier(inputs, k.params.SourceUidInputName, k.params.SourceIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.SourcePrefix)
 	}
-	if uid, found := inputs[k.params.TargetUidInputName]; found {
-		uidstr, ok := uid.(string)
-		if ok && len(uidstr) > 0 {
-			k.addValues(values, uidstr, k.params.TargetPrefix)
-		}
+	if id, found := serviceIdentifier(inputs, k.params.DestinationUidInputName, k.params.DestinationIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.DestinationPrefix)
 	}
-	if uid, found := inputs[k.params.OriginUidInputName]; found {
-		uidstr, ok := uid.(string)
-		if ok && len(uidstr) > 0 {
-			k.addValues(values, uidstr, k.params.OriginPrefix)
-		}
+	if id, found := serviceIdentifier(inputs, k.params.OriginUidInputName, k.params.OriginIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.OriginPrefix)
 	}
 	return values, nil
 }
 
 func (k *kubegen) addValues(vals map[string]interface{}, uid, valPrefix string) {
 	podKey := keyFromUID(uid)
-	pod, err := k.pods.GetPod(podKey)
-	if err != nil {
-		k.log.Warningf("error getting pod for (uid: %s, key: %s): %v", uid, podKey, err)
+	pod, found := k.pods.GetPod(podKey)
+	if !found {
+		k.log.Warningf("could not find pod for (uid: %s, key: %s)", uid, podKey)
+		return
 	}
 	addPodValues(vals, valPrefix, k.params, pod)
 }
 
 func keyFromUID(uid string) string {
+	if ip := net.ParseIP(uid); ip != nil {
+		return uid
+	}
 	fullname := strings.TrimPrefix(uid, kubePrefix)
 	if strings.Contains(fullname, ".") {
 		parts := strings.Split(fullname, ".")
 		if len(parts) == 2 {
-			return fmt.Sprintf("%s/%s", parts[1], parts[0])
+			return key(parts[1], parts[0])
 		}
 	}
 	return fullname
 }
 
 func addPodValues(m map[string]interface{}, prefix string, params config.Params, p *v1.Pod) {
-	if p == nil {
-		return
-	}
 	if len(p.Labels) > 0 {
 		m[valueName(prefix, params.LabelsValueName)] = p.Labels
 	}
@@ -316,7 +324,7 @@ func addPodValues(m map[string]interface{}, prefix string, params config.Params,
 		if err == nil {
 			m[valueName(prefix, params.ServiceValueName)] = n
 		}
-	} else if app, found := p.Labels[params.PodLabelForIstioService]; found {
+	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			m[valueName(prefix, params.ServiceValueName)] = n
@@ -372,4 +380,25 @@ func canonicalName(service, namespace, clusterDomain string) (string, error) {
 		s = fmt.Sprintf("%s.%s", s, domParts[i])
 	}
 	return s, nil
+}
+
+func serviceIdentifier(inputs map[string]interface{}, keys ...string) (string, bool) {
+	for _, key := range keys {
+		if id, found := inputs[key]; found {
+			switch id.(type) {
+			// TODO: update when support for golang net.IP is added to attribute.Bag
+			case []uint8:
+				rawIP := id.([]uint8)
+				if len(rawIP) == net.IPv4len || len(rawIP) == net.IPv6len {
+					ip := net.IP(rawIP)
+					if !ip.IsUnspecified() {
+						return ip.String(), true
+					}
+				}
+			case string:
+				return id.(string), true
+			}
+		}
+	}
+	return "", false
 }

@@ -33,21 +33,22 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	info := GetBuilderInfo()
+	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, logentry.TemplateName) ||
 		!contains(info.SupportedTemplates, metric.TemplateName) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
 	cfg := info.DefaultConfig
+	b := info.NewBuilder()
+	b.SetAdapterConfig(cfg)
 
-	if err := info.ValidateConfig(cfg); err != nil {
+	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := builder.Build(cfg, test.NewEnv(t))
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -79,7 +80,6 @@ func contains(s []string, e string) bool {
 }
 
 func TestBuilder(t *testing.T) {
-	info := GetBuilderInfo()
 	env := test.NewEnv(t)
 
 	cases := []struct {
@@ -122,10 +122,7 @@ func TestBuilder(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			builder := info.CreateHandlerBuilder().(*builder)
-			oldZapBuilder := builder.zapBuilder
-
-			builder.zapBuilder = func(outputPath string, encoding string) (*zap.Logger, error) {
+			zb := func(outputPath string, encoding string) (*zap.Logger, error) {
 				if outputPath != c.outputPath {
 					t.Errorf("Got output path %s, expecting %s", outputPath, c.outputPath)
 				}
@@ -138,10 +135,13 @@ func TestBuilder(t *testing.T) {
 					return nil, errors.New("expected")
 				}
 
-				return oldZapBuilder(outputPath, encoding)
+				return newZapLogger(outputPath, encoding)
 			}
 
-			h, err := builder.Build(&c.config, env)
+			info := GetInfo()
+			b := info.NewBuilder().(*builder)
+			b.SetAdapterConfig(&c.config)
+			h, err := b.buildWithZapBuilder(context.Background(), env, zb)
 
 			if (err != nil) && c.success {
 				t.Errorf("Got %v, expecting success", err)
@@ -212,12 +212,13 @@ func TestLogEntry(t *testing.T) {
 		},
 	}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder().(*builder)
+	info := GetInfo()
 	cfg := info.DefaultConfig
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 	env := test.NewEnv(t)
-	_ = builder.ConfigureLogEntryHandler(types)
-	h, _ := builder.Build(cfg, env)
+	b.SetLogEntryTypes(types)
+	h, _ := b.Build(context.Background(), env)
 	handler := h.(*handler)
 	tz := newTestZap()
 	handler.logger = zap.New(tz)
@@ -310,12 +311,13 @@ func TestMetricEntry(t *testing.T) {
 		},
 	}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder().(*builder)
+	info := GetInfo()
 	cfg := info.DefaultConfig
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 	env := test.NewEnv(t)
-	_ = builder.ConfigureMetricHandler(types)
-	h, _ := builder.Build(cfg, env)
+	b.SetMetricTypes(types)
+	h, _ := b.Build(context.Background(), env)
 	handler := h.(*handler)
 	tz := newTestZap()
 	handler.logger = zap.New(tz)

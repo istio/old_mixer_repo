@@ -35,8 +35,6 @@ import (
 )
 
 type (
-	builder struct{}
-
 	handler struct {
 		log           adapter.Logger
 		closing       chan bool
@@ -60,40 +58,6 @@ type (
 		numEntries() int
 	}
 )
-
-// ensure our types implement the requisite interfaces
-var _ listentry.HandlerBuilder = &builder{}
-var _ listentry.Handler = &handler{}
-
-func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	c := cfg.(*config.Params)
-
-	h := &handler{
-		log:     env.Logger(),
-		closing: make(chan bool),
-		config:  *c,
-		readAll: ioutil.ReadAll,
-	}
-
-	if c.ProviderUrl != "" {
-		h.refreshTicker = time.NewTicker(c.RefreshInterval)
-		h.purgeTimer = time.NewTimer(c.Ttl)
-	}
-
-	// Load up the list synchronously so we're ready to accept traffic immediately.
-	h.fetchList()
-
-	if c.ProviderUrl != "" {
-		// goroutine to periodically refresh the list
-		env.ScheduleDaemon(h.listRefresher)
-	}
-
-	return h, nil
-}
-
-func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
-	return nil
-}
 
 ///////////////// Runtime Methods ///////////////
 
@@ -268,15 +232,14 @@ func (h *handler) purgeList() {
 
 ///////////////// Bootstrap ///////////////
 
-// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
-func GetBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
-		Name:               "list-checker",
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
+		Name:               "listchecker",
 		Impl:               "istio.io/mixer/adapter/list",
 		Description:        "Checks whether an entry is present in a list",
 		SupportedTemplates: []string{listentry.TemplateName},
 		DefaultConfig: &config.Params{
-			ProviderUrl:     "http://localhost",
 			RefreshInterval: 60 * time.Second,
 			Ttl:             300 * time.Second,
 			CachingInterval: 300 * time.Second,
@@ -284,41 +247,48 @@ func GetBuilderInfo() adapter.BuilderInfo {
 			EntryType:       config.STRINGS,
 			Blacklist:       false,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig:       validateConfig,
+
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
-func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
-	c := cfg.(*config.Params)
+type builder struct {
+	adapterConfig *config.Params
+}
 
-	if c.ProviderUrl != "" {
-		u, err := url.Parse(c.ProviderUrl)
+func (*builder) SetListEntryTypes(map[string]*listentry.Type) {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)        { b.adapterConfig = cfg.(*config.Params) }
+
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	ac := b.adapterConfig
+
+	if ac.ProviderUrl != "" {
+		u, err := url.Parse(ac.ProviderUrl)
 		if err != nil {
 			ce = ce.Append("providerUrl", err)
 		} else if u.Scheme == "" || u.Host == "" {
 			ce = ce.Appendf("providerUrl", "URL scheme and host cannot be empty")
 		}
 
-		if c.RefreshInterval < 1*time.Second {
-			ce = ce.Appendf("refreshInterval", "refresh interval must be at least 1 second, it is %v", c.RefreshInterval)
+		if ac.RefreshInterval < 1*time.Second {
+			ce = ce.Appendf("refreshInterval", "refresh interval must be at least 1 second, it is %v", ac.RefreshInterval)
 		}
 
-		if c.Ttl < c.RefreshInterval {
-			ce = ce.Appendf("ttl", "ttl must be > refreshInterval, ttl is %v and refreshInterval is %v", c.Ttl, c.RefreshInterval)
+		if ac.Ttl < ac.RefreshInterval {
+			ce = ce.Appendf("ttl", "ttl must be > refreshInterval, ttl is %v and refreshInterval is %v", ac.Ttl, ac.RefreshInterval)
 		}
 	}
 
-	if c.CachingInterval < 0 {
-		ce = ce.Appendf("cachingInterval", "caching interval must be >= 0, it is %v", c.CachingInterval)
+	if ac.CachingInterval < 0 {
+		ce = ce.Appendf("cachingInterval", "caching interval must be >= 0, it is %v", ac.CachingInterval)
 	}
 
-	if c.CachingUseCount < 0 {
-		ce = ce.Appendf("cachingUseCount", "caching use count must be >= 0, it is %v", c.CachingUseCount)
+	if ac.CachingUseCount < 0 {
+		ce = ce.Appendf("cachingUseCount", "caching use count must be >= 0, it is %v", ac.CachingUseCount)
 	}
 
-	if c.EntryType == config.IP_ADDRESSES {
-		for _, ip := range c.Overrides {
+	if ac.EntryType == config.IP_ADDRESSES {
+		for _, ip := range ac.Overrides {
 			orig := ip
 			if !strings.Contains(ip, "/") {
 				ip += "/32"
@@ -332,4 +302,30 @@ func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 
 	return
+}
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	ac := b.adapterConfig
+
+	h := &handler{
+		log:     env.Logger(),
+		closing: make(chan bool),
+		config:  *ac,
+		readAll: ioutil.ReadAll,
+	}
+
+	if ac.ProviderUrl != "" {
+		h.refreshTicker = time.NewTicker(ac.RefreshInterval)
+		h.purgeTimer = time.NewTimer(ac.Ttl)
+	}
+
+	// Load up the list synchronously so we're ready to accept traffic immediately.
+	h.fetchList()
+
+	if ac.ProviderUrl != "" {
+		// goroutine to periodically refresh the list
+		env.ScheduleDaemon(h.listRefresher)
+	}
+
+	return h, nil
 }

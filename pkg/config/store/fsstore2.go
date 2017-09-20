@@ -18,9 +18,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -34,20 +36,15 @@ var supportedExtensions = map[string]bool{
 	".yml":  true,
 }
 
-type resourceMeta struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-}
-
 // resource is almost identical to crd/resource.go. This is defined here
 // separately because:
 // - no dependencies on actual k8s libraries
 // - sha1 hash field, required for fsstore to check updates
 type resource struct {
-	Kind       string                 `json:"kind"`
-	APIVersion string                 `json:"apiVersion"`
-	Metadata   resourceMeta           `json:"metadata"`
-	Spec       map[string]interface{} `json:"spec"`
+	Kind       string
+	APIVersion string `json:"apiVersion"`
+	Metadata   ResourceMeta
+	Spec       map[string]interface{}
 	sha        [sha1.Size]byte
 }
 
@@ -84,19 +81,42 @@ func parseFile(path string, data []byte) []*resource {
 	chunks := bytes.Split(data, []byte("\n---\n"))
 	resources := make([]*resource, 0, len(chunks))
 	for i, chunk := range chunks {
-		r := &resource{}
-		if err := yaml.Unmarshal(chunk, r); err != nil {
-			glog.Errorf("Failed to parse %d-th part in file %s: %v", i, path, err)
+		r, err := parseChunk(chunk)
+		if err != nil {
+			glog.Errorf("Error processing %s[%d]: %v", path, i, err)
 			continue
 		}
-		if r.Kind == "" || r.Metadata.Namespace == "" || r.Metadata.Name == "" {
-			glog.Errorf("Key elements are empty. Extracted as %s", r.Key())
+		if r == nil {
 			continue
 		}
-		r.sha = sha1.Sum(chunk)
 		resources = append(resources, r)
 	}
 	return resources
+}
+
+func parseChunk(chunk []byte) (*resource, error) {
+	r := &resource{}
+	if err := yaml.Unmarshal(chunk, r); err != nil {
+		return nil, err
+	}
+	if empty(r) {
+		// can be empty because
+		// There is just white space
+		// There are just comments
+		return nil, nil
+	}
+	if r.Kind == "" || r.Metadata.Namespace == "" || r.Metadata.Name == "" {
+		return nil, fmt.Errorf("key elements are empty. Extracted as %s from\n <<%s>>", r.Key(), string(chunk))
+	}
+	r.sha = sha1.Sum(chunk)
+	return r, nil
+}
+
+var emptyResource = &resource{}
+
+// Check if the parsed resource is empty
+func empty(r *resource) bool {
+	return reflect.DeepEqual(*r, *emptyResource)
 }
 
 func (s *fsStore2) readFiles() map[Key]*resource {
@@ -152,7 +172,7 @@ func (s *fsStore2) checkAndUpdate() {
 		return
 	}
 	for _, k := range updated {
-		s.Put(k, newData[k].Spec)
+		s.Put(k, &BackEndResource{Metadata: newData[k].Metadata, Spec: newData[k].Spec})
 	}
 	for k := range removed {
 		s.Delete(k)
@@ -163,7 +183,7 @@ func (s *fsStore2) checkAndUpdate() {
 func NewFsStore2(root string) Store2Backend {
 	return &fsStore2{
 		// Not using createMemstore to avoid access of MemstoreWriter for fsstore2.
-		memstore:      memstore{data: map[Key]map[string]interface{}{}},
+		memstore:      memstore{data: map[Key]*BackEndResource{}},
 		root:          root,
 		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,

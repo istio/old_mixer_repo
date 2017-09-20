@@ -15,6 +15,10 @@
 package evaluator
 
 import (
+	"errors"
+	"fmt"
+	"math/rand"
+	"sync"
 	"testing"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
@@ -40,6 +44,15 @@ func TestEval_Error(t *testing.T) {
 	e := initEvaluator(t, configInt)
 	bag := initBag(int64(23))
 	_, err := e.Eval("foo", bag)
+	if err == nil {
+		t.Fatal("Was expecting an error")
+	}
+}
+
+func TestEval_IPError(t *testing.T) {
+	e := initEvaluator(t, configInt)
+	bag := initBag(int64(23))
+	_, err := e.Eval("ip(\"not-an-ip-addr\")", bag)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
@@ -78,6 +91,61 @@ func TestEvalString_DifferentType(t *testing.T) {
 	}
 }
 
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+// This test adds concurrent expression evaluation across
+// many go routines.
+func TestConcurrent(t *testing.T) {
+	bags := []attribute.Bag{}
+	maxNum := 64
+
+	for i := 0; i < maxNum; i++ {
+		v := randString(6)
+		bags = append(bags, &iltesting.FakeBag{
+			Attrs: map[string]interface{}{
+				"attr": v,
+			},
+		})
+	}
+
+	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
+	maxThreads := 10
+
+	e := initEvaluator(t, configString)
+	errChan := make(chan error, len(bags)*maxThreads)
+
+	wg := sync.WaitGroup{}
+	for j := 0; j < maxThreads; j++ {
+		wg.Add(1)
+		go func() {
+			for _, b := range bags {
+				ok, err := e.EvalPredicate(expression, b)
+				if err != nil {
+					errChan <- err
+					continue
+				}
+				if ok {
+					errChan <- errors.New("unexpected ok")
+				}
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	if len(errChan) > 0 {
+		t.Fatalf("Failed with %d errors: %v", len(errChan), <-errChan)
+	}
+}
+
 func TestEvalPredicate(t *testing.T) {
 	e := initEvaluator(t, configBool)
 	bag := initBag(true)
@@ -87,6 +155,35 @@ func TestEvalPredicate(t *testing.T) {
 	}
 	if !r {
 		t.Fatal("Expected result to be true.")
+	}
+}
+
+func TestEval_Match(t *testing.T) {
+	var tests = []struct {
+		str     string
+		pattern string
+		result  bool
+	}{
+		{"abc", "abc", true},
+		{"ns1.svc.local", "ns1.*", true},
+		{"ns1.svc.local", "ns2.*", false},
+		{"svc1.ns1.cluster", "*.ns1.cluster", true},
+		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
+	}
+
+	bag := initBag(int64(23))
+	e := initEvaluator(t, configInt)
+	for _, test := range tests {
+		expr := fmt.Sprintf("match(\"%s\", \"%s\")", test.str, test.pattern)
+		r, err := e.Eval(expr, bag)
+		if err != nil {
+			t.Logf("Expression: %s", expr)
+			t.Fatalf("Unexpected error: %+v", err)
+		}
+		if r != test.result {
+			t.Logf("Expression: %s", expr)
+			t.Fatalf("Result mismatch: E:%v != A:%v", test.result, r)
+		}
 	}
 }
 
@@ -110,7 +207,7 @@ func TestEvalPredicate_WrongType(t *testing.T) {
 
 func TestEvalType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	ty, err := e.EvalType("attr", e.finder)
+	ty, err := e.EvalType("attr", e.getAttrContext().finder)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -121,7 +218,7 @@ func TestEvalType(t *testing.T) {
 
 func TestEvalType_WrongType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	_, err := e.EvalType("boo", e.finder)
+	_, err := e.EvalType("boo", e.getAttrContext().finder)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
@@ -129,7 +226,7 @@ func TestEvalType_WrongType(t *testing.T) {
 
 func TestAssertType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	err := e.AssertType("attr", e.finder, pbv.BOOL)
+	err := e.AssertType("attr", e.getAttrContext().finder, pbv.BOOL)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -137,7 +234,7 @@ func TestAssertType(t *testing.T) {
 
 func TestAssertType_WrongType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	err := e.AssertType("attr", e.finder, pbv.STRING)
+	err := e.AssertType("attr", e.getAttrContext().finder, pbv.STRING)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
@@ -145,7 +242,7 @@ func TestAssertType_WrongType(t *testing.T) {
 
 func TestAssertType_EvaluationError(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	err := e.AssertType("boo", e.finder, pbv.BOOL)
+	err := e.AssertType("boo", e.getAttrContext().finder, pbv.BOOL)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
@@ -162,8 +259,8 @@ func TestConfigChange(t *testing.T) {
 	}
 
 	f := descriptor.NewFinder(&configBool)
-	e.ConfigChange(nil, f, nil)
-	if e.finder != f {
+	e.ChangeVocabulary(f)
+	if e.getAttrContext().finder != f {
 		t.Fatal("Finder is not set correctly")
 	}
 
@@ -187,7 +284,7 @@ func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
 		t.Fatalf("error: %s", err)
 	}
 	finder := descriptor.NewFinder(&config)
-	e.ConfigChange(nil, finder, nil)
+	e.ChangeVocabulary(finder)
 	return e
 }
 

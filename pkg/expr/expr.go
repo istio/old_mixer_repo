@@ -101,7 +101,7 @@ func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]F
 	if e.Var != nil {
 		ad := attrs.GetAttribute(e.Var.Name)
 		if ad == nil {
-			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
+			return valueType, fmt.Errorf("unknown attribute %s", e.Var.Name)
 		}
 		return ad.ValueType, nil
 	}
@@ -379,8 +379,8 @@ func Parse(src string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse expression '%s': %v", src, err)
 	}
-	if glog.V(4) {
-		glog.Infof("Parsed expression '%s' into '%s'", src, a)
+	if glog.V(6) {
+		glog.Infof("Parsed expression '%s' into '%v'", src, a)
 	}
 
 	ex = &Expression{}
@@ -408,7 +408,7 @@ func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
 		return v.(*Expression), nil
 	}
 
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("expression cache miss for '%s'", exprStr)
 	}
 
@@ -416,7 +416,7 @@ func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("caching expression for '%s''", exprStr)
 	}
 

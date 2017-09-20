@@ -15,8 +15,14 @@
 package expr
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
+	"net"
 	"reflect"
 	"strings"
+
+	multierror "github.com/hashicorp/go-multierror"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
@@ -119,6 +125,14 @@ func (f *eqFunc) call(args0 interface{}, args1 interface{}) bool {
 			return false
 		}
 		return matchWithWildcards(s0, s1)
+	case []byte:
+		if len(args0.([]byte)) == net.IPv4len || len(args0.([]byte)) == net.IPv6len {
+			// TODO: have the types be net.IP earlier, so this hack isn't necessary
+			ip1 := net.IP(args0.([]byte))
+			ip2 := net.IP(args1.([]byte))
+			return ip1.Equal(ip2)
+		}
+		return bytes.Equal(args0.([]byte), args1.([]byte))
 	}
 }
 
@@ -211,8 +225,18 @@ func newOR() Func {
 // Call selects first non empty argument / non erroneous
 // may return nil
 func (f *orFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
-	for _, arg := range args {
-		ret, _ := arg.Eval(attrs, fMap)
+	var me *multierror.Error
+	for i, arg := range args {
+		ret, err := arg.Eval(attrs, fMap)
+
+		if err != nil {
+			me = multierror.Append(me, err)
+			if i == len(args)-1 {
+				return nil, fmt.Errorf("error(s) evaluating OR: %v", me.ErrorOrNil())
+			}
+			continue
+		}
+
 		// treating empty strings as nil, since
 		// go strings cannot be nil
 		if ret != nil && ret != "" {
@@ -251,6 +275,77 @@ func (f *indexFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[strin
 	return mp.(map[string]string)[key.(string)], nil
 }
 
+// func (string) []uint8
+type ipFunc struct {
+	*baseFunc
+}
+
+// func (string, string) bool
+type matchFunc struct {
+	*baseFunc
+}
+
+// newIP returns a fn that converts strings to IP_ADDRESSes.
+func newIP() Func {
+	return &ipFunc{
+		baseFunc: &baseFunc{
+			name:     "ip",
+			retType:  config.IP_ADDRESS,
+			argTypes: []config.ValueType{config.STRING},
+		},
+	}
+}
+
+// newMatch returns a fn that checks whether a string matches a given pattern.
+func newMatch() Func {
+	return &matchFunc{
+		baseFunc: &baseFunc{
+			name:     "match",
+			retType:  config.BOOL,
+			argTypes: []config.ValueType{config.STRING, config.STRING},
+		},
+	}
+}
+
+// TODO: fix when proper net.IP support is added to Mixer.
+func (f *ipFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	val, err := args[0].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+	rawIP, ok := val.(string)
+	if !ok {
+		return nil, errors.New("input to 'ip' func was not a string")
+	}
+	if ip := net.ParseIP(rawIP); ip != nil {
+		return []uint8(ip), nil
+	}
+	return nil, fmt.Errorf("could not convert '%s' to IP_ADDRESS", rawIP)
+}
+
+func (f *matchFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	rawStr, err := args[0].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+	rawPattern, err := args[1].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+
+	str, ok := rawStr.(string)
+	if !ok {
+		return nil, errors.New("input 'str' to 'match' func was not a string")
+	}
+
+	pattern, ok := rawPattern.(string)
+	if !ok {
+		return nil, errors.New("input 'pattern' to 'match' func was not a string")
+	}
+
+	return matchWithWildcards(str, pattern), nil
+}
+
 func inventory() []FuncBase {
 	return []FuncBase{
 		newEQ(),
@@ -259,6 +354,8 @@ func inventory() []FuncBase {
 		newLOR(),
 		newLAND(),
 		newIndex(),
+		newIP(),
+		newMatch(),
 	}
 }
 

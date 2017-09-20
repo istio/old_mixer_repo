@@ -15,7 +15,11 @@
 package evaluator
 
 import (
+	"errors"
 	"fmt"
+	"net"
+	"strings"
+	"sync"
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
@@ -32,13 +36,55 @@ import (
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
 // Specifically, it can listen to config change events.
 type IL struct {
+	cacheSize   int
+	context     *attrContext
+	contextLock sync.RWMutex
+	fMap        map[string]expr.FuncBase
+}
+
+// attrContext captures the set of fields that needs to be kept & evicted together based on
+// particular attribute metadata that was supplied as part of a ChangeListener call.
+type attrContext struct {
 	cache  *lru.Cache
 	finder expr.AttributeDescriptorFinder
-	fMap   map[string]expr.FuncBase
 }
 
 var _ expr.Evaluator = &IL{}
 var _ config.ChangeListener = &IL{}
+
+const ipFnName = "ip"
+const ipEqualFnName = "ip_equal"
+const matchFnName = "match"
+
+var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, error) {
+	if ip := net.ParseIP(in); ip != nil {
+		return []byte(ip), nil
+	}
+	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
+})
+
+var ipEqualExternFn = interpreter.ExternFromFn(ipEqualFnName, func(a []byte, b []byte) bool {
+	// net.IP is an alias for []byte, so these are safe to convert
+	ip1 := net.IP(a)
+	ip2 := net.IP(b)
+	return ip1.Equal(ip2)
+})
+
+var matchExternFn = interpreter.ExternFromFn(matchFnName, func(str string, pattern string) bool {
+	if strings.HasSuffix(pattern, "*") {
+		return strings.HasPrefix(str, pattern[:len(pattern)-1])
+	}
+	if strings.HasPrefix(pattern, "*") {
+		return strings.HasSuffix(str, pattern[1:])
+	}
+	return str == pattern
+})
+
+var externMap = map[string]interpreter.Extern{
+	ipFnName:      ipExternFn,
+	ipEqualFnName: ipEqualExternFn,
+	matchFnName:   matchExternFn,
+}
 
 type cacheEntry struct {
 	expression  *expr.Expression
@@ -103,14 +149,37 @@ func (e *IL) AssertType(expr string, finder expr.AttributeDescriptorFinder, expe
 
 // ChangeVocabulary handles changing of the attribute vocabulary.
 func (e *IL) ChangeVocabulary(finder expr.AttributeDescriptorFinder) {
-	e.finder = finder
-	e.cache.Purge()
+	e.updateAttrContext(finder)
 }
 
 // ConfigChange handles changing of configuration.
 func (e *IL) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
-	e.finder = df
-	e.cache.Purge()
+	e.updateAttrContext(df)
+}
+
+// updateAttrContext creates a new attrContext based on the supplied finder and a new cache, and replaces
+// the old one atomically.
+func (e *IL) updateAttrContext(finder expr.AttributeDescriptorFinder) {
+	cache, err := lru.New(e.cacheSize)
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error from lru.New: %v", err))
+	}
+
+	context := &attrContext{
+		cache:  cache,
+		finder: finder,
+	}
+
+	e.contextLock.Lock()
+	e.context = context
+	e.contextLock.Unlock()
+}
+
+// getAttrContext gets the current attribute context atomically.
+func (e *IL) getAttrContext() *attrContext {
+	e.contextLock.RLock()
+	defer e.contextLock.RUnlock()
+	return e.context
 }
 
 func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, error) {
@@ -126,45 +195,47 @@ func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, e
 
 func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
-
-	if entry, found := e.cache.Get(expr); found {
+	ctx := e.getAttrContext()
+	if entry, found := ctx.cache.Get(expr); found {
 		return entry.(cacheEntry), nil
 	}
 
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("expression cache miss for '%s'", expr)
 	}
 
 	var err error
 	var result compiler.Result
-	if result, err = compiler.Compile(expr, e.finder); err != nil {
+	if result, err = compiler.Compile(expr, ctx.finder); err != nil {
 		glog.Infof("evaluator.getOrCreateCacheEntry failed expr:'%s', err: %v", expr, err)
 		return cacheEntry{}, err
 	}
 
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("caching expression for '%s''", expr)
 	}
 
-	intr := interpreter.New(result.Program, make(map[string]interpreter.Extern))
+	intr := interpreter.New(result.Program, externMap)
 	entry := cacheEntry{
 		expression:  result.Expression,
 		interpreter: intr,
 	}
 
-	_ = e.cache.Add(expr, entry)
+	_ = ctx.cache.Add(expr, entry)
 
 	return entry, nil
 }
 
 // NewILEvaluator returns a new instance of IL.
 func NewILEvaluator(cacheSize int) (*IL, error) {
-	cache, err := lru.New(cacheSize)
-	if err != nil {
-		return nil, err
+	// check the cacheSize here, to ensure that we can ignore errors in lru.New calls.
+	// cacheSize restriction is the only reason lru.New returns an error.
+	if cacheSize <= 0 {
+		return nil, errors.New("cacheSize must be positive")
 	}
+
 	return &IL{
-		cache: cache,
-		fMap:  expr.FuncMap(),
+		cacheSize: cacheSize,
+		fMap:      expr.FuncMap(),
 	}, nil
 }

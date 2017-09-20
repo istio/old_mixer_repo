@@ -53,7 +53,7 @@ import (
 )
 
 
-
+const emptyQuotes = "\"\""
 var (
 	SupportedTmplInfo = map[string]template.Info {
 	{{range .TemplateModels}}
@@ -87,7 +87,7 @@ var (
 								}
 							}
 						{{else}}
-							if cpb.{{.GoName}} == "" {
+							if cpb.{{.GoName}} == "" || cpb.{{.GoName}} == emptyQuotes {
 								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
 							}
 							if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
@@ -105,7 +105,7 @@ var (
 								}
 							}
 						{{else}}
-							if cpb.{{.GoName}} == "" {
+							if cpb.{{.GoName}} == "" || cpb.{{.GoName}} == emptyQuotes {
 								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
 							}
 							if t, e := tEvalFn(cpb.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
@@ -120,16 +120,16 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).({{.GoPackageName}}.HandlerBuilder)
+				castedBuilder := builder.({{.GoPackageName}}.HandlerBuilder)
 				castedTypes := make(map[string]*{{.GoPackageName}}.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*{{.GoPackageName}}.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.Configure{{.Name}}Handler(castedTypes)
+				castedBuilder.Set{{.InterfaceName}}Types(castedTypes)
 			},
 			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
 				ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
@@ -172,7 +172,7 @@ var (
 						_ = md
 					}
 
-					if err := handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instances); err != nil {
+					if err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instances); err != nil {
 						return fmt.Errorf("failed to report all values: %v", err)
 					}
 					return nil
@@ -215,11 +215,11 @@ var (
 							{{end}}
 						{{end}}
 					}
-					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instance)
+					return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
 				},
 			{{else}}
 				ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
-				 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+				 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
 					{{range .TemplateMessage.Fields}}
 						{{if .GoType.IsMap}}
@@ -230,7 +230,7 @@ var (
 							if err != nil {
 								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", quotaName, err)
 								glog.Error(msg)
-								return adapter.QuotaResult2{}, errors.New(msg)
+								return adapter.QuotaResult{}, errors.New(msg)
 							}
 					{{end}}
 
@@ -255,7 +255,7 @@ var (
 						{{end}}
 					}
 
-					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instance, args)
+					return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance, args)
 				},
 			{{end}}
 

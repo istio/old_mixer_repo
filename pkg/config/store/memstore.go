@@ -30,7 +30,7 @@ var memstoreMapMutex sync.RWMutex
 // memstore is on-memory implementation of Store2Backend. Helpful for testing.
 type memstore struct {
 	mu   sync.RWMutex
-	data map[Key]map[string]interface{}
+	data map[Key]*BackEndResource
 
 	watchMutex sync.RWMutex
 	watchCtx   context.Context
@@ -38,7 +38,7 @@ type memstore struct {
 }
 
 func createMemstore(u fmt.Stringer) *memstore {
-	m := &memstore{data: map[Key]map[string]interface{}{}}
+	m := &memstore{data: map[Key]*BackEndResource{}}
 	memstoreMapMutex.Lock()
 	memstoreMap[u.String()] = m
 	memstoreMapMutex.Unlock()
@@ -61,7 +61,7 @@ func (m *memstore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 }
 
 // Get implements Store2Backend interface.
-func (m *memstore) Get(key Key) (map[string]interface{}, error) {
+func (m *memstore) Get(key Key) (*BackEndResource, error) {
 	m.mu.RLock()
 	v, ok := m.data[key]
 	m.mu.RUnlock()
@@ -72,9 +72,9 @@ func (m *memstore) Get(key Key) (map[string]interface{}, error) {
 }
 
 // List implements Store2Backend interface.
-func (m *memstore) List() map[Key]map[string]interface{} {
+func (m *memstore) List() map[Key]*BackEndResource {
 	m.mu.RLock()
-	copied := make(map[Key]map[string]interface{}, len(m.data))
+	copied := make(map[Key]*BackEndResource, len(m.data))
 	for k, v := range m.data {
 		copied[k] = v
 	}
@@ -83,16 +83,22 @@ func (m *memstore) List() map[Key]map[string]interface{} {
 }
 
 // Put implements MemstoreWriter interface.
-func (m *memstore) Put(key Key, spec map[string]interface{}) {
+func (m *memstore) Put(key Key, resource *BackEndResource) {
 	m.mu.Lock()
-	m.data[key] = spec
+	if resource.Metadata.Name == "" {
+		resource.Metadata.Name = key.Name
+	}
+	if resource.Metadata.Namespace == "" {
+		resource.Metadata.Namespace = key.Namespace
+	}
+	m.data[key] = resource
 	m.mu.Unlock()
 
 	m.watchMutex.RLock()
 	if m.watchCh != nil {
 		select {
 		case <-m.watchCtx.Done():
-		case m.watchCh <- BackendEvent{Type: Update, Key: key, Value: spec}:
+		case m.watchCh <- BackendEvent{Type: Update, Key: key, Value: resource}:
 		}
 	}
 	m.watchMutex.RUnlock()
@@ -117,7 +123,7 @@ func (m *memstore) Delete(key Key) {
 // MemstoreWriter is the interface to make changes on the memstore backend. This
 // will be used by tests to set up the on-memory data in the store.
 type MemstoreWriter interface {
-	Put(key Key, spec map[string]interface{})
+	Put(key Key, resource *BackEndResource)
 	Delete(key Key)
 }
 

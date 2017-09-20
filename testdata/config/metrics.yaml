@@ -1,0 +1,64 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestcount
+  namespace: istio-config-default
+spec:
+  value: "1"
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+    service: target.labels["app"] | "unknown"
+    method: request.path | "unknown"
+    version: target.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestduration
+  namespace: istio-config-default
+spec:
+  value: response.duration | "0ms"
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+    service: target.labels["app"] | "unknown"
+    method: request.path | "unknown"
+    version: target.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestsize
+  namespace: istio-config-default
+spec:
+  value: request.size | 0
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+    service: target.labels["app"] | "unknown"
+    method: request.path | "unknown"
+    version: target.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: responsesize
+  namespace: istio-config-default
+spec:
+  value: response.size | 0
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+    service: target.labels["app"] | "unknown"
+    method: request.path | "unknown"
+    version: target.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---

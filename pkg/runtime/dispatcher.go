@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -55,7 +56,7 @@ type Dispatcher interface {
 
 	// Quota dispatches to the set of adapters associated with the Quota API method
 	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult2, error)
+		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
 }
 
 // Resolver represents the current snapshot of the configuration database
@@ -219,10 +220,6 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 		},
 	)
 	res, _ := cres.(*adapter.CheckResult)
-	if res == nil { // There was nothing to do.
-		res = &adapter.CheckResult{}
-	}
-
 	if glog.V(3) {
 		glog.Infof("Check %s", res)
 	}
@@ -234,24 +231,30 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 // Quota calls are dispatched to at most one handler.
 // Dispatcher#Quota.
 func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult2, error) {
+	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	dispatched := false
 	qres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA,
 		func(call *Action) []dispatchFn {
 			for _, inst := range call.instanceConfig {
-				if inst.Name != qma.Quota {
-					continue
-				}
+				// if inst.Name != qma.Quota {
+				//	continue
+				// }
+				// TODO Re-enable inst.Name check
+				// proxy - mixer quota protocol dictates that quota name is passed in as a parameter.
+				// As of 0.2, there is no mechanism to distribute configuration from Mixer to Mixer client(Proxy).
+				// When such a mechanism is created, re-enable the inst.Name filter.
+				// Until then Proxy always calls with exactly 1 quota request named
+				// "RequestCount" which is intended for rate limit.
 				if dispatched { // ensures only one call is dispatched.
 					glog.Warningf("Multiple dispatch: not dispatching %s to handler %s", inst.Name, call.handlerName)
 					return nil
 				}
 				dispatched = true
-				return []dispatchFn{
+				return []dispatchFn{ // nolint: staticcheck
 					func(ctx context.Context) *result {
 						resp, err := call.processor.ProcessQuota(ctx, inst.Name,
 							inst.Params.(proto.Message), requestBag, m.mapper, call.handler,
-							adapter.QuotaRequestArgs{
+							adapter.QuotaArgs{
 								DeduplicationID: qma.DeduplicationID,
 								QuotaAmount:     qma.Amount,
 								BestEffort:      qma.BestEffort,
@@ -263,7 +266,10 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 			return nil
 		},
 	)
-	res, _ := qres.(*adapter.QuotaResult2)
+	res, _ := qres.(*adapter.QuotaResult)
+	if glog.V(3) {
+		glog.Infof("Quota %v", res)
+	}
 	return res, err
 }
 
@@ -323,7 +329,7 @@ type dispatchFn func(context.Context) *result
 type result struct {
 	// all results return an error
 	err error
-	// CheckResult or QuotaResult
+	// CheckResult or QuotaResultLegacy
 	res adapter.Result
 	// callinfo that resulted in "res". Used for informational purposes.
 	callinfo *Action
@@ -351,6 +357,20 @@ func (m *dispatcher) run(ctx context.Context, runArgs []*runArg) (adapter.Result
 	return combineResults(results)
 }
 
+// safeDispatch ensures that an adapter panic does not bring down Mixer.
+func safeDispatch(ctx context.Context, do dispatchFn, op string) (res *result) {
+	defer func() {
+		if r := recover(); r != nil {
+			glog.Errorf("Dispatch %s panic: %v", op, r)
+			res = &result{
+				err: fmt.Errorf("dispatch %s panic: %v", op, r),
+			}
+		}
+	}()
+	res = do(ctx)
+	return
+}
+
 // runAsync runs the dispatchFn using a scheduler. It also adds a new span and records prometheus metrics.
 func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results chan *result, do dispatchFn) {
 	if glog.V(4) {
@@ -367,7 +387,7 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 			glog.Infof("runAsync %s -> %v", op, *callinfo)
 		}
 
-		out := do(ctx)
+		out := safeDispatch(ctx, do, op)
 		st := status.OK
 		if out.err != nil {
 			st = status.WithError(out.err)

@@ -15,7 +15,9 @@
 package compiler
 
 import (
+	"bytes"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +26,7 @@ import (
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/il/interpreter"
+	iltest "istio.io/mixer/pkg/il/testing"
 	"istio.io/mixer/pkg/il/text"
 )
 
@@ -377,7 +380,7 @@ end`,
 		code: `
 fn eval() string
   resolve_f "ar"
-  alookup "b"
+  anlookup "b"
   ret
 end
 `,
@@ -400,7 +403,7 @@ fn eval() bool
   ret
 L0:
   resolve_f "ar"
-  alookup "b"
+  anlookup "b"
   aeq_s "c"
   ret
 end`,
@@ -628,7 +631,7 @@ fn eval() string
   jnz L0
   resolve_f "br"
 L0:
-  alookup "foo"
+  anlookup "foo"
   ret
 end`,
 	},
@@ -746,7 +749,7 @@ end`,
 		code: `
 fn eval() string
   resolve_f "sm"
-  alookup "foo"
+  anlookup "foo"
   ret
 end`,
 	},
@@ -761,7 +764,7 @@ end`,
 fn eval() string
   resolve_f "sm"
   resolve_s "as"
-  lookup
+  nlookup
   ret
 end`,
 	},
@@ -976,6 +979,29 @@ end`,
 		},
 		result: []byte{0x1, 0x2, 0x3, 0x4},
 	},
+	{
+		expr:   `ip("0.0.0.0")`,
+		result: []byte(net.IPv4zero),
+		code: `fn eval() interface
+  apush_s "0.0.0.0"
+  call ip
+  ret
+end`,
+	},
+	{
+		expr: `aip == bip`,
+		input: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		result: false,
+		code: `fn eval() bool
+  resolve_f "aip"
+  resolve_f "bip"
+  call ip_equal
+  ret
+end`,
+	},
 }
 
 var globalConfig = pb.GlobalConfig{
@@ -1066,8 +1092,30 @@ func TestCompile(t *testing.T) {
 					return
 				}
 			}
-			b := bag{attrs: te.input}
-			i := interpreter.New(result.Program, map[string]interpreter.Extern{})
+
+			// TODO: replace with GetMutableBagForTesting()
+			b := iltest.FakeBag{Attrs: te.input}
+
+			ipExtern := interpreter.ExternFromFn("ip", func(in string) []byte {
+				if ip := net.ParseIP(in); ip != nil {
+					return []byte(ip)
+				}
+				return []byte{}
+			})
+
+			ipEqualExtern := interpreter.ExternFromFn("ip_equal", func(a []byte, b []byte) bool {
+				// net.IP is an alias for []byte, so these are safe to convert
+				ip1 := net.IP(a)
+				ip2 := net.IP(b)
+				return ip1.Equal(ip2)
+			})
+
+			externMap := map[string]interpreter.Extern{
+				"ip":       ipExtern,
+				"ip_equal": ipEqualExtern,
+			}
+
+			i := interpreter.New(result.Program, externMap)
 			v, err := i.Eval("eval", &b)
 			if err != nil {
 				if len(te.err) != 0 {
@@ -1088,7 +1136,7 @@ func TestCompile(t *testing.T) {
 			bExp, found := te.result.([]byte)
 			if found {
 				bAct, found := v.AsInterface().([]byte)
-				if !found || !bytesEqual(bExp, bAct) {
+				if !found || !bytes.Equal(bExp, bAct) {
 					tt.Fatalf("Result match failed: %+v == %+v", v.AsInterface(), te.result)
 				}
 			} else if v.AsInterface() != te.result {
@@ -1096,19 +1144,6 @@ func TestCompile(t *testing.T) {
 			}
 		})
 	}
-}
-
-func bytesEqual(b1 []byte, b2 []byte) bool {
-	if len(b1) != len(b2) {
-		return false
-	}
-	for i := 0; i < len(b1); i++ {
-		if b1[i] != b2[i] {
-			return false
-		}
-	}
-
-	return true
 }
 
 func TestCompile_ParseError(t *testing.T) {
@@ -1133,21 +1168,4 @@ func TestCompile_TypeError(t *testing.T) {
 	if err.Error() != "EQ($ai, true) arg 2 (true) typeError got BOOL, expected INT64" {
 		t.Fatalf("error is not as expected: '%v'", err)
 	}
-}
-
-// fake bag
-type bag struct {
-	attrs map[string]interface{}
-}
-
-func (b *bag) Get(name string) (interface{}, bool) {
-	c, found := b.attrs[name]
-	return c, found
-}
-
-func (b *bag) Names() []string {
-	return []string{}
-}
-
-func (b *bag) Done() {
 }

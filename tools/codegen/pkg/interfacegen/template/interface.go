@@ -23,15 +23,16 @@ package {{.GoPackageName}}
 import (
   "context"
   "istio.io/mixer/pkg/adapter"
+  "istio.io/mixer/pkg/adapter"
   $$additional_imports$$
 )
 
 {{.Comment}}
 
-// Fully qualified name of this template
-const TemplateName = "{{.PackageName}}"
+// Fully qualified name of the template
+const TemplateName = "{{.TemplateName}}"
 
-// Instance is constructed by Mixer for the '{{.PackageName}}.{{.Name}}' template.{{if ne .TemplateMessage.Comment ""}}
+// Instance is constructed by Mixer for the '{{.TemplateName}}' template.{{if ne .TemplateMessage.Comment ""}}
 //
 {{.TemplateMessage.Comment}}{{end}}
 type Instance struct {
@@ -44,39 +45,39 @@ type Instance struct {
 }
 
 // HandlerBuilder must be implemented by adapters if they want to
-// process data associated with the {{.Name}} template.
+// process data associated with the '{{.TemplateName}}' template.
 //
 // Mixer uses this interface to call into the adapter at configuration time to configure
-// it with adapter-specific configuration as well as all inferred types the adapter is expected
-// to handle.
+// it with adapter-specific configuration as well as all template-specific type information.
 type HandlerBuilder interface {
 	adapter.HandlerBuilder
 
-	// Configure{{.Name}}Handler is invoked by Mixer to pass all possible Types for instances that an adapter
-	// may receive at runtime. Each type holds information about the shape of the instances.
-	Configure{{.Name}}Handler(map[string]*Type /*Instance name -> Type*/) error
+	// Set{{.InterfaceName}}Types is invoked by Mixer to pass the template-specific Type information for instances that an adapter
+	// may receive at runtime. The type information describes the shape of the instance.
+	Set{{.InterfaceName}}Types(map[string]*Type /*Instance name -> Type*/)
 }
 
 // Handler must be implemented by adapter code if it wants to
-// process data associated with the {{.Name}} template.
+// process data associated with the '{{.TemplateName}}' template.
 //
 // Mixer uses this interface to call into the adapter at request time in order to dispatch
 // created instances to the adapter. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
 //
 // The name of each instance can be used as a key into the Type map supplied to the adapter
-// at configuration time. These types provide descriptions of each specific instances.
+// at configuration time via the method 'Set{{.InterfaceName}}Types'.
+// These Type associated with an instance describes the shape of the instance
 type Handler interface {
   adapter.Handler
 
-  // Handle{{.Name}} is called by Mixer at request time to deliver instances to
+  // Handle{{.InterfaceName}} is called by Mixer at request time to deliver instances to
   // to an adapter.
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-    Handle{{.Name}}(context.Context, *Instance) (adapter.CheckResult, error)
+    Handle{{.InterfaceName}}(context.Context, *Instance) (adapter.CheckResult, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
-    Handle{{.Name}}(context.Context, *Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
+    Handle{{.InterfaceName}}(context.Context, *Instance, adapter.QuotaArgs) (adapter.QuotaResult, error)
   {{else -}}
-    Handle{{.Name}}(context.Context, []*Instance) error
+    Handle{{.InterfaceName}}(context.Context, []*Instance) error
   {{end}}
 }
 `

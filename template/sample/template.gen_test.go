@@ -15,11 +15,13 @@
 package sample
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
@@ -30,11 +32,6 @@ import (
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adpTmpl "istio.io/mixer/pkg/adapter/template"
-	//"istio.io/mixer/pkg/expr"
-	"context"
-
-	"time"
-
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 	sample_check "istio.io/mixer/template/sample/check"
@@ -46,9 +43,11 @@ import (
 type fakeBadHandler struct{}
 
 func (h fakeBadHandler) Close() error { return nil }
-func (h fakeBadHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (h fakeBadHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
+func (h fakeBadHandler) Validate() *adapter.ConfigErrors     { return nil }
+func (h fakeBadHandler) SetAdapterConfig(cfg adapter.Config) {}
 
 type fakeReportHandler struct {
 	adapter.Handler
@@ -58,17 +57,18 @@ type fakeReportHandler struct {
 }
 
 func (h *fakeReportHandler) Close() error { return nil }
-func (h *fakeReportHandler) HandleSample(ctx context.Context, instances []*sample_report.Instance) error {
+func (h *fakeReportHandler) HandleReport(ctx context.Context, instances []*sample_report.Instance) error {
 	h.procCallInput = instances
 	return h.retError
 }
-func (h *fakeReportHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (h *fakeReportHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeReportHandler) ConfigureSampleHandler(t map[string]*sample_report.Type) error {
+func (h *fakeReportHandler) SetReportTypes(t map[string]*sample_report.Type) {
 	h.cnfgCallInput = t
-	return nil
 }
+func (h *fakeReportHandler) Validate() *adapter.ConfigErrors     { return nil }
+func (h *fakeReportHandler) SetAdapterConfig(cfg adapter.Config) {}
 
 type fakeCheckHandler struct {
 	adapter.Handler
@@ -79,44 +79,45 @@ type fakeCheckHandler struct {
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) HandleSample(ctx context.Context, instance *sample_check.Instance) (adapter.CheckResult, error) {
+func (h *fakeCheckHandler) HandleCheck(ctx context.Context, instance *sample_check.Instance) (adapter.CheckResult, error) {
 	h.procCallInput = instance
 	return h.retResult, h.retError
 }
-func (h *fakeCheckHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (h *fakeCheckHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeCheckHandler) ConfigureSampleHandler(t map[string]*sample_check.Type) error {
-	h.cnfgCallInput = t
-	return nil
-}
+func (h *fakeCheckHandler) SetCheckTypes(t map[string]*sample_check.Type) { h.cnfgCallInput = t }
+func (h *fakeCheckHandler) Validate() *adapter.ConfigErrors               { return nil }
+func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config)           {}
 
 type fakeQuotaHandler struct {
 	adapter.Handler
 	retError      error
-	retResult     adapter.QuotaResult2
+	retResult     adapter.QuotaResult
 	cnfgCallInput interface{}
 	procCallInput interface{}
 }
 
 func (h *fakeQuotaHandler) Close() error { return nil }
-func (h *fakeQuotaHandler) HandleQuota(ctx context.Context, instance *sample_quota.Instance, qra adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (h *fakeQuotaHandler) HandleQuota(ctx context.Context, instance *sample_quota.Instance, qra adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	h.procCallInput = instance
 	return h.retResult, h.retError
 }
-func (h *fakeQuotaHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (h *fakeQuotaHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeQuotaHandler) ConfigureQuotaHandler(t map[string]*sample_quota.Type) error {
+func (h *fakeQuotaHandler) SetQuotaTypes(t map[string]*sample_quota.Type) {
 	h.cnfgCallInput = t
-	return nil
 }
+func (h *fakeQuotaHandler) Validate() *adapter.ConfigErrors     { return nil }
+func (h *fakeQuotaHandler) SetAdapterConfig(cfg adapter.Config) {}
 
 type fakeBag struct{}
 
 func (f fakeBag) Get(name string) (value interface{}, found bool) { return nil, false }
 func (f fakeBag) Names() []string                                 { return []string{} }
 func (f fakeBag) Done()                                           {}
+func (f fakeBag) DebugString() string                             { return "" }
 
 func TestGeneratedFields(t *testing.T) {
 	for _, tst := range []struct {
@@ -338,12 +339,10 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-			wantErr:            "expression for field Int64Primitive cannot be empty",
-			willPanic:          false,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field Int64Primitive cannot be empty",
+			willPanic:     false,
 		},
 		{
 			name: "InferredTypeNotMatchStaticTypeFromTemplate",
@@ -359,12 +358,29 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-			wantErr:            "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
-			willPanic:          false,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
+			willPanic:     false,
+		},
+		{
+			name: "EmptyString",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: '""'
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+  source: source.string
+  target: source.string
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field StringPrimitive cannot be empty",
+			willPanic:     false,
 		},
 		{
 			name:      "NotValidInstanceParam",
@@ -552,7 +568,7 @@ dimensions:
 	}
 }
 
-type ConfigureTypeTest struct {
+type SetTypeTest struct {
 	name     string
 	tmpl     string
 	types    map[string]proto.Message
@@ -560,8 +576,8 @@ type ConfigureTypeTest struct {
 	want     interface{}
 }
 
-func TestConfigureType(t *testing.T) {
-	for _, tst := range []ConfigureTypeTest{
+func TestSetType(t *testing.T) {
+	for _, tst := range []SetTypeTest{
 		{
 			name:     "SimpleReport",
 			tmpl:     sample_report.TemplateName,
@@ -585,8 +601,8 @@ func TestConfigureType(t *testing.T) {
 		},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
-			hb := &tst.hdlrBldr
-			_ = SupportedTmplInfo[tst.tmpl].ConfigureType(tst.types, hb)
+			hb := tst.hdlrBldr
+			SupportedTmplInfo[tst.tmpl].SetType(tst.types, hb)
 
 			var c interface{}
 			if tst.tmpl == sample_report.TemplateName {
@@ -597,7 +613,7 @@ func TestConfigureType(t *testing.T) {
 				c = tst.hdlrBldr.(*fakeQuotaHandler).cnfgCallInput
 			}
 			if !reflect.DeepEqual(c, tst.want) {
-				t.Errorf("SupportedTmplInfo[%s].ConfigureType(%v) handler invoked value = %v, want %v", tst.tmpl, tst.types, c, tst.want)
+				t.Errorf("SupportedTmplInfo[%s].SetType(%v) handler invoked value = %v, want %v", tst.tmpl, tst.types, c, tst.want)
 			}
 		})
 	}
@@ -868,7 +884,7 @@ func TestProcessQuota(t *testing.T) {
 		inst            proto.Message
 		hdlr            adapter.Handler
 		wantInstance    interface{}
-		wantQuotaResult adapter.QuotaResult2
+		wantQuotaResult adapter.QuotaResult
 		wantError       string
 	}{
 		{
@@ -879,10 +895,10 @@ func TestProcessQuota(t *testing.T) {
 				BoolMap:    map[string]string{"a": "true"},
 			},
 			hdlr: &fakeQuotaHandler{
-				retResult: adapter.QuotaResult2{Amount: 1},
+				retResult: adapter.QuotaResult{Amount: 1},
 			},
 			wantInstance:    &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"a": "str"}, BoolMap: map[string]bool{"a": true}},
-			wantQuotaResult: adapter.QuotaResult2{Amount: 1},
+			wantQuotaResult: adapter.QuotaResult{Amount: 1},
 		},
 		{
 			name:     "EvalError",
@@ -909,7 +925,7 @@ func TestProcessQuota(t *testing.T) {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h, adapter.QuotaRequestArgs{})
+			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h, adapter.QuotaArgs{})
 
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {
