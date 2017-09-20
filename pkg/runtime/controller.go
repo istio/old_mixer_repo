@@ -91,7 +91,7 @@ type Controller struct {
 }
 
 // StatusMap maps dot separated resource names to status.
-type StatusMap map[string]*store.Status
+type StatusMap map[string]*store.ResourceStatus
 
 // RulesKind defines the config kind name of mixer rules.
 const RulesKind = "rule"
@@ -280,12 +280,12 @@ func (c *Controller) ConfigGet(path string) *store.Resource {
 	}
 
 	// 	Found resource and no status available, everything is good.
-	return shallowCopyWithStatus(res, &store.Status{
-		Code: store.Active,
+	return shallowCopyWithStatus(res, &store.ResourceStatus{
+		Phase: store.ResourceActive,
 	})
 }
 
-func shallowCopyWithStatus(r *store.Resource, s *store.Status) *store.Resource {
+func shallowCopyWithStatus(r *store.Resource, s *store.ResourceStatus) *store.Resource {
 	return &store.Resource{
 		Metadata: r.Metadata,
 		Spec:     r.Spec,
@@ -299,16 +299,16 @@ func (c *Controller) applyEvents(events []*store.Event) {
 	c.configLock.Lock()
 	for _, ev := range events {
 		ck[ev.Kind] = true
-		code := store.PendingUpdate
+		code := store.ResourcePendingUpdate
 		switch ev.Type {
 		case store.Update:
 			c.configState[ev.Key] = ev.Value
 		case store.Delete:
-			code = store.PendingDelete
+			code = store.ResourcePendingDelete
 			delete(c.configState, ev.Key)
 		}
-		c.configStatus[ev.Key.String()] = &store.Status{
-			Code: code,
+		c.configStatus[ev.Key.String()] = &store.ResourceStatus{
+			Phase: code,
 		}
 	}
 	c.changedKinds = ck
@@ -526,8 +526,8 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 			if glog.V(3) {
 				glog.Warning(msg)
 			}
-			sm[ic.Handler] = &store.Status{
-				Code:   store.InError,
+			sm[ic.Handler] = &store.ResourceStatus{
+				Phase:  store.ResourceInError,
 				Errors: []string{msg},
 			}
 			continue
@@ -540,8 +540,8 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 				if glog.V(3) {
 					glog.Warning(msg)
 				}
-				sm[instName] = &store.Status{
-					Code:   store.InError,
+				sm[instName] = &store.ResourceStatus{
+					Phase:  store.ResourceInError,
 					Errors: []string{msg},
 				}
 				continue
@@ -616,8 +616,8 @@ func generateResolvedRules(ruleConfig rulesMapByNamespace, handlerTable map[stri
 				delete(nsmap, rn)
 			}
 			if len(errs) > 0 {
-				sm[rule.name] = &store.Status{
-					Code:   store.InError,
+				sm[rule.name] = &store.ResourceStatus{
+					Phase:  store.ResourceInError,
 					Errors: errs,
 				}
 			}

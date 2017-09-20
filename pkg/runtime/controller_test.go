@@ -125,7 +125,7 @@ func TestController_ConfigGet(t *testing.T) {
 		path string
 		key  *store.Key
 		res  *store.Resource
-		st   *store.Status
+		st   *store.ResourceStatus
 		want *store.Resource
 	}{
 		{
@@ -136,8 +136,8 @@ func TestController_ConfigGet(t *testing.T) {
 			},
 			want: &store.Resource{
 				Spec: &wrappers.StringValue{"This String1"},
-				Status: store.Status{
-					Code: store.Active,
+				Status: store.ResourceStatus{
+					Phase: store.ResourceActive,
 				},
 			},
 		},
@@ -150,8 +150,8 @@ func TestController_ConfigGet(t *testing.T) {
 			},
 			want: &store.Resource{
 				Spec: &wrappers.StringValue{"This String2"},
-				Status: store.Status{
-					Code: store.Active,
+				Status: store.ResourceStatus{
+					Phase: store.ResourceActive,
 				},
 			},
 		},
@@ -160,7 +160,7 @@ func TestController_ConfigGet(t *testing.T) {
 		{
 			desc: "deleted resource",
 			key:  &store.Key{"k1", "ns1", "res1"},
-			st:   &store.Status{Code: store.PendingDelete},
+			st:   &store.ResourceStatus{Phase: store.ResourcePendingDelete},
 			want: &store.Resource{
 				Metadata: store.ResourceMeta{
 					Name:      "res1",
@@ -171,7 +171,7 @@ func TestController_ConfigGet(t *testing.T) {
 		{
 			desc: "updated resource",
 			key:  &store.Key{"k1", "ns1", "res1"},
-			st:   &store.Status{Code: store.PendingUpdate},
+			st:   &store.ResourceStatus{Phase: store.ResourcePendingUpdate},
 			res: &store.Resource{
 				Spec: &wrappers.StringValue{"This String"},
 			},

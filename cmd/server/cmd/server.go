@@ -60,7 +60,7 @@ import (
 const (
 	metricsPath = "/metrics"
 	versionPath = "/version"
-	configPath  = "/config/"
+	configPath  = "/debug/config/resources/"
 )
 
 type serverArgs struct {

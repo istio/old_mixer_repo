@@ -62,29 +62,29 @@ type BackEndResource struct {
 
 // Resource represents a resources with converted spec.
 type Resource struct {
-	Metadata ResourceMeta  `json:"metadata"`
-	Spec     proto.Message `json:"spec"`
-	Status   Status        `json:"status"`
+	Metadata ResourceMeta   `json:"metadata"`
+	Spec     proto.Message  `json:"spec"`
+	Status   ResourceStatus `json:"status"`
 }
 
-// Code is textual status code in Status.
-type Code string
+// ResourcePhase is the phase of a Resource.
+type ResourcePhase string
 
 const (
-	// Active - the resource is active.
-	Active Code = "active"
-	// PendingUpdate - the resource is pending updation.
-	PendingUpdate Code = "pendingUpdate"
-	// PendingDelete - the resource is pending deletion.
-	PendingDelete Code = "pendingDelete"
-	// InError - the resource is in error.
-	InError Code = "error"
+	// ResourceActive - the resource is active.
+	ResourceActive ResourcePhase = "active"
+	// ResourcePendingUpdate - the resource is pending an update.
+	ResourcePendingUpdate ResourcePhase = "pendingUpdate"
+	// ResourcePendingDelete - the resource is pending deletion.
+	ResourcePendingDelete ResourcePhase = "pendingDelete"
+	// ResourceInError - the resource is in error.
+	ResourceInError ResourcePhase = "error"
 )
 
-// Status is the current status of a resource.
-type Status struct {
-	// Code for this status.
-	Code Code `json:"code"`
+// ResourceStatus is the current status of a resource.
+type ResourceStatus struct {
+	// Phase for this resource.
+	Phase ResourcePhase `json:"phase"`
 	// Errors
 	Errors []string `json:"errors,omitempty"`
 }
