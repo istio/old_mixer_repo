@@ -12,7 +12,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/memquota2/config:go_default_library",
+        "//adapter/memquota/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/pool:go_default_library",
         "//pkg/status:go_default_library",
