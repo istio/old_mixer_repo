@@ -226,18 +226,9 @@ def template_protos(WKSPC):
 
     for d in os.listdir(WKSPC + "/bazel-genfiles/test/e2e"):
         if os.path.isdir(WKSPC + "/bazel-genfiles/test/e2e/" + d):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/" + d + "/spyAdapter"):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/" + d):
                 if file.endswith(".gen.go"):
-                    makelink(WKSPC + "/bazel-genfiles/test/e2e/" + d + "/spyAdapter/" + file, WKSPC + "/test/e2e/" + d + "/spyAdapter/" + file)
-
-    for template in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/advance/template"):
-        if template.endswith(".gen.go"):
-            makelink(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template, WKSPC + "/test/e2e/advance/template/" + template)
-        if os.path.isdir(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template):
-                # check if there are files under /template/<some template dir>
-                if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
-                    makelink(WKSPC + "/bazel-genfiles/test/e2e/advance/template/" + template + "/" + file, WKSPC + "/test/e2e/advance/template/" +template + "/" + file)
+                    makelink(WKSPC + "/bazel-genfiles/test/e2e/" + d + "/" + file, WKSPC + "/test/e2e/" + d + "/" + file)
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):

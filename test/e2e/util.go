@@ -15,13 +15,9 @@
 package e2e
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"reflect"
-	"testing"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 // GetCfgs takes the operator configuration as strings and creates directory with config files from it.
@@ -42,12 +38,11 @@ func GetCfgs(srvcCnfg, attrCnfg string) (dir string) {
 }
 
 // CmpSliceAndErr compares two slices
-func CmpSliceAndErr(t *testing.T, msg string, act, exp interface{}) {
+func CmpSliceAndErr(act, exp interface{}) bool {
 	a := interfaceSlice(exp)
 	b := interfaceSlice(act)
 	if len(a) != len(b) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-		return
+		return false
 	}
 
 	for _, x1 := range a {
@@ -58,30 +53,30 @@ func CmpSliceAndErr(t *testing.T, msg string, act, exp interface{}) {
 			}
 		}
 		if !f {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-			return
+			return false
 		}
 	}
+	return true
 }
 
 // CmpMapAndErr compares two maps
-func CmpMapAndErr(t *testing.T, msg string, act, exp interface{}) {
+func CmpMapAndErr(act, exp interface{}) bool {
 	want := interfaceMap(exp)
 	got := interfaceMap(act)
 	if len(want) != len(got) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-		return
+		return false
 	}
 
 	for wk, wv := range want {
 		if v, found := got[wk]; !found {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
+			return false
 		} else {
 			if !reflect.DeepEqual(wv, v) {
-				t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
+				return false
 			}
 		}
 	}
+	return true
 }
 
 func interfaceSlice(slice interface{}) []interface{} {
