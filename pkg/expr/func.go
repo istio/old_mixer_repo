@@ -113,6 +113,8 @@ func (f *eqFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]F
 
 func (f *eqFunc) call(args0 interface{}, args1 interface{}) bool {
 	switch s0 := args0.(type) {
+	default:
+		return reflect.DeepEqual(args0, args1)
 	case bool, int64, float64:
 		return args0 == args1
 	case string:
@@ -124,17 +126,14 @@ func (f *eqFunc) call(args0 interface{}, args1 interface{}) bool {
 		}
 		return matchWithWildcards(s0, s1)
 	case []byte:
-		return bytes.Equal(s0, args1.([]byte))
-	case net.IP:
+		s1 := args1.([]byte)
 		if len(s0) == net.IPv4len || len(s0) == net.IPv6len {
 			// TODO: have the types be net.IP earlier, so this hack isn't necessary
 			ip1 := net.IP(s0)
-			ip2 := net.IP(args1.(net.IP))
+			ip2 := net.IP(s1)
 			return ip1.Equal(ip2)
 		}
-		return false
-	default:
-		return reflect.DeepEqual(args0, args1)
+		return bytes.Equal(s0, s1)
 	}
 }
 
