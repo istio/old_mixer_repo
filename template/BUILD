@@ -11,7 +11,6 @@ mixer_supported_template_library(
         "//template/quota:go_default_library_proto.descriptor_set": "istio.io/mixer/template/quota",
         "//template/reportnothing:go_default_library_proto.descriptor_set": "istio.io/mixer/template/reportnothing",
         "//template/checknothing:go_default_library_proto.descriptor_set": "istio.io/mixer/template/checknothing",
-        "@com_github_guptasu_report//:go_default_library_proto.descriptor_set": "github.com/guptasu/report",
     },
     deps = [
         "//template/checknothing:go_default_library",
@@ -20,6 +19,5 @@ mixer_supported_template_library(
         "//template/metric:go_default_library",
         "//template/quota:go_default_library",
         "//template/reportnothing:go_default_library",
-        "@com_github_guptasu_report//:go_default_library"
     ],
 )

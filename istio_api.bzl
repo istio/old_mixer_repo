@@ -180,7 +180,7 @@ filegroup(
         native.new_local_repository(
             name = "com_github_istio_api",
             build_file_content = ISTIO_API_BUILD_FILE,
-            path = "/Users/guptasu/go/src/istio.io/api",
+            path = "../api",
         )
     else:
       native.new_git_repository(

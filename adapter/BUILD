@@ -29,7 +29,6 @@ inventory_library(
         "stdio": "istio.io/mixer/adapter/stdio",
         "svcctrl": "istio.io/mixer/adapter/svcctrl",
         "memquota": "istio.io/mixer/adapter/memquota2",
-        "remoteReport": "github.com/guptasu/foo/mixer-noop-reporter",
     },
     deps = [
         "//adapter/denier:go_default_library",
@@ -41,6 +40,5 @@ inventory_library(
         "//adapter/statsd:go_default_library",
         "//adapter/stdio:go_default_library",
         "//adapter/svcctrl:go_default_library",
-        "@com_github_guptasu_remote_adapter//:go_default_library"
     ],
 )
