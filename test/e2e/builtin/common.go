@@ -19,10 +19,22 @@ import (
 	"log"
 	"os"
 	"path"
+	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pborman/uuid"
 
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/adapter"
+	tmpl "istio.io/mixer/template"
+	metricTmpl "istio.io/mixer/template/metric"
+	"istio.io/mixer/test/e2e"
+	testEnv "istio.io/mixer/test/testenv"
+)
+
+const (
+	identityAttr       = "destination.service"
+	identityAttrDomain = "svc.cluster.local"
 )
 
 func constructAdapterInfos(adptBehaviors []AdapterBehavior) ([]adapter.InfoFn, []*Adapter) {
@@ -54,8 +66,13 @@ func buildConfigStore(srcDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	err = copyFile("rules.yaml", path.Join(destDir, "rules.yaml"))
-	if err != nil {
+	if err = copyFile("rules.yaml", path.Join(destDir, "rules.yaml")); err != nil {
+		return "", err
+	}
+	if err = copyFile("handlers.yaml", path.Join(destDir, "handlers.yaml")); err != nil {
+		return "", err
+	}
+	if err = copyFile("attrs.yaml", path.Join(destDir, "attrs.yaml")); err != nil {
 		return "", err
 	}
 	return destDir, err
@@ -109,4 +126,41 @@ func copyFile(src, dest string) error {
 	defer closeHelper(out)
 	_, err = io.Copy(out, in)
 	return err
+}
+
+func createReportReq(attrs map[string]interface{}) istio_mixer_v1.ReportRequest {
+	req := istio_mixer_v1.ReportRequest{
+		Attributes: []istio_mixer_v1.Attributes{
+			testEnv.GetAttrBag(attrs,
+				identityAttr,
+				identityAttrDomain)},
+	}
+	return req
+}
+
+func cmpSliceAndErr(msg string, t1 interface{}, wantInsts []*metricTmpl.Instance, t *testing.T) {
+	if !e2e.CmpSliceAndErr(t1, wantInsts) {
+		t.Errorf("%s:\n%s\n\nwant :\n%s", msg, spew.Sdump(t1), spew.Sdump(wantInsts))
+	}
+}
+func cmpMapAndErr(msg string, t1 interface{}, wantTypes map[string]interface{}, t *testing.T) {
+	if !e2e.CmpMapAndErr(t1, wantTypes) {
+		t.Errorf("%s:\n%s\n\nwant :\n%s", msg, spew.Sdump(t1), spew.Sdump(wantTypes))
+	}
+}
+
+func setup(behaviors []AdapterBehavior, configDir string) ([]*Adapter, testEnv.TestEnv, error) {
+	adapterInfos, spyAdpts := constructAdapterInfos(behaviors)
+	var args = testEnv.Args{
+		// Start Mixer server on a free port on loop back interface
+		MixerServerAddr:               `127.0.0.1:0`,
+		ConfigStoreURL:                `fs://` + configDir,
+		ConfigStore2URL:               `fs://` + configDir,
+		ConfigDefaultNamespace:        "istio-config-default",
+		ConfigIdentityAttribute:       identityAttr,
+		ConfigIdentityAttributeDomain: identityAttrDomain,
+		UseAstEvaluator:               false,
+	}
+	env, err := testEnv.NewEnv(&args, tmpl.SupportedTmplInfo, adapterInfos)
+	return spyAdpts, env, err
 }

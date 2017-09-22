@@ -20,23 +20,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
-
-	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
-	tmpl "istio.io/mixer/template"
+	listTmpl "istio.io/mixer/template/listentry"
 	metricTmpl "istio.io/mixer/template/metric"
-	"istio.io/mixer/test/e2e"
-	testEnv "istio.io/mixer/test/testenv"
+	quotaTmpl "istio.io/mixer/template/quota"
 )
 
 const (
 	adapter1 = "spyAdapter1"
 	adapter2 = "spyAdapter2"
 	adapter3 = "spyAdapter3"
-
-	identityAttr       = "destination.service"
-	identityAttrDomain = "svc.cluster.local"
 )
 
 func TestReport(t *testing.T) {
@@ -53,17 +46,34 @@ func TestReport(t *testing.T) {
 		validate  func(t *testing.T, sypAdpts []*Adapter)
 	}{
 		{
-			name:  "Report",
-			attrs: map[string]interface{}{"target.name": "somesrvcname"},
+			name: "Report",
+			attrs: map[string]interface{}{
+				"target.name":  "somesrvcname",
+				"handler.name": "handler1",
+			},
 			behaviors: []AdapterBehavior{
-				{Name: adapter1, Tmpls: []string{metricTmpl.TemplateName}},
-				{Name: adapter2, Tmpls: []string{metricTmpl.TemplateName}},
-				{Name: adapter3, Tmpls: []string{metricTmpl.TemplateName}},
+				{Name: adapter1, Tmpls: []string{metricTmpl.TemplateName, listTmpl.TemplateName}},
+				{Name: adapter2, Tmpls: []string{listTmpl.TemplateName, quotaTmpl.TemplateName}},
+				{Name: adapter3, Tmpls: []string{metricTmpl.TemplateName, listTmpl.TemplateName, quotaTmpl.TemplateName}},
 			},
 			validate: func(t *testing.T, spyAdpts []*Adapter) {
 				adptr := spyAdpts[0]
+				if len(adptr.BuilderData.SetMetricTypesTypes) != 2 {
+					t.Errorf("SetMetricTypesTypes called with types =%d; want %d", len(adptr.BuilderData.SetMetricTypesTypes), 2)
+				}
 				cmpMapAndErr("SetMetricTypesTypes was called with", adptr.BuilderData.SetMetricTypesTypes, map[string]interface{}{
 					"requestcount.metric.istio-config-default": &metricTmpl.Type{
+						Value: pb.INT64,
+						Dimensions: map[string]pb.ValueType{
+							"response_code":       pb.INT64,
+							"source_service":      pb.STRING,
+							"source_version":      pb.STRING,
+							"destination_service": pb.STRING,
+							"destination_version": pb.STRING,
+						},
+						MonitoredResourceDimensions: map[string]pb.ValueType{},
+					},
+					"responsesize.metric.istio-config-default": &metricTmpl.Type{
 						Value: pb.INT64,
 						Dimensions: map[string]pb.ValueType{
 							"response_code":       pb.INT64,
@@ -80,6 +90,19 @@ func TestReport(t *testing.T) {
 					{
 						Name:  "requestcount.metric.istio-config-default",
 						Value: int64(1),
+						Dimensions: map[string]interface{}{
+							"response_code":       int64(200),
+							"source_service":      "unknown",
+							"source_version":      "unknown",
+							"destination_service": "svc.cluster.local",
+							"destination_version": "unknown",
+						},
+						MonitoredResourceType:       "UNSPECIFIED",
+						MonitoredResourceDimensions: map[string]interface{}{},
+					},
+					{
+						Name:  "responsesize.metric.istio-config-default",
+						Value: int64(0),
 						Dimensions: map[string]interface{}{
 							"response_code":       int64(200),
 							"source_service":      "unknown",
@@ -108,40 +131,4 @@ func TestReport(t *testing.T) {
 			tt.validate(t, spyAdpts)
 		})
 	}
-}
-func createReportReq(attrs map[string]interface{}) istio_mixer_v1.ReportRequest {
-	req := istio_mixer_v1.ReportRequest{
-		Attributes: []istio_mixer_v1.Attributes{
-			testEnv.GetAttrBag(attrs,
-				identityAttr,
-				identityAttrDomain)},
-	}
-	return req
-}
-
-func cmpSliceAndErr(msg string, t1 interface{}, wantInsts []*metricTmpl.Instance, t *testing.T) {
-	if !e2e.CmpSliceAndErr(t1, wantInsts) {
-		t.Errorf("%s:\n%s\n\nwant :\n%s", msg, spew.Sdump(t1), spew.Sdump(wantInsts))
-	}
-}
-func cmpMapAndErr(msg string, t1 interface{}, wantTypes map[string]interface{}, t *testing.T) {
-	if !e2e.CmpMapAndErr(t1, wantTypes) {
-		t.Errorf("%s:\n%s\n\nwant :\n%s", msg, spew.Sdump(t1), spew.Sdump(wantTypes))
-	}
-}
-
-func setup(behaviors []AdapterBehavior, configDir string) ([]*Adapter, testEnv.TestEnv, error) {
-	adapterInfos, spyAdpts := constructAdapterInfos(behaviors)
-	var args = testEnv.Args{
-		// Start Mixer server on a free port on loop back interface
-		MixerServerAddr:               `127.0.0.1:0`,
-		ConfigStoreURL:                `fs://` + configDir,
-		ConfigStore2URL:               `fs://` + configDir,
-		ConfigDefaultNamespace:        "istio-config-default",
-		ConfigIdentityAttribute:       identityAttr,
-		ConfigIdentityAttributeDomain: identityAttrDomain,
-		UseAstEvaluator:               false,
-	}
-	env, err := testEnv.NewEnv(&args, tmpl.SupportedTmplInfo, adapterInfos)
-	return spyAdpts, env, err
 }

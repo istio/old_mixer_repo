@@ -1,0 +1,48 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyAdapter1
+metadata:
+  name: handler1
+  namespace: istio-config-default
+spec:
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyAdapter1
+metadata:
+  name: handler2
+  namespace: istio-config-default
+spec:
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyAdapter2
+metadata:
+  name: handler3
+  namespace: istio-config-default
+spec:
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyAdapter2
+metadata:
+  name: handler4
+  namespace: istio-config-default
+spec:
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyAdapter3
+metadata:
+  name: handler5
+  namespace: istio-config-default
+spec:
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyAdapter3
+metadata:
+  name: handler6
+  namespace: istio-config-default
+spec:
+
+---

@@ -12,6 +12,8 @@ go_test(
         "report_test.go",
     ],
     data = [
+        "attrs.yaml",
+        "handlers.yaml",
         "rules.yaml",
         "//testdata",
     ],
