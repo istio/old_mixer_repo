@@ -1,0 +1,88 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rule1
+  namespace: istio-config-default
+spec:
+  match: handler.name == "handler1" || handler.name == "ALL"
+  actions:
+  - handler: handler1.spyAdapter1.istio-config-default
+    instances:
+    - requestcount.metric.istio-config-default
+    - requestduration.metric.istio-config-default
+    - requestsize.metric.istio-config-default
+    - responsesize.metric.istio-config-default
+
+---
+
+#apiVersion: "config.istio.io/v1alpha2"
+#kind: rule
+#metadata:
+#  name: rule2
+#  namespace: istio-config-default
+#spec:
+#  match: handler.name == "handler2" || handler.name == "ALL"
+#  actions:
+#  - handler: handler2.spyAdapter1.istio-config-default
+#    instances:
+#    - requestcount.metric.istio-config-default
+#
+#---
+#
+#apiVersion: "config.istio.io/v1alpha2"
+#kind: rule
+#metadata:
+#  name: rule3
+#  namespace: istio-config-default
+#spec:
+#  match: handler.name == "handler3" || handler.name == "ALL"
+#  actions:
+#  - handler: handler3.spyAdapter2.istio-config-default
+#    instances:
+#    - requestcount.metric.istio-config-default
+#
+#---
+#
+#apiVersion: "config.istio.io/v1alpha2"
+#kind: rule
+#metadata:
+#  name: rule4
+#  namespace: istio-config-default
+#spec:
+#  match: handler.name == "handler4" || handler.name == "ALL"
+#  actions:
+#  - handler: handler4.spyAdapter2.istio-config-default
+#    instances:
+#    - requestcount.metric.istio-config-default
+#
+#---
+#
+#apiVersion: "config.istio.io/v1alpha2"
+#kind: rule
+#metadata:
+#  name: rule5
+#  namespace: istio-config-default
+#spec:
+#  match: handler.name == "handler5" || handler.name == "ALL"
+#  actions:
+#  - handler: handler5.spyAdapter3.istio-config-default
+#    instances:
+#    - requestcount.metric.istio-config-default
+#
+#---
+#
+#apiVersion: "config.istio.io/v1alpha2"
+#kind: rule
+#metadata:
+#  name: rule6
+#  namespace: istio-config-default
+#spec:
+#  match: handler.name == "handler6" || handler.name == "ALL"
+#  actions:
+#  - handler: handler6.spyAdapter3.istio-config-default
+#    instances:
+#    - requestcount.metric.istio-config-default
+#
+#---
+#
+#

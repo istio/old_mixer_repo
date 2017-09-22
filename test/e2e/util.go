@@ -15,16 +15,9 @@
 package e2e
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"reflect"
-	"testing"
-
-	"github.com/davecgh/go-spew/spew"
-
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/test/spyAdapter"
 )
 
 // GetCfgs takes the operator configuration as strings and creates directory with config files from it.
@@ -44,62 +37,46 @@ func GetCfgs(srvcCnfg, attrCnfg string) (dir string) {
 	return tmpDir
 }
 
-// ConstructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
-// the constructed spyAdapters along with the adapters Info functions.
-func ConstructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
-	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
-	spyAdapters := make([]*spyAdapter.Adapter, 0)
-	for _, b := range adptBehaviors {
-		sa := spyAdapter.NewSpyAdapter(b)
-		spyAdapters = append(spyAdapters, sa)
-		adapterInfos = append(adapterInfos, sa.GetAdptInfoFn())
-	}
-	return adapterInfos, spyAdapters
-}
+// CheckSliceContainsElseError checks if the exp slice is a subset of actual slice
+func CheckSliceContainsElseError(act, exp interface{}) bool {
+	want := interfaceSlice(exp)
+	got := interfaceSlice(act)
+	//if len(a) != len(b) {
+	//	return false
+	//}
 
-// CmpSliceAndErr compares two slices
-func CmpSliceAndErr(t *testing.T, msg string, act, exp interface{}) {
-	a := interfaceSlice(exp)
-	b := interfaceSlice(act)
-	if len(a) != len(b) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-		return
-	}
-
-	for _, x1 := range a {
+	for _, x1 := range want {
 		f := false
-		for _, x2 := range b {
+		for _, x2 := range got {
 			if reflect.DeepEqual(x1, x2) {
 				f = true
 			}
 		}
 		if !f {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-			return
+			return false
 		}
 	}
-	return
+	return true
 }
 
-// CmpMapAndErr compares two maps
-func CmpMapAndErr(t *testing.T, msg string, act, exp interface{}) {
+// CheckMapContainsElseError check if the exp map is a subset of the act map
+func CheckMapContainsElseError(act, exp interface{}) bool {
 	want := interfaceMap(exp)
 	got := interfaceMap(act)
-	if len(want) != len(got) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-		return
-	}
+	//if len(want) != len(got) {
+	//	return false
+	//}
 
 	for wk, wv := range want {
 		if v, found := got[wk]; !found {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
+			return false
 		} else {
 			if !reflect.DeepEqual(wv, v) {
-				t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
+				return false
 			}
 		}
 	}
-	return
+	return true
 }
 
 func interfaceSlice(slice interface{}) []interface{} {
