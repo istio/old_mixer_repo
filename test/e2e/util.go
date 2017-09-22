@@ -37,17 +37,17 @@ func GetCfgs(srvcCnfg, attrCnfg string) (dir string) {
 	return tmpDir
 }
 
-// CmpSliceAndErr compares two slices
-func CmpSliceAndErr(act, exp interface{}) bool {
-	a := interfaceSlice(exp)
-	b := interfaceSlice(act)
-	if len(a) != len(b) {
-		return false
-	}
+// CheckSliceContainsElseError checks if the exp slice is a subset of actual slice
+func CheckSliceContainsElseError(act, exp interface{}) bool {
+	want := interfaceSlice(exp)
+	got := interfaceSlice(act)
+	//if len(a) != len(b) {
+	//	return false
+	//}
 
-	for _, x1 := range a {
+	for _, x1 := range want {
 		f := false
-		for _, x2 := range b {
+		for _, x2 := range got {
 			if reflect.DeepEqual(x1, x2) {
 				f = true
 			}
@@ -59,13 +59,13 @@ func CmpSliceAndErr(act, exp interface{}) bool {
 	return true
 }
 
-// CmpMapAndErr compares two maps
-func CmpMapAndErr(act, exp interface{}) bool {
+// CheckMapContainsElseError check if the exp map is a subset of the act map
+func CheckMapContainsElseError(act, exp interface{}) bool {
 	want := interfaceMap(exp)
 	got := interfaceMap(act)
-	if len(want) != len(got) {
-		return false
-	}
+	//if len(want) != len(got) {
+	//	return false
+	//}
 
 	for wk, wv := range want {
 		if v, found := got[wk]; !found {

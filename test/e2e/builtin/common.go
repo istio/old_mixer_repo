@@ -138,13 +138,13 @@ func createReportReq(attrs map[string]interface{}) istio_mixer_v1.ReportRequest 
 	return req
 }
 
-func cmpSliceAndErr(msg string, t1 interface{}, wantInsts []*metricTmpl.Instance, t *testing.T) {
-	if !e2e.CmpSliceAndErr(t1, wantInsts) {
+func checkSliceContainsElseError(msg string, t1 interface{}, wantInsts []*metricTmpl.Instance, t *testing.T) {
+	if !e2e.CheckSliceContainsElseError(t1, wantInsts) {
 		t.Errorf("%s:\n%s\n\nwant :\n%s", msg, spew.Sdump(t1), spew.Sdump(wantInsts))
 	}
 }
-func cmpMapAndErr(msg string, t1 interface{}, wantTypes map[string]interface{}, t *testing.T) {
-	if !e2e.CmpMapAndErr(t1, wantTypes) {
+func checkMapContainsElseError(msg string, t1 interface{}, wantTypes map[string]interface{}, t *testing.T) {
+	if !e2e.CheckMapContainsElseError(t1, wantTypes) {
 		t.Errorf("%s:\n%s\n\nwant :\n%s", msg, spew.Sdump(t1), spew.Sdump(wantTypes))
 	}
 }

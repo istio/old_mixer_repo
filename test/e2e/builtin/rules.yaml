@@ -9,6 +9,8 @@ spec:
   - handler: handler1.spyAdapter1.istio-config-default
     instances:
     - requestcount.metric.istio-config-default
+    - requestduration.metric.istio-config-default
+    - requestsize.metric.istio-config-default
     - responsesize.metric.istio-config-default
 
 ---

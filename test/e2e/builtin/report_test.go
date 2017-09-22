@@ -58,10 +58,10 @@ func TestReport(t *testing.T) {
 			},
 			validate: func(t *testing.T, spyAdpts []*Adapter) {
 				adptr := spyAdpts[0]
-				if len(adptr.BuilderData.SetMetricTypesTypes) != 2 {
+				if len(adptr.BuilderData.SetMetricTypesTypes) != 4 {
 					t.Errorf("SetMetricTypesTypes called with types =%d; want %d", len(adptr.BuilderData.SetMetricTypesTypes), 2)
 				}
-				cmpMapAndErr("SetMetricTypesTypes was called with", adptr.BuilderData.SetMetricTypesTypes, map[string]interface{}{
+				checkMapContainsElseError("SetMetricTypesTypes was called with", adptr.BuilderData.SetMetricTypesTypes, map[string]interface{}{
 					"requestcount.metric.istio-config-default": &metricTmpl.Type{
 						Value: pb.INT64,
 						Dimensions: map[string]pb.ValueType{
@@ -86,7 +86,7 @@ func TestReport(t *testing.T) {
 					},
 				}, t)
 
-				cmpSliceAndErr("HandleMetricInstances was called with", adptr.HandlerData.HandleMetricInstances, []*metricTmpl.Instance{
+				checkSliceContainsElseError("HandleMetricInstances was called with", adptr.HandlerData.HandleMetricInstances, []*metricTmpl.Instance{
 					{
 						Name:  "requestcount.metric.istio-config-default",
 						Value: int64(1),
