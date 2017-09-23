@@ -15,6 +15,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -151,8 +152,16 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 			glog.Warningf("%s attribute not found in %p", identityAttribute, bag)
 			return nil, fmt.Errorf("%s attribute not found", identityAttribute)
 		}
-	} else if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {
-		return nil, err
+	} else {
+		attrStr, ok := attr.(string)
+		if !ok {
+			msg := fmt.Sprintf("%s attribute should be of type string", identityAttribute)
+			glog.Warning(msg)
+			return nil, errors.New(msg)
+		}
+		if scopes, err = GetScopes(attrStr, identityAttributeDomain, scopes); err != nil {
+			return nil, err
+		}
 	}
 
 	dlist = make([]*pb.Combined, 0, resolveSize)
