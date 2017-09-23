@@ -174,10 +174,9 @@ func destAndNamespace(attrs attribute.Bag, idAttr string) (dest string, ns strin
 		glog.Warningf(msg)
 		return "", "", errors.New(msg)
 	}
-	var ok bool
 
-	dest, ok = attr.(string)
-	if !ok {
+	var ok bool
+	if dest, ok = attr.(string); !ok {
 		msg := fmt.Sprintf("%s identity must be string: %v", idAttr, attr)
 		glog.Warningf(msg)
 		return "", "", errors.New(msg)
