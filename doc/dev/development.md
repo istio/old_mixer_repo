@@ -5,6 +5,7 @@ for the common Istio-wide development guidelines.
 
 After which here are other Mixer specific docs you should look at:
 
+- [Mixer Development Workflow](./workflow.md)
 - [Writing Mixer adapters](./adapters.md)
 
 ## Using Mixer
