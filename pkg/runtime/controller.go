@@ -331,31 +331,33 @@ const (
 	istioProtocol = "istio-protocol"
 )
 
-// buildRule builds runtime representation of rule based on match condition
+// buildRule builds runtime representation of rule based on match condition.
 func buildRule(k store.Key, r *cpb.Rule, rt ResourceType) (*Rule, error) {
-	if r.Match != "" {
-		m, err := expr.ExtractEQMatches(r.Match)
-		if err != nil {
-			return nil, err
-		}
-		if v := m[ContextProtocolAttributeName]; v == ContextProtocolTCP {
-			rt.protocol = protocolTCP
-		}
-		// TODO process destination.service and destination.name
-	}
-
-	return &Rule{
+	rule := &Rule{
 		match: r.Match,
 		name:  k.String(),
 		rtype: rt,
-	}, nil
+	}
+
+	if len(r.Match) == 0 {
+		return rule, nil
+	}
+
+	m, err := expr.ExtractEQMatches(r.Match)
+	if err != nil {
+		return nil, err
+	}
+	if ContextProtocolTCP == m[ContextProtocolAttributeName] {
+		rule.rtype.protocol = protocolTCP
+	}
+
+	return rule, nil
 }
 
 // resourceType maps labels to rule types.
 func resourceType(labels map[string]string) ResourceType {
-	ip := labels[istioProtocol]
 	rt := defaultResourcetype()
-	if ip == ContextProtocolTCP {
+	if ContextProtocolTCP == labels[istioProtocol] {
 		rt.protocol = protocolTCP
 	}
 	return rt

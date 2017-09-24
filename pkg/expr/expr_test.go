@@ -94,8 +94,15 @@ func TestExtractMatches(t *testing.T) {
 			m:    map[string]interface{}{},
 		},
 		{
+			desc: "yoda",
+			src:  `"d" == c`,
+			m: map[string]interface{}{
+				"c": "d",
+			},
+		},
+		{
 			desc: "only top level ANDS",
-			src:  `a.b == 3.14 && c == "d" && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
+			src:  `a.b == 3.14 && "d" == c && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
 			m: map[string]interface{}{
 				"a.b": 3.14,
 				"c":   "d",

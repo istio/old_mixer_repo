@@ -408,9 +408,20 @@ func ExtractEQMatches(src string) (map[string]interface{}, error) {
 	return eqMap, nil
 }
 
-func recordEQ(fn *Function, eqMap map[string]interface{}) {
-	if fn.Name == "EQ" && fn.Args[0].Var != nil && fn.Args[1].Const != nil {
+func recordIfEQ(fn *Function, eqMap map[string]interface{}) {
+	if fn.Name != "EQ" {
+		return
+	}
+
+	// x == "y"
+	if fn.Args[0].Var != nil && fn.Args[1].Const != nil {
 		eqMap[fn.Args[0].Var.Name] = fn.Args[1].Const.Value
+		return
+	}
+
+	// yoda style, "y" == x
+	if fn.Args[0].Const != nil && fn.Args[1].Var != nil {
+		eqMap[fn.Args[1].Var.Name] = fn.Args[0].Const.Value
 	}
 }
 
@@ -419,12 +430,15 @@ func extractEQMatches(ex *Expression, eqMap map[string]interface{}) {
 	if ex.Fn == nil {
 		return
 	}
-	// only care about AND and EQ functions.
-	if ex.Fn.Name != "LAND" && ex.Fn.Name != "EQ" {
+
+	recordIfEQ(ex.Fn, eqMap)
+
+	// only recurse on AND function.
+	if ex.Fn.Name != "LAND" {
 		return
 	}
-	//TODO remove collected equality expression from AST
-	recordEQ(ex.Fn, eqMap)
+
+	//TODO remove collected equality expressions from AST
 	for _, arg := range ex.Fn.Args {
 		extractEQMatches(arg, eqMap)
 	}
