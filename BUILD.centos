@@ -1,0 +1,9 @@
+# build base docker centos image
+
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
+
+docker_build(
+    name = "centos",
+    tars = ["centos-7-docker.tar.xz"],
+    visibility = ["//visibility:public"],
+)

@@ -42,12 +42,49 @@ mixer_docker_build(
     ],
     images = [
         {
-            "name": "mixer",
+            "name": "mixer_ubuntu",
             "base": "@docker_ubuntu//:xenial",
         },
         {
-            "name": "mixer_debug",
+            "name": "mixer_ubuntu_debug",
             "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
+    ports = [
+        "9091",
+        "9093",
+        "9094",
+        "42422",
+    ],
+    repository = "istio",
+    tags = ["manual"],
+    tars = [
+        ":mixer_tar",
+        "//testdata:configs_tar",
+        ":cacerts.tar",
+    ],
+)
+
+mixer_docker_build(
+    cmd = [
+        "--configStoreURL=fs:///etc/opt/mixer/configroot",
+        "--configStore2URL=k8s://",
+        "--logtostderr",
+        "--v=2",
+        "--traceOutput=http://zipkin:9411/api/v1/spans",
+    ],
+    entrypoint = [
+        "/usr/local/bin/mixs",
+        "server",
+    ],
+    images = [
+        {
+            "name": "mixer_centos",
+            "base": "@docker_centos//:centos",
+        },
+        {
+            "name": "mixer_centos_debug",
+            "base": "@docker_centos_debug//:centos",
         },
     ],
     ports = [

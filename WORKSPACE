@@ -121,12 +121,29 @@ new_http_archive(
 
 DEBUG_BASE_IMAGE_SHA = "3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622"
 
+new_http_archive(
+    name = "docker_centos",
+    build_file = "BUILD.centos",
+    sha256 = "9e945e0ea9bf66c73e6695f7d70a9c0bbd3f8f5c67b9a44e3127a4ac495e2d85",
+    type = "xz",
+    url = "https://github.com/CentOS/sig-cloud-instance-images/raw/16dab97b0ce72b1db7a2f9b02c76e452cb0a63cb/docker/centos-7-docker.tar.xz",
+)
+
 # See github.com/istio/manager/blob/master/docker/debug/build-and-publish-debug-image.sh
 # for instructions on how to re-build and publish this base image layer.
 http_file(
     name = "ubuntu_xenial_debug",
     sha256 = DEBUG_BASE_IMAGE_SHA,
     url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug-" + DEBUG_BASE_IMAGE_SHA + ".tar.gz",
+)
+
+# TODO(sdake) Need to sort out how to get a centos_74_debug image into istio-build
+new_http_archive(
+    name = "docker_centos_debug",
+    build_file = "BUILD.centos",
+    sha256 = "9e945e0ea9bf66c73e6695f7d70a9c0bbd3f8f5c67b9a44e3127a4ac495e2d85",
+    type = "xz",
+    url = "https://github.com/CentOS/sig-cloud-instance-images/raw/16dab97b0ce72b1db7a2f9b02c76e452cb0a63cb/docker/centos-7-docker.tar.xz",
 )
 
 go_repository(
