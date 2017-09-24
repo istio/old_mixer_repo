@@ -27,7 +27,8 @@ import (
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter.InfoFn, legacyAdapters []adapter.RegisterFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter.InfoFn,
+	legacyAdapters []adapter.RegisterFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "Mixer is Istio's abstraction on top of infrastructure backends.",

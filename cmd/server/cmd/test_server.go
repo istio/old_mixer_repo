@@ -45,8 +45,9 @@ var defaultSeverArgs = serverArgs{
 }
 
 // SetupTestServer sets up a test server environment
-func SetupTestServer(info map[string]template.Info, adapters []adapter.InfoFn, legacyAdapters []adapter.RegisterFn, configStoreURL string, configStore2URL string,
-	configDefaultNamespace string, configIdentityAttribute, configIdentityAttributeDomain string, useAst bool) *ServerContext {
+func SetupTestServer(info map[string]template.Info, adapters []adapter.InfoFn, legacyAdapters []adapter.RegisterFn,
+	configStoreURL string, configStore2URL string, configDefaultNamespace string, configIdentityAttribute,
+	configIdentityAttributeDomain string, useAst bool) *ServerContext {
 	sa := defaultSeverArgs
 	sa.configStoreURL = configStoreURL
 	sa.configStore2URL = configStore2URL

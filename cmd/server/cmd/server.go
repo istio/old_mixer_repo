@@ -230,7 +230,8 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) *ServerContext {
+func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn,
+	legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) *ServerContext {
 	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
