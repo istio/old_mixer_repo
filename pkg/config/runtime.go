@@ -15,7 +15,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -155,9 +154,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 	} else {
 		attrStr, ok := attr.(string)
 		if !ok {
-			msg := fmt.Sprintf("%s attribute with value %v should be of type string", identityAttribute, attr)
-			glog.Warning(msg)
-			return nil, errors.New(msg)
+			return nil, fmt.Errorf("%s attribute with value %v should be of type string", identityAttribute, attr)
 		}
 		if scopes, err = GetScopes(attrStr, identityAttributeDomain, scopes); err != nil {
 			return nil, err
