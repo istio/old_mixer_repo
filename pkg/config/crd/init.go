@@ -16,6 +16,7 @@ package crd
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -105,29 +106,60 @@ func Register(builders map[string]store.Store2Builder) {
 	builders["kubernetes"] = NewStore
 }
 
-// Start starts the validation server.
-func (v *ValidatorServer) Start(port uint16, certProvider CertProvider) error {
+// StartHTTP starts the validation server as a normal http server.
+func (v *ValidatorServer) StartHTTP(port uint16) error {
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: v,
+	}
+	glog.Infof("HTTP server starting with port %d", port)
+	return server.ListenAndServe()
+}
+
+// retrieve the CA cert that will signed the cert used by the
+// "GenericAdmissionWebhook" plugin admission controller.
+func (v *ValidatorServer) getAPIServerCert() ([]byte, error) {
+	c, err := v.client.CoreV1().ConfigMaps("kube-system").Get("extension-apiserver-authentication", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	pem, ok := c.Data["requestheader-client-ca-file"]
+	if !ok {
+		return nil, fmt.Errorf("cannot find the ca.crt in the configmap, configMap.Data is %#v", c.Data)
+	}
+	return []byte(pem), nil
+}
+
+// StartWebhook starts the validation server as an external admission hook.
+func (v *ValidatorServer) StartWebhook(port uint16, certProvider CertProvider) error {
 	key, cert, caCert, err := certProvider.Get()
 	if err != nil {
 		return err
 	}
+	apiServerCert, err := v.getAPIServerCert()
+	if err != nil {
+		return err
+	}
+	apiserverCA := x509.NewCertPool()
+	apiserverCA.AppendCertsFromPEM(apiServerCert)
 	sCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		return err
 	}
-	// Unlike the webhook example code, this validation server does not take the kube-system's certificate and does not
-	// require client cert, since istioctl (which is not a kube-system client) will take the role of the validation
-	// if the external admission webhook isn't ready.
-	cfg := &tls.Config{Certificates: []tls.Certificate{sCert}}
 	server := &http.Server{
-		Addr:      fmt.Sprintf(":%d", port),
-		Handler:   v,
-		TLSConfig: cfg,
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: v,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{sCert},
+			ClientCAs:    apiserverCA,
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+		},
 	}
 	// ensureRegistration can fail if external admission webhook is not yet ready.
 	if err = v.ensureRegistration(caCert); err != nil {
 		glog.V(3).Infof("Failed to register the validation server as the webhook: %v", err)
 	}
-	glog.Infof("server starting with port %d", port)
+	glog.Infof("External admission webhook starting with port %d", port)
 	return server.ListenAndServeTLS("", "")
 }

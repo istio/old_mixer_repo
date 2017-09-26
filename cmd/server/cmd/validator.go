@@ -35,11 +35,12 @@ type validatorConfig struct {
 	targetNamespaces []string
 	resources        map[string]proto.Message
 	port             uint16
+	httpPort uint16
 	secretName       string
 	certsDir         string
 }
 
-func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, fatalf shared.FormatFn) *cobra.Command {
+func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	vc := &validatorConfig{
 		resources: runtime.KindMap(config.InventoryMap(adapters), info),
 	}
@@ -47,7 +48,7 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, fata
 		Use:   "validator",
 		Short: "Runs an https server for validations. Works as an external admission webhook for k8s",
 		Run: func(cmd *cobra.Command, args []string) {
-			runValidator(vc, fatalf)
+			runValidator(vc, printf, fatalf)
 		},
 	}
 	validatorCmd.PersistentFlags().StringVar(&vc.namespace, "namespace", "default", "the namespace where this webhook is deployed")
@@ -55,6 +56,7 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, fata
 	validatorCmd.PersistentFlags().StringArrayVar(&vc.targetNamespaces, "target-namespaces", []string{},
 		"the list of namespaces where changes should be validated. Empty means to validate everything.")
 	validatorCmd.PersistentFlags().Uint16VarP(&vc.port, "port", "p", 9099, "the port number of the server")
+	validatorCmd.PersistentFlags().Uint16Var(&vc.httpPort, "http-port", 9199, "the port number to access to the server through plain http")
 	validatorCmd.PersistentFlags().StringVar(&vc.certsDir, "certs", "/etc/certs", "the directory name where cert files are stored")
 	validatorCmd.PersistentFlags().StringVar(&vc.secretName, "secret-name", "", "The name of k8s secret where the certificates are stored")
 	return validatorCmd
@@ -90,16 +92,25 @@ func createCertProvider(vc *validatorConfig, client *kubernetes.Clientset) crd.C
 	return crd.NewFileCertProvider(vc.certsDir)
 }
 
-func runValidator(vc *validatorConfig, fatalf shared.FormatFn) {
+func runValidator(vc *validatorConfig, printf, fatalf shared.FormatFn) {
 	client, err := createK8sClient()
 	if err != nil {
-		fatalf("Failed to create kubernetes client: %v", err)
+		printf("Failed to create kubernetes client: %v", err)
+		printf("Starting plain http server, but external admission hook is not enabled")
+		client = nil
 	}
 	vs, err := createValidatorServer(vc, client)
 	if err != nil {
 		fatalf("Failed to create validator server: %v", err)
 	}
-	if err = vs.Start(vc.port, createCertProvider(vc, client)); err != nil {
-		fatalf("Failed to start validator server: %v", err)
+	if client != nil {
+		go func() {
+			if err = vs.StartWebhook(vc.port, createCertProvider(vc, client)); err != nil {
+				fatalf("Failed to start validator server: %v", err)
+			}
+		}()
+	}
+	if err = vs.StartHTTP(vc.httpPort); err != nil {
+		fatalf("Failed to start plain http server: %v", err)
 	}
 }
