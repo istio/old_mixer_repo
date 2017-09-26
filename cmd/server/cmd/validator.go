@@ -35,7 +35,7 @@ type validatorConfig struct {
 	targetNamespaces []string
 	resources        map[string]proto.Message
 	port             uint16
-	httpPort uint16
+	httpPort         uint16
 	secretName       string
 	certsDir         string
 }
