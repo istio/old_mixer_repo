@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	_ "expvar" // For /debug/vars registration. Note: temporary, NOT for general use
 	"fmt"
 	"io/ioutil"
@@ -59,6 +60,7 @@ import (
 const (
 	metricsPath = "/metrics"
 	versionPath = "/version"
+	configPath  = "/debug/config/resources/"
 )
 
 type serverArgs struct {
@@ -122,6 +124,11 @@ type ServerContext struct {
 	GP        *pool.GoroutinePool
 	AdapterGP *pool.GoroutinePool
 	Server    *grpc.Server
+}
+
+// ConfigGetter gives access to Mixer config snapshot.
+type ConfigGetter interface {
+	ConfigGet(path string) *store.Resource
 }
 
 func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -272,6 +279,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
+	var configGetter ConfigGetter
 
 	if sa.configStore2URL == "" {
 		printf("configStore2URL is not specified, assuming inCluster Kubernetes")
@@ -283,7 +291,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	if err != nil {
 		fatalf("Failed to connect to the configuration server. %v", err)
 	}
-	dispatcher, err = mixerRuntime.New(eval, gp, adapterGP,
+	dispatcher, configGetter, err = mixerRuntime.New(eval, gp, adapterGP,
 		sa.configIdentityAttribute, sa.configDefaultNamespace,
 		store2, adapterMap, info,
 	)
@@ -416,6 +424,27 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	http.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, verErr := out.Write([]byte(version.Info.String())); verErr != nil {
 			printf("error printing version info: %v", verErr)
+		}
+	})
+	http.HandleFunc(configPath, func(out http.ResponseWriter, req *http.Request) {
+		path := req.URL.Path[len(configPath):len(req.URL.Path)]
+		cfg := configGetter.ConfigGet(path)
+		if cfg == nil {
+			out.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		var ba []byte
+		var verr error
+
+		if ba, verr = json.Marshal(cfg); err != nil {
+			printf("error converting %v: %v", cfg, verr)
+			out.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		out.Header().Add("content-type", "application/json")
+		if _, verr = out.Write(ba); verr != nil {
+			printf("error printing version info: %v", verr)
 		}
 	})
 	monitoring := &http.Server{Addr: fmt.Sprintf(":%d", sa.monitoringPort)}

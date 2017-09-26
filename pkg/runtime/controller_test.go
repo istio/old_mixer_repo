@@ -119,6 +119,102 @@ func checkRulesInvariants(t *testing.T, rules rulesListByNamespace) {
 	}
 }
 
+func TestController_ConfigGet(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		path string
+		key  *store.Key
+		res  *store.Resource
+		st   *store.ResourceStatus
+		want *store.Resource
+	}{
+		{
+			desc: "good resource",
+			key:  &store.Key{"k1", "ns1", "res1"},
+			res: &store.Resource{
+				Spec: &wrappers.StringValue{"This String1"},
+			},
+			want: &store.Resource{
+				Spec: &wrappers.StringValue{"This String1"},
+				Status: store.ResourceStatus{
+					Phase: store.ResourceActive,
+				},
+			},
+		},
+		{
+			desc: "good resource with dot path",
+			key:  &store.Key{"k1", "ns1", "res1"},
+			path: store.Key{"k1", "ns1", "res1"}.String(),
+			res: &store.Resource{
+				Spec: &wrappers.StringValue{"This String2"},
+			},
+			want: &store.Resource{
+				Spec: &wrappers.StringValue{"This String2"},
+				Status: store.ResourceStatus{
+					Phase: store.ResourceActive,
+				},
+			},
+		},
+		{desc: "bad path",
+			path: "/abcd"},
+		{
+			desc: "deleted resource",
+			key:  &store.Key{"k1", "ns1", "res1"},
+			st:   &store.ResourceStatus{Phase: store.ResourcePendingDelete},
+			want: &store.Resource{
+				Metadata: store.ResourceMeta{
+					Name:      "res1",
+					Namespace: "ns1",
+				},
+			},
+		},
+		{
+			desc: "updated resource",
+			key:  &store.Key{"k1", "ns1", "res1"},
+			st:   &store.ResourceStatus{Phase: store.ResourcePendingUpdate},
+			res: &store.Resource{
+				Spec: &wrappers.StringValue{"This String"},
+			},
+		},
+		{
+			desc: "missing resource",
+			key:  &store.Key{"k1", "ns1", "res1"},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			sm := make(StatusMap)
+			cs := make(map[store.Key]*store.Resource)
+
+			if tc.res != nil {
+				cs[*tc.key] = tc.res
+			}
+
+			if tc.st != nil {
+				sm[tc.key.String()] = tc.st
+			}
+			c := &Controller{
+				configStatus: sm,
+				configState:  cs,
+			}
+			path := tc.path
+			if path == "" && tc.key != nil {
+				path = tc.key.Namespace + "/" + tc.key.Kind + "/" + tc.key.Name
+			}
+			res := c.ConfigGet(path)
+			if tc.want == nil && tc.res != nil {
+				tc.want = tc.res
+			}
+
+			if tc.want != nil && tc.st != nil {
+				tc.want.Status = *tc.st
+			}
+			if !reflect.DeepEqual(res, tc.want) {
+				t.Fatalf("got %v, want %v", res, tc.want)
+			}
+		})
+	}
+}
+
 func TestController_workflow(t *testing.T) {
 	mcd := maxCleanupDuration
 	defer func() { maxCleanupDuration = mcd }()
@@ -165,6 +261,7 @@ func TestController_workflow(t *testing.T) {
 			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory {
 			return fb
 		},
+		configStatus: make(StatusMap),
 	}
 
 	go func() {
@@ -444,7 +541,8 @@ func TestController_Resolve2(t *testing.T) {
 		}, 1},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, n := generateResolvedRules(rc(), tc.ht)
+			sm := make(StatusMap)
+			_, n := generateResolvedRules(rc(), tc.ht, sm)
 			if n != tc.numRules {
 				t.Fatalf("nrules got: %d, want %d", n, tc.numRules)
 			}
