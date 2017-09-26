@@ -81,8 +81,9 @@ func (v *validator) Validate(t ChangeType, key Key, br *BackEndResource) error {
 		glog.V(3).Infof("unrecognized kind %s is requested to validate", key.Kind)
 		return nil
 	}
-	res := &Resource{Metadata: br.Metadata}
+	var res *Resource
 	if t == Update {
+		res = &Resource{Metadata: br.Metadata}
 		if err := pkv.validateAndConvert(key, br, res); err != nil {
 			return err
 		}

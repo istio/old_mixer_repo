@@ -175,15 +175,17 @@ func (v *ValidatorServer) validate(data []byte) error {
 		// not in the target. Ignoring.
 		return nil
 	}
-	uns := &unstructured.Unstructured{}
-	if err := json.Unmarshal(ar.Spec.Object.Raw, &uns); err != nil {
-		return err
-	}
+	var resource *store.BackEndResource
 
 	var ct store.ChangeType
 	switch ar.Spec.Operation {
 	case admission.Create, admission.Update:
 		ct = store.Update
+		uns := &unstructured.Unstructured{}
+		if err := json.Unmarshal(ar.Spec.Object.Raw, &uns); err != nil {
+			return err
+		}
+		resource = backEndResource(uns)
 	case admission.Delete:
 		ct = store.Delete
 	default:
@@ -194,7 +196,7 @@ func (v *ValidatorServer) validate(data []byte) error {
 		Name:      ar.Spec.Name,
 		Namespace: ar.Spec.Namespace,
 	}
-	return v.validator.Validate(ct, key, backEndResource(uns))
+	return v.validator.Validate(ct, key, resource)
 }
 
 func (v *ValidatorServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
