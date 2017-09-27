@@ -25,7 +25,7 @@ metadata:
   namespace: istio-config-default
 spec:
   match: (destination.labels["app"]|"unknown") == "ratings"
-actions:
+  actions:
   - handler: staticversion.listchecker
     instances:
     - appversion.listentry
