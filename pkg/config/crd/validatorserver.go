@@ -196,6 +196,9 @@ func (v *ValidatorServer) validate(data []byte) error {
 		Name:      ar.Spec.Name,
 		Namespace: ar.Spec.Namespace,
 	}
+	if key.Name == "" && resource != nil && resource.Metadata.Name != "" {
+		key.Name = resource.Metadata.Name
+	}
 	return v.validator.Validate(ct, key, resource)
 }
 
