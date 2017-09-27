@@ -24,8 +24,8 @@ metadata:
   name: checkwl
   namespace: istio-config-default
 spec:
-  match: destination.labels["app"] == "ratings"
-  actions:
+  match: (destination.labels["app"]|"unknown") == "ratings"
+actions:
   - handler: staticversion.listchecker
     instances:
     - appversion.listentry
