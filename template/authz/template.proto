@@ -17,12 +17,11 @@ syntax = "proto3";
 package authz;
 
 import "mixer/v1/config/descriptor/value_type.proto";
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 
-option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
 message Template {
   map<string, istio.mixer.v1.config.descriptor.ValueType> subject = 1;
-  map<string, istio.mixer.v1.config.descriptor.ValueType> resource = 2;
-  map<string, istio.mixer.v1.config.descriptor.ValueType> verb = 3;
+  map<string, istio.mixer.v1.config.descriptor.ValueType> action = 2;
 }

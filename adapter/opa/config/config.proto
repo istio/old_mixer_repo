@@ -24,6 +24,12 @@ option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
 message Params {
-  string policy = 1;
+  // List of OPA policies
+  repeated string policy = 1;
+
+  // Query method to check, data.<package name>.<method name>
   string check_method = 2;
+
+  // Close the client request when adapter is disabled for invalid OPA policies
+  bool fail_close = 3;
 }

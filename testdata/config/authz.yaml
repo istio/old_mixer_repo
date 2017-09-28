@@ -10,8 +10,8 @@ spec:
     instances:
     - authzInstance.authz.istio-config-default
 
-
 ---
+
 apiVersion: "config.istio.io/v1alpha2"
 kind: authz
 metadata:
@@ -19,60 +19,101 @@ metadata:
   namespace: istio-config-default
 spec:
   subject:
-    user: source.user | ""
-    serviceAccount: source.user | ""
-    sourceNamespace: source.namespace | "default"
-  resource:
+    user: source.uid | ""
+  action:
     namespace: target.namespace | "default"
     service: target.service | ""
+    method: request.method | ""
     path: request.path | ""
-  verb:
-    verb: request.method | ""
+    name: source.name | ""
 
 ---
+
 apiVersion: "config.istio.io/v1alpha2"
 kind: opa
 metadata:
   name: opaHandler
   namespace: istio-config-default
 spec:
-  policy: |+
-    package mixerauthz
-    policy = [
-      {
-        "rule": {
-          "verbs": [
-            "storage.objects.create",
-            "storage.objects.update",
-            "storage.objects.delete"
-          ],
-          "users": [
-            "user@acmecorp.com",
-            "jaebong@google.com",
-            "domain:example.org",
-            "object-owners",
-            "object-viewers"
-          ]
-        }
-      },
-      {
-        "rule": {
-          "verbs": [
-            "storage.buckets.get"
-          ],
-          "users": [
-            "bucket-admins"
-          ]
-        }
+  policy:
+    - |+
+      package mixerauthz
+
+      import data.service_graph
+      import data.org_chart
+      
+      # Deny request by default.
+      default allow = false
+      
+      # Allow request if...
+      allow {
+          service_graph.allow  # service graph policy allows, and...
+          org_chart.allow      # org chart policy allows.
       }
-    ]
 
-    default allow = false
+    - |+
+      package org_chart
+          
+      parsed_path = p {
+          trim(input.action.path, "/", trimmed)
+          split(trimmed, "/", p)
+      }
 
-    allow = true {
-      rule = policy[_].rule
-      input.user = rule.users[_]
-      input.verb = rule.verbs[_]
-    }
+      user = parsed_path[1]
+      
+      employees = {
+          "bob": {"manager": "janet", "roles": ["engineering"]},
+          "alice": {"manager": "janet", "roles": ["engineering"]},
+          "janet": {"roles": ["engineering"]},
+          "ken": {"roles": ["hr"]},
+      }
+      
+      # Allow access to non-sensitive APIs.
+      allow { not is_sensitive_api }
+      
+      is_sensitive_api {
+          parsed_path[0] = "reviews"
+      }
+      
+      # Allow users access to sensitive APIs serving their own data.
+      allow {
+          parsed_path = ["reviews", user]
+          input.subject.user = user
+      }
+      
+      # Allow managers access to sensitive APIs serving their reports' data.
+      allow {
+          parsed_path = ["reviews", user]
+          input.subject.user = employees[user].manager
+      }
+
+      # Allow HR to access all APIs.
+      allow {
+          is_hr
+      }
+      
+      is_hr {
+          input.subject.user = user
+          employees[user].roles[_] = "hr"
+      }
+
+    - |+
+      package service_graph
+      
+      service_graph = {
+          "landing_page": ["details", "reviews"],
+          "reviews": ["ratings"],
+      }
+      
+      default allow = false
+      
+      allow {
+          input.action.external = true
+          input.action.target = "landing_page"
+      }
+      
+      allow {
+          allowed_targets = service_graph[input.action.source]
+          input.action.target = allowed_targets[_]
+      }
   checkMethod: "data.mixerauthz.allow"
-

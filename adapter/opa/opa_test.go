@@ -29,7 +29,7 @@ import (
 	"istio.io/mixer/template/authz"
 )
 
-func TestAuthz(t *testing.T) {
+func TestSinglePolicy(t *testing.T) {
 	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, authz.TemplateName) {
@@ -45,19 +45,17 @@ func TestAuthz(t *testing.T) {
 				"serviceAccount":  descriptor.STRING,
 				"sourceNamespace": descriptor.STRING,
 			},
-			Resource: map[string]descriptor.ValueType{
+			Action: map[string]descriptor.ValueType{
 				"namespace": descriptor.STRING,
 				"service":   descriptor.STRING,
 				"path":      descriptor.STRING,
-			},
-			Verb: map[string]descriptor.ValueType{
-				"verb": descriptor.STRING,
+				"verb":      descriptor.STRING,
 			},
 		},
 	})
 
 	b.SetAdapterConfig(&config.Params{
-		Policy: `package mixerauthz
+		Policy: []string{`package mixerauthz
 	    policy = [
 	      {
 	        "rule": {
@@ -70,14 +68,14 @@ func TestAuthz(t *testing.T) {
 	        }
 	      }
 	    ]
-	
+
 	    default allow = false
-	
+
 	    allow = true {
 	      rule = policy[_].rule
-	      input.user = rule.users[_]
-	      input.verb = rule.verbs[_]
-	    }`,
+	      input.subject.user = rule.users[_]
+	      input.action.verb = rule.verbs[_]
+	    }`},
 		CheckMethod: "data.mixerauthz.allow",
 	})
 
@@ -106,13 +104,11 @@ func TestAuthz(t *testing.T) {
 		instance := authz.Instance{
 			Subject: make(map[string]interface {
 			}),
-			Resource: make(map[string]interface {
-			}),
-			Verb: make(map[string]interface {
+			Action: make(map[string]interface {
 			}),
 		}
 		instance.Subject["user"] = c.user
-		instance.Verb["verb"] = c.verb
+		instance.Action["verb"] = c.verb
 
 		result, err := authzHandler.HandleAuthz(context.Background(), &instance)
 		if err != nil {
@@ -125,7 +121,7 @@ func TestAuthz(t *testing.T) {
 	}
 }
 
-func TestInvalidAuthzTypes(t *testing.T) {
+func TestMultiplePolicy(t *testing.T) {
 	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, authz.TemplateName) {
@@ -137,94 +133,225 @@ func TestInvalidAuthzTypes(t *testing.T) {
 	b.SetAuthzTypes(map[string]*authz.Type{
 		"authzInstance.authz.istio-config-default": {
 			Subject: map[string]descriptor.ValueType{
-				"user":            descriptor.STRING,
-				"serviceAccount":  descriptor.STRING,
-				"sourceNamespace": descriptor.STRING,
+				"user": descriptor.STRING,
 			},
-			Resource: map[string]descriptor.ValueType{
-				"user":      descriptor.STRING,
-				"namespace": descriptor.STRING,
-				"service":   descriptor.STRING,
-				"path":      descriptor.STRING,
-			},
-			Verb: map[string]descriptor.ValueType{
-				"verb": descriptor.STRING,
+			Action: map[string]descriptor.ValueType{
+				"source": descriptor.STRING,
+				"target": descriptor.STRING,
+				"path":   descriptor.STRING,
+				"method": descriptor.STRING,
 			},
 		},
 	})
 
 	b.SetAdapterConfig(&config.Params{
-		Policy: `package mixerauthz
-	    policy = [
-	      {
-	        "rule": {
-	          "verbs": [
-	            "storage.buckets.get"
-	          ],
-	          "users": [
-	            "bucket-admins"
-	          ]
-	        }
-	      }
-	    ]
+		Policy: []string{
+			`
+			package example
+			import data.service_graph
+			import data.org_chart
 
-	    default allow = false
+			# Deny request by default.
+			default allow = false
 
-	    allow = true {
-	      rule = policy[_].rule
-	      input.user = rule.users[_]
-	      input.verb = rule.verbs[_]
-	    }`,
-		CheckMethod: "data.mixerauthz.allow",
+			# Allow request if...
+			allow {
+			    service_graph.allow  # service graph policy allows, and...
+			    org_chart.allow      # org chart policy allows.
+			}
+		`, `
+			package org_chart
+
+			parsed_path = p {
+			    trim(input.action.path, "/", trimmed)
+			    split(trimmed, "/", p)
+			}
+
+			employees = {
+			    "bob": {"manager": "janet", "roles": ["engineering"]},
+			    "alice": {"manager": "janet", "roles": ["engineering"]},
+			    "janet": {"roles": ["engineering"]},
+			    "ken": {"roles": ["hr"]},
+			}
+
+			# Allow access to non-sensitive APIs.
+			allow { not is_sensitive_api }
+
+			is_sensitive_api {
+			    parsed_path[0] = "reviews"
+			}
+
+			# Allow users access to sensitive APIs serving their own data.
+			allow {
+			    parsed_path = ["reviews", user]
+			    input.subject.user = user
+			}
+
+			# Allow managers access to sensitive APIs serving their reports' data.
+			allow {
+			    parsed_path = ["reviews", user]
+			    input.subject.user = employees[user].manager
+			}
+
+			# Allow HR to access all APIs.
+			allow {
+			    is_hr
+			}
+
+			is_hr {
+			    input.subject.user = user
+			    employees[user].roles[_] = "hr"
+			}
+		`, `
+			package service_graph
+
+			service_graph = {
+			    "landing_page": ["details", "reviews"],
+			    "reviews": ["ratings"],
+			}
+
+			default allow = false
+
+			allow {
+			    input.action.external = true
+			    input.action.target = "landing_page"
+			}
+
+			allow {
+			    allowed_targets = service_graph[input.action.source]
+			    input.action.target = allowed_targets[_]
+			}
+		`},
+		CheckMethod: "data.example.allow",
 	})
 
-	if err := b.Validate(); err == nil {
-		t.Fatalf("Expected error, opa: user in resource is duplicated")
+	if err := b.Validate(); err != nil {
+		t.Fatalf("Got error %v, expecting success", err)
+	}
+
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("Got error %v, expecting success", err)
+	}
+
+	cases := []struct {
+		method    string
+		path      string
+		source    string
+		target    string
+		user      string
+		exptected rpc.Code
+	}{
+		// manager
+		{"GET", "/reviews/janet", "landing_page", "reviews", "janet", rpc.OK},
+		{"GET", "/reviews/alice", "landing_page", "reviews", "janet", rpc.OK},
+		{"GET", "/reviews/bob", "landing_page", "reviews", "janet", rpc.OK},
+		{"GET", "/reviews/ken", "landing_page", "reviews", "janet", rpc.PERMISSION_DENIED},
+		// self
+		{"GET", "/reviews/alice", "landing_page", "reviews", "alice", rpc.OK},
+		{"GET", "/reviews/janet", "landing_page", "reviews", "alice", rpc.PERMISSION_DENIED},
+		{"GET", "/reviews/bob", "landing_page", "reviews", "alice", rpc.PERMISSION_DENIED},
+		{"GET", "/reviews/ken", "landing_page", "reviews", "alice", rpc.PERMISSION_DENIED},
+		// hr
+		{"GET", "/reviews/janet", "landing_page", "reviews", "ken", rpc.OK},
+		{"GET", "/reviews/alice", "landing_page", "reviews", "ken", rpc.OK},
+		{"GET", "/reviews/bob", "landing_page", "reviews", "ken", rpc.OK},
+		{"GET", "/reviews/ken", "landing_page", "reviews", "ken", rpc.OK},
+		// service
+		{"GET", "/reviews/janet", "landing_page", "review", "janet", rpc.PERMISSION_DENIED},
+		{"GET", "/reviews/janet", "source_page", "reviews", "janet", rpc.PERMISSION_DENIED},
+	}
+
+	authzHandler := handler.(authz.Handler)
+
+	for _, c := range cases {
+		instance := authz.Instance{
+			Subject: make(map[string]interface {
+			}),
+			Action: make(map[string]interface {
+			}),
+		}
+		instance.Action["method"] = c.method
+		instance.Action["path"] = c.path
+		instance.Action["source"] = c.source
+		instance.Action["target"] = c.target
+		instance.Subject["user"] = c.user
+
+		result, err := authzHandler.HandleAuthz(context.Background(), &instance)
+		if err != nil {
+			t.Errorf("Got error %v, expecting success", err)
+		}
+
+		if result.Status.Code != int32(c.exptected) {
+			t.Errorf("Got status %v, expecting %v", result.Status.Code, c.exptected)
+		}
 	}
 }
 
-func TestInvalidOPAPolicy(t *testing.T) {
+func TestFailOpenClose(t *testing.T) {
+	cases := []struct {
+		policy    string
+		failClose bool
+		exptected rpc.Code
+	}{
+		{"bad policy", false, rpc.OK},
+		{"bad policy", true, rpc.PERMISSION_DENIED},
+	}
+
 	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, authz.TemplateName) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	b := info.NewBuilder().(*builder)
+	for _, c := range cases {
+		b := info.NewBuilder().(*builder)
 
-	b.SetAuthzTypes(map[string]*authz.Type{
-		"authzInstance.authz.istio-config-default": {
-			Subject: map[string]descriptor.ValueType{
-				"user":            descriptor.STRING,
-				"serviceAccount":  descriptor.STRING,
-				"sourceNamespace": descriptor.STRING,
+		b.SetAuthzTypes(map[string]*authz.Type{
+			"authzInstance.authz.istio-config-default": {
+				Subject: map[string]descriptor.ValueType{
+					"user":            descriptor.STRING,
+					"serviceAccount":  descriptor.STRING,
+					"sourceNamespace": descriptor.STRING,
+				},
+				Action: map[string]descriptor.ValueType{
+					"namespace": descriptor.STRING,
+					"service":   descriptor.STRING,
+					"path":      descriptor.STRING,
+				},
 			},
-			Resource: map[string]descriptor.ValueType{
-				"namespace": descriptor.STRING,
-				"service":   descriptor.STRING,
-				"path":      descriptor.STRING,
-			},
-			Verb: map[string]descriptor.ValueType{
-				"verb": descriptor.STRING,
-			},
-		},
-	})
+		})
 
-	b.SetAdapterConfig(&config.Params{
-		Policy: `package mixerauthz
-	    policy = [
-	      }
-	    ]
+		// OPA policy with invalid syntax
+		b.SetAdapterConfig(&config.Params{
+			Policy:      []string{c.policy},
+			CheckMethod: "data.mixerauthz.allow",
+			FailClose:   c.failClose,
+		})
 
-	    default allow = false
+		if err := b.Validate(); err != nil {
+			t.Errorf("Got error %v, expecting success", err)
+		}
 
-	    allow = true {
-	    }`,
-		CheckMethod: "data.mixerauthz.allow",
-	})
+		handler, err := b.Build(context.Background(), test.NewEnv(t))
+		if err != nil {
+			t.Fatalf("Got error %v, expecting success", err)
+		}
 
-	if err := b.Validate(); err == nil {
-		t.Fatalf("Expected error, opa: Failed to parse the OPA policy: 1 error occurred: 2:14: rego_parse_error: no match found, unexpected '='")
+		instance := authz.Instance{
+			Subject: make(map[string]interface{}),
+			Action:  make(map[string]interface{}),
+		}
+		authzHandler := handler.(authz.Handler)
+
+		result, err := authzHandler.HandleAuthz(context.Background(), &instance)
+		if err != nil {
+			t.Errorf("Got error %v, expecting success", err)
+		}
+
+		if result.Status.Code != int32(c.exptected) {
+			t.Errorf("Got error %v, expecting success", err)
+		}
 	}
 }
 

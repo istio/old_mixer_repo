@@ -19,6 +19,8 @@ package opa // import "istio.io/mixer/adapter/opa"
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -35,15 +37,18 @@ type (
 	builder struct {
 		types         map[string]*authz.Type
 		adapterConfig *config.Params
+		configError   bool
 	}
 
 	handler struct {
-		policy      string
+		policy      []string
 		checkMethod string
 
 		compiler *ast.Compiler
 
-		env adapter.Env
+		env         adapter.Env
+		configError bool
+		failClose   bool
 	}
 )
 
@@ -57,86 +62,85 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.adapterConfig = cfg.(*config.Params)
 }
 
+// To support fail close, Validate will not append errors to ce
+// It set configError to true, then HandleAuthz return permission denied respose
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	name := GetInfo().Name
-
-	dedup := map[string]bool{}
-	for _, config := range b.types {
-		for key := range config.Subject {
-			if _, ok := dedup[key]; ok {
-				ce = ce.Appendf(name, fmt.Sprintf("%s in subject is duplicated", key))
-			} else {
-				dedup[key] = true
-			}
-		}
-		for key := range config.Resource {
-			if _, ok := dedup[key]; ok {
-				ce = ce.Appendf(name, fmt.Sprintf("%s in resource is duplicated", key))
-			} else {
-				dedup[key] = true
-			}
-		}
-		for key := range config.Verb {
-			if _, ok := dedup[key]; ok {
-				ce = ce.Appendf(name, fmt.Sprintf("%s in verb is duplicated", key))
-			} else {
-				dedup[key] = true
-			}
-		}
-	}
-
+	b.configError = false
 	if len(b.adapterConfig.CheckMethod) == 0 {
-		ce = ce.Appendf(name, "CheckMethod was not configured")
-	}
-
-	parsed, err := ast.ParseModule("", b.adapterConfig.Policy)
-	if err != nil {
-		ce = ce.Appendf(name, "Failed to parse the OPA policy: %v", err)
+		b.configError = true
 		return
 	}
 
-	compiler := ast.NewCompiler()
-	compiler.Compile(map[string]*ast.Module{"": parsed})
-	if compiler.Failed() {
-		ce = ce.Appendf(name, "Failed to compile the OPA policy: %v", compiler.Errors)
+	modules := map[string]*ast.Module{}
+	for _, policy := range b.adapterConfig.Policy {
+		filename := getMD5Hash(policy)
+		parsed, err := ast.ParseModule(filename, policy)
+		if err != nil {
+			b.configError = true
+			return
+		}
+		modules[filename] = parsed
+	}
+
+	if b.configError == false {
+		compiler := ast.NewCompiler()
+		compiler.Compile(modules)
+		if compiler.Failed() {
+			b.configError = true
+		}
 	}
 
 	return
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	parsed, _ := ast.ParseModule("", b.adapterConfig.Policy)
+	var compiler *ast.Compiler
 
-	compiler := ast.NewCompiler()
-	compiler.Compile(map[string]*ast.Module{"": parsed})
+	if b.configError == false {
+		modules := map[string]*ast.Module{}
+		for _, policy := range b.adapterConfig.Policy {
+			filename := getMD5Hash(policy)
+			parsed, _ := ast.ParseModule(filename, policy)
+			modules[filename] = parsed
+		}
+
+		compiler = ast.NewCompiler()
+		compiler.Compile(modules)
+	}
 
 	return &handler{
 		policy:      b.adapterConfig.Policy,
 		checkMethod: b.adapterConfig.CheckMethod,
 		env:         env,
 		compiler:    compiler,
+		configError: b.configError,
+		failClose:   b.adapterConfig.FailClose,
 	}, nil
 }
 
 ////////////////// Runtime Methods //////////////////////////
 
 func (h *handler) HandleAuthz(context context.Context, instance *authz.Instance) (adapter.CheckResult, error) {
-	variables := make(map[string]interface{})
-
-	for k, v := range instance.Subject {
-		variables[k] = v
-	}
-	for k, v := range instance.Resource {
-		variables[k] = v
-	}
-	for k, v := range instance.Verb {
-		variables[k] = v
+	// Handle configuration error
+	if h.configError {
+		if h.failClose {
+			return adapter.CheckResult{
+				Status: status.WithPermissionDenied("opa: request was rejected"),
+			}, nil
+		} else {
+			return adapter.CheckResult{
+				Status: status.OK,
+			}, nil
+		}
 	}
 
 	rego := rego.New(
 		rego.Compiler(h.compiler),
 		rego.Query(h.checkMethod),
-		rego.Input(variables),
+		rego.Input(map[string]interface{}{
+			"action":  instance.Action,
+			"subject": instance.Subject,
+		}),
 	)
 
 	rs, err := rego.Eval(context)
@@ -182,4 +186,10 @@ func GetInfo() adapter.Info {
 		DefaultConfig: &config.Params{},
 		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
 	}
+}
+
+func getMD5Hash(text string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
