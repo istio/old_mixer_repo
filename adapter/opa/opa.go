@@ -19,7 +19,7 @@ package opa // import "istio.io/mixer/adapter/opa"
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 
@@ -63,9 +63,13 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 }
 
 func (b *builder) getShaHash(policy string) string {
-	hasher := sha1.New()
-	hasher.Write([]byte(policy))
-	return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+	hasher := sha256.New()
+	_, err := hasher.Write([]byte(policy))
+	if err != nil {
+		return ""
+	} else {
+		return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+	}
 }
 
 // To support fail close, Validate will not append errors to ce
