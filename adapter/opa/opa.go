@@ -65,11 +65,11 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 func (b *builder) getShaHash(policy string) string {
 	hasher := sha256.New()
 	_, err := hasher.Write([]byte(policy))
-	if err != nil {
-		return ""
-	} else {
-		return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+	hashKey := ""
+	if err == nil {
+		hashKey = base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 	}
+	return hashKey
 }
 
 // To support fail close, Validate will not append errors to ce
