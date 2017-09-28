@@ -19,8 +19,8 @@ package opa // import "istio.io/mixer/adapter/opa"
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -62,6 +62,12 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.adapterConfig = cfg.(*config.Params)
 }
 
+func (b *builder) getShaHash(policy string) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(policy))
+	return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+}
+
 // To support fail close, Validate will not append errors to ce
 // It set configError to true, then HandleAuthz return permission denied respose
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
@@ -73,8 +79,8 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 	modules := map[string]*ast.Module{}
 	for _, policy := range b.adapterConfig.Policy {
-		filename := getMD5Hash(policy)
-		parsed, err := ast.ParseModule(filename, policy)
+		filename := b.getShaHash(policy)
+		parsed, err := ast.ParseModule("", policy)
 		if err != nil {
 			b.configError = true
 			return
@@ -82,7 +88,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		modules[filename] = parsed
 	}
 
-	if b.configError == false {
+	if !b.configError {
 		compiler := ast.NewCompiler()
 		compiler.Compile(modules)
 		if compiler.Failed() {
@@ -96,10 +102,10 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	var compiler *ast.Compiler
 
-	if b.configError == false {
+	if !b.configError {
 		modules := map[string]*ast.Module{}
 		for _, policy := range b.adapterConfig.Policy {
-			filename := getMD5Hash(policy)
+			filename := b.getShaHash(policy)
 			parsed, _ := ast.ParseModule(filename, policy)
 			modules[filename] = parsed
 		}
@@ -123,15 +129,15 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 func (h *handler) HandleAuthz(context context.Context, instance *authz.Instance) (adapter.CheckResult, error) {
 	// Handle configuration error
 	if h.configError {
+		retStatus := status.OK
+
 		if h.failClose {
-			return adapter.CheckResult{
-				Status: status.WithPermissionDenied("opa: request was rejected"),
-			}, nil
-		} else {
-			return adapter.CheckResult{
-				Status: status.OK,
-			}, nil
+			retStatus = status.WithPermissionDenied("opa: request was rejected")
 		}
+
+		return adapter.CheckResult{
+			Status: retStatus,
+		}, nil
 	}
 
 	rego := rego.New(
@@ -186,10 +192,4 @@ func GetInfo() adapter.Info {
 		DefaultConfig: &config.Params{},
 		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
 	}
-}
-
-func getMD5Hash(text string) string {
-	hasher := md5.New()
-	hasher.Write([]byte(text))
-	return hex.EncodeToString(hasher.Sum(nil))
 }
