@@ -101,7 +101,7 @@ func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]F
 	if e.Var != nil {
 		ad := attrs.GetAttribute(e.Var.Name)
 		if ad == nil {
-			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
+			return valueType, fmt.Errorf("unknown attribute %s", e.Var.Name)
 		}
 		return ad.ValueType, nil
 	}
@@ -388,6 +388,60 @@ func Parse(src string) (ex *Expression, err error) {
 		return nil, err
 	}
 	return ex, nil
+}
+
+// ExtractEQMatches extracts equality sub expressions from the match expression.
+// It only extracts `attribute == literal` type equality matches.
+// It returns a list of  <attribute name, value> such that
+// if **any** of these comparisons is false, the expression will evaluate to false.
+// These sub expressions can be hoisted out of the match clause and evaluated separately.
+// For example
+// destination.service == "abc"  -- Used to index rules by destination service.
+// context.protocol == "tcp"  -- Used to filter rules by context
+func ExtractEQMatches(src string) (map[string]interface{}, error) {
+	ex, err := Parse(src)
+	if err != nil {
+		return nil, err
+	}
+	eqMap := make(map[string]interface{})
+	extractEQMatches(ex, eqMap)
+	return eqMap, nil
+}
+
+func recordIfEQ(fn *Function, eqMap map[string]interface{}) {
+	if fn.Name != "EQ" {
+		return
+	}
+
+	// x == "y"
+	if fn.Args[0].Var != nil && fn.Args[1].Const != nil {
+		eqMap[fn.Args[0].Var.Name] = fn.Args[1].Const.Value
+		return
+	}
+
+	// yoda style, "y" == x
+	if fn.Args[0].Const != nil && fn.Args[1].Var != nil {
+		eqMap[fn.Args[1].Var.Name] = fn.Args[0].Const.Value
+	}
+}
+
+// parseEQMatches traverse down "LANDS" and record EQs of variable and constants.
+func extractEQMatches(ex *Expression, eqMap map[string]interface{}) {
+	if ex.Fn == nil {
+		return
+	}
+
+	recordIfEQ(ex.Fn, eqMap)
+
+	// only recurse on AND function.
+	if ex.Fn.Name != "LAND" {
+		return
+	}
+
+	//TODO remove collected equality expressions from AST
+	for _, arg := range ex.Fn.Args {
+		extractEQMatches(arg, eqMap)
+	}
 }
 
 // DefaultCacheSize is the default size for the expression cache.

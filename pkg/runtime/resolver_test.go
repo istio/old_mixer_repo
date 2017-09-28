@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/attribute"
 )
 
@@ -50,6 +50,16 @@ func TestResolver_Resolve(t *testing.T) {
 				{"myns", 3},
 			},
 			nactions: 8,
+		},
+		{
+			desc: "success - service in default namespace",
+			bag: map[string]interface{}{
+				ia: "myservice." + ns,
+			},
+			rules: []fakeRuleCfg{
+				{ns, 5},
+			},
+			nactions: 5,
 		},
 		{
 			desc: "success nothing selected",
@@ -117,7 +127,7 @@ func TestResolver_Resolve(t *testing.T) {
 			err:  "identity not found",
 		},
 		{
-			desc: "failure selector error",
+			desc: "failure match error",
 			bag: map[string]interface{}{
 				ia: "myservice.myns",
 			},
@@ -125,8 +135,8 @@ func TestResolver_Resolve(t *testing.T) {
 				{ns, 5},
 				{"myns", 3},
 			},
-			selectError: "invalid selector syntax",
-			err:         "invalid selector",
+			selectError: "invalid match syntax",
+			err:         "invalid match",
 			nactions:    0,
 		},
 	}
@@ -199,7 +209,7 @@ func assertResolverError(t *testing.T, got error, want string) {
 
 func newFakeRule(vr adptTmpl.TemplateVariety, length int) *Rule {
 	return &Rule{
-		selector: "request.size=2000",
+		match: "request.size=2000",
 		actions: map[adptTmpl.TemplateVariety][]*Action{
 			vr: make([]*Action, length),
 		},

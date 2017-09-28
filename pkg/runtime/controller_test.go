@@ -18,13 +18,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
@@ -114,6 +116,57 @@ func checkRulesInvariants(t *testing.T, rules rulesListByNamespace) {
 				}
 			}
 		}
+	}
+}
+
+func TestController_buildrule(t *testing.T) {
+	key := store.Key{Kind: "kind1", Namespace: "ns1", Name: "name1"}
+	for _, tc := range []struct {
+		desc  string
+		match string
+		want  protocol
+		err   error
+	}{
+		{
+			desc:  "http service",
+			match: `request.headers["x-id"] == "tcp"`,
+			want:  protocolHTTP,
+		},
+		{
+			desc:  "tcp service",
+			match: ContextProtocolAttributeName + "== \"tcp\"",
+			want:  protocolTCP,
+		},
+		{
+			desc:  "bad expression",
+			match: ContextProtocolAttributeName + "=$ \"tcp\"",
+			err:   errors.New("unable to parse expression"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			rinput := &cpb.Rule{
+				Match: tc.match,
+			}
+			rt := defaultResourcetype()
+			rt.protocol = tc.want
+			want := &Rule{
+				name:  key.String(),
+				match: rinput.Match,
+				rtype: rt,
+			}
+
+			r, err := buildRule(key, rinput, defaultResourcetype())
+
+			checkError(t, tc.err, err)
+
+			if tc.err != nil {
+				return
+			}
+
+			if !reflect.DeepEqual(r, want) {
+				t.Fatalf("Got %v, want: %v", r, want)
+			}
+		})
 	}
 }
 
@@ -414,8 +467,8 @@ func TestController_Resolve2(t *testing.T) {
 		return rulesMapByNamespace{
 			"ns1": rulesByName{
 				"r1": &Rule{
-					selector: "true",
-					name:     "r1",
+					match: "true",
+					name:  "r1",
 					actions: map[adptTmpl.TemplateVariety][]*Action{
 						adptTmpl.TEMPLATE_VARIETY_CHECK: {
 							&Action{
@@ -521,6 +574,111 @@ func TestController_canHandlers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type fakeProto struct {
+	proto.Message
+}
+
+func (f *fakeProto) ProtoMessage() {}
+func (f *fakeProto) Reset()        {}
+func (f *fakeProto) String() string {
+	return "FFF"
+}
+
+func (f *fakeProto) Marshal() ([]byte, error) {
+	return nil, errors.New("cannot marshal")
+}
+
+type wr struct {
+	b   []byte
+	err error
+}
+
+func (w *wr) Write(p []byte) (n int, err error) {
+	w.b = p
+	return len(p), w.err
+}
+
+func TestController_encodeErrors(t *testing.T) {
+
+	hh := &cpb.Handler{
+		Name: "abcdefg",
+	}
+	hhout, _ := proto.Marshal(hh)
+	fp := &fakeProto{}
+
+	for _, tc := range []struct {
+		desc string
+		v    interface{}
+		out  []byte
+		err  error
+	}{
+		{
+			desc: "string",
+			v:    "String1",
+			out:  []byte("String1"),
+			err:  nil,
+		},
+		{
+			desc: "string",
+			v:    "String1",
+			out:  []byte("String1"),
+			err:  errors.New("write failed"),
+		},
+		{
+			desc: "handler proto",
+			v:    hh,
+			out:  hhout,
+			err:  nil,
+		},
+		{
+			desc: "bad proto",
+			v:    fp,
+			out:  []byte(fmt.Sprintf("%+v", fp)),
+			err:  nil,
+		},
+		{
+			desc: "time",
+			v:    time.Minute,
+			out:  []byte(fmt.Sprintf("%+v", time.Minute)),
+			err:  nil,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			w := &wr{err: tc.err}
+			encode(w, tc.v)
+			if !reflect.DeepEqual(w.b, tc.out) {
+				t.Fatalf("Got %v\nWant %v", w.b, tc.out)
+			}
+		})
+	}
+}
+
+func TestController_KindMap(t *testing.T) {
+	ti := map[string]template.Info{
+		"t1": {
+			CtrCfg: &cpb.Instance{},
+		},
+	}
+	ai := map[string]*adapter.Info{
+		"a1": {
+			DefaultConfig: &cpb.Handler{},
+		},
+	}
+
+	km := kindMap(ai, ti)
+
+	want := map[string]proto.Message{
+		"t1":                  &cpb.Instance{},
+		"a1":                  &cpb.Handler{},
+		RulesKind:             &cpb.Rule{},
+		AttributeManifestKind: &cpb.AttributeManifest{},
+	}
+
+	if !reflect.DeepEqual(km, want) {
+		t.Fatalf("Got %v\nwant %v", km, want)
 	}
 }
 
