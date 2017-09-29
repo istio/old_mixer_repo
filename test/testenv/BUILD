@@ -30,7 +30,6 @@ go_test(
         "//adapter/denier:go_default_library",
         "//pkg/adapter:go_default_library",
         "//template:go_default_library",
-        "//test/testenv:go_default_library",
         "@com_github_istio_api//:mixer/v1",  # keep
         "@com_github_pborman_uuid//:go_default_library",
         "@org_golang_x_net//context:go_default_library",

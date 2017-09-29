@@ -1,14 +1,36 @@
 workspace(name = "com_github_istio_mixer")
 
 git_repository(
+    name = "org_pubref_rules_protobuf",
+    commit = "0ce5738cd67925351c44df0845c3bbf9d1d32663",  # Sept 22, 2017 (genfiles path calculation fix)
+    remote = "https://github.com/pubref/rules_protobuf",
+)
+
+load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
+
+cpp_proto_repositories()
+
+git_repository(
     name = "io_bazel_rules_go",
-    commit = "7991b6353e468ba5e8403af382241d9ce031e571",  # Aug 1, 2017 (gazelle fixes)
+    commit = "f37989f66a6980436d6c78651e801063f2f55b36",  # Sep 28, 2017 (no release)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
 
-go_repositories()
+go_repository(
+    name = "org_golang_x_net",
+    commit = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f",  # Jul 26, 2017 (no releases)
+    importpath = "golang.org/x/net",
+)
+
+go_repository(
+    name = "org_golang_google_grpc",
+    commit = "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",  # April 28, 2017 (v1.3.0)
+    importpath = "google.golang.org/grpc",
+)
+
+go_repositories(go_version = "1.8.3")
 
 git_repository(
     name = "io_bazel_rules_docker",
@@ -30,10 +52,6 @@ git_repository(
     init_submodules = True,
     remote = "https://github.com/grpc/grpc.git",
 )
-
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
-
-cpp_proto_repositories()
 
 go_repository(
     name = "com_github_ghodss_yaml",

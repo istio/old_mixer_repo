@@ -1,24 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load(":inventory.bzl", "inventory_library")
 
-go_library(
-    name = "go_default_library",
-    srcs = [
-        "inventory.go",
-    ],
-    library = ":inventory_lib",  # keep
-    visibility = ["//visibility:public"],
-    deps = [
-        "//adapter/kubernetes:go_default_library",
-        "//adapter/noopLegacy:go_default_library",
-        "//pkg/adapter:go_default_library",
-    ],
-)
-
 inventory_library(
-    name = "inventory_lib",
+    name = "go_default_library",
     packages = {
         "denier": "istio.io/mixer/adapter/denier",
         "list": "istio.io/mixer/adapter/list",
@@ -32,9 +17,11 @@ inventory_library(
     },
     deps = [
         "//adapter/denier:go_default_library",
+        "//adapter/kubernetes:go_default_library",
         "//adapter/list:go_default_library",
         "//adapter/memquota2:go_default_library",
         "//adapter/noop:go_default_library",
+        "//adapter/noopLegacy:go_default_library",
         "//adapter/prometheus:go_default_library",
         "//adapter/stackdriver:go_default_library",
         "//adapter/statsd:go_default_library",

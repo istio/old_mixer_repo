@@ -52,7 +52,7 @@ go_test(
     srcs = ["crd_test.go"],
     library = ":go_default_library",
     deps = [
-        "//pkg/adapter:go_default_library",
+        "//adapter:go_default_library",
         "//pkg/template:go_default_library",
         "//template:go_default_library",
     ],
