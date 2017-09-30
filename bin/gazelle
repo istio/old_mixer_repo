@@ -2,21 +2,11 @@
 
 set -ex
 
-if ! type gazelle &> /dev/null ; then
-    go get github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
-fi
-
-# Force update of gazelle if build_file_name flag is not present.
-if ! gazelle --help 2>&1 | grep build_file_name >/dev/null; then
-    go get -u github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
-fi
-
 # Remove the symbolic link of generated pb.go files and .gen.go files
 # to prevent gazelle from creating wrong go_proto_library.
 find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
 
-gazelle \
-    -go_prefix istio.io/mixer
+bazel run //:gazelle
 
 find . -type f \( -name BUILD -o -name BUILD.bazel \) -print0 | \
     xargs -0 sed -i \
