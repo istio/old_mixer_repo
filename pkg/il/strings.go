@@ -96,3 +96,8 @@ func (t *StringTable) GetString(id uint32) string {
 	defer t.lock.RUnlock()
 	return t.idToString[id]
 }
+
+// Size returns the number of entries in the table.
+func (t *StringTable) Size() int {
+	return int(t.nextID)
+}
