@@ -8,29 +8,38 @@ source $SCRIPTPATH/use_bazel_go.sh
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-
-PARENT_BRANCH=''
-
-while getopts :c: arg; do
-  case ${arg} in
-    c) PARENT_BRANCH="${OPTARG}";;
-    *) { echo "Unrecognized argument ${OPTARG}"; exit 1; };;
-  esac
-done
-
 prep_linters() {
     bin/bazel_to_go.py
 }
 
 go_metalinter() {
-    NUM_CPU=$(getconf _NPROCESSORS_ONLN)
+    LINTER_SHA="bfcc1d6942136fd86eb6f1a6fb328de8398fbd80"
 
-    # Note: WriteHeaderAndJson excluded because the interface is defined in a 3rd party library.
-    gometalinter="docker run \
-      -v $(bazel info output_base):$(bazel info output_base) \
-      -v $(pwd):/go/src/istio.io/mixer \
-      -w /go/src/istio.io/mixer \
-      gcr.io/istio-testing/linter:bfcc1d6942136fd86eb6f1a6fb328de8398fbd80"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      gometalinter=$(which gometalinter)
+      if [[ -z $gometalinter ]]; then
+        cat << EOF
+# Please install gometalinter:
+go get -d github.com/alecthomas/gometalinter && \
+  pushd $HOME/go/src/github.com/alecthomas/gometalinter && \
+  git checkout -q "${LINTER_SHA}" && \
+  go build -v -o $HOME/bin/gometalinter . && \
+  gometalinter --install && \
+  popd
+EOF
+        exit 1
+      fi
+    else
+      # Note: WriteHeaderAndJson excluded because the interface is defined in a 3rd party library.
+      gometalinter="docker run \
+        -v $(bazel info output_base):$(bazel info output_base) \
+        -v $(pwd):/go/src/istio.io/mixer \
+        -w /go/src/istio.io/mixer \
+        gcr.io/istio-testing/linter:${LINTER_SHA}"
+    fi
+
+    NUM_CPU=$(getconf _NPROCESSORS_ONLN)
+    echo Running linters...
     $gometalinter \
         --concurrency=${NUM_CPU}\
         --enable-gc\
@@ -69,7 +78,7 @@ go_metalinter() {
 }
 
 run_linters() {
-    echo Running linters
+    echo Running buildifier...
     bazel build @com_github_bazelbuild_buildtools//buildifier
     buildifier=$(bazel info bazel-bin)/external/com_github_bazelbuild_buildtools/buildifier/buildifier
     $buildifier -showlog -mode=check $(find . -name BUILD -type f)
@@ -80,12 +89,6 @@ run_linters() {
     $SCRIPTPATH/check_license.sh
     $SCRIPTPATH/check_workspace.sh
 }
-
-set -e
-
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-ROOTDIR=$SCRIPTPATH/..
-cd $ROOTDIR
 
 prep_linters
 run_linters
