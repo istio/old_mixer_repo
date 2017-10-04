@@ -41,6 +41,8 @@ go_test(
     deps = [
         "//pkg/config/store:go_default_library",
         "@io_k8s_api//admission/v1alpha1:go_default_library",
+        "@io_k8s_api//admissionregistration/v1alpha1:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",

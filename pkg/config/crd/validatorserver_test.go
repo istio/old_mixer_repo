@@ -42,7 +42,7 @@ type fakeValidator struct {
 	err error
 }
 
-func (v *fakeValidator) Validate(t store.ChangeType, key store.Key, br *store.BackEndResource) error {
+func (v *fakeValidator) Validate([]*store.BackendEvent) error {
 	return v.err
 }
 

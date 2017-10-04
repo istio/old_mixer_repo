@@ -199,7 +199,7 @@ func (v *ValidatorServer) validate(data []byte) error {
 	if key.Name == "" && resource != nil && resource.Metadata.Name != "" {
 		key.Name = resource.Metadata.Name
 	}
-	return v.validator.Validate(ct, key, resource)
+	return v.validator.Validate([]*store.BackendEvent{{Type: ct, Key: key, Value: resource}})
 }
 
 func (v *ValidatorServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {

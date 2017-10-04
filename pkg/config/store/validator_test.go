@@ -28,8 +28,22 @@ type fakeValidator struct {
 	err error
 }
 
-func (v *fakeValidator) Validate(t ChangeType, key Key, res *Resource) error {
+func (v *fakeValidator) Validate([]*Event) error {
 	return v.err
+}
+
+func backendEvent(t ChangeType, kind, namespace, name string, spec map[string]interface{}) *BackendEvent {
+	return &BackendEvent{
+		Type: t,
+		Key:  Key{Kind: kind, Namespace: namespace, Name: name},
+		Value: &BackEndResource{
+			Metadata: ResourceMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: spec,
+		},
+	}
 }
 
 func TestValidate(t *testing.T) {
@@ -37,9 +51,7 @@ func TestValidate(t *testing.T) {
 		title         string
 		kinds         map[string]proto.Message
 		externalError error
-		typ           ChangeType
-		key           Key
-		in            map[string]interface{}
+		evs           []*BackendEvent
 		want          error
 	}{
 		{
@@ -48,9 +60,7 @@ func TestValidate(t *testing.T) {
 				"Handler": &cfg.Handler{},
 			},
 			nil,
-			Update,
-			Key{Kind: "Handler", Namespace: "ns", Name: "foo"},
-			map[string]interface{}{"adapter": "noop", "name": "default"},
+			[]*BackendEvent{backendEvent(Update, "Handler", "ns", "foo", map[string]interface{}{"adapter": "noop", "name": "default"})},
 			nil,
 		},
 		{
@@ -59,54 +69,51 @@ func TestValidate(t *testing.T) {
 				"Handler": &cfg.Handler{},
 			},
 			nil,
-			Delete,
-			Key{Kind: "Handler", Namespace: "ns", Name: "foo"},
-			nil,
+			[]*BackendEvent{backendEvent(Delete, "Handler", "ns", "foo", nil)},
 			nil,
 		},
 		{
 			"unknown kinds",
 			map[string]proto.Message{},
 			errors.New("fail"),
-			Update,
-			Key{Kind: "Unknown", Namespace: "ns", Name: "foo"},
-			map[string]interface{}{"foo": "bar"},
+			[]*BackendEvent{backendEvent(Update, "Unknown", "ns", "foo", map[string]interface{}{"foo": "bar"})},
 			nil,
+		},
+		{
+			"parrtially unknown",
+			map[string]proto.Message{ruleKind: &cfg.Rule{}},
+			errors.New("fail on known kind"),
+			[]*BackendEvent{
+				backendEvent(Update, "Unknown", "ns", "foo", map[string]interface{}{"foo": "bar"}),
+				backendEvent(Update, ruleKind, "ns", "bar", map[string]interface{}{"match": "match rule"}),
+			},
+			errors.New("fail on known kind"),
 		},
 		{
 			"external validator failures",
 			map[string]proto.Message{"Handler": &cfg.Handler{}},
 			errors.New("external validator failure"),
-			Update,
-			Key{Kind: "Handler", Namespace: "ns", Name: "foo"},
-			map[string]interface{}{"adapter": "noop", "name": "default"},
+			[]*BackendEvent{backendEvent(Update, "Handler", "ns", "foo", map[string]interface{}{"adapter": "noop", "name": "default"})},
 			errors.New("external validator failure"),
 		},
 		{
 			"external validator failures on delete",
 			map[string]proto.Message{"Handler": &cfg.Handler{}},
 			errors.New("external validator failure"),
-			Delete,
-			Key{Kind: "Handler", Namespace: "ns", Name: "foo"},
-			nil,
+			[]*BackendEvent{backendEvent(Delete, "Handler", "ns", "foo", nil)},
 			errors.New("external validator failure"),
 		},
 		{
 			"deprecated field",
 			map[string]proto.Message{ruleKind: &cfg.Rule{}},
 			nil,
-			Update,
-			Key{Kind: ruleKind, Namespace: "ns", Name: "foo"},
-			map[string]interface{}{"selector": "selector"},
+			[]*BackendEvent{backendEvent(Update, ruleKind, "ns", "foo", map[string]interface{}{"selector": "selector"})},
 			errors.New("field 'selector' is deprecated"),
 		},
 	} {
 		t.Run(c.title, func(tt *testing.T) {
 			v := NewValidator(&fakeValidator{c.externalError}, c.kinds)
-			err := v.Validate(c.typ, c.key, &BackEndResource{
-				Metadata: ResourceMeta{Name: c.key.Name, Namespace: c.key.Namespace},
-				Spec:     c.in,
-			})
+			err := v.Validate(c.evs)
 			if c.want == nil && err != nil {
 				tt.Errorf("Got %v, Want nil", err)
 			} else if c.want != nil && !strings.Contains(err.Error(), c.want.Error()) {

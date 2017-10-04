@@ -19,6 +19,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 type perKindValidateFunc func(br *BackEndResource) error
@@ -74,22 +75,34 @@ func NewValidator(ev Validator, kinds map[string]proto.Message) BackendValidator
 	}
 }
 
-func (v *validator) Validate(t ChangeType, key Key, br *BackEndResource) error {
-	pkv, ok := v.perKindValidators[key.Kind]
-	if !ok {
-		// Pass unrecognized kinds -- they should be validated by somewhere else.
-		glog.V(3).Infof("unrecognized kind %s is requested to validate", key.Kind)
-		return nil
-	}
-	var res *Resource
-	if t == Update {
-		res = &Resource{Metadata: br.Metadata}
-		if err := pkv.validateAndConvert(key, br, res); err != nil {
-			return err
+func (v *validator) Validate(bevs []*BackendEvent) error {
+	evs := make([]*Event, 0, len(bevs))
+	var merr error
+	for _, bev := range bevs {
+		pkv, ok := v.perKindValidators[bev.Key.Kind]
+		if !ok {
+			// Pass unrecognized kinds -- they should be validated by somewhere else.
+			glog.V(3).Infof("unrecognized kind %s is requested to validate", bev.Key.Kind)
+			continue
 		}
+		ev := &Event{
+			Type: bev.Type,
+			Key:  bev.Key,
+		}
+		if bev.Type == Update {
+			ev.Value = &Resource{Metadata: bev.Value.Metadata}
+			if err := pkv.validateAndConvert(bev.Key, bev.Value, ev.Value); err != nil {
+				merr = multierror.Append(merr, err)
+				continue
+			}
+		}
+		evs = append(evs, ev)
 	}
-	if v.externalValidator == nil {
+	if merr != nil {
+		return merr
+	}
+	if len(evs) == 0 || v.externalValidator == nil {
 		return nil
 	}
-	return v.externalValidator.Validate(t, key, res)
+	return v.externalValidator.Validate(evs)
 }
