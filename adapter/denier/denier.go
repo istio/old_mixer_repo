@@ -39,7 +39,7 @@ type handler struct {
 func (h *handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
 	return adapter.CheckResult{
 		Status:        h.status,
-		ValidDuration: 1000 * time.Second,
+		ValidDuration: 5 * time.Second,
 		ValidUseCount: 1000,
 	}, nil
 }
@@ -47,7 +47,7 @@ func (h *handler) HandleCheckNothing(context.Context, *checknothing.Instance) (a
 func (h *handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
 	return adapter.CheckResult{
 		Status:        h.status,
-		ValidDuration: 1000 * time.Second,
+		ValidDuration: 5 * time.Second,
 		ValidUseCount: 1000,
 	}, nil
 }
