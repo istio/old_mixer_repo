@@ -1,4 +1,3 @@
-# gazelle:ignore
 package(default_visibility = ["//example/servicegraph:__subpackages__"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
@@ -19,4 +18,9 @@ go_binary(
     data = ["//example/servicegraph/js:viz/viz-lite.js"],
     library = ":go_default_library",
     visibility = ["//visibility:public"],
+)
+
+go_binary(
+    name = "server",
+    library = ":go_default_library",
 )
