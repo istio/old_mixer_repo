@@ -32,8 +32,8 @@ go_library(
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//log:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",
-        "@com_github_istio_api//:mixer/v1/template",
+        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//:mixer/v1/template",
     ],
 )
 
@@ -62,6 +62,6 @@ go_test(
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
-        "@com_github_istio_api//:mixer/v1/template",
+        "@io_istio_api//:mixer/v1/template",
     ],
 )

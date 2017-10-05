@@ -11,7 +11,7 @@ go_library(
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/template:go_default_library",
-        "@com_github_istio_api//:mixer/v1",
+        "@io_istio_api//:mixer/v1",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )
@@ -29,7 +29,7 @@ go_test(
         "//pkg/adapter:go_default_library",
         "//template:go_default_library",
         "@com_github_pborman_uuid//:go_default_library",
-        "@com_github_istio_api//:mixer/v1",
+        "@io_istio_api//:mixer/v1",
         "@org_golang_x_net//context:go_default_library",
     ],
 )
