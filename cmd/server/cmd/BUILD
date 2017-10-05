@@ -39,7 +39,7 @@ go_library(
         "@com_github_openzipkin_zipkin_go_opentracing//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
-        "@com_github_istio_api//:mixer/v1",
+        "@io_istio_api//:mixer/v1",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
         "@org_golang_google_grpc//grpclog/glogger:go_default_library",
