@@ -12,12 +12,12 @@ also walks through the step-by-step instructions for creating a simple adapter.
 * High level understanding of the [operator configuration model](https://istio.io/docs/concepts/policy-and-control/mixer-config.html).
 
 # Table of contents
-* [Background](#Background)
+* [Background](#background)
 * [Template overview](#template-overview)
 * [Adapter life cycle](#adapter-life-cycle)
 * [Example](#example)
 * [Summary diagrams](#summary-diagrams)
-* [Plug adapter into Mixer](#plug-adapter-into-Mixer)
+* [Plug adapter into Mixer](#plug-adapter-into-mixer)
 * [Testing](#testing)
 * [Do's and dont's](#dos-and-donts)
 * [Built-in templates](#built-in-templates)
@@ -645,10 +645,10 @@ path to the adapter package that implements the `GetInfo `function. These two ch
 
 We provide a simple adapter test framework. The framework instantiates a in-proc Mixer gRPC server with a config store
 backed by local filesystem, and also a Mixer gRPC client in test process, which allows stepping through adapter code in
-test cases. The test framework is implemented in the [test/testenv](https://github.com/istio/mixer/blobhttps://github.com/istio/mixer/tree/master/test/testenvmaster/test/testenv/testenv_test.go)
-directory. A [sample](https://github.com/istio/mixer/blob/master/test/testenv/testenv_test.go) test is provided to show
+test cases. The test framework is implemented in the [test/testenv](../../test/testenv)
+directory. A [sample](../../test/testenv/testenv_test.go) test is provided to show
 how to use this test framework to test a dummy adapter called denier. To setup the environment, adapter developer need
-author adapter config files. Sample adapter config can be found in [/testdata](https://github.com/istio/mixer/tree/master/testdata/config) directory.
+author adapter config files. Sample adapter config can be found in [/testdata](../../testdata/config) directory.
 
 # Do's and dont's
 
