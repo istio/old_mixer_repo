@@ -5,8 +5,5 @@ steps:
   args: ['tag', 'istio/docker:mixer', 'gcr.io/$PROJECT_ID/mixer:$BUILD_ID']
 images:
 - 'gcr.io/$PROJECT_ID/mixer'
-tags:
-- "latest"
-- "$BUILD_ID"
 timeout: 1800s
 
