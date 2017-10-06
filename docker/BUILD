@@ -6,10 +6,10 @@ load(":cacerts.bzl", "cacerts")
 
 pkg_tar(
     name = "mixer_tar",
-    extension = "tar.gz",
-    files = [
+    srcs = [
         "//cmd/server:mixs",
     ],
+    extension = "tar.gz",
     mode = "0755",
     package_dir = "/usr/local/bin/",
     tags = ["manual"],
