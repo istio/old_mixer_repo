@@ -373,7 +373,7 @@ type Info struct {
 	Description string
 	
 	// NewBuilder is a function that creates a Builder which implements Builders
-    // associated with the SupportedTemplates.
+	// associated with the SupportedTemplates.
 	NewBuilder NewBuilderFn
 	
 	// SupportedTemplates expresses all the templates the Adapter wants to serve.
@@ -411,7 +411,7 @@ configured by the operator and the shape of the `Instance` object the adapter wo
 Given the above sample operator's handler configuration and 'metric' template shows in above examples, the below examples
 shows the configuration-time call values:
 
-![flow: example attr to types](./img/example%20attr%20to%20instance.svg)
+![flow: example attr to types](./img/example%20instance%20to%20type.svg)
 
 At request time, every `Instance` object dispatch to the adapter has a '`Name`' field. Adapter implementation should
 use the value of the `Name` field to lookup the shape description for the `Instance` object from the map of instance
@@ -680,5 +680,5 @@ examples for reference when implementing new adapters.
 
 # Walkthrough of adapter implementation (30 minutes)
 
-Please refer to [Adapter Development Walkthrough](https://docs.google.com/document/d/1ZjGtmf27AQLxq7Au5lpI_P-YDdjDaqTpU2tNLdK3IMI/edit#)
+Please refer to [Adapter Development Walkthrough](./adapter-development-walkthrough.md)
 
