@@ -7,3 +7,5 @@ images:
 - 'gcr.io/$PROJECT_ID/mixer:$BUILD_ID'
 tags:
 - "latest"
+timeout: 1800s
+
