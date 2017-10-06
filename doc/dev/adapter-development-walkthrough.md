@@ -1,19 +1,19 @@
 # Istio Mixer: Adapter Development Walkthrough
 
-This section walks through step-by-step instructions to implement, test and plug a simple adapter into Mixer. For
-complete details on Adapter life cycle, please refer to the [Adapter Developer Reference Guide](./adapters.md).
+This document walks through step-by-step instructions to implement, test and plug a simple adapter into Mixer. For
+complete details on the adapter life cycle, please refer to the [Adapter Developer Reference Guide](./adapters.md).
 
-**Note**: To complete this walkthrough, it is optional to read the Adapter Developer Reference Guide. However, to
+**Note**: To complete this walkthrough, it is optional to read the adapter Developer Reference Guide. However, to
 create a real production quality adapter, it is highly recommended you read the reference guide to better understand
-Adapter lifecycle and various interfaces and objects that Mixer uses to interact with Adapters.
+adapter lifecycle and various interfaces and objects that Mixer uses to interact with adapters.
 
 In this walkthrough you're going to create a simple Adapter that:
 
-* Supports the [`metric Template`](../../template/metric/template.proto) which ships with built-in Mixer framework.
+* Supports the [`metric`](../../template/metric/template.proto)  template which ships with built-in Mixer framework.
 
-* For every request, prints to a file the data it received from Mixer during request time.
+* For every request, prints to a file the data it received from Mixer at request time.
 
-**It should approximately take ~30 min to finish this task**
+**It should approximately take ~30 minutes to finish this task**
 
 
 # Table of contents
@@ -32,7 +32,7 @@ In this walkthrough you're going to create a simple Adapter that:
 
 # Before you start
 
-Download a local copy of Mixer repo
+Download a local copy of the Mixer repo
 
 ```
 git clone https://github.com/istio/mixer
@@ -42,7 +42,7 @@ Install bazel (version 0.5.2 or higher) from [https://bazel.build/](https://baze
 
 Set the MIXER_REPO variable to the path where the mixer repository is on the local machine. Example `export MIXER_REPO=$GOPATH/src/istio.io/mixer`
 
-Successfully build Mixer repo.
+Successfully build the repo.
 
 ```
 pushd $MIXER_REPO && bazel build ...
@@ -50,21 +50,17 @@ pushd $MIXER_REPO && bazel build ...
 
 # Step 1: Write basic adapter skeleton code
 
-Create `mysampleadapter` dir and navigate to it.
+Create `mysampleadapter` directory and navigate to it.
 
 ```
 cd $MIXER_REPO/adapter && mkdir mysampleadapter && cd mysampleadapter
 ```
 
-Create file mysampleadapter.go
+Create the file name mysampleadapter.go with the following content
 
-```
-touch mysampleadapter.go
-```
-
-Copy the following content into the file mysampleadapter.go. It defines the adapter's `builder` and `handler` types
-along with the interfaces required to support the 'metric' Template. This code so far does not add any functionality of
-printing details in a file. It is done in later steps.
+_It defines the adapter's `builder` and `handler` types
+along with the interfaces required to support the 'metric' template. This code so far does not add any functionality for
+printing details in a file. It is done in later steps._
 
 ```
 package mysampleadapter
@@ -131,14 +127,7 @@ func GetInfo() adapter.Info {
 ```
 
 
-Now, write write corresponding BUILD file
-
-```
-touch BUILD
-```
-
-
-Copy the following content into the BUILD file.
+Now, write corresponding BUILD file. Create a file name BUILD with the following content.
 
 <pre>
 package(default_visibility = ["//visibility:public"])
@@ -167,7 +156,7 @@ bazel build ...
 ```
 
 
-The build output on the terminal look like
+The build output on the terminal should look like
 
 *INFO: Found 1 target...*
 
@@ -175,22 +164,23 @@ The build output on the terminal look like
 
 *bazel-bin/adapter/*mysampleadapter*/~lib~/istio.io/mixer/adapter/*mysampleadapter*.a*
 
-Now we have the basic skeleton of adapter with empty implementation for interfaces for 'metric' Templates. Later steps
+Now we have the basic skeleton of adapter with empty implementation for interfaces for 'metric' templates. Later steps
 adds the core code for this adapter.
 
 # Step 2: Write adapter configuration
 
-Since this Adapter just prints the data it receives from Mixer into a file, the adapter configuration will take the
+Since this adapter just prints the data it receives from Mixer into a file, the adapter configuration will take the
 path of that file as a configuration field.
 
-Create the config proto file under 'config' dir
+Create the config proto file under the 'config' dir
 
 ```
-mkdir config && touch config/config.proto
+mkdir config
 ```
 
+Create a new config.proto file inside the config directory
 
-Copy the following content in the `config/config.proto`.
+Copy the following content to the `config/config.proto` file.
 
 ```
 syntax = "proto3";
@@ -209,14 +199,10 @@ message Params {
 ```
 
 
-Create a BUILD file in the config dir
-
-```
-touch config/BUILD
-```
+Create a BUILD file in the config dir.
 
 
-Copy the following content into the config/BUILD file.
+Copy the following content to the config/BUILD file.
 
 ```
 package(default_visibility = ["//visibility:public"])
@@ -291,8 +277,8 @@ go_library(
 </pre>
 
 
-Modify the adapter code (`mysampleadapter.go`) to use the adapter specific configuration
-(defined in `mysampleadapter/config/config.proto`) to instantiate the file to write to. Also update up the `GetInfo`
+Modify the adapter code (`mysampleadapter.go`) to use the adapter-specific configuration
+(defined in `mysampleadapter/config/config.proto`) to instantiate the file to write to. Also update the `GetInfo`
 function to allow operators to pass the adapter specific config and for the adapter to validate the operator provided
 config. Copy the following code and the bold text shows the new added code.
 
@@ -384,7 +370,7 @@ bazel build ...
 ```
 
 
-The build output on the terminal look like
+The build output on the terminal should look like
 
 *INFO: Found 1 target...*
 
@@ -394,9 +380,11 @@ The build output on the terminal look like
 
 # Step 4: Write business logic into your adapter.
 
+
+
 Print Instance and associated Type information in the file configured via adapter config. This requires storing the
-metric type information during configure-time and using it during request-time. To add this functionality into
-'mysampleadapter.go'`, `copy the following code and the bold text shows the newly added code.
+metric type information at configuration-time and using it at request-time. To add this functionality, update file
+mysampleadapter.go to look like the following. Note the bold text shows the newly added code. 
 
 <pre>
 package mysampleadapter
@@ -503,7 +491,7 @@ bazel build ...
 ```
 
 
-The build output on the terminal look like
+The build output on the terminal should look like
 
 *INFO: Found 1 target...*
 
@@ -511,14 +499,14 @@ The build output on the terminal look like
 
 *bazel-bin/adapter/*mysampleadapter*/~lib~/istio.io/mixer/adapter/*mysampleadapter*.a*
 
-This concludes the implementation part of the adapter code. Next steps show how  plug an adapter into a build of Mixer
-and to verify your code's behaviour.
+This concludes the implementation part of the adapter code. Next steps show how to plug an adapter into a build of Mixer
+and to verify your code's behavior.
 
 # Step 5: Plug adapter into the Mixer.
 
-Update the //adapter/BUILD file to add the new 'mysampleadapter' into the Mixers Adapter inventory.
+Update the //adapter/BUILD file to add the new 'mysampleadapter' into the Mixer's adapter inventory.
 
-Add the following two lines
+Add the lines in <b>bold</b> to the existing file. The `inventory_library` build rule should look like the following
 
 <pre>
 inventory_library(
@@ -540,35 +528,30 @@ inventory_library(
 </pre>
 
 
-Now your Adapter is plugged into Mixer and ready to receive data from Mixer.
+Now your adapter is plugged into Mixer and ready to receive data from Mixer.
 
 # Step 6: Write sample operator config
 
-To see if your Adapter works, we will need a sample operator configuration. So, let's write a simple operator
-configuration that we will give to Mixer for it to dispatch data to your sample Adapter. We will need instance, handler
+To see if your adapter works, we will need a sample operator configuration. So, let's write a simple operator
+configuration that we will give to Mixer for it to dispatch data to your sample adapter. We will need instance, handler
 and rule configuration to be passed to the Mixers configuration server. First we copy a sample attributes config that
-configures Mixer with a set of attributes vocabulary. We can then use those attributes in the sample operator configuration.
+configures Mixer with an attributes vocabulary. We can then use those attributes in the sample operator configuration.
 
-Create a directory to put sample operator config
+Create a directory where we can put sample operator config
 
 ```
 mkdir sampleoperatorconfig
 ```
 
 
-Copy the sample attributes vocabulary config
+Copy the sample attribute vocabulary config
 
 ```
 cp $MIXER_REPO/testdata/config/attributes.yaml sampleoperatorconfig
 ```
 
 
-Create sample operator config file
-
-```
-touch sampleoperatorconfig/config.yaml
-```
-
+Create a sample operator config file with name `config.yaml` inside the `sampleoperatorconfig` directory.
 
 Add the following content to the file `sampleoperatorconfig/config.yaml.`
 
@@ -590,7 +573,7 @@ spec:
    response_code: response.code | 200
  monitored_resource_type: '"UNSPECIFIED"'
 ---
-# handler configuration for Adapter 'metric'
+# handler configuration for adapter 'metric'
 apiVersion: "config.istio.io/v1alpha2"
 kind: mysampleadapter
 metadata:
@@ -653,7 +636,7 @@ bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local"
 
 
 Inspect the out.text file that your adapter would have printed. If you have followed the above steps, then the out.txt
-should be in your dir `$MIXER_REPO`
+should be in your directory `$MIXER_REPO`
 
 ```
 tail $MIXER_REPO/out.txt
