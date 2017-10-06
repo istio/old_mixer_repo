@@ -504,7 +504,7 @@ and to verify your code's behavior.
 
 # Step 5: Plug adapter into the Mixer.
 
-Update the //adapter/BUILD file to add the new 'mysampleadapter' into the Mixer's adapter inventory.
+Update the $MIXER_REPO/adapter/BUILD file to add the new 'mysampleadapter' into the Mixer's adapter inventory.
 
 Add the lines in <b>bold</b> to the existing file. The `inventory_library` build rule should look like the following
 
