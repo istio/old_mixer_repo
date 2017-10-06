@@ -13,11 +13,9 @@ go_library(
     ],
 )
 
-go_binary(
+alias(
     name = "servicegraph",
-    data = ["//example/servicegraph/js:viz/viz-lite.js"],
-    library = ":go_default_library",
-    visibility = ["//visibility:public"],
+    actual = ":server",
 )
 
 go_binary(
