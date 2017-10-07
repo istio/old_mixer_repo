@@ -29,18 +29,16 @@ or custom infrastructure backends.
 
 ![mixer architecture](./img/mixer%20architecture.svg)
 
-Mixer structures its incoming attribute data into a more useful form for backends (for example, metrics data) using
+Mixer structures its incoming attributes into a more useful form for adapters using
 templates. Templates describe the form of data dispatched to adapters when processing a request and the interface that
-the adapter must implement to receive this data. Out of the box, Mixer provides a suite of [default templates](#built-in-templates).
+the adapter must implement to receive this data. The operator that configures Istio controls how
+this template-specific data is constructed and dispatched to adapters.
+
+Out of the box, Mixer provides a suite of [default templates](#built-in-templates).
 We strongly recommend that, when implementing adapters, you use Mixer's
 default templates. Though if they are not suitable for your particular needs you can also [create your own templates](./templates.md)
-along with adapters to consume the relevant data.
-
-Istio itself includes some [built-in adapters](https://github.com/istio/mixer/tree/master/adapter)
+along with adapters to consume the relevant data. Mixer also includes some [built-in adapters](https://github.com/istio/mixer/tree/master/adapter)
 by default, but users may need to implement their own to let Mixer send data to their chosen backend.
-
-Operator configuration determines the values of the instances dispatched to an adapter for a template.  Refer to
-[Mixer operator configuration](https://istio.io/docs/concepts/policy-and-control/mixer-config.html#handlers) for details.
 
 The roles of the template author, adapter author, and the operator can be summarized as:
 
