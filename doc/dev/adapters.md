@@ -117,7 +117,7 @@ These examples show three templates, one for each of the possible `template_vari
 
 Template.proto
 
-```
+```proto
 
 syntax = "proto3";
 
@@ -140,7 +140,7 @@ message Template {
 
 Auto-generated Go code used by adapter implementation
 
-```
+```golang
 
 package metric
 
@@ -178,7 +178,7 @@ type HandlerBuilder interface {
 
 Template.proto
 
-```
+```proto
 
 syntax = "proto3";
 
@@ -198,7 +198,7 @@ message Template {
 
 Auto-generated Go code used by adapter implementation
 
-```
+```golang
 
 package listentry
 
@@ -237,7 +237,7 @@ type Handler interface {
 
 Template.proto
 
-```
+```proto
 
 syntax = "proto3";
 
@@ -261,7 +261,7 @@ message Template {
 Auto-generated Go code used by adapter implementation
 
 
-```
+```golang
 
 package quota
 
@@ -336,7 +336,7 @@ returns an `adapter.Info` object. During initialization, Mixer invokes this func
 following information:
 
 
-```
+```golang
 type Info struct {
 	// Name returns the official name of the adapter, it must be RFC 1035 compatible DNS
 	// label.
@@ -440,7 +440,7 @@ within Mixer framework](https://github.com/istio/mixer/tree/master/adapter).
 
 * Sample adapter that supports the 'metric' template
 
-```
+```golang
 type (
   builder struct{}
   handler struct{}
@@ -487,7 +487,7 @@ func GetInfo() adapter.BuilderInfo {
 ```
 * Sample adapter that supports the 'listentry' template.
 
-```
+```golang
 type (
   builder struct{}
   handler struct{}
@@ -542,7 +542,7 @@ func GetInfo() adapter.BuilderInfo {
 ```
 * Sample adapter that supports the 'quota' template.
 
-```
+```golang
 type (
   builder struct{}
   handler struct{}
