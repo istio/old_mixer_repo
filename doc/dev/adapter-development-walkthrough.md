@@ -154,14 +154,13 @@ bazel build ...
 
 
 The build output on the terminal should look like
+```
+INFO: Found 1 target...
+Target //adapter/mysampleadapter:go_default_library up-to-date:
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+```
 
-*INFO: Found 1 target...*
-
-*Target //adapter/*mysampleadapter*:go_default_library up-to-date:*
-
-*bazel-bin/adapter/*mysampleadapter*/~lib~/istio.io/mixer/adapter/*mysampleadapter*.a*
-
-Now we have the basic skeleton of adapter with empty implementation for interfaces for 'metric' templates. Later steps
+Now we have the basic skeleton of an adapter with empty implementation for interfaces for the 'metric' templates. Later steps
 adds the core code for this adapter.
 
 # Step 2: Write adapter configuration
@@ -175,9 +174,8 @@ Create the config proto file under the 'config' dir
 mkdir config
 ```
 
-Create a new config.proto file inside the config directory
+Create a new config.proto file inside the config directory with the following content:
 
-Copy the following content to the `config/config.proto` file.
 
 ```proto
 syntax = "proto3";
@@ -196,7 +194,7 @@ message Params {
 ```
 
 
-Create a BUILD file in the config dir.
+Create a BUILD file in the config directory with the following content:
 
 
 Copy the following content to the config/BUILD file.
@@ -239,14 +237,12 @@ bazel build ...
 ```
 
 
-The build output on the terminal look like
-
-*INFO: Found 1 target...*
-
-*Target //adapter/*mysampleadapter*:go_default_library up-to-date:*
-
-*bazel-bin/adapter/*mysampleadapter*/~lib~/istio.io/mixer/adapter/*mysampleadapter*.a*
-
+The build output on the terminal should look like
+```
+INFO: Found 1 target...
+Target //adapter/mysampleadapter:go_default_library up-to-date:
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+```
 # Step 3: Link adapter config with adapter code.
 
 Reference the config build target from the adapter's BUILD file. To do this edit the existing
@@ -276,7 +272,7 @@ go_library(
 
 Modify the adapter code (`mysampleadapter.go`) to use the adapter-specific configuration
 (defined in `mysampleadapter/config/config.proto`) to instantiate the file to write to. Also update the `GetInfo`
-function to allow operators to pass the adapter specific config and for the adapter to validate the operator provided
+function to allow operators to pass the adapter-specific config and for the adapter to validate the operator provided
 config. Copy the following code and the bold text shows the new added code.
 
 <pre>
@@ -362,25 +358,24 @@ func GetInfo() adapter.Info {
 
 Just to ensure everything is good, let's build the code
 
-```
+```bash
 bazel build ...
 ```
 
 
 The build output on the terminal should look like
-
-*INFO: Found 1 target...*
-
-*Target //adapter/*mysampleadapter*:go_default_library up-to-date:*
-
-*bazel-bin/adapter/*mysampleadapter*/~lib~/istio.io/mixer/adapter/*mysampleadapter*.a*
+```
+INFO: Found 1 target...
+Target //adapter/mysampleadapter:go_default_library up-to-date:
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+```
 
 # Step 4: Write business logic into your adapter.
 
 
 
 Print Instance and associated Type information in the file configured via adapter config. This requires storing the
-metric type information at configuration-time and using it at request-time. To add this functionality, update file
+metric type information at configuration-time and using it at request-time. To add this functionality, update the file
 mysampleadapter.go to look like the following. Note the bold text shows the newly added code. 
 
 <pre>
@@ -483,18 +478,17 @@ func GetInfo() adapter.Info {
 
 Just to ensure everything is good, let's build the code
 
-```
+```bash
 bazel build ...
 ```
 
 
 The build output on the terminal should look like
-
-*INFO: Found 1 target...*
-
-*Target //adapter/*mysampleadapter*:go_default_library up-to-date:*
-
-*bazel-bin/adapter/*mysampleadapter*/~lib~/istio.io/mixer/adapter/*mysampleadapter*.a*
+```
+INFO: Found 1 target...
+Target //adapter/mysampleadapter:go_default_library up-to-date:
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+```
 
 This concludes the implementation part of the adapter code. Next steps show how to plug an adapter into a build of Mixer
 and to verify your code's behavior.
@@ -503,7 +497,7 @@ and to verify your code's behavior.
 
 Update the $MIXER_REPO/adapter/BUILD file to add the new 'mysampleadapter' into the Mixer's adapter inventory.
 
-Add the lines in <b>bold</b> to the existing file. The `inventory_library` build rule should look like the following
+Add the lines in **bold** to the existing file. The `inventory_library` build rule should look like the following
 
 <pre>
 inventory_library(
@@ -525,7 +519,7 @@ inventory_library(
 </pre>
 
 
-Now your adapter is plugged into Mixer and ready to receive data from Mixer.
+Now your adapter is plugged into Mixer and ready to receive data.
 
 # Step 6: Write sample operator config
 
@@ -536,23 +530,23 @@ configures Mixer with an attributes vocabulary. We can then use those attributes
 
 Create a directory where we can put sample operator config
 
-```
+```bash
 mkdir sampleoperatorconfig
 ```
 
 
 Copy the sample attribute vocabulary config
 
-```
+```bash
 cp $MIXER_REPO/testdata/config/attributes.yaml sampleoperatorconfig
 ```
 
 
-Create a sample operator config file with name `config.yaml` inside the `sampleoperatorconfig` directory.
+Create a sample operator config file with name `config.yaml` inside the `sampleoperatorconfig` directory with the following content:
 
 Add the following content to the file `sampleoperatorconfig/config.yaml.`
 
-```
+```yaml
 # instance configuration for template 'metric'
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -598,19 +592,19 @@ spec:
 
 Start the mixer pointing it to the sample operator configuration
 
-```
+```bash
 cd $MIXER_REPO && bazel build ... && bazel-bin/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests
 
-*...*
-
-*Starting self-monitoring on port 9093*
-
-*Istio Mixer: version: 0.2.2-28-gc5112ac1 (build: 2017-09-23-c5112ac1, status: Modified)*
-
-*Starting gRPC server on port 9091*
+```
+..
+..
+Starting self-monitoring on port 9093
+Istio Mixer: version: 0.2.2-28-gc5112ac1 (build: 2017-09-23-c5112ac1, status: Modified)
+Starting gRPC server on port 9091
+```
 
 Now let's call 'report' using mixer client. This step should cause the mixer server to call your sample adapter with
 instance objects constructed using the operator configuration.
@@ -618,16 +612,16 @@ instance objects constructed using the operator configuration.
 Start a new terminal window and set the MIXER_REPO variable to the path where the mixer repository is on the local
 machine. Example ``export MIXER_REPO=$GOPATH/src/istio.io/mixer``
 
-On the new window call the following
+In the new window call the following
 
-```
+```bash
 cd $MIXER_REPO && bazel build ...
 ```
 
 
 Invoke report
 
-```
+```bash
 bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local"
 ```
 
@@ -635,7 +629,7 @@ bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local"
 Inspect the out.text file that your adapter would have printed. If you have followed the above steps, then the out.txt
 should be in your directory `$MIXER_REPO`
 
-```
+```bash
 tail $MIXER_REPO/out.txt
 ```
 
@@ -651,7 +645,7 @@ HandleMetric invoke for
 You can even try passing other attributes to mixer server and inspect your out.txt file to see how the data passed to
 the adapter changes. For example
 
-```
+```bash
 bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
 ```
 
@@ -666,13 +660,13 @@ mixer client. For complete reference details on how to test adapter code check o
 
 Add a test file for your adapter code
 
-```
+```bash
 touch $MIXER_REPO/adapter/mysampleadapter/mysampleadapter_test.go
 ```
 
 Add the following content to that file
 
-```
+```golang
 package mysampleadapter
 
 import (
@@ -783,14 +777,14 @@ go_test(
 
 Build the mixer code and run bazel_to_go.py script to use go tools for testing.
 
-```
+```bash
 cd $MIXER_REPO && bazel build ... && ./bin/bazel_to_go.py && go test adapter/mysampleadapter/*.go
 ```
 
 
-Inspect the out.text file that your adapter would have printed inside its own directory.
+Inspect the out.txt file that your adapter would have printed inside its own directory.
 
-```
+```bash
 tail $MIXER_REPO/adapter/mysampleadapter/out.txt
 ```
 

@@ -5,13 +5,6 @@ for Istio's Mixer. Adapters integrate Mixer with different infrastructure backen
 as logging, monitoring, quotas, ACL checking, and more. This guide explains the adapter model and adapter lifecycle, and
 also walks through the step-by-step instructions for creating a simple adapter.
 
-**Prerequisite**: This developer guide assumes the reader has:
-
-* Basic understanding of the [Mixer Framework](https://istio.io/docs/concepts/policy-and-control/mixer.html) as an attribute processing engine.
-
-* High level understanding of the [operator configuration model](https://istio.io/docs/concepts/policy-and-control/mixer-config.html).
-
-# Table of contents
 * [Background](#background)
 * [Template overview](#template-overview)
 * [Adapter lifecycle](#adapter-lifecycle)
@@ -36,17 +29,14 @@ or custom infrastructure backends.
 
 ![mixer architecture](./img/mixer%20architecture.svg)
 
-## Templates, Adapters and Operator Configuration
-
 Mixer structures its incoming attribute data into a more useful form for backends (for example, metrics data) using
 templates. Templates describe the form of data dispatched to adapters when processing a request and the interface that
 the adapter must implement to receive this data. Out of the box, Mixer provides a suite of [default templates](#built-in-templates).
 We strongly recommend that, when implementing adapters, you use Mixer's
-default templates. Though if they are not suitable for your particular needs you can also create your own templates
+default templates. Though if they are not suitable for your particular needs you can also [create your own templates](./templates.md)
 along with adapters to consume the relevant data.
 
-Adapters are implemented with respect to a particular set of templates. Each adapter can register itself with the Mixer
-to process data collected by Mixer for its chosen templates. Istio itself includes some [built-in adapters](https://github.com/istio/mixer/tree/master/adapter)
+Istio itself includes some [built-in adapters](https://github.com/istio/mixer/tree/master/adapter)
 by default, but users may need to implement their own to let Mixer send data to their chosen backend.
 
 Operator configuration determines the values of the instances dispatched to an adapter for a template.  Refer to
@@ -58,7 +48,7 @@ The roles of the template author, adapter author, and the operator can be summar
   interface that the adapter must implement to process that data. The supported set of templates within Mixer
   determines the various types of data an operator can configure Mixer to create and dispatch to the adapters.
 
-* The adapter author selects the templates he/she want to support based on the functionality the adapter must provide.
+* The adapter author selects the templates he/she wants to support based on the functionality the adapter must provide.
   The adapter author's role is to implement the required set of template-specific interfaces to process the data
   dispatched by Mixer at runtime.
 
@@ -72,12 +62,12 @@ The roles of the template author, adapter author, and the operator can be summar
 
 # Template overview
 
-To understand how an adapter receives and processes a *template's* specific instances, this section first
+To understand how an adapter receives and processes a template-specific instance, this section first
 provides details about various artifacts of a template that are relevant for adapter development.
 
 As we saw in the previous section, a build of Mixer supports a set of templates, and every template defines a kind
 of data Mixer dispatches to adapters when processing a request, and also defines the interface for adapters to consume
-that data. The kind of data is expressed as a Go struct and the interface adapters implement is expressed as a Go interface.
+that data.
 
 The following diagram shows the various components of a template.
 
@@ -103,7 +93,7 @@ quota, the `instances` for the templates should be created and dispatched to ada
 
 ## Generated Go code
 
-Individual templates are processed in order to produce four Go artifacts.
+Individual templates are processed in order to produce four Go artifacts:
 
 * *Instance* struct: This defines the data that is passed to the adapters at request time. Mixer
 constructs objects of the `Instance` type, based on the request attributes and operator configuration.
@@ -112,19 +102,13 @@ constructs objects of the `Instance` type, based on the request attributes and o
 request time. Adapters must implement one Handler interface per supported template type.
 
 * *Type* struct: If the datatype of a field in the `Instance` Go struct is dynamic (`interface{}`), the datatype of the value it will
-hold during request time is determined based on operator-supplied configuration.
-
-  Adapters are informed of the actual type of the dynamic fields by being given a 'Type' object. The type struct expresses
-  the datatype of dynamic fields using the [ValueType enum](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto),
-  which has 1:1 mapping between Go data types and its enum values.
+hold during request time is determined based on operator-supplied configuration. The type struct expresses
+the datatype of dynamic fields using the [ValueType enum](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto),
+which has 1:1 mapping between Go data types and its enum values.
 
 * *HandlerBuilder* interface: This defines the methods that Mixer uses to pass the `Types`
 to the adapter.  Mixer passes all possible type information for which the adapter might expect to receive corresponding
 `Instance` objects at request time. Adapters implement per template `HandlerBuilder` interface for Mixer to call into them.
-
-### Summary
-
-![adapter template impl](./img/adapter%20template%20impl.svg)
 
 ## Examples
 
@@ -342,13 +326,13 @@ High level flow between Mixer and adapters.
 
 ![flow: mixer and adapter interaction](./img/mixer%20adapter%20flow.svg)
 
-Let's take a detail look at them:
+Let's take a detailed look at them:
 
 ### Initialization-time
 
 This is when Mixer is booted and adapters are initialized. Every adapter must implement a `GetInfo `function which
 returns an `adapter.Info` object. During initialization, Mixer invokes this function for all known adapters. The
-`adapter.Info` describes the templates an adapter wants to support as well as how to construct its `builder` object
+`adapter.Info` describes the templates an adapter wants to support as well as how to construct its `builder` object.
 
 `adapter.Info` (Details in [info.go](https://github.com/istio/mixer/blob/master/pkg/adapter/info.go)) contains the
 following information:
@@ -397,30 +381,30 @@ Details about the configuration time Mixer-Adapter interaction:
 
 **Creating new `builder`**
 
-Every handler config block in the operator's config results into an instance of `builder` type
+Every handler config block in the operator's config results in an instance of `builder` type
 
 ![handler config](./img/handler%20config.svg)
 
 **Passing template-specific types and adapter-specific config to `builder`**
 
 After `builder` object instantiation, Mixer configures the `builder` object by invoking various template-specific
-`HandlerBuilder `interface methods (example `SetMetricTypes`, `SetQuotaTypes` for 'metric' and 'quota' named Templates.)
+`HandlerBuilder `interface methods (example `SetMetricTypes`, `SetQuotaTypes` for 'metric' and 'quota' named templates.)
 and passing a map of string-to-`Type `struct. The string key and the value `Type `represents the name of the instance as
 configured by the operator and the shape of the `Instance` object the adapter would receive at request time.
 
-Given the above sample operator's handler configuration and 'metric' template shows in above examples, the below example
-show the configuration-time call values:
+Given the above sample handler configuration and 'metric' template, the example below shows configuration-time call values.
+
 
 ![flow: example attr to types](./img/example%20instance%20to%20type.svg)
 
-At request time, every `Instance` object dispatch to the adapter has a `Name` field. The adapter implementation should
+At request time, every `Instance` object dispatched to the adapter has a `Name` field. The adapter implementation should
 use the value of the `Name` field to lookup the shape description for the `Instance` object from the map of instance
 name(string)->`Type` that was passed at configuration time through the `builder` object.
 
 Once Mixer has called into various template-specific Set.*Types methods,
 
 Mixer calls the `SetAdapterConfig` method on the `builder`, and once done then Mixer calls the `Validate` method followed by the
-`Build` method. `SetAdapterConfig` gives the builder the adapter specific configuration, `Validate` method allows builder to
+`Build` method. `SetAdapterConfig` gives the builder the adapter-specific configuration, `Validate` method allows builder to
 validate the operator configuration based on the provided template-specific `Types` and the adapter-specific configuration.
 
 **Instantiating `handler`**
@@ -431,8 +415,8 @@ serving interfaces) for all the templates the adapter has registered for. If the
 required interface for the adapter's supported templates, Mixer reports an error and doesn't serve runtime traffic to
 the particular handler.
 
-*NOTE*: In the `Build` method, adapters must do all the bootstrapping work (e.g. establishing connection with backend
-system, initializing cache and more) that they need to start receiving data at request time.
+The `Build` method is where adapters must do all their bootstrapping work. For example establishing connection with backend
+system, initializing cache and more, that they need to start receiving data at request time.
 
 **Closing `handler`**
 
@@ -445,18 +429,18 @@ During this time Mixer dispatches the `instance` objects to the adapter based on
 Mixer does this by invoking the Handle* functions on the `handler` object.
 
 Given the above example operator's config (instance, action, handler configuration) and
-['metric'](#report-variety-template) template, the following examples shows the request-time `Instance` objects created
+['metric'](#report-variety-template) template, the following example shows the request-time `Instance` objects created
 for a given input set of attributes:
 
 ![example attr to instance mapping](./img/example%20attr%20to%20instance.svg)
 
 # Example
 
-The following sample adapters just illustrate the basic skeleton of the adapter code and do not provide any
+The following sample adapters illustrate the basic skeleton of the adapter code and do not provide any
 functionality. They always return success. For examples of real world adapters, see [implementation of built-in adapters
 within Mixer framework](https://github.com/istio/mixer/tree/master/adapter).
 
-* Sample no-op adapter that supports the above sample 'metric' template
+* Sample adapter that supports the 'metric' template
 
 ```
 type (
@@ -503,7 +487,7 @@ func GetInfo() adapter.BuilderInfo {
   }
 }
 ```
-* Sample no-op adapter that supports the above sample 'listentry' Template.
+* Sample adapter that supports the 'listentry' template.
 
 ```
 type (
@@ -558,7 +542,7 @@ func GetInfo() adapter.BuilderInfo {
 }
 
 ```
-* Sample of a no-op adapter that supports the above sample 'quota' Template.
+* Sample adapter that supports the 'quota' template.
 
 ```
 type (
@@ -611,21 +595,21 @@ func GetInfo() adapter.BuilderInfo {
 ```
 
 
-The above section provided a complete example of a simple adapter. In the next sections we'll look in more detail about
-how to build mixer with custom adapters that are are not shipped with the default Mixer build, and step-by-step guide to
+The above section provided a complete example of a simple adapter. In the next sections we'll look in more detail
+how to build Mixer with custom adapters that are not shipped with the default Mixer build, and step-by-step guide to
 build a simple adapter.
 
 # Summary diagrams
 
-The diagrams below show the relationship between, adapter, Mixer, template and operator config. They also show the flow of
+The diagrams below show the relationship between, adapters, templates, operator configuration, and Mixer. They also show the flow of
 Mixer at boot time, how it interacts with adapters and operator configuration. The diagrams also demonstrate how handler,
-rule and instance configuration of operator config is translated to calls into adapters during config load time and request time.
+rule and instance configuration is translated to calls into adapters at configuration-time and request time.
 
-First let's look into how Mixer, adapter, templates and operator configurations are related
+First let's look into how Mixer, adapters, templates and operator configurations are related
 
 ![template, adapter and operator config relationship](./img/template%2C%20adapter%20and%20operator%20config%20relationship.svg)
 
-Now we have understood the relationship between various artifacts, let's look into what happens at the time of Mixer
+Now that we have understood the relationship between various artifacts, let's look into what happens at the time of Mixer
 start, when operator configuration is loaded/changed and when request is received.
 
 ![flow: mixer start](./img/mixer%20start%20flow.svg)
@@ -643,8 +627,8 @@ path to the adapter package that implements the `GetInfo `function. These two ch
 
 # Testing
 
-We provide a simple adapter test framework. The framework instantiates a in-proc Mixer gRPC server with a config store
-backed by local filesystem, and also a Mixer gRPC client in test process, which allows stepping through adapter code in
+We provide a simple adapter test framework. The framework instantiates an in-process Mixer gRPC server with a config store
+backed by the local filesystem, and also a Mixer gRPC client in test process, which allows stepping through adapter code in
 test cases. The test framework is implemented in the [test/testenv](../../test/testenv)
 directory. A [sample](../../test/testenv/testenv_test.go) test is provided to show
 how to use this test framework to test a dummy adapter called denier. To setup the environment, adapter developer need
