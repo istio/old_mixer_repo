@@ -1,22 +1,20 @@
 # Istio Mixer: Adapter Development Walkthrough
 
 This document walks through step-by-step instructions to implement, test and plug a simple adapter into Mixer. For
-complete details on the adapter life cycle, please refer to the [Adapter Developer Reference Guide](./adapters.md).
+complete details on the adapter life cycle, please refer to the [Adapter Developer's Guide](./adapters.md).
 
-**Note**: To complete this walkthrough, it is optional to read the adapter Developer Reference Guide. However, to
-create a real production quality adapter, it is highly recommended you read the reference guide to better understand
+**Note**: To complete this walkthrough, it is optional to read the adapter developer's guide. However, to
+create a real production quality adapter, it is highly recommended you read the guide to better understand
 adapter lifecycle and various interfaces and objects that Mixer uses to interact with adapters.
 
-In this walkthrough you're going to create a simple Adapter that:
+In this walkthrough you're going to create a simple adapter that:
 
-* Supports the [`metric`](../../template/metric/template.proto)  template which ships with built-in Mixer framework.
+* Supports the [`metric`](../../template/metric/template.proto)  template which ships with Mixer.
 
-* For every request, prints to a file the data it received from Mixer at request time.
+* For every request, prints to a file the data it receives from Mixer at request time.
 
-**It should approximately take ~30 minutes to finish this task**
+**It should take approximately ~30 minutes to finish this task**
 
-
-# Table of contents
 * [Before you start](#before-you-start)
 * [Step 1: Write basic adapter skeleton code](#step-1-write-basic-adapter-skeleton-code)
 * [Step 2: Write adapter configuration](#step-2-write-adapter-configuration)
@@ -29,12 +27,11 @@ In this walkthrough you're going to create a simple Adapter that:
 * [Step 9: Cleanup](#step-9-cleanup)
 * [Step 10: Next](#step-10-next)
 
-
 # Before you start
 
 Download a local copy of the Mixer repo
 
-```
+```bash
 git clone https://github.com/istio/mixer
 ```
 
@@ -44,25 +41,25 @@ Set the MIXER_REPO variable to the path where the mixer repository is on the loc
 
 Successfully build the repo.
 
-```
+```bash
 pushd $MIXER_REPO && bazel build ...
 ```
 
 # Step 1: Write basic adapter skeleton code
 
-Create `mysampleadapter` directory and navigate to it.
+Create the `mysampleadapter` directory and navigate to it.
 
-```
+```bash
 cd $MIXER_REPO/adapter && mkdir mysampleadapter && cd mysampleadapter
 ```
 
-Create the file name mysampleadapter.go with the following content
+Create the file named mysampleadapter.go with the following content
 
 _It defines the adapter's `builder` and `handler` types
 along with the interfaces required to support the 'metric' template. This code so far does not add any functionality for
 printing details in a file. It is done in later steps._
 
-```
+```golang
 package mysampleadapter
 
 import (
@@ -127,9 +124,9 @@ func GetInfo() adapter.Info {
 ```
 
 
-Now, write corresponding BUILD file. Create a file name BUILD with the following content.
+Now, write a corresponding BUILD file. Create a file name BUILD with the following content.
 
-<pre>
+```
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
@@ -146,12 +143,12 @@ go_library(
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
-</pre>
+```
 
 
 Just to ensure everything is good, let's build the code
 
-```
+```bash
 bazel build ...
 ```
 
@@ -174,7 +171,7 @@ path of that file as a configuration field.
 
 Create the config proto file under the 'config' dir
 
-```
+```bash
 mkdir config
 ```
 
@@ -182,7 +179,7 @@ Create a new config.proto file inside the config directory
 
 Copy the following content to the `config/config.proto` file.
 
-```
+```proto
 syntax = "proto3";
 
 package adapter.mysampleadapter.config;
@@ -237,7 +234,7 @@ gogoslick_proto_library(
 
 Just to ensure everything is good, let's build the code
 
-```
+```bash
 bazel build ...
 ```
 
@@ -256,7 +253,7 @@ Reference the config build target from the adapter's BUILD file. To do this edit
 adapter/mysampleadapter/BUILD file. Final adapter/mysampleadapter/BUILD file looks like below with bold text showing the
 new added text.
 
-<pre>
+<pre><code>
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
@@ -274,7 +271,7 @@ go_library(
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
-</pre>
+</code></pre>
 
 
 Modify the adapter code (`mysampleadapter.go`) to use the adapter-specific configuration
@@ -658,14 +655,14 @@ the adapter changes. For example
 bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
 ```
 
-**If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer Adapter. You can
+**If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can
 close (cltr + c) on your terminal that was running mixer server to shut it down.
 
 # Step 8: Write test and validate your adapter (optional).
 
 The above steps 7 (start mixer server and validate ..) were mainly to test your adapter code. You can achieve the same
 thing by writing a simple test that uses the Mixer's 'testenv' package to start a inproc Mixer and make calls to it via
-mixer client. For complete reference details on how to test Adapter code check out [Test an adapter](./adapters.md#testing)
+mixer client. For complete reference details on how to test adapter code check out [Test an adapter](./adapters.md#testing)
 
 Add a test file for your adapter code
 

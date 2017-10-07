@@ -376,7 +376,7 @@ type Info struct {
 	// associated with the SupportedTemplates.
 	NewBuilder NewBuilderFn
 	
-	// SupportedTemplates expresses all the templates the Adapter wants to serve.
+	// SupportedTemplates expresses all the templates the adapter wants to serve.
 	SupportedTemplates []string
 	
 	// DefaultConfig is a default configuration struct for this
@@ -453,7 +453,7 @@ for a given input set of attributes:
 # Example
 
 The following sample adapters just illustrate the basic skeleton of the adapter code and do not provide any
-functionality. They always return success. For examples of real world Adapters, see [implementation of built-in adapters
+functionality. They always return success. For examples of real world adapters, see [implementation of built-in adapters
 within Mixer framework](https://github.com/istio/mixer/tree/master/adapter).
 
 * Sample no-op adapter that supports the above sample 'metric' template
@@ -617,9 +617,9 @@ build a simple adapter.
 
 # Summary diagrams
 
-The diagrams below show the relationship between, Adapter, Mixer, Template and operator config. They also show the flow of
-Mixer at boot time, how it interacts with Adapters and operator configuration. The diagrams also demonstrate how handler,
-rule and instance configuration of operator config is translated to calls into Adapters during config load time and request time.
+The diagrams below show the relationship between, adapter, Mixer, template and operator config. They also show the flow of
+Mixer at boot time, how it interacts with adapters and operator configuration. The diagrams also demonstrate how handler,
+rule and instance configuration of operator config is translated to calls into adapters during config load time and request time.
 
 First let's look into how Mixer, adapter, templates and operator configurations are related
 
