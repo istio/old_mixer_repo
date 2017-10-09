@@ -501,7 +501,7 @@ Add the lines in **bold** to the existing file. The `inventory_library` build ru
 
 <pre>
 inventory_library(
-   name = "inventory_lib",
+   name = "go_default_library",
    packages = {
        # list of all adapters
        # "friendlyName" : "go_import_path"
@@ -767,7 +767,7 @@ go_test(
         "//pkg/template:go_default_library",
         "//test/testenv:go_default_library",
         "//template:go_default_library",
-        "@com_github_istio_api//:mixer/v1",  # keep
+        "@io_istio_api//:mixer/v1",  # keep
         "@org_golang_x_net//context:go_default_library",
     ],
 )
