@@ -75,6 +75,14 @@ $gometalinter \
     --vendor\
     ./...
 
+echo Checking gazelle...
+bin/gazelle
+builddiff=$(git diff --name-only -- `find . -type f \( -name BUILD -o -name BUILD.bazel \)`)
+if [[ $builddiff ]]; then
+  echo Change in BUILD files detected: $builddiff
+  exit 1
+fi
+
 echo Check license...
 bin/check_license.sh
 
