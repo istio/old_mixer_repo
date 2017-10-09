@@ -1,3 +1,4 @@
+# gazelle:ignore
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
@@ -20,12 +21,11 @@ mixer_supported_template_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = [
-        "template.gen_test.go",
-    ],
+    srcs = ["template.gen_test.go"],
     library = ":go_default_library",
     deps = [
-        "//pkg/adapter/template:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
         "//template/sample/check:go_default_library",
         "//template/sample/quota:go_default_library",
@@ -35,6 +35,7 @@ go_test(
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//:mixer/v1/template",
     ],
 )

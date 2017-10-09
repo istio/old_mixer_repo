@@ -31,8 +31,8 @@ import (
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	cpb "istio.io/mixer/pkg/config/proto"
@@ -111,7 +111,7 @@ func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool) *
 // dispatcher is responsible for dispatching incoming API calls
 // to the configured adapters. It implements the Dispatcher interface.
 type dispatcher struct {
-	// mapper is the selector and expression evaluator.
+	// mapper is the match and expression evaluator.
 	// It is not directly used by dispatcher.
 	mapper expr.Evaluator
 
@@ -250,7 +250,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 					return nil
 				}
 				dispatched = true
-				return []dispatchFn{ // nolint: staticcheck
+				return []dispatchFn{ // nolint: megacheck
 					func(ctx context.Context) *result {
 						resp, err := call.processor.ProcessQuota(ctx, inst.Name,
 							inst.Params.(proto.Message), requestBag, m.mapper, call.handler,

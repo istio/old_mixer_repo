@@ -25,8 +25,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
@@ -116,6 +116,57 @@ func checkRulesInvariants(t *testing.T, rules rulesListByNamespace) {
 				}
 			}
 		}
+	}
+}
+
+func TestController_buildrule(t *testing.T) {
+	key := store.Key{Kind: "kind1", Namespace: "ns1", Name: "name1"}
+	for _, tc := range []struct {
+		desc  string
+		match string
+		want  protocol
+		err   error
+	}{
+		{
+			desc:  "http service",
+			match: `request.headers["x-id"] == "tcp"`,
+			want:  protocolHTTP,
+		},
+		{
+			desc:  "tcp service",
+			match: ContextProtocolAttributeName + "== \"tcp\"",
+			want:  protocolTCP,
+		},
+		{
+			desc:  "bad expression",
+			match: ContextProtocolAttributeName + "=$ \"tcp\"",
+			err:   errors.New("unable to parse expression"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			rinput := &cpb.Rule{
+				Match: tc.match,
+			}
+			rt := defaultResourcetype()
+			rt.protocol = tc.want
+			want := &Rule{
+				name:  key.String(),
+				match: rinput.Match,
+				rtype: rt,
+			}
+
+			r, err := buildRule(key, rinput, defaultResourcetype())
+
+			checkError(t, tc.err, err)
+
+			if tc.err != nil {
+				return
+			}
+
+			if !reflect.DeepEqual(r, want) {
+				t.Fatalf("Got %v, want: %v", r, want)
+			}
+		})
 	}
 }
 
@@ -320,6 +371,7 @@ func Test_cleanupResolver(t *testing.T) {
 	cleanupSleepTime = cr
 }
 
+// nolint: unparam
 func waitFor(t *testing.T, tm time.Duration, done chan bool, msg string) bool {
 	tc := time.NewTimer(tm).C
 	ok := false
@@ -416,8 +468,8 @@ func TestController_Resolve2(t *testing.T) {
 		return rulesMapByNamespace{
 			"ns1": rulesByName{
 				"r1": &Rule{
-					selector: "true",
-					name:     "r1",
+					match: "true",
+					name:  "r1",
 					actions: map[adptTmpl.TemplateVariety][]*Action{
 						adptTmpl.TEMPLATE_VARIETY_CHECK: {
 							&Action{

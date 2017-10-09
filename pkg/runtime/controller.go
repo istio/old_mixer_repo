@@ -22,8 +22,8 @@ import (
 
 	"github.com/golang/glog"
 
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
@@ -331,11 +331,33 @@ const (
 	istioProtocol = "istio-protocol"
 )
 
+// buildRule builds runtime representation of rule based on match condition.
+func buildRule(k store.Key, r *cpb.Rule, rt ResourceType) (*Rule, error) {
+	rule := &Rule{
+		match: r.Match,
+		name:  k.String(),
+		rtype: rt,
+	}
+
+	if len(r.Match) == 0 {
+		return rule, nil
+	}
+
+	m, err := expr.ExtractEQMatches(r.Match)
+	if err != nil {
+		return nil, err
+	}
+	if ContextProtocolTCP == m[ContextProtocolAttributeName] {
+		rule.rtype.protocol = protocolTCP
+	}
+
+	return rule, nil
+}
+
 // resourceType maps labels to rule types.
 func resourceType(labels map[string]string) ResourceType {
-	ip := labels[istioProtocol]
 	rt := defaultResourcetype()
-	if ip == "tcp" {
+	if ContextProtocolTCP == labels[istioProtocol] {
 		rt.protocol = protocolTCP
 	}
 	return rt
@@ -358,11 +380,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
-		rule := &Rule{
-			selector: rulec.Match,
-			name:     k.Name,
-			rtype:    resourceType(obj.Metadata.Labels),
-		}
+
 		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
 
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
@@ -371,7 +389,13 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 				ruleActions[vr] = append(ruleActions[vr], cf)
 			}
 		}
-
+		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
+		rt := resourceType(obj.Metadata.Labels)
+		rule, err := buildRule(k, rulec, rt)
+		if err != nil {
+			glog.Warningf("Unable to process match condition: %v", err)
+			continue
+		}
 		rule.actions = ruleActions
 		rn := ruleConfig[k.Namespace]
 		if rn == nil {

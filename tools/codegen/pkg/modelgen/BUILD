@@ -9,11 +9,11 @@ go_library(
         "model.go",
         "parser.go",
     ],
-    visibility = ["//tools:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
-        "//pkg/adapter/template:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
+        "@io_istio_api//:mixer/v1/template",
     ],
 )
 

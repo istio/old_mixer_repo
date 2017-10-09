@@ -25,15 +25,15 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
 
 // Rule represents a runtime view of cpb.Rule.
 type Rule struct {
-	// Selector from the original rule.
-	selector string
+	// Match condition from the original rule.
+	match string
 	// Actions are stored in runtime format.
 	actions map[adptTmpl.TemplateVariety][]*Action
 	// Rule is a top level config object and it has a unique name.
@@ -41,6 +41,11 @@ type Rule struct {
 	name string
 	// rtype is gathered from labels.
 	rtype ResourceType
+}
+
+func (r Rule) String() string {
+	return fmt.Sprintf("[name:<%s>, match:<%s>, type:%s, actions: %v",
+		r.name, r.match, r.rtype, r.actions)
 }
 
 // resolver is the runtime view of the configuration database.
@@ -81,17 +86,22 @@ func newResolver(evaluator expr.PredicateEvaluator, identityAttribute string, de
 	}
 }
 
-// DefaultConfigNamespace holds istio wide configuration.
-const DefaultConfigNamespace = "istio-config-default"
+const (
+	// DefaultConfigNamespace holds istio wide configuration.
+	DefaultConfigNamespace = "istio-config-default"
 
-// DefaultIdentityAttribute is attribute that defines config scopes.
-const DefaultIdentityAttribute = "target.service"
+	// DefaultIdentityAttribute is attribute that defines config scopes.
+	DefaultIdentityAttribute = "destination.service"
 
-// ContextProtocolAttributeName is the attribute that defines the protocol context.
-const ContextProtocolAttributeName = "context.protocol"
+	// ContextProtocolAttributeName is the attribute that defines the protocol context.
+	ContextProtocolAttributeName = "context.protocol"
 
-// expectedResolvedActionsCount is used to preallocate slice for actions.
-const expectedResolvedActionsCount = 10
+	// ContextProtocolTCP defines constant for tcp protocol.
+	ContextProtocolTCP = "tcp"
+
+	// expectedResolvedActionsCount is used to preallocate slice for actions.
+	expectedResolvedActionsCount = 10
+)
 
 // Resolve resolves the in memory configuration to a set of actions based on request attributes.
 // Resolution is performed in the following order
@@ -100,6 +110,7 @@ const expectedResolvedActionsCount = 10
 func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety) (ra Actions, err error) {
 	nselected := 0
 	target := "unknown"
+	var ns string
 
 	start := time.Now()
 	// increase refcount just before returning
@@ -126,36 +137,26 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 		resolveActions.With(lbls).Observe(float64(raLen))
 	}()
 
-	attr, _ := attrs.Get(r.identityAttribute)
-	if attr == nil {
-		msg := fmt.Sprintf("%s identity not found in attributes%v", r.identityAttribute, attrs.Names())
-		glog.Warningf(msg)
-		return nil, errors.New(msg)
+	if target, ns, err = destAndNamespace(attrs, r.identityAttribute); err != nil {
+		return nil, err
 	}
 
+	// at most this can have 2 elements.
 	rulesArr := make([][]*Rule, 0, 2)
 
 	// add default namespace if present
-	if dcf := r.rules[r.defaultConfigNamespace]; dcf != nil {
-		rulesArr = append(rulesArr, dcf)
+	rulesArr = appendRules(rulesArr, r.rules, r.defaultConfigNamespace)
+
+	// If the destination namespace is different than the default namespace
+	// add those rules too
+	if r.defaultConfigNamespace != ns {
+		rulesArr = appendRules(rulesArr, r.rules, ns)
 	} else if glog.V(3) {
-		glog.Infof("Resolve: no namespace config for %s", r.defaultConfigNamespace)
+		glog.Infof("Resolve: skipping duplicate namespace %s", ns)
 	}
 
-	target = attr.(string)
-	// add service namespace if present
-	splits := strings.SplitN(target, ".", 3) // we only care about service and namespace.
-	if len(splits) > 1 {
-		ns := splits[1]
-		if dcf := r.rules[ns]; dcf != nil {
-			rulesArr = append(rulesArr, dcf)
-		} else if glog.V(4) {
-			glog.Infof("Resolve: no namespace config for %s. target: %s.", ns, target)
-		}
-	}
 	var res []*Action
 	res, nselected, err = r.filterActions(rulesArr, attrs, variety)
-
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +167,37 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 	return ra, nil
 }
 
+func appendRules(rulesArr [][]*Rule, rules map[string][]*Rule, ns string) [][]*Rule {
+	if r := rules[ns]; r != nil {
+		rulesArr = append(rulesArr, r)
+	} else if glog.V(3) {
+		glog.Infof("Resolve: no namespace config for %s", ns)
+	}
+	return rulesArr
+}
+
+// destAndNamespace extracts namespace from identity attribute.
+func destAndNamespace(attrs attribute.Bag, idAttr string) (dest string, ns string, err error) {
+	attr, _ := attrs.Get(idAttr)
+	if attr == nil {
+		msg := fmt.Sprintf("%s identity not found in attributes%v", idAttr, attrs.Names())
+		glog.Warningf(msg)
+		return "", "", errors.New(msg)
+	}
+
+	var ok bool
+	if dest, ok = attr.(string); !ok {
+		msg := fmt.Sprintf("%s identity must be string: %v", idAttr, attr)
+		glog.Warningf(msg)
+		return "", "", errors.New(msg)
+	}
+	splits := strings.SplitN(dest, ".", 3) // we only care about service and namespace.
+	if len(splits) > 1 {
+		ns = splits[1]
+	}
+	return dest, ns, nil
+}
+
 //filterActions filters rules based on template variety and selectors.
 func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 	variety adptTmpl.TemplateVariety) ([]*Action, int, error) {
@@ -174,12 +206,12 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 	nselected := 0
 	var err error
 	ctxProtocol, _ := attrs.Get(ContextProtocolAttributeName)
-	tcp := ctxProtocol == "tcp"
+	tcp := ctxProtocol == ContextProtocolTCP
 
 	for _, rules := range rulesArr {
 		for _, rule := range rules {
 			act := rule.actions[variety]
-			if act == nil { // do not evaluate selector if there is no variety specific action there.
+			if act == nil { // do not evaluate match if there is no variety specific action there.
 				continue
 			}
 			// default rtype is HTTP + Check|Report|Preprocess
@@ -191,8 +223,8 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 			}
 
 			// do not evaluate empty predicates.
-			if len(rule.selector) != 0 {
-				if selected, err = r.evaluator.EvalPredicate(rule.selector, attrs); err != nil {
+			if len(rule.match) != 0 {
+				if selected, err = r.evaluator.EvalPredicate(rule.match, attrs); err != nil {
 					return nil, 0, err
 				}
 				if !selected {
