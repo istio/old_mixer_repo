@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "crd.go",
         "inventory.go",
+        "logs.go",
         "root.go",
         "server.go",
         "test_server.go",
@@ -32,6 +33,8 @@ go_library(
         "//pkg/version:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_middleware//:go_default_library",
+        "@com_github_grpc_ecosystem_go_grpc_middleware//logging/zap:go_default_library",
+        "@com_github_grpc_ecosystem_go_grpc_middleware//tags:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_prometheus//:go_default_library",
         "@com_github_grpc_ecosystem_grpc_opentracing//go/otgrpc:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
@@ -42,6 +45,8 @@ go_library(
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
         "@org_golang_google_grpc//grpclog/glogger:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+        "@org_uber_go_zap//zapcore:go_default_library",
     ],
 )
 

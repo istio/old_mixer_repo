@@ -29,6 +29,8 @@ import (
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
@@ -390,6 +392,31 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	// setup server prometheus monitoring (as final interceptor in chain)
 	interceptors = append(interceptors, grpc_prometheus.UnaryServerInterceptor)
 	grpc_prometheus.EnableHandlingTimeHistogram()
+
+	interceptors = append(interceptors, tags.UnaryServerInterceptor(tags.WithFieldExtractor(
+		func(fullMethod string, req interface{}) map[string]interface{} {
+			values := make(map[string]interface{}, 6)
+			switch msg := req.(type) {
+			case *mixerpb.CheckRequest:
+				values["dedup.id"] = msg.DeduplicationId
+				attrs := len(msg.Attributes.Bools) + len(msg.Attributes.Bytes) + len(msg.Attributes.Doubles) +
+					len(msg.Attributes.Durations) + len(msg.Attributes.Int64S) + len(msg.Attributes.StringMaps) +
+					len(msg.Attributes.Strings) + len(msg.Attributes.Timestamps)
+				values["attributes"] = attrs
+				values["words.global"] = msg.GlobalWordCount
+				values["words.local"] = len(msg.Attributes.Words)
+				values["quotas"] = len(msg.Quotas)
+			case *mixerpb.ReportRequest:
+				values["reports"] = len(msg.Attributes)
+				values["words.global"] = msg.GlobalWordCount
+				values["words.default"] = len(msg.DefaultWords)
+			}
+			return values
+		},
+	)))
+
+	interceptors = append(interceptors, grpc_zap.UnaryServerInterceptor(Logger))
+
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	configManager.Register(adapterMgr)
@@ -418,6 +445,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 			printf("error printing version info: %v", verErr)
 		}
 	})
+	http.HandleFunc("/config/logs", logsConfigFn)
 	monitoring := &http.Server{Addr: fmt.Sprintf(":%d", sa.monitoringPort)}
 	printf("Starting self-monitoring on port %d", sa.monitoringPort)
 	go func() {
