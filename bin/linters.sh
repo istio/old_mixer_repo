@@ -75,6 +75,12 @@ $gometalinter \
     --vendor\
     ./...
 
+echo Check license...
+bin/check_license.sh
+
+echo Check workspace...
+bin/check_workspace.sh
+
 echo Checking gazelle...
 bin/gazelle
 builddiff=$(git diff --name-only -- `find . -type f \( -name BUILD -o -name BUILD.bazel \)`)
@@ -82,11 +88,5 @@ if [[ $builddiff ]]; then
   echo Change in BUILD files detected: $builddiff
   exit 1
 fi
-
-echo Check license...
-bin/check_license.sh
-
-echo Check workspace...
-bin/check_workspace.sh
 
 echo Done running linters
