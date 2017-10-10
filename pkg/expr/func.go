@@ -21,12 +21,12 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
-	"time"
 )
 
 // FuncBase defines the interface that every expression function must implement.
@@ -374,11 +374,11 @@ func (f *timestampFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[s
 		return nil, errors.New("input to 'timestamp' func was not a string")
 	}
 	layout := time.RFC3339
-	t,err := time.Parse(layout,rawTime)
+	t, err := time.Parse(layout, rawTime)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", rawTime,layout)
+		return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", rawTime, layout)
 	}
-	return t,nil
+	return t, nil
 
 }
 

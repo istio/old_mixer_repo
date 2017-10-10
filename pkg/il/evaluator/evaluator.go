@@ -20,6 +20,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
@@ -31,7 +32,6 @@ import (
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/il/compiler"
 	"istio.io/mixer/pkg/il/interpreter"
-	"time"
 )
 
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
@@ -75,11 +75,11 @@ var ipEqualExternFn = interpreter.ExternFromFn(ipEqualFnName, func(a []byte, b [
 
 var timestampExternFn = interpreter.ExternFromFn(timestampFnName, func(in string) (time.Time, error) {
 	layout := time.RFC3339
-	t,err := time.Parse(layout,in)
+	t, err := time.Parse(layout, in)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", in,layout)
+		return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", in, layout)
 	}
-	return t,nil
+	return t, nil
 })
 
 var timestampEqualExternFn = interpreter.ExternFromFn(timestampEqualFnName, func(t1 time.Time, t2 time.Time) bool {
@@ -97,11 +97,11 @@ var matchExternFn = interpreter.ExternFromFn(matchFnName, func(str string, patte
 })
 
 var externMap = map[string]interpreter.Extern{
-	ipFnName:      ipExternFn,
-	ipEqualFnName: ipEqualExternFn,
-	timestampFnName: timestampExternFn,
+	ipFnName:             ipExternFn,
+	ipEqualFnName:        ipEqualExternFn,
+	timestampFnName:      timestampExternFn,
 	timestampEqualFnName: timestampEqualExternFn,
-	matchFnName:   matchExternFn,
+	matchFnName:          matchExternFn,
 }
 
 type cacheEntry struct {
