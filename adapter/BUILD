@@ -28,6 +28,6 @@ inventory_library(
         "//adapter/statsd:go_default_library",
         "//adapter/stdio:go_default_library",
         "//adapter/svcctrl:go_default_library",
-        "@com_github_douglas-reid_mixer-noop-reporter//:go_default_library",
+        "@com_github_douglasreid_mixer_noop_reporter//:go_default_library",
     ],
 )
