@@ -2,6 +2,18 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repository")
 
 def mixer_adapter_repositories():
 
+    native.git_repository(
+        name = "org_pubref_rules_protobuf",
+        commit = "0ce5738cd67925351c44df0845c3bbf9d1d32663",  # Sept 30, 2017 (no release)
+        remote = "https://github.com/pubref/rules_protobuf",
+    )
+
+    native.git_repository(
+        name = "com_github_google_protobuf",
+        commit = "52ab3b07ac9a6889ed0ac9bf21afd8dab8ef0014",  # Oct 4, 2016 (match pubref dep)
+        remote = "https://github.com/google/protobuf.git",
+    )
+
     native.bind(
         name = "protoc",
         actual = "@com_github_google_protobuf//:protoc",
@@ -10,6 +22,12 @@ def mixer_adapter_repositories():
     native.bind(
         name = "protocol_compiler",
         actual = "@com_github_google_protobuf//:protoc",
+    )
+
+    go_repository(
+        name = "org_golang_x_net",
+        commit = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f",  # Jul 26, 2017 (no releases)
+        importpath = "golang.org/x/net",
     )
 
     go_repository(

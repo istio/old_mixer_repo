@@ -1,34 +1,20 @@
 workspace(name = "com_github_istio_mixer")
 
 git_repository(
-    name = "org_pubref_rules_protobuf",
-    commit = "0ce5738cd67925351c44df0845c3bbf9d1d32663",  # Sept 22, 2017 (genfiles path calculation fix)
-    remote = "https://github.com/pubref/rules_protobuf",
-)
-
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
-
-cpp_proto_repositories()
-
-git_repository(
     name = "io_bazel_rules_go",
     commit = "f37989f66a6980436d6c78651e801063f2f55b36",  # Sep 28, 2017 (no release)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
+load(":adapter_author_deps.bzl", "mixer_adapter_repositories")
+
+# Note that mixer_adapter_repositories() need to be called *before* go_repositories() is
+# called. Otherwise go_repositories() will create the dependencies on gRPC and protobuf which
+# are old and therefore don't work with other mixer codebase.
+# See https://github.com/bazelbuild/rules_go/issues/892
+mixer_adapter_repositories()
+
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
-
-go_repository(
-    name = "org_golang_x_net",
-    commit = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f",  # Jul 26, 2017 (no releases)
-    importpath = "golang.org/x/net",
-)
-
-go_repository(
-    name = "org_golang_google_grpc",
-    commit = "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",  # April 28, 2017 (v1.3.0)
-    importpath = "google.golang.org/grpc",
-)
 
 go_repositories(go_version = "1.8.3")
 
@@ -41,10 +27,6 @@ git_repository(
 load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
 
 docker_repositories()
-
-load(":adapter_author_deps.bzl", "mixer_adapter_repositories")
-
-mixer_adapter_repositories()
 
 git_repository(
     name = "com_github_grpc_grpc",
