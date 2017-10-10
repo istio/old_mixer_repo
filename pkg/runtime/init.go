@@ -62,7 +62,7 @@ func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
 	return s.List(), watchChan, nil
 }
 
-// kindMap generates a map from object kind to its proto message.
+// KindMap generates a map from object kind to its proto message.
 func KindMap(adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) map[string]proto.Message {
 	kindMap := make(map[string]proto.Message)
