@@ -28,8 +28,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
+	pb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
 )
 
 type (

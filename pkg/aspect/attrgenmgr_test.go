@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	cfgpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
@@ -27,7 +28,7 @@ import (
 	atest "istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
-	cfgpb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -172,7 +173,7 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 	}
 
 	m := newAttrGenMgr()
-	c := &cfgpb.Combined{
+	c := &pbp.Combined{
 		Builder: &cfgpb.Adapter{Params: &apb.AttributesGeneratorParams{}},
 		Aspect: &cfgpb.Aspect{Params: &apb.AttributesGeneratorParams{
 			AttributeBindings: map[string]string{"service_found": "found", "source_service": "srcSvc"},

@@ -23,9 +23,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 
+	pb "istio.io/api/mixer/v1/config"
 	pbd "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/template"
 )

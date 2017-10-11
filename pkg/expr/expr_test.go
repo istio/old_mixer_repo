@@ -24,8 +24,8 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 
+	cfgpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	cfgpb "istio.io/mixer/pkg/config/proto"
 )
 
 func TestGoodParse(t *testing.T) {

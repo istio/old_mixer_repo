@@ -27,9 +27,9 @@ import (
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
 
+	cfgpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
-	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/pool"
 )
 

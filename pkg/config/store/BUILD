@@ -36,8 +36,8 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//pkg/config/proto:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
+        "@io_istio_api//mixer/v1/config:go_default_library",
     ],
 )

@@ -22,7 +22,7 @@ go_test(
         "//test/template:go_default_library",
         "//test/template/report:go_default_library",
         "//test/testenv:go_default_library",
-        "@io_istio_api//:mixer/v1",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )

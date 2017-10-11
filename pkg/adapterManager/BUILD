@@ -50,5 +50,6 @@ go_test(
         "//pkg/pool:go_default_library",
         "//pkg/status:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//mixer/v1/config:go_default_library",
     ],
 )

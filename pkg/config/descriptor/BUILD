@@ -11,13 +11,13 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )
 
@@ -30,10 +30,10 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//pkg/config/proto:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )

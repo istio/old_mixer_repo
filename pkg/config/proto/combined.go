@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istio_mixer_v1_config
+package proto
+
+import (
+	mixerconfig "istio.io/api/mixer/v1/config"
+)
 
 // Combined config is given to aspect managers.
 type Combined struct {
-	Builder   *Adapter
-	Aspect    *Aspect
-	Instances []*Instance
+	Builder   *mixerconfig.Adapter
+	Aspect    *mixerconfig.Aspect
+	Instances []*mixerconfig.Instance
 }
 
 func (c *Combined) String() (ret string) {

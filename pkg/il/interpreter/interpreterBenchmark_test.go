@@ -17,8 +17,8 @@ package interpreter
 import (
 	"testing"
 
+	pb "istio.io/api/mixer/v1/config"
 	pbv "istio.io/api/mixer/v1/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/il/testing"
 	"istio.io/mixer/pkg/il/text"
