@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-	google_rpc "github.com/googleapis/googleapis/google/rpc"
+	google_rpc "istio.io/api/google/rpc"
 
 	cpb "istio.io/api/mixer/v1/config"
 	adptTmpl "istio.io/api/mixer/v1/template"

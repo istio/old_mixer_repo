@@ -26,10 +26,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
+	rpc "istio.io/api/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"

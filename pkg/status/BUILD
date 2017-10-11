@@ -9,8 +9,8 @@ go_library(
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
+        "@io_istio_api//google/rpc:go_default_library",
     ],
 )
 
@@ -21,7 +21,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
+        "@io_istio_api//google/rpc:go_default_library",
     ],
 )

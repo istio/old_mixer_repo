@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 
 	cpb "istio.io/api/mixer/v1/config"
 	"istio.io/mixer/pkg/adapter"

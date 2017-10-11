@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	rpc "istio.io/api/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"

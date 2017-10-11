@@ -9,8 +9,8 @@ go_prefix("istio.io/mixer")
 gazelle(
     name = "gazelle",
     args = [
-      "-build_file_name",
-      "BUILD,BUILD.bazel",
+        "-build_file_name",
+        "BUILD,BUILD.bazel",
     ],
 )
 

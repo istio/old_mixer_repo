@@ -11,7 +11,7 @@ go_library(
     deps = [
         "//pkg/attribute:go_default_library",
         "//pkg/status:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//google/rpc:go_default_library",
         "@io_istio_api//mixer/v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
@@ -28,7 +28,7 @@ go_test(
         "//pkg/attribute:go_default_library",
         "//pkg/status:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//google/rpc:go_default_library",
         "@io_istio_api//mixer/v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_net//context:go_default_library",
