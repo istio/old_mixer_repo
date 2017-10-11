@@ -10,16 +10,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
 
 go_repositories()
 
-# load("//:istio_api.bzl", "go_istio_api_repositories")
-# go_istio_api_repositories(True)
+ISTIO_API_SHA = "6f9eeeb1def76ff4b15885f3fb5d3c4073edd4b8"
 
-# local_repository(
-#     name = "io_istio_api",
-#     path = "../api",
-# )
 git_repository(
     name = "io_istio_api",
-    commit = "6f9eeeb1def76ff4b15885f3fb5d3c4073edd4b8",
+    commit = ISTIO_API_SHA,
     remote = "https://github.com/istio/api.git",
 )
 
@@ -36,10 +31,6 @@ git_repository(
 load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
 
 docker_repositories()
-
-load(":adapter_author_deps.bzl", "mixer_adapter_repositories")
-
-mixer_adapter_repositories()
 
 git_repository(
     name = "com_github_grpc_grpc",
