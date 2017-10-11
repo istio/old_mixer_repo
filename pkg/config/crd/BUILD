@@ -42,9 +42,11 @@ go_test(
         "@io_k8s_apimachinery//pkg/watch:go_default_library",
         "@io_k8s_client_go//discovery:go_default_library",
         "@io_k8s_client_go//discovery/fake:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//testing:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
+        "@io_k8s_client_go//tools/clientcmd:go_default_library",
     ],
 )

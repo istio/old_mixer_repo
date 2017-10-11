@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/mixer/pkg/config/store"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,6 +38,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/mixer/pkg/config/store"
 )
 
 // The number of CRDs to be used in the test.
@@ -58,7 +59,8 @@ var configPath = flag.String("config-path", "",
 
 // createDummySpec creates a spec data with s elements. Both keys and
 // values are random strings.
-func createDummySpec(s int) (map[string]interface{}, error) {
+func createDummySpec() (map[string]interface{}, error) {
+	const s = 6
 	spec := make(map[string]interface{}, s)
 	buf := make([]byte, 5)
 	for i := 0; i < s; i++ {
@@ -339,7 +341,7 @@ func runBenchmarks(b *testing.B, env benchmarkEnv) {
 			}
 			for _, name := range names {
 				key := store.Key{Kind: kind, Name: name, Namespace: ns}
-				dummySpec, err := createDummySpec(6)
+				dummySpec, err := createDummySpec()
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -390,7 +392,7 @@ func runBenchmarks(b *testing.B, env benchmarkEnv) {
 		}
 		for i := 0; i < bb.N; i++ {
 			key := keys[rand.Int()%len(keys)]
-			newSpec, err := createDummySpec(6)
+			newSpec, err := createDummySpec()
 			if err != nil {
 				bb.Errorf("Failed to create a dummy spec: %v", err)
 				continue
