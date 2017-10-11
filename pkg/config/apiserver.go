@@ -24,7 +24,7 @@ import (
 	restful "github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 
 	pb "istio.io/api/mixer/v1/config"
 	"istio.io/mixer/pkg/adapter"

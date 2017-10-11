@@ -20,8 +20,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	me "github.com/hashicorp/go-multierror"
+	rpc "istio.io/api/google/rpc"
 )
 
 // OK represents a status with a code of rpc.OK

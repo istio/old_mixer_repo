@@ -15,7 +15,7 @@ go_library(
         "//template/quota:go_default_library",
         "//template/reportnothing:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//google/rpc:go_default_library",
     ],
 )
 
@@ -33,6 +33,6 @@ go_test(
         "//template/metric:go_default_library",
         "//template/quota:go_default_library",
         "//template/reportnothing:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//google/rpc:go_default_library",
     ],
 )

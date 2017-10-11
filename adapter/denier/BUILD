@@ -12,7 +12,7 @@ go_library(
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/quota:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//google/rpc:go_default_library",
     ],
 )
 

@@ -25,11 +25,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
+	rpc "istio.io/api/google/rpc"
 
 	cpb "istio.io/api/mixer/v1/config"
 	adptTmpl "istio.io/api/mixer/v1/template"

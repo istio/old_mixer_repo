@@ -17,7 +17,7 @@ package adapter
 import (
 	"testing"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 )
 
 func TestDefaultBuilder(t *testing.T) {

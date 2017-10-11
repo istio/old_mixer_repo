@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
+	rpc "istio.io/api/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/adapter"

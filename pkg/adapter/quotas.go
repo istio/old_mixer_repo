@@ -17,7 +17,7 @@ package adapter
 import (
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 )
 
 type (

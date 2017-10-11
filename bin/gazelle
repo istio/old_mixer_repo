@@ -13,7 +13,3 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
   params=(-i)
 fi
-
-find . -type f \( -name BUILD -o -name BUILD.bazel \) -print0 | \
-    xargs -0 sed "${params[@]}" \
-          -e 's|google/rpc:go_default_library|:google/rpc|g'
