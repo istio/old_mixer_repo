@@ -27,7 +27,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -50,7 +50,7 @@ type (
 		Manager
 
 		// NewQuotaExecutor creates a new aspect executor given configuration.
-		NewQuotaExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder, tmpl string) (QuotaExecutor, error)
+		NewQuotaExecutor(cfg *pbp.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder, tmpl string) (QuotaExecutor, error)
 	}
 
 	// A PreprocessManager handles adapter execution for pre-processing of
@@ -60,7 +60,7 @@ type (
 		Manager
 
 		// NewPreprocessExecutor creates a new executor given configuration.
-		NewPreprocessExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (PreprocessExecutor, error)
+		NewPreprocessExecutor(cfg *pbp.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (PreprocessExecutor, error)
 	}
 
 	// Executor encapsulates a single aspect and allows it to be invoked.

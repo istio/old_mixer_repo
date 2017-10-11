@@ -19,7 +19,6 @@ go_library(
         "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/attribute:go_default_library",
-        "//pkg/config/proto:go_default_library",
         "//pkg/config/store:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
@@ -32,8 +31,9 @@ go_library(
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//log:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
-        "@io_istio_api//:mixer/v1/template",
+        "@io_istio_api//mixer/v1/config:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
+        "@io_istio_api//mixer/v1/template:go_default_library",
     ],
 )
 
@@ -52,7 +52,6 @@ go_test(
         "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/attribute:go_default_library",
-        "//pkg/config/proto:go_default_library",
         "//pkg/config/store:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
@@ -62,6 +61,7 @@ go_test(
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
-        "@io_istio_api//:mixer/v1/template",
+        "@io_istio_api//mixer/v1/config:go_default_library",
+        "@io_istio_api//mixer/v1/template:go_default_library",
     ],
 )

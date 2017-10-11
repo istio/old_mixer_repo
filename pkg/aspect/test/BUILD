@@ -17,8 +17,8 @@ go_library(
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config:go_default_library",
-        "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )

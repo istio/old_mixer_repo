@@ -27,7 +27,7 @@ go_test(
         "//pkg/adapter/test:go_default_library",
         "//template/logentry:go_default_library",
         "//template/metric:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
         "@org_uber_go_zap//:go_default_library",
         "@org_uber_go_zap//zapcore:go_default_library",
     ],
