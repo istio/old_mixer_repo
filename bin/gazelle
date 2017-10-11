@@ -7,9 +7,3 @@ set -ex
 find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
 
 bazel run //:gazelle
-
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  params=(-i "")
-else
-  params=(-i)
-fi

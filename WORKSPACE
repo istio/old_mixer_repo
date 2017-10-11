@@ -10,11 +10,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
 
 go_repositories()
 
-ISTIO_API_SHA = "6f9eeeb1def76ff4b15885f3fb5d3c4073edd4b8"
+ISTIO_API_SHA = "3e3fd02fdd45ec7abd4b09af9d0c548634950973"
 
 git_repository(
     name = "io_istio_api",
-    commit = ISTIO_API_SHA,
+    commit = ISTIO_API_SHA,  # Oct 11, 2017
     remote = "https://github.com/istio/api.git",
 )
 
