@@ -73,12 +73,15 @@ class WORKSPACE(object):
     def new_git_repository(self, name, path):
         return((self.genfiles + "/" + name, self.vendor + "/" + path))
 
+    def git_repository(self, name, path):
+        return((self.genfiles + "/" + name, self.vendor + "/" + path))
+
     def new_git_or_local_repository(self, name, path):
         return self.new_git_repository(name, path)
 
 
 def process(fl, external, genfiles, vendor):
-    src = subprocess.Popen("bazel query 'kind(\"go_repository|new_git.*_repository\", \"//external:*\")' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
+    src = subprocess.Popen("bazel query 'kind(\"go_repository|new_git.*_repository|git_repository\", \"//external:*\")' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
     #print src
     tree = ast.parse(src, fl)
     lst = []
@@ -188,7 +191,6 @@ def bazel_to_vendor(WKSPC):
     template_protos(WKSPC)
     tools_protos(WKSPC)
     tools_generated_files(WKSPC)
-    config_proto(WKSPC, genfiles)
     attributes_list(WKSPC, genfiles)
     inventory(WKSPC)
 
@@ -261,10 +263,6 @@ def tools_generated_files(WKSPC):
             for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
                 if file.endswith(".descriptor_set"):
                     makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata/" + file, WKSPC + "/tools/codegen/pkg/modelgen/testdata/" + file)
-
-def config_proto(WKSPC, genfiles):
-    if os.path.exists(genfiles + "io_istio_api/fixed_cfg.pb.go"):
-        makelink(genfiles + "io_istio_api/fixed_cfg.pb.go", WKSPC + "/pkg/config/proto/fixed_cfg.pb.go")
 
 def attributes_list(WKSPC, genfiles):
     if os.path.exists(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go"):

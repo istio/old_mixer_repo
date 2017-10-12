@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 
 	"istio.io/mixer/adapter/list/config"
 	"istio.io/mixer/pkg/adapter"

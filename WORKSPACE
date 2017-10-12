@@ -10,6 +10,18 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
 
 go_repositories()
 
+ISTIO_API_SHA = "3e3fd02fdd45ec7abd4b09af9d0c548634950973"
+
+git_repository(
+    name = "io_istio_api",
+    commit = ISTIO_API_SHA,  # Oct 11, 2017
+    remote = "https://github.com/istio/api.git",
+)
+
+load("@io_istio_api//:api.bzl", "go_istio_api_dependencies")
+
+go_istio_api_dependencies()
+
 git_repository(
     name = "io_bazel_rules_docker",
     commit = "e770f81cef4165828df955f37b827874a884a1de",  # June 21, 2017 (v0.0.2)
@@ -19,10 +31,6 @@ git_repository(
 load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
 
 docker_repositories()
-
-load(":adapter_author_deps.bzl", "mixer_adapter_repositories")
-
-mixer_adapter_repositories()
 
 git_repository(
     name = "com_github_grpc_grpc",
@@ -100,16 +108,6 @@ go_repository(
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",  # Sep 29, 2016 (no releases)
     importpath = "github.com/opentracing/basictracer-go",
 )
-
-load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("//:googleapis.bzl", "go_googleapis_repositories")
-load("//:istio_api.bzl", "go_istio_api_repositories")
-
-go_x_tools_imports_repositories()
-
-go_googleapis_repositories()
-
-go_istio_api_repositories(False)
 
 new_http_archive(
     name = "docker_ubuntu",

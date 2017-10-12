@@ -25,8 +25,9 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	pb "istio.io/api/mixer/v1/config"
 	"istio.io/mixer/pkg/attribute"
-	pb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 )
 
 type trueEval struct {
@@ -114,14 +115,14 @@ func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver { // 
 	return &fakeresolver{am: am, resolveError: re}
 }
 
-func (fr *fakeresolver) rrf(_ attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, _ string, dlist []*pb.Combined, _, _ bool) ([]*pb.Combined, error) {
+func (fr *fakeresolver) rrf(_ attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, _ string, dlist []*pbp.Combined, _, _ bool) ([]*pbp.Combined, error) {
 	if fr.resolveError != nil {
 		return nil, fr.resolveError
 	}
 	for _, r := range rules {
 		for _, a := range r.Aspects {
 			if fr.am[a.Kind] == kindSet {
-				dlist = append(dlist, &pb.Combined{Aspect: a})
+				dlist = append(dlist, &pbp.Combined{Aspect: a})
 			}
 		}
 	}
@@ -265,7 +266,7 @@ func TestResolve(t *testing.T) {
 					t1.Fatalf("got %s\nwant %s", err, tt.err)
 				}
 			}
-			byKind := map[string][]*pb.Combined{}
+			byKind := map[string][]*pbp.Combined{}
 			for _, dd := range dl {
 				byKind[dd.Aspect.Kind] = append(byKind[dd.Aspect.Kind], dd)
 			}

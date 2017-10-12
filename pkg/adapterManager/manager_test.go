@@ -21,14 +21,15 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 
+	cpb "istio.io/api/mixer/v1/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -85,16 +86,16 @@ type (
 	}
 
 	fakeResolver struct {
-		ret []*cpb.Combined
+		ret []*pbp.Combined
 		err error
 	}
 )
 
-func (f *fakeResolver) Resolve(attribute.Bag, config.KindSet, bool) ([]*cpb.Combined, error) {
+func (f *fakeResolver) Resolve(attribute.Bag, config.KindSet, bool) ([]*pbp.Combined, error) {
 	return f.ret, f.err
 }
 
-func (f *fakeResolver) ResolveUnconditional(attribute.Bag, config.KindSet, bool) ([]*cpb.Combined, error) {
+func (f *fakeResolver) ResolveUnconditional(attribute.Bag, config.KindSet, bool) ([]*pbp.Combined, error) {
 	return f.ret, f.err
 }
 
@@ -123,7 +124,7 @@ func (m *fakePreprocessMgr) Kind() config.Kind {
 }
 
 func (m *fakePreprocessMgr) NewPreprocessExecutor(
-	c *cpb.Combined, _ aspect.CreateAspectFunc, e adapter.Env, _ descriptor.Finder) (aspect.PreprocessExecutor, error) {
+	c *pbp.Combined, _ aspect.CreateAspectFunc, e adapter.Env, _ descriptor.Finder) (aspect.PreprocessExecutor, error) {
 	m.called++
 	if m.pe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -137,7 +138,7 @@ func (m *fakeQuotaAspectMgr) Kind() config.Kind {
 }
 
 func (m *fakeQuotaAspectMgr) NewQuotaExecutor(
-	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder, _ string) (aspect.QuotaExecutor, error) {
+	cfg *pbp.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder, _ string) (aspect.QuotaExecutor, error) {
 	m.called++
 	if m.qe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -206,28 +207,28 @@ func newFakeMgrReg(pe *fakePreprocessExecutor, qe *fakeQuotaExecutor) [config.Nu
 }
 
 func TestManager(t *testing.T) {
-	goodcfg := &cpb.Combined{
+	goodcfg := &pbp.Combined{
 		Aspect:  &cpb.Aspect{Kind: config.QuotasKindName, Params: &rpc.Status{}},
 		Builder: &cpb.Adapter{Kind: config.QuotasKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
-	goodcfg2 := &cpb.Combined{
+	goodcfg2 := &pbp.Combined{
 		Aspect:  &cpb.Aspect{Kind: config.AttributesKindName, Params: &rpc.Status{}},
 		Builder: &cpb.Adapter{Kind: config.AttributesKindName, Impl: "k1impl2", Params: &rpc.Status{}},
 	}
 
 	handlerName := "not in builder registry"
-	handlercfg := &cpb.Combined{
+	handlercfg := &pbp.Combined{
 		Aspect:  &cpb.Aspect{Kind: config.QuotasKindName, Params: &rpc.Status{}},
 		Builder: &cpb.Adapter{Kind: config.QuotasKindName, Impl: handlerName, Params: &rpc.Status{}},
 	}
 
-	badcfg1 := &cpb.Combined{
+	badcfg1 := &pbp.Combined{
 		Aspect: &cpb.Aspect{Kind: config.QuotasKindName, Params: &rpc.Status{}},
 		Builder: &cpb.Adapter{Kind: config.QuotasKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
-	badcfg2 := &cpb.Combined{
+	badcfg2 := &pbp.Combined{
 		Aspect: &cpb.Aspect{Kind: config.QuotasKindName, Params: make(chan int)},
 		Builder: &cpb.Adapter{Kind: config.QuotasKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
@@ -242,15 +243,15 @@ func TestManager(t *testing.T) {
 		kindFound     bool
 		errString     string
 		quotaExecutor *fakeQuotaExecutor
-		cfg           []*cpb.Combined
+		cfg           []*pbp.Combined
 	}{
-		{false, false, "could not find aspect manager", nil, []*cpb.Combined{goodcfg}},
-		{true, false, "could not find registered adapter", nil, []*cpb.Combined{goodcfg}},
-		{true, true, "", &fakeQuotaExecutor{}, []*cpb.Combined{goodcfg, goodcfg2}},
-		{true, true, "", nil, []*cpb.Combined{goodcfg}},
-		{true, true, "non-proto cfg.Builder.Params", nil, []*cpb.Combined{badcfg1}},
-		{true, true, "non-proto cfg.Aspect.Params", nil, []*cpb.Combined{badcfg2}},
-		{true, false, "", &fakeQuotaExecutor{}, []*cpb.Combined{handlercfg}},
+		{false, false, "could not find aspect manager", nil, []*pbp.Combined{goodcfg}},
+		{true, false, "could not find registered adapter", nil, []*pbp.Combined{goodcfg}},
+		{true, true, "", &fakeQuotaExecutor{}, []*pbp.Combined{goodcfg, goodcfg2}},
+		{true, true, "", nil, []*pbp.Combined{goodcfg}},
+		{true, true, "non-proto cfg.Builder.Params", nil, []*pbp.Combined{badcfg1}},
+		{true, true, "non-proto cfg.Aspect.Params", nil, []*pbp.Combined{badcfg2}},
+		{true, false, "", &fakeQuotaExecutor{}, []*pbp.Combined{handlercfg}},
 	}
 
 	for idx, tt := range ttt {
@@ -317,7 +318,7 @@ func TestManager_Preprocess(t *testing.T) {
 
 	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
-	cfg := []*cpb.Combined{
+	cfg := []*pbp.Combined{
 		{
 			Aspect:  &cpb.Aspect{Kind: config.AttributesKindName},
 			Builder: &cpb.Adapter{Name: "Foo"},
@@ -351,7 +352,7 @@ func TestQuota(t *testing.T) {
 
 	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
-	cfg := []*cpb.Combined{
+	cfg := []*pbp.Combined{
 		{
 			Aspect:  &cpb.Aspect{Kind: config.QuotasKindName},
 			Builder: &cpb.Adapter{Name: "Foo"},
@@ -378,16 +379,16 @@ func TestQuota(t *testing.T) {
 }
 
 func TestManager_BulkExecute(t *testing.T) {
-	goodcfg := &cpb.Combined{
+	goodcfg := &pbp.Combined{
 		Aspect:  &cpb.Aspect{Kind: config.QuotasKindName, Params: &rpc.Status{}},
 		Builder: &cpb.Adapter{Kind: config.QuotasKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
-	badcfg1 := &cpb.Combined{
+	badcfg1 := &pbp.Combined{
 		Aspect: &cpb.Aspect{Kind: config.QuotasKindName, Params: &rpc.Status{}},
 		Builder: &cpb.Adapter{Kind: config.QuotasKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
-	badcfg2 := &cpb.Combined{
+	badcfg2 := &pbp.Combined{
 		Aspect: &cpb.Aspect{Kind: config.QuotasKindName, Params: make(chan int)},
 		Builder: &cpb.Adapter{Kind: config.QuotasKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
@@ -395,13 +396,13 @@ func TestManager_BulkExecute(t *testing.T) {
 
 	cases := []struct {
 		errString string
-		cfgs      []*cpb.Combined
+		cfgs      []*pbp.Combined
 	}{
-		{"", []*cpb.Combined{}},
-		{"", []*cpb.Combined{goodcfg}},
-		{"", []*cpb.Combined{goodcfg, goodcfg}},
-		{"non-proto cfg.Builder.Params", []*cpb.Combined{badcfg1, goodcfg}},
-		{"non-proto cfg.Aspect.Params", []*cpb.Combined{goodcfg, badcfg2}},
+		{"", []*pbp.Combined{}},
+		{"", []*pbp.Combined{goodcfg}},
+		{"", []*pbp.Combined{goodcfg, goodcfg}},
+		{"non-proto cfg.Builder.Params", []*pbp.Combined{badcfg1, goodcfg}},
+		{"non-proto cfg.Aspect.Params", []*pbp.Combined{goodcfg, badcfg2}},
 	}
 
 	requestBag := attribute.GetMutableBag(nil)
@@ -450,7 +451,7 @@ func testRecovery(t *testing.T, name string, want string) {
 	agp := pool.NewGoroutinePool(1, true)
 	m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
-	cfg := []*cpb.Combined{
+	cfg := []*pbp.Combined{
 		{
 			Builder: &cpb.Adapter{Name: name},
 			Aspect:  &cpb.Aspect{Kind: name},
@@ -497,7 +498,7 @@ func TestExecute(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
-		cfg := []*cpb.Combined{
+		cfg := []*pbp.Combined{
 			{&cpb.Adapter{Name: c.name}, &cpb.Aspect{Kind: c.name}, nil},
 		}
 		m.resolver.Store(&fakeResolver{cfg, nil})
@@ -529,7 +530,7 @@ func TestExecute_Cancellation(t *testing.T) {
 
 	m := &Manager{gp: gp, adapterGP: agp}
 
-	cfg := []*cpb.Combined{
+	cfg := []*pbp.Combined{
 		{&cpb.Adapter{Name: ""}, &cpb.Aspect{Kind: ""}, nil},
 	}
 	m.resolver.Store(&fakeResolver{cfg, nil})
@@ -574,7 +575,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		cancel()
 	}()
 
-	cfg := []*cpb.Combined{{
+	cfg := []*pbp.Combined{{
 		&cpb.Adapter{Name: name},
 		&cpb.Aspect{Kind: name},
 		nil,

@@ -26,11 +26,11 @@ import (
 	"strings"
 	"testing"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 
+	pb "istio.io/api/mixer/v1/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/template"
 )
 

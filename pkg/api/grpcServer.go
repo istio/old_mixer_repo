@@ -20,12 +20,12 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 	legacyContext "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	rpc "istio.io/api/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/adapter"

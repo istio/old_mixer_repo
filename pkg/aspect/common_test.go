@@ -20,13 +20,13 @@ import (
 	"strings"
 	"testing"
 
+	cfgpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/noopLegacy"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
-	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 

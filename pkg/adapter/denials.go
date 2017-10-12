@@ -14,7 +14,7 @@
 
 package adapter
 
-import rpc "github.com/googleapis/googleapis/google/rpc"
+import rpc "istio.io/api/google/rpc"
 
 type (
 	// DenialsAspect always fail with an error.

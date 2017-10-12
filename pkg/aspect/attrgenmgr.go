@@ -19,14 +19,14 @@ import (
 	"net"
 
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/api/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	apb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -72,7 +72,7 @@ func (attrGenMgr) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, df 
 	return
 }
 
-func (attrGenMgr) NewPreprocessExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (PreprocessExecutor, error) {
+func (attrGenMgr) NewPreprocessExecutor(cfg *pbp.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (PreprocessExecutor, error) {
 	out, err := createAspect(env, cfg.Builder.Params.(config.AspectParams))
 	if err != nil {
 		return nil, err

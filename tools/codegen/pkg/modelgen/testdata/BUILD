@@ -14,7 +14,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -35,9 +35,9 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+        "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
     ],
     protos = [
         "SimpleTemplate.proto",
@@ -57,9 +57,9 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+        "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypeMessage.proto",
@@ -79,9 +79,9 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+        "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypeAsMap.proto",
@@ -101,9 +101,9 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+        "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypePrimitive.proto",
@@ -123,9 +123,9 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+        "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypeEnum.proto",
@@ -145,7 +145,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -166,7 +166,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -187,7 +187,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -208,7 +208,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -229,7 +229,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -250,7 +250,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -271,7 +271,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -292,7 +292,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//mixer/v1/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [

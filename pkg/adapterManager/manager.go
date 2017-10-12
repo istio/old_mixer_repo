@@ -26,17 +26,17 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
+	rpc "istio.io/api/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -172,7 +172,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag attribute.Bag,
 	return qmr, o
 }
 
-func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreprocess bool, strict bool) ([]*cpb.Combined, error) {
+func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreprocess bool, strict bool) ([]*pbp.Combined, error) {
 	cfg, _ := m.resolver.Load().(config.Resolver)
 	if cfg == nil {
 		return nil, errors.New("configuration is not yet available")
@@ -219,7 +219,7 @@ type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator,
 
 // runAsync runs a given invokeFunc thru scheduler.
 func (m *Manager) runAsync(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag,
-	cfg *cpb.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
+	cfg *pbp.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
 	df, _ := m.df.Load().(descriptor.Finder)
 	m.gp.ScheduleWork(func() {
 
@@ -255,7 +255,7 @@ func (m *Manager) runAsync(ctx context.Context, requestBag attribute.Bag, respon
 
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
 func (m *Manager) dispatch(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag,
-	cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
+	cfgs []*pbp.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
 	numCfgs := len(cfgs)
 
 	// TODO: consider implementing a fast path when there is only a single config.
@@ -339,13 +339,13 @@ func combineResults(results []result) rpc.Status {
 
 // result holds the values returned by the execution of an adapter
 type result struct {
-	cfg         *cpb.Combined
+	cfg         *pbp.Combined
 	status      rpc.Status
 	responseBag *attribute.MutableBag
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
+func (m *Manager) execute(ctx context.Context, cfg *pbp.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
 	df descriptor.Finder, invokeFunc invokeExecutorFunc) (out rpc.Status) {
 	var mgr aspect.Manager
 	var found bool
@@ -400,7 +400,7 @@ type cacheKey struct {
 	aspectParamsSHA  [sha1.Size]byte
 }
 
-func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
+func newCacheKey(kind config.Kind, cfg *pbp.Combined) (*cacheKey, error) {
 	ret := cacheKey{
 		kind: kind,
 		impl: cfg.Builder.GetImpl(),
@@ -439,7 +439,7 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 
 // cacheGet gets an aspect executor from the cache, use adapter.Manager to construct an object in case of a cache miss
 func (m *Manager) cacheGet(
-	cfg *cpb.Combined, mgr aspect.Manager, createAspect aspect.CreateAspectFunc, df descriptor.Finder) (executor aspect.Executor, err error) {
+	cfg *pbp.Combined, mgr aspect.Manager, createAspect aspect.CreateAspectFunc, df descriptor.Finder) (executor aspect.Executor, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err

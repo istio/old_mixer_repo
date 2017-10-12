@@ -6,6 +6,7 @@ set -o pipefail
 set -x
 
 bin/bazel_to_go.py
+rm -f vendor/istio.io/api/mixer/v1/config/cfg.pb.go
 
 echo Running buildifier...
 bazel build @com_github_bazelbuild_buildtools//buildifier

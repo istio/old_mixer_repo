@@ -21,8 +21,9 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
+	pb "istio.io/api/mixer/v1/config"
 	"istio.io/mixer/pkg/attribute"
-	pb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -78,7 +79,7 @@ func GetScopes(attr string, domain string, scopes []string) ([]string, error) {
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
 // If strict is true, resolution will fail if any selector evaluations fail; otherwise it will log errors and return
 // as much config as we were able to resolve.
-func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []*pb.Combined, err error) {
+func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []*pbp.Combined, err error) {
 	if glog.V(4) {
 		glog.Infof("resolving for kinds: %s", set)
 		defer func() {
@@ -108,7 +109,7 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []
 // method is primarily used for pre-process aspect configuration retrieval.
 // If strict is true, resolution will fail if any selector evaluations fail; otherwise it will log errors and return
 // as much config as we were able to resolve.
-func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet, strict bool) (out []*pb.Combined, err error) {
+func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet, strict bool) (out []*pbp.Combined, err error) {
 	if glog.V(2) {
 		glog.Infof("unconditionally resolving for kinds: %s", set)
 		defer func() {
@@ -137,7 +138,7 @@ const resolveSize = 50
 
 // resolve - the main config resolution function.
 func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
-	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string, strictSelectorEval bool) (dlist []*pb.Combined, err error) {
+	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string, strictSelectorEval bool) (dlist []*pbp.Combined, err error) {
 	scopes := make([]string, 0, 10)
 
 	attr, _ := bag.Get(identityAttribute)
@@ -161,12 +162,12 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 		}
 	}
 
-	dlist = make([]*pb.Combined, 0, resolveSize)
-	dlistout := make([]*pb.Combined, 0, resolveSize)
+	dlist = make([]*pbp.Combined, 0, resolveSize)
+	dlistout := make([]*pbp.Combined, 0, resolveSize)
 
 	for idx := 0; idx < len(scopes); idx++ {
 		scope := scopes[idx]
-		amap := make(map[string][]*pb.Combined)
+		amap := make(map[string][]*pbp.Combined)
 
 		for j := idx; j < len(scopes); j++ {
 			subject := scopes[j]
@@ -182,7 +183,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 				return dlist, err
 			}
 
-			aamap := make(map[string][]*pb.Combined)
+			aamap := make(map[string][]*pbp.Combined)
 
 			for _, d := range dlist {
 				aamap[d.Aspect.Kind] = append(aamap[d.Aspect.Kind], d)
@@ -211,13 +212,13 @@ func (r *runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 }
 
 type resolveRulesFunc func(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
-	dlist []*pb.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pb.Combined, error)
+	dlist []*pbp.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pbp.Combined, error)
 
 // resolveRules recurses through the config struct and returns a list of combined aspects. If `strictSelectorEval` is
 // true we will return an error when we fail the evaluate a selector; when it's false we'll return a nil error and as
 // many chunks of config as we were able to resolve.
 func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
-	dlist []*pb.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pb.Combined, error) {
+	dlist []*pbp.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pbp.Combined, error) {
 	var selected bool
 	var lerr error
 	var err error
@@ -263,7 +264,7 @@ func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.A
 			if glog.V(3) {
 				logMsg = fmt.Sprintf("%s\n- selected aspect kind %s with config: %v", logMsg, aa.Kind, adp)
 			}
-			dlist = append(dlist, &pb.Combined{Builder: adp, Aspect: aa})
+			dlist = append(dlist, &pbp.Combined{Builder: adp, Aspect: aa})
 		}
 
 		if glog.V(3) {

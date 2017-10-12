@@ -7,16 +7,3 @@ set -ex
 find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
 
 bazel run //:gazelle
-
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  params=(-i "")
-else
-  params=(-i)
-fi
-
-find . -type f \( -name BUILD -o -name BUILD.bazel \) -print0 | \
-    xargs -0 sed "${params[@]}" \
-          -e 's|google/rpc:go_default_library|:google/rpc|g' \
-          -e 's|@io_istio_api//mixer/v1/config/descriptor:go_default_library|@io_istio_api//:mixer/v1/config/descriptor|g' \
-          -e 's|@io_istio_api//mixer/v1:go_default_library|@io_istio_api//:mixer/v1|g' \
-          -e 's|@io_istio_api//mixer/v1/template:go_default_library|@io_istio_api//:mixer/v1/template|g'

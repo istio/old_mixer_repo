@@ -21,10 +21,10 @@ import (
 	"sync"
 	"testing"
 
+	pb "istio.io/api/mixer/v1/config"
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
 	iltesting "istio.io/mixer/pkg/il/testing"
 )
 

@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	cfgpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	atest "istio.io/mixer/pkg/adapter/test"
@@ -31,7 +32,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	cfgpb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -108,7 +109,7 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 		return &fakeQuotaAspect{}, nil
 	}}
 	ndf := test.NewDescriptorFinder(map[string]interface{}{quotaRequestCount.Name: quotaRequestCount})
-	conf := &cfgpb.Combined{
+	conf := &pbp.Combined{
 		Aspect: &cfgpb.Aspect{
 			Params: &aconfig.QuotasParams{
 				Quotas: []*aconfig.QuotasParams_Quota{
@@ -132,7 +133,7 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 }
 
 func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
-	conf := &cfgpb.Combined{
+	conf := &pbp.Combined{
 		Aspect: &cfgpb.Aspect{Params: &aconfig.QuotasParams{}},
 		// the params we use here don't matter because we're faking the aspect
 		Builder: &cfgpb.Adapter{Params: &aconfig.QuotasParams{}},

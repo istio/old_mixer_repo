@@ -27,7 +27,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
+	pbp "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/template"
@@ -36,10 +36,10 @@ import (
 // Resolver resolves configuration to a list of combined configs.
 type Resolver interface {
 	// Resolve resolves configuration to a list of combined configs.
-	Resolve(bag attribute.Bag, kindSet KindSet, strict bool) ([]*pb.Combined, error)
+	Resolve(bag attribute.Bag, kindSet KindSet, strict bool) ([]*pbp.Combined, error)
 	// ResolveUnconditional resolves configuration for unconditioned rules.
 	// Unconditioned rules are those rules with the empty selector ("").
-	ResolveUnconditional(bag attribute.Bag, kindSet KindSet, strict bool) ([]*pb.Combined, error)
+	ResolveUnconditional(bag attribute.Bag, kindSet KindSet, strict bool) ([]*pbp.Combined, error)
 }
 
 // ChangeListener listens for config change notifications.
