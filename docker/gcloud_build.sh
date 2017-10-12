@@ -2,7 +2,7 @@
 
 set -ex
 
-PROJECT=${PROJECT:?"gcloud project required"}
+PROJECT=$(gcloud config get-value project)
 
 gcloud docker --authorize-only
 
