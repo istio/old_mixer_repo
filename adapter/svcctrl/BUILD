@@ -8,6 +8,7 @@ go_library(
         "client.go",
         "svcctrl.go",
     ],
+    importpath = "istio.io/mixer/adapter/svcctrl",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/svcctrl/config:go_default_library",
@@ -25,6 +26,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["svcctrl_test.go"],
+    importpath = "istio.io/mixer/adapter/svcctrl",
     library = ":go_default_library",
     deps = [
         "@com_github_davecgh_go_spew//spew:go_default_library",

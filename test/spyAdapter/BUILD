@@ -5,6 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["spyadapter.go"],
+    importpath = "istio.io/mixer/test/spyAdapter",
     deps = [
         "//pkg/adapter:go_default_library",
         "//test/template/report:go_default_library",

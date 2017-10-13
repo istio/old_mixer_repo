@@ -10,6 +10,7 @@ go_library(
         "memquota.go",
         "rollingWindow.go",
     ],
+    importpath = "istio.io/mixer/adapter/memquota2",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/memquota2/config:go_default_library",
@@ -27,6 +28,7 @@ go_test(
         "memquota_test.go",
         "rollingWindow_test.go",
     ],
+    importpath = "istio.io/mixer/adapter/memquota2",
     library = ":go_default_library",
     deps = [
         "//adapter/memquota2/config:go_default_library",

@@ -12,6 +12,7 @@ go_library(
         "manager.go",
         "quotasManager.go",
     ],
+    importpath = "istio.io/mixer/pkg/aspect",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -39,6 +40,7 @@ go_test(
         "inventory_test.go",
         "quotasManager_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/aspect",
     library = ":go_default_library",
     deps = [
         "//adapter/noopLegacy:go_default_library",

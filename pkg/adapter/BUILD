@@ -22,6 +22,7 @@ go_library(
         "registrar.go",
         "result.go",
     ],
+    importpath = "istio.io/mixer/pkg/adapter",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/status:go_default_library",
@@ -40,6 +41,7 @@ go_test(
         "configError_test.go",
         "result_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/adapter",
     library = ":go_default_library",
     deps = ["@com_github_googleapis_googleapis//:google/rpc"],
 )

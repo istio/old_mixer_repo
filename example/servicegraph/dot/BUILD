@@ -5,6 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["dot.go"],
+    importpath = "istio.io/mixer/example/servicegraph/dot",
     visibility = ["//visibility:public"],
     deps = ["//example/servicegraph:go_default_library"],
 )

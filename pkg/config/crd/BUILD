@@ -6,6 +6,7 @@ go_library(
         "init.go",
         "store.go",
     ],
+    importpath = "istio.io/mixer/pkg/config/crd",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/config/store:go_default_library",
@@ -27,6 +28,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["store_test.go"],
+    importpath = "istio.io/mixer/pkg/config/crd",
     library = ":go_default_library",
     deps = [
         "//pkg/config/store:go_default_library",

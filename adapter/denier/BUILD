@@ -5,6 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["denier.go"],
+    importpath = "istio.io/mixer/adapter/denier",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/denier/config:go_default_library",
@@ -20,6 +21,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["denier_test.go"],
+    importpath = "istio.io/mixer/adapter/denier",
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",

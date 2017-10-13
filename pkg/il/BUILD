@@ -11,6 +11,7 @@ go_library(
         "strings.go",
         "types.go",
     ],
+    importpath = "istio.io/mixer/pkg/il",
     visibility = ["//visibility:public"],
 )
 
@@ -26,5 +27,6 @@ go_test(
         "strings_test.go",
         "types_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/il",
     library = ":go_default_library",
 )

@@ -14,6 +14,7 @@ go_library(
         "resolver.go",
         "resourceType.go",
     ],
+    importpath = "istio.io/mixer/pkg/runtime",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -47,6 +48,7 @@ go_test(
         "resolver_test.go",
         "resourceType_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/runtime",
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",

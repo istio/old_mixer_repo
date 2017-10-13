@@ -8,6 +8,7 @@ go_library(
         "descriptor.go",
         "validator.go",
     ],
+    importpath = "istio.io/mixer/pkg/config/descriptor",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -28,6 +29,7 @@ go_test(
         "descriptor_test.go",
         "validator_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/config/descriptor",
     library = ":go_default_library",
     deps = [
         "//pkg/config/proto:go_default_library",

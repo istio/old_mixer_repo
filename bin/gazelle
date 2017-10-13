@@ -6,7 +6,7 @@ set -ex
 # to prevent gazelle from creating wrong go_proto_library.
 find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
 
-bazel run //:gazelle
+bazel run //:gazelle -- -proto legacy
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   params=(-i "")

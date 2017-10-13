@@ -10,6 +10,7 @@ go_library(
         "root.go",
         "util.go",
     ],
+    importpath = "istio.io/mixer/cmd/client/cmd",
     visibility = ["//cmd:__subpackages__"],
     deps = [
         "//cmd/shared:go_default_library",
@@ -30,6 +31,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["util_test.go"],
+    importpath = "istio.io/mixer/cmd/client/cmd",
     library = ":go_default_library",
     deps = [
         "//pkg/attribute:go_default_library",

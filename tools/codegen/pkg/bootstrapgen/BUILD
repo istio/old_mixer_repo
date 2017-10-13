@@ -5,6 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["generator.go"],
+    importpath = "istio.io/mixer/tools/codegen/pkg/bootstrapgen",
     visibility = ["//tools:__subpackages__"],
     deps = [
         "//tools/codegen/pkg/bootstrapgen/template:go_default_library",
@@ -24,5 +25,6 @@ go_test(
         "//tools/codegen/pkg/bootstrapgen/testdata:descriptors",
         "//tools/codegen/pkg/bootstrapgen/testdata:golden_files",
     ],
+    importpath = "istio.io/mixer/tools/codegen/pkg/bootstrapgen",
     library = ":go_default_library",
 )

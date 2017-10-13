@@ -5,6 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["testenv.go"],
+    importpath = "istio.io/mixer/test/testenv",
     deps = [
         "//cmd/server/cmd:go_default_library",
         "//cmd/shared:go_default_library",
@@ -23,6 +24,7 @@ go_test(
     data = [
         "//testdata",
     ],
+    importpath = "istio.io/mixer/test/testenv",
     library = ":go_default_library",
     deps = [
         "//adapter/denier:go_default_library",

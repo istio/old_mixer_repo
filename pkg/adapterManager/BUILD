@@ -10,6 +10,7 @@ go_library(
         "manager.go",
         "registry.go",
     ],
+    importpath = "istio.io/mixer/pkg/adapterManager",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -38,6 +39,7 @@ go_test(
         "manager_test.go",
         "registry_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/adapterManager",
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",

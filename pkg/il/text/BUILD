@@ -7,6 +7,7 @@ go_library(
         "scanner.go",
         "write.go",
     ],
+    importpath = "istio.io/mixer/pkg/il/text",
     visibility = ["//visibility:public"],
     deps = ["//pkg/il:go_default_library"],
 )
@@ -19,6 +20,7 @@ go_test(
         "scanner_test.go",
         "write_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/il/text",
     library = ":go_default_library",
     deps = ["//pkg/il:go_default_library"],
 )

@@ -12,6 +12,7 @@ go_library(
         "mutableBag.go",
         "protoBag.go",
     ],
+    importpath = "istio.io/mixer/pkg/attribute",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/pool:go_default_library",
@@ -25,6 +26,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["bag_test.go"],
+    importpath = "istio.io/mixer/pkg/attribute",
     library = ":go_default_library",
     deps = ["@io_istio_api//:mixer/v1"],
 )

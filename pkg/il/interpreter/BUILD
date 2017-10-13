@@ -10,6 +10,7 @@ go_library(
         "stackFrame.go",
         "stepper.go",
     ],
+    importpath = "istio.io/mixer/pkg/il/interpreter",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/attribute:go_default_library",
@@ -28,6 +29,7 @@ go_test(
         "interpreter_test.go",
         "result_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/il/interpreter",
     library = ":go_default_library",
     deps = [
         "//pkg/config/proto:go_default_library",

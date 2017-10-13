@@ -9,6 +9,7 @@ go_library(
         "goroutine.go",
         "intern.go",
     ],
+    importpath = "istio.io/mixer/pkg/pool",
     visibility = ["//visibility:public"],
 )
 
@@ -20,5 +21,6 @@ go_test(
         "goroutine_test.go",
         "intern_test.go",
     ],
+    importpath = "istio.io/mixer/pkg/pool",
     library = ":go_default_library",
 )

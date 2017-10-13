@@ -9,6 +9,7 @@ go_library(
         "adapters.go",
         "env.go",
     ],
+    importpath = "istio.io/mixer/pkg/adapter/test",
     visibility = ["//visibility:public"],
     deps = ["//pkg/adapter:go_default_library"],
 )

@@ -12,6 +12,7 @@ go_library(
         "evaluator.go",
         "logger.go",
     ],
+    importpath = "istio.io/mixer/pkg/aspect/test",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
