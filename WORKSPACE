@@ -17,7 +17,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repository")
 
 git_repository(
     name = "io_bazel_rules_docker",
-    commit = "e770f81cef4165828df955f37b827874a884a1de",  # June 21, 2017 (v0.0.2)
+    commit = "9dd92c73e7c8cf07ad5e0dca89a3c3c422a3ab7d",  # Sep 27, 2017 (v0.3.0)
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
 
