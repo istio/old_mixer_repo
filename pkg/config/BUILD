@@ -22,7 +22,6 @@ go_library(
         "//pkg/config/crd:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "//pkg/config/proto:go_default_library",
-        "//pkg/config/redis:go_default_library",
         "//pkg/config/store:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
@@ -35,7 +34,7 @@ go_library(
         "@com_github_golang_glog//:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+        "@io_istio_api//:mixer/v1/config/descriptor",
     ],
 )
 
@@ -69,6 +68,6 @@ go_test(
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+        "@io_istio_api//:mixer/v1/config/descriptor",
     ],
 )
