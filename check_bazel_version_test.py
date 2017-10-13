@@ -35,6 +35,7 @@ def test_check_version():
 
     ts = [TestCase("0.5.3", "0.5.4", "0.6.0", "too new"),
           TestCase("0.5.3", "0.5.4", "0.5.1", "too old"),
+          TestCase("0.5.3", "0.5.4", "0.11.0", "too new"),
           TestCase("0.5.3", "0.5.4", "0.5.3", ""),
           TestCase("0.5.3", "0.5.4", "0.5.4", "")]
     for tc in ts:

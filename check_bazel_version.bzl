@@ -9,7 +9,7 @@ def _parse_bazel_version(bazel_version):
     # Turn "release" into a tuple of strings
     version_tuple = ()
     for number in parts[0].split("."):
-        version_tuple += (str(number),)
+        version_tuple += (int(number),)
     return version_tuple
 
 # acceptable min_version <= version <= max_version
