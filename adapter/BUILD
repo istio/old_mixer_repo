@@ -1,7 +1,6 @@
 # gazelle:ignore
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load(":inventory.bzl", "inventory_library")
 
 inventory_library(
