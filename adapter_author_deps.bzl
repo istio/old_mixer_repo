@@ -4,7 +4,7 @@ def mixer_adapter_repositories():
 
     native.git_repository(
         name = "org_pubref_rules_protobuf",
-        commit = "ff3b7e7963daa7cb3b42f8936bc11eda4b960926",  # Sept 22, 2017 (genfiles path calculation fix)
+        commit = "ff3b7e7963daa7cb3b42f8936bc11eda4b960926",  # Oct 03, 2017 (Updating External Import Paths)
         remote = "https://github.com/pubref/rules_protobuf",
     )
 
