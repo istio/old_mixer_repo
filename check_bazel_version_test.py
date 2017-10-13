@@ -18,6 +18,8 @@ class TestCase(object):
         self.max_ver = max_ver
         self.ver = ver
         self.output = output
+    def __repr__(self):
+        return self.__dict__.__repr__()
 
 
 def test_check_version():
@@ -33,7 +35,8 @@ def test_check_version():
 
     ts = [TestCase("0.5.3", "0.5.4", "0.6.0", "too new"),
           TestCase("0.5.3", "0.5.4", "0.5.1", "too old"),
-          TestCase("0.5.3", "0.5.4", "0.5.1", "")]
+          TestCase("0.5.3", "0.5.4", "0.5.3", ""),
+          TestCase("0.5.3", "0.5.4", "0.5.4", "")]
     for tc in ts:
         cv.native = Native(tc.ver)
         op = Output()
@@ -43,13 +46,16 @@ def test_check_version():
         cv.fail = _fail
 
         cv.check_bazel_version(tc.min_ver, tc.max_ver)
-        if tc.output == op.output:
-            continue
+
+        if tc.output == "":
+            if op.output != "":
+                print "Test Failed", tc, "Want [ ", tc.output, "] Got [", op.output, "]"
+                ok = False
 
         if tc.output in op.output:
             continue
 
-        print tc, "Got [ ", tc.output, "] want [", op.output
+        print "Test Failed", tc, "Want [ ", tc.output, "] Got [", op.output, "]"
         ok = False
 
     os.remove("check_bazel_version.py")
