@@ -7,7 +7,6 @@ go_library(
         "handler.go",
         "server.go",
     ],
-    importpath = "istio.io/mixer/test",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/attribute:go_default_library",
@@ -24,7 +23,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["server_test.go"],
-    importpath = "istio.io/mixer/test",
     library = ":go_default_library",
     deps = [
         "//pkg/attribute:go_default_library",

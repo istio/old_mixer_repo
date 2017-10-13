@@ -7,7 +7,6 @@ go_prefix("istio.io/mixer")
 go_library(
     name = "go_default_library",
     srcs = ["statsd.go"],
-    importpath = "istio.io/mixer/adapter/statsd",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/statsd/config:go_default_library",
@@ -23,7 +22,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["statsd_test.go"],
-    importpath = "istio.io/mixer/adapter/statsd",
     library = ":go_default_library",
     deps = [
         "//adapter/statsd/config:go_default_library",

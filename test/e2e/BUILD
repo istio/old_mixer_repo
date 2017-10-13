@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["util.go"],
-    importpath = "istio.io/mixer/test/e2e",
     deps = [
         "//pkg/adapter:go_default_library",
         "//test/spyAdapter:go_default_library",
@@ -16,7 +15,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["e2e_report_test.go"],
-    importpath = "istio.io/mixer/test/e2e",
     library = ":go_default_library",
     deps = [
         "//pkg/template:go_default_library",

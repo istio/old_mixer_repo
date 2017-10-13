@@ -8,5 +8,4 @@ go_library(
         "interface.go",
         "templateproto.go",
     ],
-    importpath = "istio.io/mixer/tools/codegen/pkg/interfacegen/template",
 )

@@ -10,7 +10,6 @@ go_library(
         "merge.go",
         "metric.go",
     ],
-    importpath = "istio.io/mixer/adapter/stackdriver/metric",
     deps = [
         "//adapter/stackdriver/config:go_default_library",
         "//adapter/stackdriver/helper:go_default_library",
@@ -38,7 +37,6 @@ go_test(
         "merge_test.go",
         "metric_test.go",
     ],
-    importpath = "istio.io/mixer/adapter/stackdriver/metric",
     library = ":go_default_library",
     deps = [
         "//adapter/stackdriver/config:go_default_library",

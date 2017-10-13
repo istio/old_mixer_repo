@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["root.go"],
-    importpath = "istio.io/mixer/cmd/collateral/cmd",
     visibility = ["//cmd:__subpackages__"],
     deps = [
         "//cmd/client/cmd:go_default_library",

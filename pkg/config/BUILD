@@ -15,7 +15,6 @@ go_library(
         "runtime.go",
         "validator.go",
     ],
-    importpath = "istio.io/mixer/pkg/config",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -51,7 +50,6 @@ go_test(
         "runtime_test.go",
         "validator_test.go",
     ],
-    importpath = "istio.io/mixer/pkg/config",
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",

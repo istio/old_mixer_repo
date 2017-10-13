@@ -11,7 +11,6 @@ go_library(
         "server.go",
         "test_server.go",
     ],
-    importpath = "istio.io/mixer/cmd/server/cmd",
     visibility = [
         "//cmd:__subpackages__",
         "//test/testenv:__subpackages__",
@@ -50,7 +49,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["crd_test.go"],
-    importpath = "istio.io/mixer/cmd/server/cmd",
     library = ":go_default_library",
     deps = [
         "//adapter:go_default_library",

@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["noop.go"],
-    importpath = "istio.io/mixer/adapter/noopLegacy",
     visibility = ["//visibility:public"],
     deps = ["//pkg/adapter:go_default_library"],
 )
@@ -14,7 +13,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["noop_test.go"],
-    importpath = "istio.io/mixer/adapter/noopLegacy",
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",

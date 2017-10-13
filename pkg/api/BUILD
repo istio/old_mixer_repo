@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["grpcServer.go"],
-    importpath = "istio.io/mixer/pkg/api",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -33,7 +32,6 @@ go_test(
         "grpcServer_test.go",
         "perf_test.go",
     ],
-    importpath = "istio.io/mixer/pkg/api",
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",

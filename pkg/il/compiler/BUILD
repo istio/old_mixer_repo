@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["compiler.go"],
-    importpath = "istio.io/mixer/pkg/il/compiler",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/expr:go_default_library",
@@ -17,7 +16,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["compiler_test.go"],
-    importpath = "istio.io/mixer/pkg/il/compiler",
     library = ":go_default_library",
     deps = [
         "//pkg/config/descriptor:go_default_library",

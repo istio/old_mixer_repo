@@ -8,7 +8,6 @@ go_library(
         "prometheus.go",
         "server.go",
     ],
-    importpath = "istio.io/mixer/adapter/prometheus",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/prometheus/config:go_default_library",
@@ -27,7 +26,6 @@ go_test(
         "prometheus_test.go",
         "server_test.go",
     ],
-    importpath = "istio.io/mixer/adapter/prometheus",
     library = ":go_default_library",
     deps = [
         "//adapter/prometheus/config:go_default_library",

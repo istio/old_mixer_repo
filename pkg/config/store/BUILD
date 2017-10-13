@@ -14,7 +14,6 @@ go_library(
         "store2.go",
         "testutil.go",
     ],
-    importpath = "istio.io/mixer/pkg/config/store",
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_ghodss_yaml//:go_default_library",
@@ -35,7 +34,6 @@ go_test(
         "store2_test.go",
         "store_test.go",
     ],
-    importpath = "istio.io/mixer/pkg/config/store",
     library = ":go_default_library",
     deps = [
         "//pkg/config/proto:go_default_library",

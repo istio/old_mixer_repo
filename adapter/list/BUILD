@@ -9,7 +9,6 @@ go_library(
         "list.go",
         "stringList.go",
     ],
-    importpath = "istio.io/mixer/adapter/list",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/list/config:go_default_library",
@@ -24,7 +23,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["list_test.go"],
-    importpath = "istio.io/mixer/adapter/list",
     library = ":go_default_library",
     deps = [
         "//adapter/list/config:go_default_library",

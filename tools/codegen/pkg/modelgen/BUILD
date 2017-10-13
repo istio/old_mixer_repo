@@ -9,7 +9,6 @@ go_library(
         "model.go",
         "parser.go",
     ],
-    importpath = "istio.io/mixer/tools/codegen/pkg/modelgen",
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",
@@ -23,7 +22,6 @@ go_test(
     size = "small",
     srcs = ["model_test.go"],
     data = ["//tools/codegen/pkg/modelgen/testdata:test_descriptors"],
-    importpath = "istio.io/mixer/tools/codegen/pkg/modelgen",
     library = ":go_default_library",
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",

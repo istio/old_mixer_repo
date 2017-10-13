@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["stackdriver.go"],
-    importpath = "istio.io/mixer/adapter/stackdriver",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/stackdriver/config:go_default_library",
@@ -19,7 +18,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["stackdriver_test.go"],
-    importpath = "istio.io/mixer/adapter/stackdriver",
     library = ":go_default_library",
     deps = [
         "//adapter/stackdriver/config:go_default_library",

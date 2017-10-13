@@ -8,7 +8,6 @@ go_library(
         "cache.go",
         "kubernetes.go",
     ],
-    importpath = "istio.io/mixer/adapter/kubernetes",
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/kubernetes/config:go_default_library",
@@ -32,7 +31,6 @@ go_test(
         "cache_test.go",
         "kubernetes_test.go",
     ],
-    importpath = "istio.io/mixer/adapter/kubernetes",
     library = ":go_default_library",
     deps = [
         "//adapter/kubernetes/config:go_default_library",

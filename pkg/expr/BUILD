@@ -7,7 +7,6 @@ go_library(
         "expr.go",
         "func.go",
     ],
-    importpath = "istio.io/mixer/pkg/expr",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/attribute:go_default_library",
@@ -29,7 +28,6 @@ go_test(
         "expr_test.go",
         "func_test.go",
     ],
-    importpath = "istio.io/mixer/pkg/expr",
     library = ":go_default_library",
     deps = [
         "//pkg/attribute:go_default_library",
