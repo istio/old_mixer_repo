@@ -85,8 +85,9 @@ metadata:
 spec:
   selector: target.name == "*"
   actions:
-  - handler: fakeHandlerConfig.fakeHandler.istio-system
-    instances: [ reportInstance.samplereport.istio-system ]
+  - handler: fakeHandlerConfig.fakeHandler
+    instances:
+    - reportInstance.samplereport
 
 ---
 `
