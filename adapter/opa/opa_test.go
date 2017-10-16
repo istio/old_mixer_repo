@@ -32,10 +32,6 @@ import (
 func TestSinglePolicy(t *testing.T) {
 	info := GetInfo()
 
-	if !contains(info.SupportedTemplates, authz.TemplateName) {
-		t.Error("Didn't find all expected supported templates")
-	}
-
 	b := info.NewBuilder().(*builder)
 
 	b.SetAuthzTypes(map[string]*authz.Type{
@@ -123,10 +119,6 @@ func TestSinglePolicy(t *testing.T) {
 
 func TestMultiplePolicy(t *testing.T) {
 	info := GetInfo()
-
-	if !contains(info.SupportedTemplates, authz.TemplateName) {
-		t.Error("Didn't find all expected supported templates")
-	}
 
 	b := info.NewBuilder().(*builder)
 
@@ -300,10 +292,6 @@ func TestFailOpenClose(t *testing.T) {
 
 	info := GetInfo()
 
-	if !contains(info.SupportedTemplates, authz.TemplateName) {
-		t.Error("Didn't find all expected supported templates")
-	}
-
 	for _, c := range cases {
 		b := info.NewBuilder().(*builder)
 
@@ -353,13 +341,4 @@ func TestFailOpenClose(t *testing.T) {
 			t.Errorf("Got error %v, expecting success", err)
 		}
 	}
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
