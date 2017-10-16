@@ -84,7 +84,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	modules := map[string]*ast.Module{}
 	for _, policy := range b.adapterConfig.Policy {
 		filename := b.getShaHash(policy)
-		if filename == "" {
+		if modules[filename] != nil {
 			b.configError = true
 			return
 		}

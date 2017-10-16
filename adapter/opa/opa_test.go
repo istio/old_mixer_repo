@@ -29,6 +29,56 @@ import (
 	"istio.io/mixer/template/authz"
 )
 
+func TestConfigurationValidate(t *testing.T) {
+	info := GetInfo()
+
+	cases := map[string]struct {
+		policies      []string
+		checkMethod   string
+		errorExpected bool
+	}{
+		"CheckMethod is empty": {
+			policies:      []string{""},
+			checkMethod:   "",
+			errorExpected: true,
+		},
+		"Duplicated policy": {
+			policies: []string{
+				`package mixerauthz`,
+				`package mixerauthz`,
+			},
+			checkMethod:   "",
+			errorExpected: true,
+		},
+		"Policy compile error": {
+			policies: []string{
+				"invalid OPA policy",
+			},
+			checkMethod:   "",
+			errorExpected: true,
+		},
+	}
+
+	for id, c := range cases {
+		b := info.NewBuilder().(*builder)
+
+		b.SetAuthzTypes(map[string]*authz.Type{})
+
+		b.SetAdapterConfig(&config.Params{
+			Policy:      c.policies,
+			CheckMethod: c.checkMethod,
+		})
+
+		if err := b.Validate(); err != nil {
+			t.Fatalf("%v: Got error %v, expecting success", id, err)
+		}
+
+		if b.configError != c.errorExpected {
+			t.Fatalf("%v: Got %v, expecting %v", id, b.configError, c.errorExpected)
+		}
+	}
+}
+
 func TestSinglePolicy(t *testing.T) {
 	info := GetInfo()
 
