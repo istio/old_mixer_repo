@@ -32,6 +32,6 @@ go_test(
         "//pkg/status:go_default_library",
         "//template/authz:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//:mixer/v1/config/descriptor",
     ],
 )
