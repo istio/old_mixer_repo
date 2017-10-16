@@ -1,5 +1,9 @@
 workspace(name = "com_github_istio_mixer")
 
+load(":check_bazel_version.bzl", "check_version")
+
+check_version()
+
 git_repository(
     name = "io_bazel_rules_go",
     commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
