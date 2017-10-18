@@ -7,6 +7,7 @@ load(":inventory.bzl", "inventory_library")
 inventory_library(
     name = "go_default_library",
     packages = {
+        "opa": "istio.io/mixer/adapter/opa",
         "denier": "istio.io/mixer/adapter/denier",
         "list": "istio.io/mixer/adapter/list",
         "noop": "istio.io/mixer/adapter/noop",
@@ -22,6 +23,7 @@ inventory_library(
         "//adapter/list:go_default_library",
         "//adapter/memquota:go_default_library",
         "//adapter/noop:go_default_library",
+        "//adapter/opa:go_default_library",
         "//adapter/prometheus:go_default_library",
         "//adapter/stackdriver:go_default_library",
         "//adapter/statsd:go_default_library",
