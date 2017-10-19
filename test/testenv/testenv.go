@@ -44,7 +44,7 @@ func NewEnv(args *Args, info map[string]template.Info, adapters []adapter.InfoFn
 		return nil, err
 	}
 
-	context := cmd.SetupTestServer(info, adapters, args.ConfigStoreURL, args.ConfigStore2URL,
+	context := cmd.SetupTestServer(info, adapters, []adapter.RegisterFn{}, args.ConfigStoreURL, args.ConfigStore2URL,
 		args.ConfigDefaultNamespace, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, args.UseAstEvaluator)
 	shutdown := make(chan struct{})
 
@@ -87,14 +87,14 @@ func (env *testEnv) Close() error {
 }
 
 // GetAttrBag creates Attributes proto.
-func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) mixerpb.Attributes {
+func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) mixerpb.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
 	requestBag.Set(identityAttr, identityAttrDomain)
 	for k, v := range attrs {
 		requestBag.Set(k, v)
 	}
 
-	var attrProto mixerpb.Attributes
+	var attrProto mixerpb.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 	return attrProto
 }
