@@ -158,7 +158,8 @@ func (v *ValidatorServer) StartWebhook(port uint16, certProvider CertProvider) e
 	}
 	// ensureRegistration can fail if external admission webhook is not yet ready.
 	if err = v.ensureRegistration(caCert); err != nil {
-		glog.V(3).Infof("Failed to register the validation server as the webhook: %v", err)
+		glog.Infof("Failed to register the validation server as the webhook: %v", err)
+		return nil
 	}
 	glog.Infof("External admission webhook starting with port %d", port)
 	return server.ListenAndServeTLS("", "")

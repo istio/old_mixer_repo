@@ -51,13 +51,13 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 			runValidator(vc, printf, fatalf)
 		},
 	}
-	validatorCmd.PersistentFlags().StringVar(&vc.namespace, "namespace", "default", "the namespace where this webhook is deployed")
+	validatorCmd.PersistentFlags().StringVar(&vc.namespace, "namespace", "istio-system", "the namespace where this webhook is deployed")
 	validatorCmd.PersistentFlags().StringVar(&vc.name, "webhook-name", "istio-mixer-webhook", "the name of the webhook")
 	validatorCmd.PersistentFlags().StringArrayVar(&vc.targetNamespaces, "target-namespaces", []string{},
 		"the list of namespaces where changes should be validated. Empty means to validate everything.")
-	validatorCmd.PersistentFlags().Uint16VarP(&vc.port, "port", "p", 9099, "the port number of the server")
+	validatorCmd.PersistentFlags().Uint16VarP(&vc.port, "port", "p", 9099, "the port number of the webhook")
 	validatorCmd.PersistentFlags().Uint16Var(&vc.httpPort, "http-port", 9199, "the port number to access to the server through plain http")
-	validatorCmd.PersistentFlags().StringVar(&vc.certsDir, "certs", "/etc/certs", "the directory name where cert files are stored")
+	validatorCmd.PersistentFlags().StringVar(&vc.certsDir, "certs", "", "the directory name where cert files are stored")
 	validatorCmd.PersistentFlags().StringVar(&vc.secretName, "secret-name", "", "The name of k8s secret where the certificates are stored")
 	return validatorCmd
 }
@@ -86,10 +86,16 @@ func createValidatorServer(vc *validatorConfig, client kubernetes.Interface) (*c
 }
 
 func createCertProvider(vc *validatorConfig, client *kubernetes.Clientset) crd.CertProvider {
+	if client == nil {
+		return nil
+	}
 	if vc.secretName != "" {
 		return crd.NewSecretCertProvider(client.CoreV1().Secrets(vc.namespace), vc.secretName)
 	}
-	return crd.NewFileCertProvider(vc.certsDir)
+	if vc.certsDir != "" {
+		return crd.NewFileCertProvider(vc.certsDir)
+	}
+	return nil
 }
 
 func runValidator(vc *validatorConfig, printf, fatalf shared.FormatFn) {
@@ -103,9 +109,10 @@ func runValidator(vc *validatorConfig, printf, fatalf shared.FormatFn) {
 	if err != nil {
 		fatalf("Failed to create validator server: %v", err)
 	}
-	if client != nil {
+	cp := createCertProvider(vc, client)
+	if client != nil && cp != nil {
 		go func() {
-			if err = vs.StartWebhook(vc.port, createCertProvider(vc, client)); err != nil {
+			if err = vs.StartWebhook(vc.port, cp); err != nil {
 				fatalf("Failed to start validator server: %v", err)
 			}
 		}()
