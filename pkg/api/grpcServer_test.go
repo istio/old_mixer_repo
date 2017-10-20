@@ -239,7 +239,7 @@ func TestCheck(t *testing.T) {
 
 	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
 		if val, _ := requestBag.Get("A1"); val == "override" {
-			return nil, errors.New("Attribute overriding allowed in Check()!")
+			return nil, errors.New("attribute overriding not allowed in Check")
 		}
 		return &adapter.CheckResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
@@ -389,7 +389,7 @@ func TestReport(t *testing.T) {
 
 	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
 		if val, _ := requestBag.Get("A1"); val == "override" {
-			return errors.New("Attribute overriding allowed in Check()!")
+			return errors.New("attribute overriding NOT allowed in Check")
 		}
 		return nil
 	}

@@ -138,7 +138,9 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	out := s.aspectDispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag)
 
 	mutableBag := attribute.GetMutableBag(requestBag)
-	mutableBag.PreserveMerge(preprocResponseBag)
+	if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+		out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+	}
 	compatRespBag := &compatBag{mutableBag}
 
 	if !status.IsOK(out) {
@@ -302,6 +304,11 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		glog.V(1).Info("Dispatching Preprocess")
 		out := s.aspectDispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag)
+		mutableBag := attribute.GetMutableBag(requestBag)
+		if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+		}
+		compatRespBag := &compatBag{mutableBag}
 		if !status.IsOK(out) {
 			glog.Error("Preprocess returned with: ", status.String(out))
 			err = makeGRPCError(out)
@@ -309,11 +316,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			span.Finish()
 			break
 		}
-		glog.V(1).Info("Preprocess returned with: ", status.String(out))
-
-		mutableBag := attribute.GetMutableBag(requestBag)
-		mutableBag.PreserveMerge(preprocResponseBag)
-		compatRespBag := &compatBag{mutableBag}
+		glog.V(1).Info("Preprocess returnl ed with: ", status.String(out))
 
 		if glog.V(2) {
 			glog.Info("Dispatching to main adapters after running processors")
