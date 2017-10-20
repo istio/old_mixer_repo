@@ -16,9 +16,11 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
@@ -30,6 +32,42 @@ var ErrNotFound = errors.New("not found")
 
 // ErrWatchAlreadyExists is the error to report that the watching channel already exists.
 var ErrWatchAlreadyExists = errors.New("watch already exists")
+
+// UnmarshalJSON implements json.Unmarshaler interface.
+func (t *ChangeType) UnmarshalJSON(b []byte) error {
+	var i int
+	if err := json.Unmarshal(b, &i); err == nil {
+		if i == int(Update) || i == int(Delete) {
+			*t = ChangeType(i)
+			return nil
+		}
+		return fmt.Errorf("%d is neither update nor delete", i)
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return fmt.Errorf("%s is neither string nor number", b)
+	}
+	switch strings.ToLower(s) {
+	case "update":
+		*t = Update
+	case "delete":
+		*t = Delete
+	default:
+		return fmt.Errorf("unknown change type %s", s)
+	}
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler interface.
+func (t ChangeType) MarshalJSON() ([]byte, error) {
+	switch t {
+	case Update:
+		return []byte(`"update"`), nil
+	case Delete:
+		return []byte(`"delete"`), nil
+	}
+	return nil, fmt.Errorf("invalid change type %d", t)
+}
 
 // Key represents the key to identify a resource in the store.
 type Key struct {
@@ -56,8 +94,19 @@ type ResourceMeta struct {
 
 // BackEndResource represents a resources with a raw spec
 type BackEndResource struct {
-	Metadata ResourceMeta
-	Spec     map[string]interface{}
+	APIVersion string `json:"apiVersion"`
+	Kind       string
+	Metadata   ResourceMeta
+	Spec       map[string]interface{}
+}
+
+// Key returns the key in the resource.
+func (r *BackEndResource) Key() Key {
+	return Key{
+		Kind:      r.Kind,
+		Name:      r.Metadata.Name,
+		Namespace: r.Metadata.Namespace,
+	}
 }
 
 // Resource represents a resources with converted spec.
@@ -83,9 +132,15 @@ type Event struct {
 	Value *Resource
 }
 
+// BackendValidator defines the interface between Store2Backend and Store for validation
+// requests.
+type BackendValidator interface {
+	Validate([]*BackendEvent) error
+}
+
 // Validator defines the interface to validate a new change.
 type Validator interface {
-	Validate(t ChangeType, key Key, spec proto.Message) bool
+	Validate([]*Event) error
 }
 
 // Store2Backend defines the typeless storage backend for mixer.
