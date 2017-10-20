@@ -32,7 +32,8 @@ func (v *fakeValidator) Validate([]*Event) error {
 	return v.err
 }
 
-func backendEvent(t ChangeType, kind, namespace, name string, spec map[string]interface{}) *BackendEvent {
+func backendEvent(t ChangeType, kind, name string, spec map[string]interface{}) *BackendEvent {
+	namespace := "ns"
 	return &BackendEvent{
 		Type: t,
 		Key:  Key{Kind: kind, Namespace: namespace, Name: name},
@@ -60,7 +61,7 @@ func TestValidate(t *testing.T) {
 				"Handler": &cfg.Handler{},
 			},
 			nil,
-			[]*BackendEvent{backendEvent(Update, "Handler", "ns", "foo", map[string]interface{}{"adapter": "noop", "name": "default"})},
+			[]*BackendEvent{backendEvent(Update, "Handler", "foo", map[string]interface{}{"adapter": "noop", "name": "default"})},
 			nil,
 		},
 		{
@@ -69,14 +70,14 @@ func TestValidate(t *testing.T) {
 				"Handler": &cfg.Handler{},
 			},
 			nil,
-			[]*BackendEvent{backendEvent(Delete, "Handler", "ns", "foo", nil)},
+			[]*BackendEvent{backendEvent(Delete, "Handler", "foo", nil)},
 			nil,
 		},
 		{
 			"unknown kinds",
 			map[string]proto.Message{},
 			errors.New("fail"),
-			[]*BackendEvent{backendEvent(Update, "Unknown", "ns", "foo", map[string]interface{}{"foo": "bar"})},
+			[]*BackendEvent{backendEvent(Update, "Unknown", "foo", map[string]interface{}{"foo": "bar"})},
 			nil,
 		},
 		{
@@ -84,8 +85,8 @@ func TestValidate(t *testing.T) {
 			map[string]proto.Message{ruleKind: &cfg.Rule{}},
 			errors.New("fail on known kind"),
 			[]*BackendEvent{
-				backendEvent(Update, "Unknown", "ns", "foo", map[string]interface{}{"foo": "bar"}),
-				backendEvent(Update, ruleKind, "ns", "bar", map[string]interface{}{"match": "match rule"}),
+				backendEvent(Update, "Unknown", "foo", map[string]interface{}{"foo": "bar"}),
+				backendEvent(Update, ruleKind, "bar", map[string]interface{}{"match": "match rule"}),
 			},
 			errors.New("fail on known kind"),
 		},
@@ -93,21 +94,21 @@ func TestValidate(t *testing.T) {
 			"external validator failures",
 			map[string]proto.Message{"Handler": &cfg.Handler{}},
 			errors.New("external validator failure"),
-			[]*BackendEvent{backendEvent(Update, "Handler", "ns", "foo", map[string]interface{}{"adapter": "noop", "name": "default"})},
+			[]*BackendEvent{backendEvent(Update, "Handler", "foo", map[string]interface{}{"adapter": "noop", "name": "default"})},
 			errors.New("external validator failure"),
 		},
 		{
 			"external validator failures on delete",
 			map[string]proto.Message{"Handler": &cfg.Handler{}},
 			errors.New("external validator failure"),
-			[]*BackendEvent{backendEvent(Delete, "Handler", "ns", "foo", nil)},
+			[]*BackendEvent{backendEvent(Delete, "Handler", "foo", nil)},
 			errors.New("external validator failure"),
 		},
 		{
 			"deprecated field",
 			map[string]proto.Message{ruleKind: &cfg.Rule{}},
 			nil,
-			[]*BackendEvent{backendEvent(Update, ruleKind, "ns", "foo", map[string]interface{}{"selector": "selector"})},
+			[]*BackendEvent{backendEvent(Update, ruleKind, "foo", map[string]interface{}{"selector": "selector"})},
 			errors.New("field 'selector' is deprecated"),
 		},
 	} {

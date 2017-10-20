@@ -371,7 +371,7 @@ func Test_cleanupResolver(t *testing.T) {
 	cleanupSleepTime = cr
 }
 
-func waitFor(t *testing.T, tm time.Duration, done chan bool) bool {
+func waitFor(t *testing.T, tm time.Duration, done chan bool) {
 	tc := time.NewTimer(tm).C
 	ok := false
 	select {
@@ -383,7 +383,6 @@ func waitFor(t *testing.T, tm time.Duration, done chan bool) bool {
 	if !ok {
 		t.Fatal("changes did not appear")
 	}
-	return ok
 }
 
 func Test_WaitForChanges(t *testing.T) {
