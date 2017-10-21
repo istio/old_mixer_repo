@@ -21,8 +21,12 @@ import (
 
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	legacyContext "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -128,6 +132,13 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	requestBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
 
+	if reqID, found := requestBag.Get("request.id"); found {
+		tags.Extract(legacyCtx).Set("request.id", reqID)
+	}
+	requestBag.ClearReferencedAttributes()
+
+	logger := grpc_zap.Extract(legacyCtx)
+
 	globalWordCount := int(req.GlobalWordCount)
 
 	// compatReqBag ensures that preprocessor input handles deprecated attributes gracefully.
@@ -136,24 +147,35 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	// compatRespBag ensures that check input handles deprecated attributes gracefully.
 	compatRespBag := &compatBag{preprocResponseBag}
 
-	glog.V(1).Info("Dispatching Preprocess Check")
+	if logger.Core().Enabled(zapcore.InfoLevel) {
+		logger.Info("Dispatching Preprocess")
+	}
+
 	out := s.aspectDispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag)
 
 	if !status.IsOK(out) {
-		glog.Error("Preprocess Check returned with: ", status.String(out))
+		if logger.Core().Enabled(zapcore.ErrorLevel) {
+			logger.Info("Preprocess Check returned with: " + status.String(out))
+		}
 		requestBag.Done()
 		preprocResponseBag.Done()
 		return nil, makeGRPCError(out)
 	}
-	glog.V(1).Info("Preprocess Check returned with: ", status.String(out))
+	if logger.Core().Enabled(zapcore.InfoLevel) {
+		logger.Info("Preprocess Check returned with: " + status.String(out))
+	}
 
-	if glog.V(2) {
-		glog.Info("Dispatching to main adapters after running processors")
-		glog.Infof("Attribute Bag: \n%s", preprocResponseBag.DebugString())
+	if logger.Core().Enabled(zapcore.DebugLevel) {
+		logger.Debug("Dispatching to main adapters after running processors.", zap.String("attributes", preprocResponseBag.DebugString()))
 	}
 	dest, _ := compatRespBag.Get("destination.service")
+	tags.Extract(legacyCtx).Set("destination.service", dest)
+	logger = logger.With(zap.String("destination.service", dest.(string)))
 
-	glog.V(1).Info("Dispatching Check")
+	if logger.Core().Enabled(zapcore.InfoLevel) {
+		logger.Info("Dispatching Check")
+	}
+
 	cr, err := s.dispatcher.Check(legacyCtx, compatRespBag)
 	if err != nil {
 		out = status.WithError(err)
@@ -176,9 +198,9 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	}
 
 	if status.IsOK(out) {
-		glog.V(2).Info("Check returned with ok")
+		logger.Debug("Check successful", zap.String("handler.response.code", "OK"))
 	} else {
-		glog.Error("Check returned with error : ", status.String(out))
+		logger.Warn(out.Message, zap.String("handler.response.code", rpc.Code_name[out.Code]), zap.Any("handler.response.details", out.Details))
 	}
 	requestBag.ClearReferencedAttributes()
 
@@ -216,11 +238,12 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				}
 			}
 
-			msg := ""
+			msg := "Quota Allocated"
 			if qr.GrantedAmount == 0 {
-				msg = "exhausted"
+				msg = "Quota NOT Allocated"
 			}
-			glog.V(1).Infof("AccessLog Quota %s %d/%d %s", dest, qr.GrantedAmount, qma.Amount, msg)
+			quotaLogger := logger.Named("quota")
+			quotaLogger.Debug(msg, zap.Int64("quota.result.granted", qr.GrantedAmount), zap.Duration("quota.result.validity", qr.ValidDuration))
 
 			qr.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = *qr
@@ -239,11 +262,13 @@ func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.
 	if d == nil {
 		return nil, nil
 	}
-	glog.V(1).Infof("Dispatching Quota2: %s", qma.Quota)
+
+	logger := grpc_zap.Extract(legacyCtx)
+	logger.Info("Dispatching Quota", zap.String("quota", qma.Quota))
 	qmr, err := d.Quota(legacyCtx, bag, qma)
 	if err != nil {
 		// TODO record the error in the quota specific result
-		glog.Warningf("Quota2 %s returned error: %v", qma.Quota, err)
+		logger.Warn("Quota Error", zap.String("quota", qma.Quota), zap.Error(err))
 		return nil, err
 	}
 
@@ -251,9 +276,8 @@ func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.
 		return nil, nil
 	}
 
-	if glog.V(2) {
-		glog.Infof("Quota2 %s returned: %v", qma.Quota, qmr)
-	}
+	logger.Debug("Quota finished", zap.String("quota", qma.Quota), zap.Any("result", qmr))
+
 	return &mixerpb.CheckResponse_QuotaResult{
 		GrantedAmount: qmr.Amount,
 		ValidDuration: qmr.ValidDuration,
@@ -284,9 +308,13 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	// compatRespBag ensures that report input handles deprecated attributes gracefully.
 	compatRespBag := &compatBag{preprocResponseBag}
 
+	logger := grpc_zap.Extract(legacyCtx)
+
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
 		span, newctx := opentracing.StartSpanFromContext(legacyCtx, fmt.Sprintf("Attributes %d", i))
+
+		logger = logger.With(zap.Int("report.id", i))
 
 		// the first attribute block is handled by the protoBag as a foundation,
 		// deltas are applied to the child bag (i.e. requestBag)
@@ -294,44 +322,54 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			err = requestBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList)
 			if err != nil {
 				msg := "Request could not be processed due to invalid attributes."
-				glog.Error(msg, "\n", err)
+				logger.Error(msg)
 				details := status.NewBadRequest("attributes", err)
 				err = makeGRPCError(status.InvalidWithDetails(msg, details))
 				break
 			}
 		}
 
-		glog.V(1).Info("Dispatching Preprocess")
+		if reqID, found := requestBag.Get("request.id"); found {
+			logger = logger.With(zap.String("request.id", reqID.(string)))
+		}
+
+		if logger.Core().Enabled(zapcore.DebugLevel) {
+			logger.Info("Dispatching Preprocess")
+		}
 		out := s.aspectDispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag)
 		if !status.IsOK(out) {
-			glog.Error("Preprocess returned with: ", status.String(out))
+			logger.Error(out.Message, zap.String("handler.response.code", rpc.Code_name[out.Code]), zap.Any("handler.response.details", out.Details))
 			err = makeGRPCError(out)
 			span.LogFields(log.String("error", err.Error()))
 			span.Finish()
 			break
 		}
-		glog.V(1).Info("Preprocess returned with: ", status.String(out))
-
-		if glog.V(2) {
-			glog.Info("Dispatching to main adapters after running processors")
-			glog.Infof("Attribute Bag: \n%s", preprocResponseBag.DebugString())
+		if logger.Core().Enabled(zapcore.InfoLevel) {
+			logger.Info("Preprocess successful", zap.String("handler.response.code", rpc.Code_name[out.Code]), zap.Any("handler.response.details", out.Details))
 		}
 
-		glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
+		if logger.Core().Enabled(zapcore.DebugLevel) {
+			logger.Debug("Dispatching to main adapters after running processors", zap.String("attribute bag", preprocResponseBag.DebugString()))
+		}
+
+		if logger.Core().Enabled(zapcore.InfoLevel) {
+			logger.Info("Dispatching Report")
+		}
 		err = s.dispatcher.Report(legacyCtx, compatRespBag)
 		if err != nil {
 			out = status.WithError(err)
-			glog.Warningf("Report returned %v", err)
+			logger.Warn("Report error", zap.Error(err))
 		}
 
 		if !status.IsOK(out) {
-			glog.Errorf("Report %d returned with: %s", i, status.String(out))
+			logger.Error(out.Message, zap.String("handler.response.code", rpc.Code_name[out.Code]), zap.Any("handler.response.details", out.Details))
 			err = makeGRPCError(out)
 			span.LogFields(log.String("error", err.Error()))
 			span.Finish()
 			break
 		}
-		glog.V(1).Infof("Report %d returned with: %s", i, status.String(out))
+
+		logger.Info("Report finished", zap.String("handler.response.code", rpc.Code_name[out.Code]), zap.Any("handler.response.details", out.Details))
 
 		span.LogFields(log.String("success", fmt.Sprintf("finished Report for attribute bag %d", i)))
 		span.Finish()
