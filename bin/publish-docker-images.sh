@@ -25,7 +25,7 @@ function docker_push() {
   fi
 }
 
-BAZEL_IMAGES=('mixer' 'mixer_debug')
+BAZEL_IMAGES=('mixer_ubuntu' 'mixer_ubuntu_debug' 'mixer_centos' 'mixer_centos_debug')
 IMAGES=()
 TAGS=''
 HUBS=''
