@@ -17,6 +17,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -139,19 +140,27 @@ func TestQueueCancelSync(t *testing.T) {
 			Value: &BackEndResource{},
 		}
 	}
+	// Wait for the queue's run loop to process chin.
+	time.Sleep(time.Millisecond)
 	cancel()
 	// Wait for the queue's run loop to end.
 	time.Sleep(time.Millisecond)
 	// Read the bufferred events.
+	emptyEv := Event{}
 	for i := 0; i < choutBufSize; i++ {
 		ev := <-q.chout
+		if reflect.DeepEqual(ev, emptyEv) {
+			// ev can be empty; this happens when run() goroutine doesn't run enough
+			// before cancel() is called.
+			break
+		}
 		if ev.Name != fmt.Sprintf("%d", i) {
 			t.Errorf("Got name %s Want %d", ev.Name, i)
 		}
 	}
 	// After the buffer runs out, it should return an empty since it's closed due to cancel.
 	ev := <-q.chout
-	if ev.Name != "" {
-		t.Errorf("Got %+v, Want empty", ev)
+	if !reflect.DeepEqual(ev, emptyEv) {
+		t.Errorf("Got %+v, Want empty %+v", ev, emptyEv)
 	}
 }
