@@ -2,7 +2,8 @@
 # gazelle:ignore
 
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//docker:mixer_docker.bzl", "mixer_docker_build")
+load("//docker:mixer_docker.bzl", "mixer_docker_ubuntu_build")
+load("//docker:mixer_docker.bzl", "mixer_docker_fedora_build")
 load(":cacerts.bzl", "cacerts")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
@@ -27,7 +28,7 @@ cacerts(
     name = "cacerts",
 )
 
-mixer_docker_build(
+mixer_docker_ubuntu_build(
     cmd = [
         "--configStoreURL=fs:///etc/opt/mixer/configroot",
         "--configStore2URL=k8s://",
@@ -51,6 +52,43 @@ mixer_docker_build(
         {
             "name": "mixer_debug",
             "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
+    ports = [
+        "9091",
+        "9093",
+        "9094",
+        "42422",
+    ],
+    repository = "istio",
+    tags = ["manual"],
+    tars = [
+        ":mixer_tar",
+        "//testdata:configs_tar",
+        ":cacerts.tar",
+    ],
+)
+
+mixer_docker_fedora_build(
+    entrypoint = [
+        "/usr/local/bin/mixs",
+        "server",
+    ],
+    cmd = [
+        "--configStoreURL=fs:///etc/opt/mixer/configroot",
+        "--configStore2URL=k8s://",
+        "--logtostderr",
+        "--v=2",
+        "--traceOutput=http://zipkin:9411/api/v1/spans",
+    ],
+    images = [
+        {
+            "name": "mixer_fedora",
+            "base": "@docker_fedora//:f26",
+        },
+        {
+            "name": "mixer_fedora_debug",
+            "base": "@ubuntu_fedora_debug//file",
         },
     ],
     ports = [
