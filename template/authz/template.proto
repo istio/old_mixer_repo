@@ -30,8 +30,8 @@ message Template {
   // known fields:
   // - namespace: Namespace the target action is taking place in.
   // - service: The Service the action is being taken on.
-  // - method: The what action is being taken.
-  // - path: The resource within the service.
+  // - method: HTTP method or gRPC method.
+  // - path: HTTP REST paths. It is ignored in gRPC case.
   map<string, istio.mixer.v1.config.descriptor.ValueType> action = 2;
 
 }
