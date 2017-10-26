@@ -13,6 +13,7 @@ go_library(
         "store.go",
         "store2.go",
         "testutil.go",
+        "validator.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -20,6 +21,7 @@ go_library(
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
 )
 
@@ -33,6 +35,7 @@ go_test(
         "queue_test.go",
         "store2_test.go",
         "store_test.go",
+        "validator_test.go",
     ],
     library = ":go_default_library",
     deps = [

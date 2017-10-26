@@ -371,20 +371,18 @@ func Test_cleanupResolver(t *testing.T) {
 	cleanupSleepTime = cr
 }
 
-// nolint: unparam
-func waitFor(t *testing.T, tm time.Duration, done chan bool, msg string) bool {
+func waitFor(t *testing.T, tm time.Duration, done chan bool) {
 	tc := time.NewTimer(tm).C
 	ok := false
 	select {
 	case ok = <-done:
 	case <-tc:
-		t.Fatalf("time out waiting for %s", msg)
+		t.Fatalf("time out waiting for changes")
 	}
 
 	if !ok {
-		t.Fatal(msg)
+		t.Fatal("changes did not appear")
 	}
-	return ok
 }
 
 func Test_WaitForChanges(t *testing.T) {
@@ -408,11 +406,11 @@ func Test_WaitForChanges(t *testing.T) {
 
 	wch <- store.Event{}
 	wch <- store.Event{}
-	waitFor(t, 2*watchFlushDuration, done, "changes did not appear")
+	waitFor(t, 2*watchFlushDuration, done)
 
 	nevents = 1
 	wch <- store.Event{}
-	waitFor(t, 2*watchFlushDuration, done, "changes did not appear")
+	waitFor(t, 2*watchFlushDuration, done)
 
 	watchFlushDuration = wd
 }
@@ -669,7 +667,7 @@ func TestController_KindMap(t *testing.T) {
 		},
 	}
 
-	km := kindMap(ai, ti)
+	km := KindMap(ai, ti)
 
 	want := map[string]proto.Message{
 		"t1":                  &cpb.Instance{},
