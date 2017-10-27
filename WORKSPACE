@@ -114,6 +114,14 @@ go_googleapis_repositories()
 go_istio_api_repositories(False)
 
 new_http_archive(
+    name = "docker_fedora",
+    build_file = "BUILD.fedora",
+    sha256 = "c8b427ead6823cd561ae7a875a852ceed75b900dbb56ca4253c52d83b1485fa6",
+    type = "tar.xz",
+    url = "https://mirrors.cat.pdx.edu/fedora/linux/releases/26/Docker/x86_64/images/Fedora-Container-Minimal-Base-26-1.5.x86_64.tar.xz",
+)
+
+new_http_archive(
     name = "docker_ubuntu",
     build_file = "BUILD.ubuntu",
     sha256 = "2c63dd81d714b825acd1cb3629c57d6ee733645479d0fcdf645203c2c35924c5",
