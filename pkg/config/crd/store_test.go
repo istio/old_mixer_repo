@@ -42,20 +42,30 @@ const testingRetryTimeout = 10 * time.Millisecond
 // The timeout for "waitFor" function, waiting for the expected event to come.
 const waitForTimeout = time.Second
 
-func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
+func fakeDiscovery(names []string) *fake.FakeDiscovery {
+	resources := make([]metav1.APIResource, len(names))
+	for i, name := range names {
+		resources[i] = metav1.APIResource{
+			Name:         name + "s",
+			SingularName: name,
+			Kind:         name,
+			Namespaced:   true,
+		}
+	}
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: apiGroupVersion,
-					APIResources: []metav1.APIResource{
-						{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
-						{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
-					},
+					APIResources: resources,
 				},
 			},
 		},
-	}, nil
+	}
+}
+
+func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
+	return fakeDiscovery([]string{"Handler", "Action"}), nil
 }
 
 type dummyListerWatcherBuilder struct {

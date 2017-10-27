@@ -26,18 +26,27 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["store_test.go"],
+    srcs = [
+        "benchmark_test.go",
+        "store_test.go",
+    ],
     library = ":go_default_library",
     deps = [
         "//pkg/config/store:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_apimachinery//pkg/types:go_default_library",
         "@io_k8s_apimachinery//pkg/watch:go_default_library",
         "@io_k8s_client_go//discovery:go_default_library",
         "@io_k8s_client_go//discovery/fake:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//testing:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
+        "@io_k8s_client_go//tools/clientcmd:go_default_library",
     ],
 )
