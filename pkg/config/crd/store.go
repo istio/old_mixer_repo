@@ -50,6 +50,9 @@ const (
 	crdRetryTimeout = time.Second * 30
 )
 
+// Logging for the retry of fetching CRDs should happen only once in this count.
+const logRetryCount = 100
+
 // The interval to wait between the attempt to initialize caches. This is not const
 // to allow changing the value for unittests.
 var retryInterval = time.Second / 2
@@ -101,6 +104,14 @@ type Store struct {
 
 var _ store.Store2Backend = &Store{}
 
+func mapKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
 // and then create caches through lwBUilder which is in kinds. It retries within the timeout duration.
 // If the timeout duration is 0, it waits forever (which should be done within a goroutine).
@@ -108,6 +119,7 @@ var _ store.Store2Backend = &Store{}
 func (s *Store) checkAndCreateCaches(
 	ctx context.Context,
 	timeout time.Duration,
+	logLevel glog.Level,
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
 	kinds []string) (informers map[string]cache.SharedInformer, remaining []string) {
@@ -116,19 +128,21 @@ func (s *Store) checkAndCreateCaches(
 		kindsSet[k] = true
 	}
 	informers = map[string]cache.SharedInformer{}
-	retry := false
+	retryCount := 0
 	retryCtx := ctx
 	if timeout > 0 {
 		var cancel context.CancelFunc
 		retryCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
-	for added := 0; added < len(kinds); {
+	for len(kindsSet) > 0 {
 		if retryCtx.Err() != nil {
 			break
 		}
-		if retry {
-			glog.V(4).Infof("Retrying to fetch config...")
+		if retryCount > 0 {
+			if retryCount%logRetryCount == 1 {
+				glog.V(logLevel).Infof("Retrying to fetch config. Remaining resources: %+v", mapKeys(kindsSet))
+			}
 			time.Sleep(retryInterval)
 		}
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
@@ -149,17 +163,12 @@ func (s *Store) checkAndCreateCaches(
 				delete(kindsSet, res.Kind)
 				informer.AddEventHandler(s)
 				go informer.Run(ctx.Done())
-				added++
 			}
 		}
 		s.cacheMutex.Unlock()
-		retry = true
+		retryCount++
 	}
-	remaining = make([]string, 0, len(kindsSet))
-	for k := range kindsSet {
-		remaining = append(remaining, k)
-	}
-	return informers, remaining
+	return informers, mapKeys(kindsSet)
 }
 
 // Init implements store.Store2Backend interface.
@@ -173,10 +182,11 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 		return err
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
-	informers, remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
+	informers, remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, 4, d, lwBuilder, kinds)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
-		go s.checkAndCreateCaches(ctx, 0, d, lwBuilder, remainingKinds)
+		glog.V(4).Infof("Still missing %+v; continue checking them background", remainingKinds)
+		go s.checkAndCreateCaches(ctx, 0, 6, d, lwBuilder, remainingKinds)
 	}
 	<-waitForSynced(ctx, informers)
 	return nil
