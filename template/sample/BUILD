@@ -26,7 +26,10 @@ go_test(
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
+        "//pkg/config/descriptor:go_default_library",
+        "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
+        "//pkg/il/evaluator:go_default_library",
         "//template/sample/check:go_default_library",
         "//template/sample/quota:go_default_library",
         "//template/sample/report:go_default_library",
