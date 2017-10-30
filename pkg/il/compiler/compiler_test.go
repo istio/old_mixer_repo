@@ -806,6 +806,13 @@ end`,
 	{
 		expr: `ar["c"] | "foo"`,
 		input: map[string]interface{}{
+			"ar": map[string]string{},
+		},
+		result: "foo",
+	},
+	{
+		expr: `ar["c"] | "foo"`,
+		input: map[string]interface{}{
 			"ar": map[string]string{"c": "b"},
 		},
 		result: "b",
