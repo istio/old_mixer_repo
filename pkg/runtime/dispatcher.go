@@ -172,6 +172,8 @@ func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, var
 			})
 		}
 	}
+
+	ctx = newContextWithRequestData(ctx, requestBag)
 	return m.run(ctx, ra)
 }
 
