@@ -35,7 +35,7 @@ type RequestData struct {
 // other packages.
 type reqDataKey int
 
-// RequestDataKey is the context key for the RequestData object. If this package defined other context keys,
+// requestDataKey is the context key for the RequestData object. If this package defined other context keys,
 // they would have different integer values.
 const requestDataKey reqDataKey = 0
 
