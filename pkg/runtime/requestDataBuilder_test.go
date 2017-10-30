@@ -52,7 +52,7 @@ func TestNewContextWithRequestData(t *testing.T) {
 				requestBag.Set(k, v)
 			}
 
-			gotReqData := newContextWithRequestData(ctx, requestBag).Value("requestdata")
+			gotReqData, _ := adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
 			if !reflect.DeepEqual(gotReqData, tc.want) {
 				t.Errorf("newContextWithRequestData with attrs '%v' => RequestData %v, want %v", tc.attrs, gotReqData, tc.want)
 			}
@@ -66,7 +66,7 @@ func TestNewContextWithRequestData_AlreadyContainsReqData(t *testing.T) {
 	requestBag := attribute.GetMutableBag(nil)
 
 	requestBag.Set("destination.service", "one.com")
-	gotReqData := newContextWithRequestData(ctx, requestBag).Value("requestdata")
+	gotReqData, _ := adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
 	wantReqData := adapter.RequestData{Destination: adapter.Service{FullName: "one.com"}}
 	if !reflect.DeepEqual(gotReqData, wantReqData) {
 		t.Errorf("TestNewContextWithRequestData_AlreadyContainsReqData with attribute '%v' => RequestData %v, "+
@@ -74,7 +74,7 @@ func TestNewContextWithRequestData_AlreadyContainsReqData(t *testing.T) {
 	}
 
 	requestBag.Set("destination.service", "two.com")
-	gotReqData = newContextWithRequestData(ctx, requestBag).Value("requestdata")
+	gotReqData, _ = adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
 	wantReqData = adapter.RequestData{Destination: adapter.Service{FullName: "two.com"}}
 	if !reflect.DeepEqual(gotReqData, wantReqData) {
 		t.Errorf("TestNewContextWithRequestData_AlreadyContainsReqData with attribute '%v' => RequestData %v, "+

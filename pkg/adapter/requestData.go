@@ -31,12 +31,22 @@ type RequestData struct {
 	Destination Service
 }
 
-// RequestDataKey is the name of the key that holds the RequestData information within the context.
-const RequestDataKey = "requestdata"
+// The key type is unexported to prevent collisions with context keys defined in
+// other packages.
+type reqDataKey int
+
+// RequestDataKey is the context key for the RequestData object. If this package defined other context keys,
+// they would have different integer values.
+const requestDataKey reqDataKey = 0
 
 // RequestDataFromContext retrieves the RequestData object contained inside the given context.
 // Returns false if the given context does not contains a valid RequestData object.
 func RequestDataFromContext(ctx context.Context) (RequestData, bool) {
-	reqData, ok := ctx.Value(RequestDataKey).(RequestData)
+	reqData, ok := ctx.Value(requestDataKey).(RequestData)
 	return reqData, ok
+}
+
+// NewContextWithRequestData returns a new Context that carries the provided RequestData value.
+func NewContextWithRequestData(ctx context.Context, reqData RequestData) context.Context {
+	return context.WithValue(ctx, requestDataKey, reqData)
 }

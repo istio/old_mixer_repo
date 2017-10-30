@@ -19,11 +19,11 @@ import (
 	"testing"
 )
 
-func TestRequestDataFromContext_Valid(t *testing.T) {
+func TestRequestDataFromContext(t *testing.T) {
 	wantReqData := RequestData{Destination: Service{FullName: "foo.bar"}}
-	ctx := context.WithValue(context.Background(), RequestDataKey, wantReqData)
+	ctx := context.WithValue(context.Background(), requestDataKey, wantReqData)
 	got, gotOk := RequestDataFromContext(ctx)
-	if gotOk == false || got.Destination.FullName != "foo.bar" {
+	if !gotOk || got.Destination.FullName != "foo.bar" {
 		t.Errorf("RequestDataFromContext(%v) = (%v,%v), want (%v,%v)", ctx, got, gotOk, wantReqData, true)
 	}
 }
@@ -31,7 +31,16 @@ func TestRequestDataFromContext_Valid(t *testing.T) {
 func TestRequestDataFromContext_NotPresent(t *testing.T) {
 	ctx := context.Background()
 	got, gotOk := RequestDataFromContext(context.Background())
-	if gotOk == true {
+	if gotOk {
 		t.Errorf("RequestDataFromContext(%v) = (%v,%v), want (%v,%v)", ctx, got, gotOk, nil, false)
+	}
+}
+
+func TestNewContextWithRequestData(t *testing.T) {
+	wantReqData := RequestData{Destination: Service{FullName: "foo.bar"}}
+	ctx := NewContextWithRequestData(context.Background(), wantReqData)
+	got := ctx.Value(requestDataKey)
+	if got != wantReqData {
+		t.Errorf("NewContextWithRequestData added RequestData = %v, want %v", got, wantReqData)
 	}
 }
