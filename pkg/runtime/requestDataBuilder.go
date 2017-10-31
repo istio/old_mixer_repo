@@ -24,7 +24,7 @@ import (
 const destinationServiceAttrName = "destination.service"
 
 func newContextWithRequestData(ctx context.Context, requestBag attribute.Bag) context.Context {
-	reqData := adapter.RequestData{}
+	reqData := &adapter.RequestData{}
 	if requestBag != nil {
 		// fill the destination information
 		if destSrvc, found := requestBag.Get(destinationServiceAttrName); found {

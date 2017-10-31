@@ -27,22 +27,22 @@ func TestNewContextWithRequestData(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		attrs map[string]interface{}
-		want  adapter.RequestData
+		want  *adapter.RequestData
 	}{
 		{
 			name:  "attr bag empty",
 			attrs: nil,
-			want:  adapter.RequestData{},
+			want:  &adapter.RequestData{},
 		},
 		{
 			name:  "attr contains destination.service",
 			attrs: map[string]interface{}{"destination.service": "myservice-foo.bar.com"},
-			want:  adapter.RequestData{Destination: adapter.Service{FullName: "myservice-foo.bar.com"}},
+			want:  &adapter.RequestData{Destination: adapter.Service{FullName: "myservice-foo.bar.com"}},
 		},
 		{
 			name:  "attr does not contain destination.service",
 			attrs: nil,
-			want:  adapter.RequestData{},
+			want:  &adapter.RequestData{},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -67,7 +67,7 @@ func TestNewContextWithRequestData_AlreadyContainsReqData(t *testing.T) {
 
 	requestBag.Set("destination.service", "one.com")
 	gotReqData, _ := adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
-	wantReqData := adapter.RequestData{Destination: adapter.Service{FullName: "one.com"}}
+	wantReqData := &adapter.RequestData{Destination: adapter.Service{FullName: "one.com"}}
 	if !reflect.DeepEqual(gotReqData, wantReqData) {
 		t.Errorf("TestNewContextWithRequestData_AlreadyContainsReqData with attribute '%v' => RequestData %v, "+
 			"want %v", map[string]interface{}{"destination.service": "one.com"}, gotReqData, wantReqData)
@@ -75,10 +75,9 @@ func TestNewContextWithRequestData_AlreadyContainsReqData(t *testing.T) {
 
 	requestBag.Set("destination.service", "two.com")
 	gotReqData, _ = adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
-	wantReqData = adapter.RequestData{Destination: adapter.Service{FullName: "two.com"}}
+	wantReqData = &adapter.RequestData{Destination: adapter.Service{FullName: "two.com"}}
 	if !reflect.DeepEqual(gotReqData, wantReqData) {
 		t.Errorf("TestNewContextWithRequestData_AlreadyContainsReqData with attribute '%v' => RequestData %v, "+
 			"want %v", map[string]interface{}{"destination.service": "two.com"}, gotReqData, wantReqData)
 	}
-
 }

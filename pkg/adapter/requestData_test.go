@@ -16,15 +16,16 @@ package adapter
 
 import (
 	"context"
+	"reflect"
 	"testing"
 )
 
 func TestRequestDataFromContext(t *testing.T) {
-	wantReqData := RequestData{Destination: Service{FullName: "foo.bar"}}
+	wantReqData := &RequestData{Destination: Service{FullName: "foo.bar"}}
 	ctx := context.WithValue(context.Background(), requestDataKey, wantReqData)
 	got, gotOk := RequestDataFromContext(ctx)
 	if !gotOk || got.Destination.FullName != "foo.bar" {
-		t.Errorf("RequestDataFromContext(%v) = (%v,%v), want (%v,%v)", ctx, got, gotOk, wantReqData, true)
+		t.Errorf("RequestDataFromContext(%v) = (%v,%v), want (%v,%v)", ctx, *got, gotOk, *wantReqData, true)
 	}
 }
 
@@ -37,10 +38,10 @@ func TestRequestDataFromContext_NotPresent(t *testing.T) {
 }
 
 func TestNewContextWithRequestData(t *testing.T) {
-	wantReqData := RequestData{Destination: Service{FullName: "foo.bar"}}
+	wantReqData := &RequestData{Destination: Service{FullName: "foo.bar"}}
 	ctx := NewContextWithRequestData(context.Background(), wantReqData)
-	got := ctx.Value(requestDataKey)
-	if got != wantReqData {
-		t.Errorf("NewContextWithRequestData added RequestData = %v, want %v", got, wantReqData)
+	got := ctx.Value(requestDataKey).(*RequestData)
+	if !reflect.DeepEqual(got, wantReqData) {
+		t.Errorf("NewContextWithRequestData added RequestData = %v, want %v", *got, *wantReqData)
 	}
 }
