@@ -28,7 +28,7 @@ type Service struct {
 // Adapter can retrieve this data from the context by invoking `RequestDataFromContext`.
 type RequestData struct {
 	// Details about the destination service.
-	Destination Service
+	DestinationService Service
 }
 
 // The key type is unexported to prevent collisions with context keys defined in

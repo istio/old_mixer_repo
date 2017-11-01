@@ -37,7 +37,7 @@ func TestNewContextWithRequestData(t *testing.T) {
 		{
 			name:  "attr contains destination.service",
 			attrs: map[string]interface{}{"destination.service": "myservice-foo.bar.com"},
-			want:  &adapter.RequestData{Destination: adapter.Service{FullName: "myservice-foo.bar.com"}},
+			want:  &adapter.RequestData{DestinationService: adapter.Service{FullName: "myservice-foo.bar.com"}},
 		},
 		{
 			name:  "attr does not contain destination.service",
@@ -52,7 +52,7 @@ func TestNewContextWithRequestData(t *testing.T) {
 				requestBag.Set(k, v)
 			}
 
-			gotReqData, _ := adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
+			gotReqData, _ := adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag, DefaultIdentityAttribute))
 			if !reflect.DeepEqual(gotReqData, tc.want) {
 				t.Errorf("newContextWithRequestData with attrs '%v' => RequestData %v, want %v", tc.attrs, gotReqData, tc.want)
 			}
@@ -66,16 +66,16 @@ func TestNewContextWithRequestData_AlreadyContainsReqData(t *testing.T) {
 	requestBag := attribute.GetMutableBag(nil)
 
 	requestBag.Set("destination.service", "one.com")
-	gotReqData, _ := adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
-	wantReqData := &adapter.RequestData{Destination: adapter.Service{FullName: "one.com"}}
+	gotReqData, _ := adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag, DefaultIdentityAttribute))
+	wantReqData := &adapter.RequestData{DestinationService: adapter.Service{FullName: "one.com"}}
 	if !reflect.DeepEqual(gotReqData, wantReqData) {
 		t.Errorf("TestNewContextWithRequestData_AlreadyContainsReqData with attribute '%v' => RequestData %v, "+
 			"want %v", map[string]interface{}{"destination.service": "one.com"}, gotReqData, wantReqData)
 	}
 
 	requestBag.Set("destination.service", "two.com")
-	gotReqData, _ = adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag))
-	wantReqData = &adapter.RequestData{Destination: adapter.Service{FullName: "two.com"}}
+	gotReqData, _ = adapter.RequestDataFromContext(newContextWithRequestData(ctx, requestBag, DefaultIdentityAttribute))
+	wantReqData = &adapter.RequestData{DestinationService: adapter.Service{FullName: "two.com"}}
 	if !reflect.DeepEqual(gotReqData, wantReqData) {
 		t.Errorf("TestNewContextWithRequestData_AlreadyContainsReqData with attribute '%v' => RequestData %v, "+
 			"want %v", map[string]interface{}{"destination.service": "two.com"}, gotReqData, wantReqData)

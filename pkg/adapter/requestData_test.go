@@ -21,10 +21,10 @@ import (
 )
 
 func TestRequestDataFromContext(t *testing.T) {
-	wantReqData := &RequestData{Destination: Service{FullName: "foo.bar"}}
+	wantReqData := &RequestData{DestinationService: Service{FullName: "foo.bar"}}
 	ctx := context.WithValue(context.Background(), requestDataKey, wantReqData)
 	got, gotOk := RequestDataFromContext(ctx)
-	if !gotOk || got.Destination.FullName != "foo.bar" {
+	if !gotOk || got.DestinationService.FullName != "foo.bar" {
 		t.Errorf("RequestDataFromContext(%v) = (%v,%v), want (%v,%v)", ctx, *got, gotOk, *wantReqData, true)
 	}
 }
@@ -38,7 +38,7 @@ func TestRequestDataFromContext_NotPresent(t *testing.T) {
 }
 
 func TestNewContextWithRequestData(t *testing.T) {
-	wantReqData := &RequestData{Destination: Service{FullName: "foo.bar"}}
+	wantReqData := &RequestData{DestinationService: Service{FullName: "foo.bar"}}
 	ctx := NewContextWithRequestData(context.Background(), wantReqData)
 	got := ctx.Value(requestDataKey).(*RequestData)
 	if !reflect.DeepEqual(got, wantReqData) {

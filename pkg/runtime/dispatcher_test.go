@@ -94,7 +94,7 @@ func TestReport(t *testing.T) {
 				resolveErr = s.callErr
 			}
 			rt := newFakeResolver(s.tn, resolveErr, false, fp)
-			m := newDispatcher(nil, rt, gp)
+			m := newDispatcher(nil, rt, gp, DefaultIdentityAttribute)
 
 			err := m.Report(context.Background(), attribute.GetMutableBag(nil))
 			checkError(t, s.callErr, err)
@@ -136,7 +136,7 @@ func TestCheck(t *testing.T) {
 				resolveErr = s.callErr
 			}
 			rt := newFakeResolver(s.tn, resolveErr, false, fp)
-			m := newDispatcher(nil, rt, gp)
+			m := newDispatcher(nil, rt, gp, DefaultIdentityAttribute)
 
 			cr, err := m.Check(context.Background(), attribute.GetMutableBag(nil))
 
@@ -191,7 +191,7 @@ func TestQuota(t *testing.T) {
 				resolveErr = s.callErr
 			}
 			rt := newFakeResolver(s.tn, resolveErr, s.emptyResult, fp)
-			m := newDispatcher(nil, rt, gp)
+			m := newDispatcher(nil, rt, gp, DefaultIdentityAttribute)
 
 			cr, err := m.Quota(context.Background(), attribute.GetMutableBag(nil),
 				&aspect.QuotaMethodArgs{

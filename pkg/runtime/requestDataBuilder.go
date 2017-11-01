@@ -21,13 +21,11 @@ import (
 	"istio.io/mixer/pkg/attribute"
 )
 
-const destinationServiceAttrName = "destination.service"
-
-func newContextWithRequestData(ctx context.Context, requestBag attribute.Bag) context.Context {
+func newContextWithRequestData(ctx context.Context, requestBag attribute.Bag, destinationServiceAttr string) context.Context {
 	reqData := &adapter.RequestData{}
 	// fill the destination information
-	if destSrvc, found := requestBag.Get(destinationServiceAttrName); found {
-		reqData.Destination = adapter.Service{FullName: destSrvc.(string)}
+	if destSrvc, found := requestBag.Get(destinationServiceAttr); found {
+		reqData.DestinationService = adapter.Service{FullName: destSrvc.(string)}
 	}
 
 	return adapter.NewContextWithRequestData(ctx, reqData)
